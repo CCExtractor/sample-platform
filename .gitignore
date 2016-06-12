@@ -1,0 +1,28 @@
+# User-specific stuff:
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/dictionaries
+.idea/vcs.xml
+.idea/jsLibraryMappings.xml
+
+### Python template
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Log files
+install/PlatformInstall_*
+logs/*.txt
+
+# Sensitive information
+secret_csrf
+secret_key
+config.py
+
+# Build commit
+build_commit.py

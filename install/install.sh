@@ -114,7 +114,7 @@ DATABASE_URI = '${config_db_uri}'
 chown www-data:www-data "${root_dir}/secret_key" "${root_dir}/secret_csrf" "${root_dir}/config.py"
 echo "* Creating startup script"
 cp "${dir}/platform" /etc/init.d/platform >> "$install_log" 2>&1
-sed -i "s/BASE_DIR/${root_dir}/g" /etc/init.d/platform >> "$install_log" 2>&1
+sed -i "s#BASE_DIR#${root_dir}#g" /etc/init.d/platform >> "$install_log" 2>&1
 chmod 755 /etc/init.d/platform >> "$install_log" 2>&1
 update-rc.d platform defaults >> "$install_log" 2>&1
 echo "* Creating Nginx config"

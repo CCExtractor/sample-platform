@@ -109,6 +109,8 @@ APPLICATION_ROOT = ${config_application_root}
 CSRF_ENABLED = True
 DATABASE_URI = '${config_db_uri}'
 " > "${dir}/../config.py"
+# Ensure the files are executable by www-data
+chown www-data:www-data "${dir}/../secret_key" "${dir}/../secret_csrf" "${dir}/../config.py"
 echo "* Creating startup script"
 cp "${dir}/platform" /etc/init.d/platform >> "$install_log" 2>&1
 base_dir="${dir}/../"

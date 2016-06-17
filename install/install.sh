@@ -6,6 +6,7 @@
 # https://github.com/canihavesomecoffee/sample-platform
 #
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+root_dir=$( cd "${dir}"/../ && pwd)
 clear
 date=`date +%Y-%m-%d`
 install_log="${dir}/PlatformInstall_${date}_log.txt"
@@ -110,11 +111,10 @@ CSRF_ENABLED = True
 DATABASE_URI = '${config_db_uri}'
 " > "${dir}/../config.py"
 # Ensure the files are executable by www-data
-chown www-data:www-data "${dir}/../secret_key" "${dir}/../secret_csrf" "${dir}/../config.py"
+chown www-data:www-data "${root_dir}/secret_key" "${root_dir}/secret_csrf" "${root_dir}/config.py"
 echo "* Creating startup script"
 cp "${dir}/platform" /etc/init.d/platform >> "$install_log" 2>&1
-base_dir="${dir}/../"
-sed -i "s/BASE_DIR/${base_dir}/g" /etc/init.d/platform >> "$install_log" 2>&1
+sed -i "s/BASE_DIR/${root_dir}/g" /etc/init.d/platform >> "$install_log" 2>&1
 chmod 755 /etc/init.d/platform >> "$install_log" 2>&1
 update-rc.d platform defaults >> "$install_log" 2>&1
 echo "* Creating Nginx config"
@@ -122,7 +122,7 @@ cp "${dir}/nginx.conf" /etc/nginx/sites-available/platform >> "$install_log" 2>&
 sed -i "s/NGINX_HOST/${config_server_name}/g" /etc/nginx/sites-available/platform >> "$install_log" 2>&1
 sed -i "s#NGINX_CERT#${config_ssl_cert}#g" /etc/nginx/sites-available/platform >> "$install_log" 2>&1
 sed -i "s#NGINX_KEY#${config_ssl_key}#g" /etc/nginx/sites-available/platform >> "$install_log" 2>&1
-sed -i "s#NGINX_DIR#${base_dir}#g" /etc/nginx/sites-available/platform >> "$install_log" 2>&1
+sed -i "s#NGINX_DIR#${root_dir}#g" /etc/nginx/sites-available/platform >> "$install_log" 2>&1
 ln -s /etc/nginx/sites-available/platform /etc/nginx/sites-enabled/platform >> "$install_log" 2>&1
 echo "* Reloading nginx"
 service nginx reload >> "$install_log" 2>&1

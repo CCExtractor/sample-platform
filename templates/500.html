@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% set hideMenu = True %}
+{% block title %}500 - Internal server error{% endblock %}
+{% block body %}
+    {{ super() }}
+    <br />
+    <div class="row">
+        <div class="callout warning">
+            <h1>500 - Internal server error</h1>
+            <p>This isn't supposed to happen :(</p>
+            <p>If this error persists, please get in touch.</p>
+        </div>
+    </div>
+{% endblock %}

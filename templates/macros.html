@@ -1,0 +1,22 @@
+{% macro render_field(field, placeholder=None, helpText=none, replaceLabelWithPlaceholder=False) %}
+    {% set css_class = kwargs.pop('class', '') %}
+    {% if replaceLabelWithPlaceholder and placeholder is none %}
+        {% set placeholder = field.label.text %}
+    {% elif placeholder is none %}
+        {% set placeholder = '' %}
+    {% endif %}
+    {% if not replaceLabelWithPlaceholder and field.type != 'SubmitField' and field.type != 'HiddenField' %}
+        {{ field.label }}
+    {% endif %}
+    {% if field.type == 'SubmitField' %}
+        {% set css_class = css_class + 'button' %}
+    {% endif %}
+    {% if helpText is not none %}
+        {% set dummy = kwargs.setdefault('aria-describedby', field.id + '_help_text') %}
+    {% endif %}
+    {{ field(class=css_class, placeholder=placeholder, **kwargs) }}
+    <span class="form-error" id="{{ field.id + '_error' }}"></span>
+    {% if helpText is not none %}
+        <p class="help-text" id="{{ field.id }}_help_text">{{ helpText }}</p>
+    {% endif %}
+{% endmacro %}

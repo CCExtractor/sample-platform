@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}User info for {{ user.name }} {{ super() }}{% endblock %}
+{% block head %}
+    {{ super() }}
+    <script type="text/javascript" src="{{ url_for('static', filename='js/sorttable.js') }}"></script>
+{% endblock %}
+{% block body %}
+    {{ super() }}
+    <br>
+    <div class="row">
+        <h1>User details for {{ user.name }}</h1>
+        <p><small>Note: only you and the site admin can see these details.</small></p>
+        <p>Name: {{ user.name }}</p>
+        <p>Email: {{ user.email }}</p>
+        <p>GitHub linked? {{ "Yes" if user.github_token is not none else "No" }}</p>
+        <p>Role: {{ user.role.description }}</p>
+    </div>
+    <div class="row">
+        <h4>Submitted samples</h4>
+        {% set noSampleMessage="This user didn't submit any samples yet." %}
+        {% set useSampleOriginal=true %}
+        {# TODO: add samples back #}
+        {# {% include "sample-info/list-samples.html.twig" %} #}
+    </div>
+{% endblock %}

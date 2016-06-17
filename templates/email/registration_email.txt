@@ -1,0 +1,7 @@
+Hello,
+
+somebody used this email address to initiate the account registration on the CCExtractor CI platform. If you want to proceed with this registration, please follow the link below.
+
+If you didn't request this, you can ignore this email (without the link the registration process can't be completed). The link below is valid for 24 hours.
+
+{{ url|safe }}

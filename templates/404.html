@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% set hideMenu = True %}
+{% block title %}404 - Not found{% endblock %}
+{% block body %}
+    {{ super() }}
+    <br />
+    <div class="row">
+        <div class="callout warning">
+            <h1>404 - Not found</h1>
+            <p>The page you were looking for does not exist.</p>
+        </div>
+    </div>
+{% endblock %}

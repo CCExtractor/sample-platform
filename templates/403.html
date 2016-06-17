@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% set hideMenu = True %}
+{% block title %}403 - Forbidden{% endblock %}
+{% block body %}
+    {{ super() }}
+    <br />
+    <div class="row">
+        <div class="callout warning">
+            <h1>403 - Forbidden</h1>
+            <p>You don't have the permission to access the requested resource. It is either read-protected or not readable by the server.</p>
+            <p>Are you sure you're signed in with the correct account and that the URL is correct?</p>
+            <p>You tried to access this route: {{ endpoint }}, with a user role of {{ user_role }}</p>
+        </div>
+    </div>
+{% endblock %}

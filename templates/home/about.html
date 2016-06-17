@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}About {{ super() }}{% endblock %}
+{% block body %}
+    {{ super() }}
+    <br />
+    <div class="row">
+        <div class="callout primary">
+            <h1>{{ applicationName }}</h1>
+            <p>
+                {{ applicationName }} was initially developed during <a target="_blank" href="http://www.google-melange.com/gsoc/homepage/google/gsoc2015">Google Summer of Code 2015</a>, and reworked during <a target="_blank" href="https://summerofcode.withgoogle.com/">Google Summer of Code 2016</a> for <a target="_blank" href="http://wwww.ccextractor.org">CCExtractor</a>.
+                It combines a lot of technologies and methods in order to provide an all-in-one platform for submitting samples, viewing and running regression tests.
+            </p>
+            <p>This instance of {{ applicationName }} is running version {{ applicationVersion }}. More information about the version can be found on the <a target="_blank" href="https://github.com/canihavesomecoffee/sample-platform">GitHub repository</a>.</p>
+            <p>{{ applicationName }} is released under the <a target="_blank" href="https://en.wikipedia.org/wiki/ISC_license">ICS</a> (permissive) license and can be found on GitHub: <a target="_blank" href="https://github.com/canihavesomecoffee/sample-platform">{{ applicationName }} on GitHub</a>.</p>
+        </div>
+        <div class="row">
+            <div class="column medium-8">
+                <h3>About this platform</h3>
+                <p>{{ applicationName }} makes use of the next frameworks &amp; open-source utilities:</p>
+                <ul>
+                    <li><a target="_blank" href="http://flask.pocoo.org/docs/latest/">Flask</a></li>
+                    <li><a target="_blank" href="http://www.sqlalchemy.org/">SQLAlchemy</a> &amp; <a target="_blank" href="https://github.com/PyMySQL/PyMySQL">PyMySQL</a></li>
+                    <li><a target="_blank" href="http://gunicorn.org/">Gunicorn</a></li>
+                    <li><a target="_blank" href="https://www.dlitz.net/software/pycrypto/">PyCrypto</a></li>
+                    <li><a target="_blank" href="https://github.com/michaelliao/githubpy">GitHubPy</a></li>
+                    <li><a target="_blank" href="https://github.com/michaelherold/pyIsEmail">pyIsEmail</a></li>
+                    <li><a target="_blank" href="https://pythonhosted.org/passlib/">Passlib</a></li>
+                    <li><a target="_blank" href="http://foundation.zurb.com/">Foundation</a></li>
+                    <li><a target="_blank" href="https://fortawesome.github.io/Font-Awesome/icons/">Font Awesome</a></li>
+                    <li><a target="_blank" href="https://www.python.org/">Python</a></li>
+                    <li><a target="_blank" href="https://www.mysql.com/">MySQL</a></li>
+                </ul>
+            </div>
+        </div>
+
+    </div>
+{% endblock %}

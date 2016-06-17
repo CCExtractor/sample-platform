@@ -1,0 +1,22 @@
+#!/bin/bash
+# /etc/init.d/platform
+#
+# Carry out specific functions when asked to by the system
+case "${1}" in
+    start)
+        echo "Starting Platform daemon..."
+        cd BASE_DIR
+        python bootstrap_gunicorn.py
+        ;;
+    stop)
+        echo "Stopping Platform daemon..."
+        pid=`cat "BASE_DIR/gunicorn.pid"`
+        kill "$pid"
+        ;;
+    *)
+        echo "Usage: /etc/init.d/platform {start|stop}"
+        exit 1
+        ;;
+esac
+
+exit 0

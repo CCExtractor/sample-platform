@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Password reset step 2 {{ super() }}{% endblock %}
+{% block body %}
+    {{ super() }}
+    <br />
+    <div class="row">
+        <div class="callout warning">
+            <h5>Reset your password</h5>
+            <p>Please enter your new password below:</p>
+        </div>
+    </div>
+    <form method="post" name="resetForm" id="resetForm" action="{{ url_for('.complete_reset', uid=uid, expires=expires, mac=mac) }}">
+        {{ form.csrf_token }}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="row">
+                    <div class="callout alert">
+                        <ul class="flashes">
+                            {% for category, message in messages %}
+                            <li class="{{ category }}">{{ message }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            {% endif %}
+        {% endwith %}
+        {% if form.errors %}
+            <div class="row">
+                <div class="callout alert">
+                    {% for field, error in form.errors.items() %}
+                        {% for e in error %}
+                            {{ e }}<br>
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+        <div class="row">
+            <div class="medium-6 columns">
+                {{ macros.render_field(form.password) }}
+            </div>
+            <div class="medium-6 columns">
+                {{ macros.render_field(form.password_repeat) }}
+            </div>
+            <div class="medium-12 columns">
+                {{ macros.render_field(form.submit) }}
+            </div>
+        </div>
+    </form>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Complete registration {{ super() }}{% endblock %}
+{% block body %}
+    {{ super() }}
+    <br />
+    <div class="row">
+        <div class="callout warning">
+            <h5>Complete registration</h5>
+            <p>Thank you for verifying the email address*! At this point, we need just a bit more information before we can complete your account.</p>
+        </div>
+    </div>
+    <form method="post" name="registrationForm" id="registrationForm" action="{{ url_for('.complete_signup', email=email, expires=expires, mac=mac) }}">
+        {{ form.csrf_token }}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="row">
+                    <div class="callout alert">
+                        <ul class="flashes">
+                            {% for category, message in messages %}
+                            <li class="{{ category }}">{{ message }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            {% endif %}
+        {% endwith %}
+        {% if form.errors %}
+            <div class="row">
+                <div class="callout alert">
+                    {% for field, error in form.errors.items() %}
+                        {% for e in error %}
+                            {{ e }}<br>
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+        <div class="row">
+            <div class="medium-12 columns">
+                {{ macros.render_field(form.name) }}
+            </div>
+            <div class="medium-6 columns">
+                {{ macros.render_field(form.password) }}
+            </div>
+            <div class="medium-6 columns">
+                {{ macros.render_field(form.password_repeat) }}
+            </div>
+            <div class="medium-12 columns">
+                {{ macros.render_field(form.submit) }}
+            </div>
+            <div class="medium-12 columns">
+                <p>* Your email address isn't stored yet, so you can just leave this page if you changed your mind.</p>
+            </div>
+        </div>
+    </form>
+{% endblock %}

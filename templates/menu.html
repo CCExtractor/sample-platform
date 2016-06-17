@@ -1,0 +1,35 @@
+{% macro render_entry(data, active_route, level=0) %}
+    {% set href = "#" %}
+    {% if 'entries' not in data %}
+        {% if 'route_args' in data %}
+            {% set href = url_for(data.route, **(data.route_args)) %}
+        {% else %}
+            {% set href = url_for(data.route) %}
+        {% endif %}
+    {% endif %}
+    <li {% if 'route' in data and data.route == active_route %}class="active"{% endif %}>
+        <a href="{{ href }}" {% if level > 0 %}class="subitem"{% endif %}>
+            <i class="fa fa-{{ data.icon }}"></i> {{ data.title }}
+        </a>
+        {% if 'entries' in data %}
+            {% set level = level + 1 %}
+            <ul class="menu vertical sublevel-{{ level }} {% if sub_menu_open(data.entries, active_route) %}is-active{% endif %}">
+                {% for sub_entry in data.entries %}
+                <li>{{ render_entry(sub_entry, active_route, level) }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </li>
+{% endmacro %}
+
+<div class="off-canvas position-left reveal-for-large" id="application-menu" data-off-canvas data-position="left">
+    <div class="row column">
+        <ul class="vertical accordion-menu menu" data-accordion-menu>
+            {% for entry in menu %}
+                {% if entry|length > 0 %}
+                    {{ render_entry(entry, active_route) }}
+                {% endif %}
+            {% endfor %}
+        </ul>
+    </div>
+</div>

@@ -1,0 +1,7 @@
+Hello {{ name }},
+
+someone requested to register on the CCExtractor CI Platform with the email address you used to register before.
+
+If this request comes from you and you forgot your password, you can reset it here: {{ url|safe }}.
+
+If you didn't perform the registration procedure, you can ignore this email.

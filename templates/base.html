@@ -1,0 +1,76 @@
+{% import 'macros.html' as macros %}
+<!DOCTYPE html>
+<html class="no-js" lang="en">
+    <head>
+        {% block head %}
+            <meta charset="utf-8"/>
+            <meta http-equiv="x-ua-compatible" content="ie=edge">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+            <title>{% block title %}| {{ applicationName }}{% endblock %}</title>
+
+            <link rel="stylesheet" href="{{ url_for('static', filename='css/foundation.min.css') }}"/>
+            <link rel="stylesheet" href="{{ url_for('static', filename='css/font-awesome.min.css') }}"/>
+            <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}"/>
+
+            <!-- favicon & app stuff -->
+            <link rel="apple-touch-icon" sizes="57x57" href="{{ url_for('static', filename='img/favicon/apple-touch-icon-57x57.png') }}">
+            <link rel="apple-touch-icon" sizes="60x60" href="{{ url_for('static', filename='img/favicon/apple-touch-icon-60x60.png') }}">
+            <link rel="apple-touch-icon" sizes="72x72" href="{{ url_for('static', filename='img/favicon/apple-touch-icon-72x72.png') }}">
+            <link rel="apple-touch-icon" sizes="76x76" href="{{ url_for('static', filename='img/favicon/apple-touch-icon-76x76.png') }}">
+            <link rel="apple-touch-icon" sizes="114x114" href="{{ url_for('static', filename='img/favicon/apple-touch-icon-114x114.png') }}">
+            <link rel="apple-touch-icon" sizes="120x120" href="{{ url_for('static', filename='img/favicon/apple-touch-icon-120x120.png') }}">
+            <link rel="apple-touch-icon" sizes="144x144" href="{{ url_for('static', filename='img/favicon/apple-touch-icon-144x144.png') }}">
+            <link rel="apple-touch-icon" sizes="152x152" href="{{ url_for('static', filename='img/favicon/apple-touch-icon-152x152.png') }}">
+            <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='img/favicon/apple-touch-icon-180x180.png') }}">
+            <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon/favicon-32x32.png') }}" sizes="32x32">
+            <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon/android-chrome-192x192.png') }}" sizes="192x192">
+            <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon/favicon-96x96.png') }}" sizes="96x96">
+            <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon/favicon-16x16.png') }}" sizes="16x16">
+            <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+            <link rel="mask-icon" href="{{ url_for('static', filename='img/favicon/safari-pinned-tab.svg') }}" color="#5bbad5">
+            <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon/favicon.ico') }}">
+            <meta name="apple-mobile-web-app-title" content="CCExtractor CI Platform">
+            <meta name="application-name" content="CCExtractor CI Platform">
+            <meta name="msapplication-TileColor" content="#da532c">
+            <meta name="msapplication-TileImage" content="{{ url_for('static', filename='img/favicon/mstile-144x144.png') }}">
+            <meta name="msapplication-config" content="{{ url_for('static', filename='browserconfig.xml') }}">
+            <meta name="theme-color" content="#ffffff">
+            <!-- end of favicon & app stuff -->
+        {% endblock %}
+    </head>
+    <body>
+        <div class="off-canvas-wrapper">
+            <div class="off-canvas-wrapper-inner" data-off-canvas-wrapper>
+                {% if hideMenu is not defined %}
+                    {% include 'menu.html' %}
+                {% endif %}
+                <div class="off-canvas-content" data-off-canvas-content>
+                    {% if hideMenu is not defined %}
+                    <div class="title-bar hide-for-large">
+                        <div class="title-bar-left">
+                            <button class="menu-icon" type="button" data-open="application-menu"></button>
+                            <span class="title-bar-title">{{ applicationName }}</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% block body %}{% endblock %}
+                    {% block footer %}
+                    <footer class="row">
+                        &copy; {{ currentYear }} {{ applicationName }} &bull; <a href="{{ url_for('home.about') }}">About</a> &bull; Built with commit <a target="_blank" href="https://github.com/canihavesomecoffee/sample-platform/commit/{{ build_commit }}">{{ build_commit|truncate(10, end='') }}</a>
+                    </footer>
+                    {% endblock %}
+                </div>
+            </div>
+        </div>
+        {# Load scripts only at the end of the page #}
+        <div id="scripts">
+            {% block scripts %}
+                <script src="{{ url_for('static', filename='js/vendor/jquery.js') }}"></script>
+                <script src="{{ url_for('static', filename='js/vendor/what-input.js') }}"></script>
+                <script src="{{ url_for('static', filename='js/vendor/foundation.min.js') }}"></script>
+                <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+            {% endblock %}
+        </div>
+    </body>
+</html>

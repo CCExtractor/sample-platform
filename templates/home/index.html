@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Home {{ super() }}{% endblock %}
+{% block body %}
+    {{ super() }}
+    <br />
+    <div class="row">
+        <div class="column medium-9">
+            <h1>{{ applicationName }}</h1>
+            <p>Welcome to the sample submission platform. On this platform you can do the next things:</p>
+            <ul>
+                <li>Check on the current status of the regression tests</li>
+                <li>Upload samples that are broken</li>
+                <li>Get information on previously submitted samples</li>
+                <li>Run the regression tests</li>
+            </ul>
+            <h4>Development information</h4>
+            <p>Last official release: <a target="_blank" href="http://sourceforge.net/projects/ccextractor/files/ccextractor/{{ ccx_last_release.version }}/">{{ ccx_last_release.version }}</a> (release date: {{ ccx_last_release.released }}). Regression tests for this version are available here: <a href="{{ url_for("home.index", version=ccx_last_release.version) }}">regression tests</a></p>
+            <p>Latest GitHub commit: <a target="_blank" href="https://github.com/CCExtractor/ccextractor/commit/{{ ccx_latest_commit }}">{{ ccx_latest_commit }}</a>. View the <a href="{{ url_for("home.index", hash=ccx_latest_commit) }}">regression tests</a>.</p>
+        </div>
+        <div class="column medium-3">
+            <h5>Helpful links</h5>
+            <ul class="no-bullet">
+                <li><i class="fa fa-external-link-square"></i> <a target="_blank" href="http://www.ccextractor.org">CCExtractor website</a></li>
+                <li><i class="fa fa-github-square"></i> <a target="_blank" href="https://github.com/CCExtractor/ccextractor">CCExtractor on GitHub</a></li>
+                <li><i class="fa fa-github-square"></i> <a target="_blank" href="https://github.com/canihavesomecoffee/sample-platform">Sample platform on GitHub</a></li>
+            </ul>
+        </div>
+    </div>
+{% endblock %}

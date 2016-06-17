@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Recover password {{ super() }}{% endblock %}
+{% block body %}
+    {{ super() }}
+    <br />
+    <div class="row">
+        <div class="callout warning">
+            <h5>Recover password</h5>
+            <p>In order to recover your password we need the email address linked to the account so we can send an email with instructions.</p>
+        </div>
+    </div>
+    <form method="post" name="resetForm" id="resetForm" action="{{ url_for('.reset') }}">
+        {{ form.csrf_token }}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="row">
+                    <div class="callout alert">
+                        <ul class="flashes">
+                            {% for category, message in messages %}
+                            <li class="{{ category }}">{{ message }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            {% endif %}
+        {% endwith %}
+        {% if form.errors %}
+        <div>
+            {% for field, error in form.errors.items() %}
+                {% for e in error %}
+                    {{ e }}<br>
+                {% endfor %}
+            {% endfor %}
+        </div>
+        {% endif %}
+        <div class="row">
+            <div class="medium-12 columns">
+                {{ macros.render_field(form.email) }}
+            </div>
+            <div class="medium-12 columns">
+                {{ macros.render_field(form.submit) }}
+            </div>
+        </div>
+    </form>
+{% endblock %}

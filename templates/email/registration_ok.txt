@@ -1,0 +1,5 @@
+Dear {{ name }},
+
+an account has been created on the CCExtractor Sample Submission platform for you. You can log in using the email address you are receiving this on in combination with the password you set during the registration.
+
+If you forgot your password you can always reset it through the website.

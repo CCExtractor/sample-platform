@@ -1,0 +1,120 @@
+/*.is-accordion-submenu-parent a*/ [data-accordion-menu] li a {
+    background: #4d5158;
+}
+
+[data-accordion-menu] .is-accordion-submenu a {
+    background: #35383d;
+}
+
+.sublevel-1 {
+    text-indent: 1rem;
+}
+
+.sublevel-2 {
+    text-indent: 2rem;
+}
+
+[data-accordion-menu] a {
+    color: #fff;
+    box-shadow: inset 0 -1px #41444a;
+}
+
+[data-accordion-menu] a::after {
+    border-color: #fff transparent transparent;
+}
+
+.menu > li:not(.menu-text) > a {
+    padding: 1.2rem 1rem;
+}
+
+.menu .active > a {
+    color: #fefefe;
+    background: #2199e8;
+}
+
+/* Fixes to foundation framework */
+#application-menu {
+    box-shadow: 0 0 10px hsla(0, 0%, 4%, 0.5);
+    min-height: 100%;
+}
+
+.off-canvas-content {
+    box-shadow: none;
+}
+
+@media screen and (min-width: 64em) {
+    .position-left.reveal-for-large ~ .off-canvas-content {
+        margin-left: 260px; /* Needed to respect the border shadow*/
+    }
+}
+
+label.success {
+    background-color: #e1faea;
+    padding: 0 5px;
+    border-radius: 5px;
+}
+label.warning {
+    background-color: #fff3d9;
+    padding: 0 5px;
+    border-radius: 5px;
+}
+label.alert {
+    background-color: #fce6e2;
+    padding: 0 5px;
+    border-radius: 5px;
+}
+
+.user-actions i, #pageTable th i, #serviceTable i, #rulesTable i, #deployments i, #profile_configuration i {
+    display: inline-block;
+    cursor: pointer;
+}
+
+#pageTable th i {
+    color: red;
+}
+
+table.sortable th:not(.sorttable_sorted):not(.sorttable_sorted_reverse):not(.sorttable_nosort):after {
+    content: " \25B4\25BE"
+}
+
+table.stack tfoot {
+    display: table-footer-group;
+}
+
+/* Fancy checkbox */
+.hideCheckbox,
+.hideRadiobutton {
+    display: none;
+}
+
+input[type="checkbox"] + label span {
+    display: inline-block;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+input[type="checkbox"] + label span::before {
+    content: "\f096";
+    font-family: FontAwesome;
+    font-size: 18px;
+    cursor: pointer;
+}
+
+input[type="checkbox"]:checked + label span::before {
+    content: "\f046";
+}
+
+input[type="checkbox"]:disabled +  label span::before {
+    color: grey;
+    cursor: not-allowed;
+}
+
+.auth_access_ajax {
+    vertical-align: middle;
+}
+
+.auth_access_fieldset {
+    position: relative;
+    display: inline-block;
+}

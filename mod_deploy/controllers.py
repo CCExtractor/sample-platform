@@ -42,11 +42,11 @@ def deploy():
     else:
         abort_code = 418
         # Do initial validations on required headers
-        if 'HTTP_X_GITHUB_EVENT' not in request.headers or \
-            'HTTP_X_GITHUB_DELIVERY' not in request.headers or \
-            'HTTP_X_HUB_SIGNATURE' not in request.headers or not \
-            request.is_json or 'HTTP_USER_AGENT' not in request.headers\
-            or not request.headers.get('HTTP_USER_AGENT').startswith(
+        if 'X-Github-Event' not in request.headers or \
+            'X-Github-Delivery' not in request.headers or \
+            'X-Hub-Signature' not in request.headers or not \
+            request.is_json or 'User-Agent' not in request.headers\
+            or not request.headers.get('User-Agent').startswith(
                     'GitHub-Hookshot/'):
             abort(abort_code)
 
@@ -66,8 +66,8 @@ def deploy():
         if request.headers.get('X-GitHub-Event') != "push":
             return json.dumps({'msg': "Wrong event type"})
 
-        hash_algorithm, github_signature = request.headers[
-            'HTTP_X_HUB_SIGNATURE'].split('=', 1)
+        hash_algorithm, github_signature = request.headers.get(
+            'X-Hub-Signature').split('=', 1)
         mac = hmac.new(app.config['GITHUB_DEPLOY_KEY'], msg=request.data,
                        digestmod=hash_algorithm)
         if not compare_digest(mac.hexdigest(), github_signature):

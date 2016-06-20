@@ -5,8 +5,11 @@ import json
 import ipaddress
 import requests
 import sys
+
+import subprocess
 from flask import Blueprint, g, request, flash, session, redirect, url_for, \
     abort, jsonify
+from git import Repo, InvalidGitRepositoryError
 
 from decorators import template_renderer
 
@@ -82,5 +85,38 @@ def deploy():
             return json.dumps({'msg': 'Not master; ignoring'})
 
         # Update code
-        # TODO: finish
-        return json.dumps({'msg': 'OK'})
+        try:
+            repo = Repo('..')
+        except InvalidGitRepositoryError:
+            return json.dumps({'msg': 'Folder is not a valid git directory'})
+
+        try:
+            origin = repo.remote('origin')
+        except ValueError:
+            return json.dumps({'msg': 'Remote origin does not exist'})
+
+        fetch_info = origin.fetch()
+        if len(fetch_info) == 0:
+            return json.dumps({'msg': 'Didn\'t fetch any information from '
+                                      'remote!'})
+
+        # Pull code (finally)
+        pull_info = origin.pull()
+
+        if len(pull_info) == 0:
+            return json.dumps({'msg': 'Didn\'t pull any information from '
+                                      'remote!'})
+
+        if pull_info[0].flags > 128:
+            return json.dumps({'msg': 'Didn\'t pull any information from '
+                                      'remote!'})
+
+        commit_hash = pull_info[0].commit.hexsha
+        build_commit = 'build_commit = "%s"' % commit_hash
+        with open('../build_commit.py', 'w') as f:
+            f.write(build_commit)
+
+        # Reload platform service
+        subprocess.Popen(["sudo", "service", "platform", "reload"])
+        return json.dumps({'msg': 'Platform upgraded to commit %s' %
+                                  commit_hash})

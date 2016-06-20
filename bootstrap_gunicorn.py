@@ -8,7 +8,7 @@ current_dir = path.dirname(path.abspath(__file__))
 args = [
     "gunicorn", "-w", "4", "--daemon", "--pid", "gunicorn.pid", "-b",
     "unix:sampleplatform.sock", "-m", "007", "-g", "www-data", "-u",
-    "root",
+    "www-data",
     "--chdir=%s" % current_dir, "--log-level", "debug",
     "--access-logfile", "%s/logs/access.log" % current_dir,
     "--capture-output", "--log-file", "%s/logs/error.log" % current_dir,

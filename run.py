@@ -77,8 +77,8 @@ def not_found(error):
 
 
 @app.errorhandler(500)
-@template_renderer('500.html', 404)
-def not_found(error):
+@template_renderer('500.html', 500)
+def internal_error(error):
     print(error)
     traceback.print_exc()
     return
@@ -86,7 +86,7 @@ def not_found(error):
 
 @app.errorhandler(403)
 @template_renderer('403.html', 403)
-def not_found(error):
+def forbidden(error):
     return {
         'user_role': g.user.role,
         'endpoint': error.description

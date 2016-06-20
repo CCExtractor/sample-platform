@@ -4,6 +4,7 @@ import traceback
 import sys
 
 from flask import Flask, g
+from werkzeug.contrib.fixers import ProxyFix
 
 from database import create_session
 from decorators import template_renderer
@@ -13,6 +14,7 @@ from mod_deploy.controllers import mod_deploy
 from mod_home.controllers import mod_home
 
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app)
 app.config.from_object('config')
 try:
     app.config['DEBUG'] = os.environ['DEBUG']

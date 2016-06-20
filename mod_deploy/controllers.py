@@ -1,3 +1,4 @@
+import hashlib
 import hmac
 import json
 
@@ -69,8 +70,8 @@ def deploy():
         hash_algorithm, github_signature = request.headers.get(
             'X-Hub-Signature').split('=', 1)
         mac = hmac.new(app.config['GITHUB_DEPLOY_KEY'], msg=request.data,
-                       digestmod=hash_algorithm)
-        if not compare_digest(mac.hexdigest(), github_signature):
+                       digestmod=hashlib.__dict__.get(hash_algorithm))
+        if not compare_digest(mac.hexdigest(), github_signature.encode()):
             abort(abort_code)
 
         payload = request.get_json()

@@ -113,7 +113,7 @@ def deploy():
 
         commit_hash = pull_info[0].commit.hexsha
         build_commit = 'build_commit = "%s"' % commit_hash
-        with open('../build_commit.py', 'w') as f:
+        with open('build_commit.py', 'w') as f:
             f.write(build_commit)
 
         # Reload platform service

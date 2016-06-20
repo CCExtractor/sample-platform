@@ -9,11 +9,8 @@ from database import create_session
 from decorators import template_renderer
 from mailer import Mailer
 from mod_auth.controllers import mod_auth
+from mod_deploy.controllers import mod_deploy
 from mod_home.controllers import mod_home
-#from mod_config.controllers import mod_config
-#from mod_honeypot.controllers import mod_honeypot
-#from mod_report.controllers import mod_report
-#from mod_support.controllers import mod_support
 
 app = Flask(__name__)
 app.config.from_object('config')
@@ -112,6 +109,7 @@ def teardown(exception):
 # Register blueprints
 app.register_blueprint(mod_auth, url_prefix='/account')  # Needs to be first
 app.register_blueprint(mod_home)
+app.register_blueprint(mod_deploy)
 #app.register_blueprint(mod_report)
 #app.register_blueprint(mod_honeypot)
 #app.register_blueprint(mod_support)

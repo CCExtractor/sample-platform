@@ -86,7 +86,7 @@ def deploy():
 
         # Update code
         try:
-            repo = Repo('..')
+            repo = Repo(app.config['INSTALL_FOLDER'])
         except InvalidGitRepositoryError:
             return json.dumps({'msg': 'Folder is not a valid git directory'})
 

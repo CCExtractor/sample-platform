@@ -1,8 +1,6 @@
 import json
-import subprocess
 
 from flask import Blueprint, request, abort, g
-from git import Repo, InvalidGitRepositoryError
 
 from mod_deploy.controllers import request_from_github, is_valid_signature
 
@@ -12,7 +10,6 @@ mod_ci = Blueprint('ci', __name__)
 @mod_ci.route('/start-ci', methods=['GET', 'POST'])
 @request_from_github()
 def start_ci():
-    from run import app
     if request.method != 'POST':
         return 'OK'
     else:
@@ -25,10 +22,12 @@ def start_ci():
         x_hub_signature = request.headers.get('X-Hub-Signature')
         if not is_valid_signature(x_hub_signature, request.data,
                                   g.deploy_key):
+            g.log.warning('CI signature failed: %s' % x_hub_signature)
             abort(abort_code)
 
         payload = request.get_json()
         if payload is None:
+            g.log.warning('CI payload is empty: %s' % payload)
             abort(abort_code)
 
         return json.dumps({'msg': 'EOL'})

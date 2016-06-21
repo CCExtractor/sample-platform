@@ -10,7 +10,6 @@ from git import Repo, InvalidGitRepositoryError
 from ipaddress import ip_address, ip_network
 
 from compare_digest import compare_digest
-from decorators import template_renderer
 
 mod_deploy = Blueprint('deploy', __name__)
 
@@ -82,10 +81,12 @@ def deploy():
         x_hub_signature = request.headers.get('X-Hub-Signature')
         if not is_valid_signature(x_hub_signature, request.data,
                                   g.deploy_key):
+            g.log.warning('Deploy signature failed: %s' % x_hub_signature)
             abort(abort_code)
 
         payload = request.get_json()
         if payload is None:
+            g.log.warning('Deploy payload is empty: %s' % payload)
             abort(abort_code)
 
         if payload['ref'] != 'refs/heads/master':

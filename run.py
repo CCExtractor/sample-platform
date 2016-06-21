@@ -111,8 +111,13 @@ def before_request():
                       'CCExtractor.org CI Platform')
     g.version = "0.1"
     g.log = log
-    g.deploy_key = app.config.get('GITHUB_DEPLOY_KEY', '')
-    g.ci_key = app.config.get('GITHUB_CI_KEY', '')
+    g.github = {
+        'deploy_key': app.config.get('GITHUB_DEPLOY_KEY', ''),
+        'ci_key': app.config.get('GITHUB_CI_KEY', ''),
+        'bot_token': app.config.get('GITHUB_TOKEN', ''),
+        'repository_owner': app.config.get('GITHUB_OWNER', ''),
+        'repository': app.config.get('GITHUB_REPOSITORY', '')
+    }
 
 
 @app.teardown_appcontext

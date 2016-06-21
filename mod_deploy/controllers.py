@@ -1,80 +1,87 @@
 import hashlib
 import hmac
 import json
-
-import ipaddress
-import requests
-import sys
-
 import subprocess
-from flask import Blueprint, g, request, flash, session, redirect, url_for, \
-    abort, jsonify
-from git import Repo, InvalidGitRepositoryError
+from functools import wraps
 
+import requests
+from flask import Blueprint, request, abort, g
+from git import Repo, InvalidGitRepositoryError
+from ipaddress import ip_address, ip_network
+
+from compare_digest import compare_digest
 from decorators import template_renderer
 
 mod_deploy = Blueprint('deploy', __name__)
 
-# Check if python version is less than 2.7.7
-if sys.version_info < (2, 7, 7):
-    # http://blog.turret.io/hmac-in-go-python-ruby-php-and-nodejs/
-    def compare_digest(a, b):
-        """
-        ** From Django source **
-        Run a constant time comparison against two strings
-        Returns true if a and b are equal.
-        a and b must both be the same length, or False is
-        returned immediately
-        """
-        if len(a) != len(b):
-            return False
 
-        result = 0
-        for ch_a, ch_b in zip(a, b):
-            result |= ord(ch_a) ^ ord(ch_b)
-        return result == 0
-else:
-    compare_digest = hmac.compare_digest
+def request_from_github(abort_code=418):
+    def decorator(f):
+        """
+        Decorator that checks if a request is a GitHub hook request
+        """
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if request.method != 'POST':
+                return 'OK'
+            else:
+                # Do initial validations on required headers
+                if 'X-Github-Event' not in request.headers:
+                    abort(abort_code)
+                if 'X-Github-Delivery' not in request.headers:
+                    abort(abort_code)
+                if 'X-Hub-Signature' not in request.headers:
+                    abort(abort_code)
+                if not request.is_json:
+                    abort(abort_code)
+                if 'User-Agent' not in request.headers:
+                    abort(abort_code)
+                ua = request.headers.get('User-Agent')
+                if not ua.startswith('GitHub-Hookshot/'):
+                    abort(abort_code)
+
+                request_ip = ip_address(u'{0}'.format(request.remote_addr))
+                meta_json = requests.get('https://api.github.com/meta').json()
+                hook_blocks = meta_json['hooks']
+
+                # Check if the POST request is from GitHub
+                for block in hook_blocks:
+                    if ip_address(request_ip) in ip_network(block):
+                        break
+                else:
+                    g.log.info("Unauthorized attempt to deploy by IP %s" %
+                               request_ip)
+                    abort(abort_code)
+                return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+
+def is_valid_signature(x_hub_signature, data, private_key):
+    hash_algorithm, github_signature = x_hub_signature.split('=', 1)
+    algorithm = hashlib.__dict__.get(hash_algorithm)
+    mac = hmac.new(private_key, msg=data, digestmod=algorithm)
+    return compare_digest(mac.hexdigest(), github_signature.encode())
 
 
 @mod_deploy.route('/deploy', methods=['GET', 'POST'])
-@template_renderer()
+@request_from_github()
 def deploy():
     from run import app
     if request.method != 'POST':
         return 'OK'
     else:
         abort_code = 418
-        # Do initial validations on required headers
-        if 'X-Github-Event' not in request.headers or \
-            'X-Github-Delivery' not in request.headers or \
-            'X-Hub-Signature' not in request.headers or not \
-            request.is_json or 'User-Agent' not in request.headers\
-            or not request.headers.get('User-Agent').startswith(
-                    'GitHub-Hookshot/'):
-            abort(abort_code)
 
-        request_ip = ipaddress.ip_address(u'{0}'.format(request.remote_addr))
-        hook_blocks = requests.get('https://api.github.com/meta').json()[
-            'hooks']
-
-        # Check if the POST request is from GitHub
-        for block in hook_blocks:
-            if ipaddress.ip_address(request_ip) in ipaddress.ip_network(block):
-                break
-        else:
-            abort(abort_code)
-
-        if request.headers.get('X-GitHub-Event') == "ping":
+        event = request.headers.get('X-GitHub-Event')
+        if event == "ping":
             return json.dumps({'msg': 'Hi!'})
-        if request.headers.get('X-GitHub-Event') != "push":
+        if event != "push":
             return json.dumps({'msg': "Wrong event type"})
 
-        hash_algorithm, github_signature = request.headers.get(
-            'X-Hub-Signature').split('=', 1)
-        mac = hmac.new(app.config['GITHUB_DEPLOY_KEY'], msg=request.data,
-                       digestmod=hashlib.__dict__.get(hash_algorithm))
-        if not compare_digest(mac.hexdigest(), github_signature.encode()):
+        x_hub_signature = request.headers.get('X-Hub-Signature')
+        if not is_valid_signature(x_hub_signature, request.data,
+                                  g.deploy_key):
             abort(abort_code)
 
         payload = request.get_json()
@@ -117,6 +124,7 @@ def deploy():
             f.write(build_commit)
 
         # Reload platform service
+        g.log.info('Platform upgraded to commit %s' % commit_hash)
         subprocess.Popen(["sudo", "service", "platform", "reload"])
         return json.dumps({'msg': 'Platform upgraded to commit %s' %
                                   commit_hash})

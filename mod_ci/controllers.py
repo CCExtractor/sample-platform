@@ -21,7 +21,7 @@ def start_ci():
 
         x_hub_signature = request.headers.get('X-Hub-Signature')
         if not is_valid_signature(x_hub_signature, request.data,
-                                  g.deploy_key):
+                                  g.ci_key):
             g.log.warning('CI signature failed: %s' % x_hub_signature)
             abort(abort_code)
 

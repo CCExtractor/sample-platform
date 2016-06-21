@@ -10,7 +10,7 @@ from decorators import template_renderer
 from log_configuration import LogConfiguration
 from mailer import Mailer
 from mod_auth.controllers import mod_auth
-#from mod_ci.controllers import mod_ci
+from mod_ci.controllers import mod_ci
 from mod_deploy.controllers import mod_deploy
 from mod_home.controllers import mod_home
 
@@ -125,7 +125,7 @@ def teardown(exception):
 app.register_blueprint(mod_auth, url_prefix='/account')  # Needs to be first
 app.register_blueprint(mod_home)
 app.register_blueprint(mod_deploy)
-#app.register_blueprint(mod_ci)
+app.register_blueprint(mod_ci)
 
 if __name__ == '__main__':
     # Run in development mode; Werkzeug server

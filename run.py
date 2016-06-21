@@ -1,25 +1,31 @@
 import os
-import traceback
-
 import sys
+import traceback
 
 from flask import Flask, g
 from werkzeug.contrib.fixers import ProxyFix
 
 from database import create_session
 from decorators import template_renderer
+from log_configuration import LogConfiguration
 from mailer import Mailer
 from mod_auth.controllers import mod_auth
+#from mod_ci.controllers import mod_ci
 from mod_deploy.controllers import mod_deploy
 from mod_home.controllers import mod_home
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app)
+# Load config
 app.config.from_object('config')
 try:
     app.config['DEBUG'] = os.environ['DEBUG']
 except KeyError:
     app.config['DEBUG'] = False
+
+# Init logger
+log_configuration = LogConfiguration('platform', app.config['DEBUG'])
+log = log_configuration.create_logger("Platform")
 
 
 def install_secret_keys(application, secret_session='secret_key',
@@ -79,14 +85,17 @@ def not_found(error):
 @app.errorhandler(500)
 @template_renderer('500.html', 500)
 def internal_error(error):
-    print(error)
-    traceback.print_exc()
+    log.debug('500 error: %s' % error)
+    log.debug('Stacktrace:')
+    log.debug(traceback.format_exc())
     return
 
 
 @app.errorhandler(403)
 @template_renderer('403.html', 403)
 def forbidden(error):
+    log.debug('%s (role: %s) tried to access %s' %
+              (g.user.name, g.user.role.value, error.description))
     return {
         'user_role': g.user.role,
         'endpoint': error.description
@@ -97,9 +106,13 @@ def forbidden(error):
 def before_request():
     g.menu_entries = {}
     g.db = create_session(app.config['DATABASE_URI'])
-    g.mailer = Mailer(app.config.get('EMAIL_DOMAIN', ''), app.config.get(
-        'EMAIL_API_KEY', ''), 'CCExtractor.org CI Platform')
+    g.mailer = Mailer(app.config.get('EMAIL_DOMAIN', ''),
+                      app.config.get('EMAIL_API_KEY', ''),
+                      'CCExtractor.org CI Platform')
     g.version = "0.1"
+    g.log = log
+    g.deploy_key = app.config.get('GITHUB_DEPLOY_KEY', '')
+    g.ci_key = app.config.get('GITHUB_CI_KEY', '')
 
 
 @app.teardown_appcontext
@@ -112,9 +125,7 @@ def teardown(exception):
 app.register_blueprint(mod_auth, url_prefix='/account')  # Needs to be first
 app.register_blueprint(mod_home)
 app.register_blueprint(mod_deploy)
-#app.register_blueprint(mod_report)
-#app.register_blueprint(mod_honeypot)
-#app.register_blueprint(mod_support)
+#app.register_blueprint(mod_ci)
 
 if __name__ == '__main__':
     # Run in development mode; Werkzeug server

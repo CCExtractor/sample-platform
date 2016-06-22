@@ -32,17 +32,18 @@ def start_ci():
             abort(abort_code)
 
         gh = GitHub(access_token=g.github['bot_token'])
-        # If it's a push, run the tests
-        if event == "push":
+
+        if event == "push":  # If it's a push, run the tests
+
             pass
-        # If it's a PR, run the tests
-        elif event == "pull_request":
+
+        elif event == "pull_request":  # If it's a PR, run the tests
             # States possible:
             # opened
             # synchronize
             gh.repos(g.github['repository_owner'])(
                 g.github['repository']).statuses(
-                payload['pull_request']['merge_commit_sha']).post(
+                payload['after']).post(
                 state="failure",
                 target_url="https://sampleplatform.ccextractor.org/",
                 description="Test results", context="CI")

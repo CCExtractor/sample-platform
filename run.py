@@ -13,6 +13,7 @@ from mod_auth.controllers import mod_auth
 from mod_ci.controllers import mod_ci
 from mod_deploy.controllers import mod_deploy
 from mod_home.controllers import mod_home
+from mod_test.controllers import mod_test
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app)
@@ -130,6 +131,7 @@ def teardown(exception):
 app.register_blueprint(mod_auth, url_prefix='/account')  # Needs to be first
 app.register_blueprint(mod_home)
 app.register_blueprint(mod_deploy)
+app.register_blueprint(mod_test)
 app.register_blueprint(mod_ci)
 
 if __name__ == '__main__':

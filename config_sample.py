@@ -13,3 +13,6 @@ HMAC_KEY = ''
 GITHUB_DEPLOY_KEY = ''
 GITHUB_CI_KEY = ''
 INSTALL_FOLDER = '/path/to/installation'
+KVM_LINUX_NAME = ''
+KVM_WINDOWS_NAME = ''
+KVM_MAX_RUNTIME = 120  # In minutes

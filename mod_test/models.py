@@ -30,7 +30,7 @@ class Fork(Base):
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
     github = Column(Text(), unique=True)
-    tests = relationship(Test, back_populates=Test.fork)
+    tests = relationship('Test', back_populates='fork')
 
 
 class Test(Base):
@@ -45,8 +45,8 @@ class Test(Base):
     fork = relationship(Fork, back_populates=Fork.tests)
     branch = Column(Text(), nullable=False)
     commit = Column(String(64), nullable=False)
-    progress = relationship(TestProgress, back_populates=TestProgress.test,
-                            order_by=TestProgress.id)
+    progress = relationship('TestProgress', back_populates='test',
+                            order_by='id')
 
     def __init__(self, platform, test_type, fork_id, branch, commit,
                  token=None):

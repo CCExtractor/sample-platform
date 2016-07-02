@@ -1,3 +1,4 @@
+import datetime
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 
@@ -74,9 +75,11 @@ class TestProgress(Base):
     timestamp = Column(DateTime(), nullable=False)
     message = Column(Text(), nullable=False)
 
-    def __init__(self, test_id, status, timestamp, message):
+    def __init__(self, test_id, status, message, timestamp=None):
         self.test_id = test_id
         self.status = status
+        if timestamp is None:
+            timestamp = datetime.datetime.now()
         self.timestamp = timestamp
         self.message = message
 

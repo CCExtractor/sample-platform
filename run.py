@@ -5,6 +5,7 @@ import traceback
 from flask import Flask, g
 from werkzeug.contrib.fixers import ProxyFix
 
+from config_parser import parse_config
 from database import create_session
 from decorators import template_renderer
 from log_configuration import LogConfiguration
@@ -18,7 +19,8 @@ from mod_test.controllers import mod_test
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app)
 # Load config
-app.config.from_object('config')
+config = parse_config('config')
+app.config.from_object(config)
 try:
     app.config['DEBUG'] = os.environ['DEBUG']
 except KeyError:

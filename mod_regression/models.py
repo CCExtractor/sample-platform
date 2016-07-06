@@ -11,8 +11,8 @@ class Category(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(64), unique=True)
     description = Column(Text(), nullable=False)
-    regression_tests = relationship(RegressionTest,
-                                    back_populates=RegressionTest.categories)
+    regression_tests = relationship(
+        'RegressionTest', back_populates='categories')
 
     def __init__(self, name, description):
         self.name = name
@@ -44,7 +44,7 @@ class RegressionTest(Base):
     id = Column(Integer, primary_key=True)
     sample_id = Column(Integer, ForeignKey('sample.id', onupdate='CASCADE',
                                            ondelete='RESTRICT'))
-    sample = relationship(Sample, back_populates=Sample.tests)
+    sample = relationship('Sample', back_populates='tests')
     command = Column(Text(), nullable=False)
     input_type = Column(InputType.db_type())
     output_type = Column(OutputType.db_type())
@@ -52,8 +52,7 @@ class RegressionTest(Base):
         Integer,
         ForeignKey('category.id', onupdate='CASCADE', ondelete='RESTRICT')
     )
-    categories = relationship(
-        Category, back_populates=Category.regression_tests)
+    categories = relationship('Category', back_populates='regression_tests')
 
     def __init__(self):
         # TODO: finish

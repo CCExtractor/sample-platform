@@ -29,7 +29,7 @@ class Fork(Base):
     __tablename__ = 'fork'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
-    github = Column(Text(), unique=True)
+    github = Column(String(256), unique=True)
     tests = relationship('Test', back_populates='fork')
 
 
@@ -42,11 +42,11 @@ class Test(Base):
     token = Column(String(64), unique=True)
     fork_id = Column(Integer, ForeignKey('fork.id', onupdate="CASCADE",
                                          ondelete="RESTRICT"))
-    fork = relationship(Fork, back_populates=Fork.tests)
+    fork = relationship('Fork', back_populates='tests')
     branch = Column(Text(), nullable=False)
     commit = Column(String(64), nullable=False)
     progress = relationship('TestProgress', back_populates='test',
-                            order_by='id')
+                            order_by='TestProgress.id')
 
     def __init__(self, platform, test_type, fork_id, branch, commit,
                  token=None):
@@ -70,7 +70,7 @@ class TestProgress(Base):
     id = Column(Integer, primary_key=True)
     test_id = Column(Integer, ForeignKey('test.id', onupdate="CASCADE",
                                          ondelete="CASCADE"))
-    test = relationship(Test, back_populates=Test.progress)
+    test = relationship('Test', back_populates='progress')
     status = Column(TestStatus.db_type(), nullable=False)
     timestamp = Column(DateTime(), nullable=False)
     message = Column(Text(), nullable=False)

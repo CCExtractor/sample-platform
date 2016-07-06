@@ -12,8 +12,8 @@ class Sample(Base):
     sha = Column(String(128), unique=True)
     extension = Column(String(64), nullable=False)
     original_name = Column(Text(), nullable=False)
-    extra_files = relationship(ExtraFile)
-    tests = relationship(RegressionTest, back_populates=RegressionTest.sample)
+    extra_files = relationship('ExtraFile')
+    tests = relationship('RegressionTest', back_populates='sample')
 
     def __init__(self, sha, extension, original_name):
         self.sha = sha
@@ -30,7 +30,7 @@ class ExtraFile(Base):
     id = Column(Integer, primary_key=True)
     sample_id = Column(Integer, ForeignKey('sample.id', onupdate="CASCADE",
                                            ondelete="CASCADE"))
-    sample = relationship(Sample, back_populates=Sample.extra_files)
+    sample = relationship('Sample', back_populates='extra_files')
 
     original_name = Column(Text(), nullable=False)
     extension = Column(String(64), nullable=False)

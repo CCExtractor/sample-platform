@@ -12,7 +12,7 @@ class Kvm(Base):
     name = Column(String(64), primary_key=True)
     test_id = Column(Integer, ForeignKey(Test.id, onupdate="CASCADE",
                                          ondelete="RESTRICT"))
-    test = relationship(Test)
+    test = relationship('Test')
     timestamp = Column(DateTime(), nullable=False)
 
     def __init__(self, name, test_id, timestamp=None):

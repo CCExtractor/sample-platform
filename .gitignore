@@ -26,3 +26,6 @@ config.py
 
 # Build commit
 build_commit.py
+
+# Gunicorn
+gunicorn.pid

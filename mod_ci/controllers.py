@@ -1,8 +1,9 @@
 import json
-import libvirt
+import sys
 
 import datetime
 from flask import Blueprint, request, abort, g, url_for
+from git import Repo, InvalidGitRepositoryError, GitCommandError
 from github import GitHub
 from multiprocessing import Process
 
@@ -10,6 +11,9 @@ from mod_ci.models import Kvm
 from mod_deploy.controllers import request_from_github, is_valid_signature
 from mod_test.models import TestType, Test, TestStatus, TestProgress, Fork, \
     TestPlatform
+
+if sys.platform.startswith("linux"):
+    import libvirt
 
 mod_ci = Blueprint('ci', __name__)
 
@@ -22,7 +26,7 @@ class Status:
 
 
 def kvm_processor_linux(db):
-    from run import config, log
+    from run import config
     kvm_name = config.get('KVM_LINUX_NAME', '')
     return kvm_processor(db, kvm_name)
 
@@ -57,7 +61,11 @@ def kvm_processor(db, kvm_name):
             if datetime.datetime.now() >= status.timestamp + \
                     datetime.timedelta(minutes=max_runtime):
                 # Mark entry as aborted
-
+                test_progress = TestProgress(
+                    status.test.id, TestStatus.canceled, 'Runtime exceeded')
+                db.add(test_progress)
+                db.remove(status)
+                db.commit()
                 # Abort process
                 if vm.destroy() == -1:
                     # Failed to shut down
@@ -84,14 +92,84 @@ def kvm_processor(db, kvm_name):
         return
     log.info('Reverted to snapshot %s for VM %s' % (
         snapshot.getName(), kvm_name))
+    # Get oldest test
+    test = Test.query.filter(Test.id not in TestProgress.query.filter(
+        TestProgress.status in [TestStatus.canceled, TestStatus.completed]
+    ).all()).order_by(Test.id.asc()).first()
+    if test is None:
+        log.info('No more tests to run, returning')
+        return
+    status = Kvm(kvm_name, test)
     # Prepare data
     # 1) Generate test files
     # TODO: finish
     # 2) Create git repo clone and merge PR into it (if necessary)
-    # TODO: finish
+    try:
+        repo = Repo(config.get('INSTALL_FOLDER', ''))
+    except InvalidGitRepositoryError:
+        log.critical('Could not open CCExtractor\'s repository copy!')
+        return
+    # Update repository from upstream
+    try:
+        origin = repo.remote('origin')
+    except ValueError:
+        log.critical('Origin remote doesn\'t exist!')
+        return
+    fetch_info = origin.fetch()
+    if len(fetch_info) == 0:
+        log.warn('No info fetched from remote!')
+    # Pull code (finally)
+    pull_info = origin.pull()
+    if len(pull_info) == 0:
+        log.warn('Didn\'t pull any information from remote!')
+
+    if pull_info[0].flags > 128:
+        log.critical('Didn\'t pull any information from remote: %s!' %
+                     pull_info[0].flags)
+        return
+    # Return to master
+    repo.heads.master.checkout(True)
+    # Delete the test branch if it exists, and recreate
+    try:
+        repo.delete_head('CI_Branch')
+    except GitCommandError:
+        pass
+    # If PR, merge, otherwise reset to commit
+    if test.test_type == TestType.pull_request:
+        # Fetch PR (stored under origin/pull/<id>/head
+        pull_info = origin.fetch('pull/2/head:CI_Branch')
+        if len(pull_info) == 0:
+            log.warn('Didn\'t pull any information from remote PR!')
+
+        if pull_info[0].flags > 128:
+            log.critical('Didn\'t pull any information from remote PR: %s!' %
+                         pull_info[0].flags)
+            return
+        try:
+            test_branch = repo.heads['CI_Branch']
+        except IndexError:
+            log.critical('CI_Branch does not exist')
+            return
+        # Check out branch
+        test_branch.checkout(True)
+        # Rebase on master
+        repo.git.rebase('master')
+        # TODO: check what happens on merge conflicts
+    else:
+        test_branch = repo.create_head('CI_Branch', 'HEAD')
+        # Check out branch for test purposes
+        test_branch.checkout(True)
+        try:
+            repo.head.reset(test.commit, working_tree=True)
+        except GitCommandError:
+            log.warn('Git commit %s (test %s) does not exist!' % (
+                test.commit, test.id))
+            return
     # Power on machine
     try:
         vm.create()
+        db.add(status)
+        db.commit()
     except libvirt.libvirtError:
         log.critical("Failed to launch VM %s" % kvm_name)
         return

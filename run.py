@@ -20,7 +20,7 @@ app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app)
 # Load config
 config = parse_config('config')
-app.config.from_object(config)
+app.config.from_mapping(config)
 try:
     app.config['DEBUG'] = os.environ['DEBUG']
 except KeyError:

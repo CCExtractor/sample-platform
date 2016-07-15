@@ -4,6 +4,7 @@ import traceback
 
 from flask import Flask, g
 from werkzeug.contrib.fixers import ProxyFix
+from werkzeug.routing import BaseConverter
 
 from config_parser import parse_config
 from database import create_session
@@ -80,6 +81,16 @@ def sub_menu_open(menu_entries, active_route):
     return False
 
 app.jinja_env.globals.update(sub_menu_open=sub_menu_open)
+
+
+# Allow regexes in routes
+class RegexConverter(BaseConverter):
+    def __init__(self, url_map, *items):
+        super(RegexConverter, self).__init__(url_map)
+        self.regex = items[0]
+
+
+app.url_map.converters['regex'] = RegexConverter
 
 
 @app.errorhandler(404)

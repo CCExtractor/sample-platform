@@ -1,10 +1,7 @@
 {% extends "base.html" %}
 
 {% block title %}Manage users {{ super() }}{% endblock %}
-{% block head %}
-    {{ super() }}
-    <script type="text/javascript" src="{{ url_for('static', filename='js/sorttable.js') }}"></script>
-{% endblock %}
+
 {% block body %}
     {{ super() }}
     <br>

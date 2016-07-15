@@ -1,8 +1,3 @@
-{% block head %}
-    {{ super() }}
-    <script type="text/javascript" src="{{ url_for('static', filename='js/sorttable.js') }}"></script>
-{% endblock %}
-
 {% if samples|length >= 1 %}
     <p>Samples that have been submitted in the past:</p>
     <table class="stack hover sortable">

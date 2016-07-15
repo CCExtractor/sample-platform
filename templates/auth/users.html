@@ -31,7 +31,7 @@
                     <td>{{ u.role.description }}</td>
                     <td>{{ u.email }}</td>
                     <td class="user-actions">
-                        <a href="{{ url_for('.user', uid=u.id) }}"><i class="fa fa-info-circle" title="Deactivate user"></i></a>
+                        <a href="{{ url_for('.user', uid=u.id) }}"><i class="fa fa-info-circle" title="View user"></i></a>
                         <a href="{{ url_for('.reset_user', uid=u.id) }}"><i class="fa fa-support" title="Reset password"></i></a>
                         <a href="{{ url_for('.role', uid=u.id) }}"><i class="fa fa-key" title="Change role"></i></a>
                         <a href="{{ url_for('.deactivate', uid=u.id) }}"><i class="fa fa-trash" title="Deactivate user"></i></a>

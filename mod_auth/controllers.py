@@ -3,7 +3,7 @@ import hmac
 import time
 
 from flask import Blueprint, g, request, flash, session, redirect, url_for, \
-    abort, jsonify
+    abort
 from pyisemail import is_email
 
 from decorators import template_renderer, get_menu_entries
@@ -367,12 +367,15 @@ def users():
 @login_required
 @template_renderer()
 def user(uid):
+    from mod_upload.models import Upload
     # Only give access if the uid matches the user, or if the user is an admin
     if g.user.id == uid or g.user.role == Role.admin:
         usr = User.query.filter_by(id=uid).first()
         if usr is not None:
+            uploads = Upload.query.filter(Upload.user_id == usr.id).all()
             return {
-                'view_user': usr
+                'view_user': usr,
+                'samples': [u.sample for u in uploads]
             }
         abort(404)
     else:

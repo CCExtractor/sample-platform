@@ -48,3 +48,7 @@ class User(Base):
 
     def update_password(self, new_password):
         self.password = self.generate_hash(new_password)
+
+    @property
+    def is_admin(self):
+        return self.role == Role.admin

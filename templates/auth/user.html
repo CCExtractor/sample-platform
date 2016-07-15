@@ -18,9 +18,8 @@
     </div>
     <div class="row">
         <h4>Submitted samples</h4>
-        {% set noSampleMessage="This user didn't submit any samples yet." %}
-        {% set useSampleOriginal=true %}
-        {# TODO: add samples back #}
-        {# {% include "sample-info/list-samples.html.twig" %} #}
+        {% set no_samples="This user didn't submit any samples yet." %}
+        {% set use_sample_original=true %}
+        {% include "sample/list_samples.html" %}
     </div>
 {% endblock %}

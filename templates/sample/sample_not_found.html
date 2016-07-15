@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}Sample not found {{ super() }}{% endblock %}
+{% block body %}
+    {{ super() }}
+    <br />
+    <div class="row">
+        <div class="callout warning">
+            <h1>Sample not found</h1>
+            <p>{{ message|default('The sample you requested could not be found.') }}</p>
+            <p>If you think this is an error, please get in touch.</p>
+        </div>
+    </div>
+{% endblock %}

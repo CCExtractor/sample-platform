@@ -13,6 +13,7 @@ class Sample(Base):
     original_name = Column(Text(), nullable=False)
     extra_files = relationship('ExtraFile')
     tests = relationship('RegressionTest', back_populates='sample')
+    upload = relationship('Upload', back_populates='sample')
 
     def __init__(self, sha, extension, original_name):
         self.sha = sha
@@ -48,6 +49,13 @@ class ExtraFile(Base):
 
     def __repr__(self):
         return '<Sample extra for %r>' % self.sample_id
+
+    @property
+    def short_name(self, length=5):
+        return "{short}_{id}.{extension}".format(
+            short=self.sample.sha[:length], id=self.id,
+            extension=self.extension
+        )
 
 
 class ForbiddenExtension(Base):

@@ -1,0 +1,34 @@
+{% block head %}
+    {{ super() }}
+    <script type="text/javascript" src="{{ url_for('static', filename='js/sorttable.js') }}"></script>
+{% endblock %}
+
+{% if samples|length >= 1 %}
+    <p>Samples that have been submitted in the past:</p>
+    <table class="stack hover sortable">
+        <thead>
+        <tr>
+            <th>{{ 'Original name' if use_sample_original|default(false) else 'SHA-256' }}</th>
+            <th>Video-stream type</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for sample in samples %}
+            <tr>
+                <td>{{ sample.original_name if use_sample_original|default(false) else sample.sha }}</td>
+                <td>{{ sample.extension }}</td>
+                <td>
+                    <a href="{{ url_for('sample.sample_by_hash', sample_hash=sample.sha) }}" title="View details"><i class="fa fa-info-circle"></i></a>
+                    {% if user.is_admin %}
+                        &nbsp;<a href="{{ url_for("sample.edit_sample", sample_id=sample.id) }}" title="Edit sample"><i class="fa fa-edit"></i></a>
+                        &nbsp;<a href="{{ url_for("sample.delete_sample", sample_id=sample.id) }}" title="Delete sample"><i class="fa fa-remove"></i></a>
+                    {% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>{{ no_samples|default('Sorry, there are no samples available yet. Please return later.') }}</p>
+{% endif %}

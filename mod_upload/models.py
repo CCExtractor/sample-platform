@@ -21,7 +21,7 @@ class Upload(Base):
     user = relationship('User')
     sample_id = Column(Integer, ForeignKey(
         'sample.id', onupdate="CASCADE", ondelete="CASCADE"))
-    sample = relationship('Sample')
+    sample = relationship('Sample', back_populates='upload')
     version_id = Column(Integer, ForeignKey(
         'ccextractor_version.id', onupdate="CASCADE", ondelete="RESTRICT"))
     version = relationship('CCExtractorVersion')

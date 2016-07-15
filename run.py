@@ -14,6 +14,7 @@ from mod_auth.controllers import mod_auth
 from mod_ci.controllers import mod_ci
 from mod_deploy.controllers import mod_deploy
 from mod_home.controllers import mod_home
+from mod_sample.controllers import mod_sample
 from mod_test.controllers import mod_test
 from mod_upload.controllers import mod_upload
 
@@ -133,6 +134,7 @@ def teardown(exception):
 # Register blueprints
 app.register_blueprint(mod_auth, url_prefix='/account')  # Needs to be first
 app.register_blueprint(mod_upload, url_prefix='/upload')
+app.register_blueprint(mod_sample, url_prefix='/sample')
 app.register_blueprint(mod_home)
 app.register_blueprint(mod_deploy)
 app.register_blueprint(mod_test, url_prefix="/test")

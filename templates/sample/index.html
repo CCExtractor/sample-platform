@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}Sample information {{ super() }}{% endblock %}
+{% block body %}
+    {{ super() }}
+    <br />
+    <div class="row">
+        <div class="row">
+            <div class="column medium-8">
+                <h1>Sample information</h1>
+                <p>Please select one of the samples below to see more detailed information about it.</p>
+                {% include "sample/list_samples.html" %}
+            </div>
+        </div>
+
+    </div>
+{% endblock %}

@@ -20,3 +20,20 @@
         <p class="help-text" id="{{ field.id }}_help_text">{{ helpText }}</p>
     {% endif %}
 {% endmacro %}
+
+{% macro render_media_info(info) %}
+    <ul style="list-style: none; margin-bottom: 0;">
+        {% for description, value in info recursive  %}
+            {% if value is iterable %}
+                <li>
+                    {{ description }}: <br/>
+                    <ul style="list-style: none; margin-bottom: 0;">
+                        {{ loop(value) }}
+                    </ul>
+                </li>
+            {% elif value != "" %}
+                <li>{{ description }}: {{ value }}</li>
+            {% endif %}
+        {% endfor %}
+    </ul>
+{% endmacro %}

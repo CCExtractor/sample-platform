@@ -15,6 +15,7 @@ from mod_ci.controllers import mod_ci
 from mod_deploy.controllers import mod_deploy
 from mod_home.controllers import mod_home
 from mod_test.controllers import mod_test
+from mod_upload.controllers import mod_upload
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app)
@@ -131,6 +132,7 @@ def teardown(exception):
 
 # Register blueprints
 app.register_blueprint(mod_auth, url_prefix='/account')  # Needs to be first
+app.register_blueprint(mod_upload, url_prefix='/upload')
 app.register_blueprint(mod_home)
 app.register_blueprint(mod_deploy)
 app.register_blueprint(mod_test)

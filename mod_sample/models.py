@@ -1,8 +1,7 @@
 from sqlalchemy import Column, Integer, String, Text, ForeignKey
 from sqlalchemy.orm import relationship
 
-from database import Base, DeclEnum
-from mod_regression.models import RegressionTest
+from database import Base
 
 
 class Sample(Base):
@@ -22,6 +21,13 @@ class Sample(Base):
 
     def __repr__(self):
         return '<Sample %r>' % self.sha
+
+    @property
+    def filename(self):
+        return "{sha}{extension}".format(
+            sha=self.sha, extension=("." + self.extension) if len(
+                self.extension) > 0 else ""
+        )
 
 
 class ExtraFile(Base):

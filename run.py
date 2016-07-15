@@ -135,7 +135,7 @@ app.register_blueprint(mod_auth, url_prefix='/account')  # Needs to be first
 app.register_blueprint(mod_upload, url_prefix='/upload')
 app.register_blueprint(mod_home)
 app.register_blueprint(mod_deploy)
-app.register_blueprint(mod_test)
+app.register_blueprint(mod_test, url_prefix="/test")
 app.register_blueprint(mod_ci)
 
 if __name__ == '__main__':

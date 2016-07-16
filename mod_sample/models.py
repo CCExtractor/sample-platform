@@ -59,8 +59,8 @@ class ExtraFile(Base):
     @property
     def filename(self):
         extension = ("." + self.extension) if len(self.extension) > 0 else ""
-        return "{sha}{id}{extension}".format(
-            sha=self.sha, id=self.id,  extension=extension
+        return "{sha}_{id}{extension}".format(
+            sha=self.sample.sha, id=self.id,  extension=extension
         )
 
 

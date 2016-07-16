@@ -45,9 +45,9 @@
                                         <td>{{ file.original_name }}</td>
                                     {% endif %}
                                     <td>
-                                        <a href="{{ url_for(".download_sample_additional", id=sample.id, additional=file.id) }}" title="Download additional file"><i class="fa fa-download"></i></a>
-                                        {% if loggedInUser.is_admin %}
-                                            &nbsp;<a href="{{ url_for(".delete_sample_additional", id=sample.id, additional=file.id) }}" title="Delete additional file"><i class="fa fa-remove"></i></a>
+                                        <a href="{{ url_for(".download_sample_additional", sample_id=sample.id, additional_id=file.id) }}" title="Download additional file"><i class="fa fa-download"></i></a>
+                                        {% if user.is_admin %}
+                                            &nbsp;<a href="{{ url_for(".delete_sample_additional", sample_id=sample.id, additional_id=file.id) }}" title="Delete additional file"><i class="fa fa-remove"></i></a>
                                         {% endif %}
                                     </td>
                                 </tr>

@@ -4,6 +4,8 @@ import xmltodict
 from flask import Blueprint, make_response
 
 from decorators import template_renderer
+from mod_auth.controllers import login_required, check_access_rights
+from mod_auth.models import Role
 from mod_sample.models import Sample, ExtraFile, ForbiddenExtension
 
 mod_sample = Blueprint('sample', __name__)
@@ -215,15 +217,22 @@ def download_sample_additional(sample_id, additional_id):
 
 
 @mod_sample.route('/edit/<sample_id>', methods=['GET', 'POST'])
+@login_required
+@check_access_rights([Role.admin])
 def edit_sample(sample_id):
     pass
 
 
-@mod_sample.route('/delete/<sample_id>')
+@mod_sample.route('/delete/<sample_id>', methods=['GET', 'POST'])
+@login_required
+@check_access_rights([Role.admin])
 def delete_sample(sample_id):
     pass
 
 
-@mod_sample.route('/delete/<sample_id>/additional/<additional_id>')
+@mod_sample.route('/delete/<sample_id>/additional/<additional_id>',
+                  methods=['GET', 'POST'])
+@login_required
+@check_access_rights([Role.admin])
 def delete_sample_additional(sample_id, additional_id):
     pass

@@ -44,7 +44,7 @@ class RegressionTest(Base):
     id = Column(Integer, primary_key=True)
     sample_id = Column(Integer, ForeignKey('sample.id', onupdate='CASCADE',
                                            ondelete='RESTRICT'))
-    sample = relationship('Sample', back_populates='tests')
+    sample = relationship('Sample', uselist=False, back_populates='tests')
     command = Column(Text(), nullable=False)
     input_type = Column(InputType.db_type())
     output_type = Column(OutputType.db_type())

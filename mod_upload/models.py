@@ -18,13 +18,13 @@ class Upload(Base):
     user_id = Column(Integer, ForeignKey(
         'user.id', onupdate="RESTRICT", ondelete="RESTRICT"))
 
-    user = relationship('User')
+    user = relationship('User', uselist=False)
     sample_id = Column(Integer, ForeignKey(
         'sample.id', onupdate="CASCADE", ondelete="CASCADE"))
-    sample = relationship('Sample', back_populates='upload')
+    sample = relationship('Sample', uselist=False, back_populates='upload')
     version_id = Column(Integer, ForeignKey(
         'ccextractor_version.id', onupdate="CASCADE", ondelete="RESTRICT"))
-    version = relationship('CCExtractorVersion')
+    version = relationship('CCExtractorVersion', uselist=False)
     platform = Column(Platform.db_type(), nullable=False)
     parameters = Column(Text(), nullable=False)
     notes = Column(Text(), nullable=False)

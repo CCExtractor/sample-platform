@@ -42,7 +42,7 @@ class Test(Base):
     token = Column(String(64), unique=True)
     fork_id = Column(Integer, ForeignKey('fork.id', onupdate="CASCADE",
                                          ondelete="RESTRICT"))
-    fork = relationship('Fork', back_populates='tests')
+    fork = relationship('Fork', uselist=False, back_populates='tests')
     branch = Column(Text(), nullable=False)
     commit = Column(String(64), nullable=False)
     progress = relationship('TestProgress', back_populates='test',
@@ -70,7 +70,7 @@ class TestProgress(Base):
     id = Column(Integer, primary_key=True)
     test_id = Column(Integer, ForeignKey('test.id', onupdate="CASCADE",
                                          ondelete="CASCADE"))
-    test = relationship('Test', back_populates='progress')
+    test = relationship('Test', uselist=False, back_populates='progress')
     status = Column(TestStatus.db_type(), nullable=False)
     timestamp = Column(DateTime(), nullable=False)
     message = Column(Text(), nullable=False)

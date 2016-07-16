@@ -40,9 +40,10 @@ def fetch_media_info(sample):
                             # Process general info
                             value = {
                                 'Format': track['Format'],
-                                'File size': track['File_size'],
-                                'Duration': track['Duration']
+                                'File size': track['File_size']
                             }
+                            if 'Duration' in track:
+                                value['Duration'] = track['Duration']
                             if 'Codec_ID' in track:
                                 value['Codec id'] = track['Codec_ID']
                         elif track['@type'] == 'Video':
@@ -61,7 +62,6 @@ def fetch_media_info(sample):
                                     order=track['Scan_order'])
                             value = {
                                 'Format': v_format,
-                                'Duration': track['Duration'],
                                 'Resolution': '{width} x {height}'.format(
                                     width=track['Width'],
                                     height=track['Height']),
@@ -69,6 +69,8 @@ def fetch_media_info(sample):
                                 'Frame rate': v_rate,
                                 'Scan type': v_scan
                             }
+                            if 'Duration' in track:
+                                value['Duration'] = track['Duration']
                             if 'Writing_library' in track:
                                 value['Writing library'] = \
                                     track['Writing_library']
@@ -76,13 +78,15 @@ def fetch_media_info(sample):
                                 value['Codec id'] = track['Codec_ID']
                         elif track['@type'] == 'Text':
                             # Process caption/subtitle info
+                            value = {
+                                'Format': track['Format'],
+                                'Muxing mode': track['Muxing_mode']
+                            }
+                            if 'Menu_ID' in track:
+                                value['Menu Id'] = track['Menu_ID']
                             captions.append({
                                 'name': 'ID %s' % track['ID'],
-                                'value': {
-                                    'Menu Id': track['Menu_ID'],
-                                    'Format': track['Format'],
-                                    'Muxing mode': track['Muxing_mode']
-                                }
+                                'value': value
                             })
                             continue
                         else:

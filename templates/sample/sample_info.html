@@ -77,8 +77,8 @@
                 <li><i class="fa fa-li fa-download"></i> <a href="{{ url_for(".download_sample", sample_id=sample.id) }}">Download sample</a></li>
                 <li><i class="fa fa-li fa-file-code-o"></i> <a href="{{ url_for(".download_sample_media_info", sample_id=sample.id) }}">Download media info xml</a></li>
                 {% if user.is_admin %}
-                    <li><i class="fa fa-li fa-edit"></i> <a href="{{ url_for(".sample_edit", sample_id=sample.id) }}">Edit sample</a></li>
-                    <li><i class="fa fa-li fa-remove"></i> <a href="{{ url_for(".sample_delete", sample_id=sample.id) }}">Delete sample</a></li>
+                    <li><i class="fa fa-li fa-edit"></i> <a href="{{ url_for(".edit_sample", sample_id=sample.id) }}">Edit sample</a></li>
+                    <li><i class="fa fa-li fa-remove"></i> <a href="{{ url_for(".delete_sample", sample_id=sample.id) }}">Delete sample</a></li>
                 {% endif %}
             </ul>
         </div>

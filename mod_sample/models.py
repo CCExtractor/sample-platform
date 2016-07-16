@@ -25,10 +25,8 @@ class Sample(Base):
 
     @property
     def filename(self):
-        return "{sha}{extension}".format(
-            sha=self.sha, extension=("." + self.extension) if len(
-                self.extension) > 0 else ""
-        )
+        extension = ("." + self.extension) if len(self.extension) > 0 else ""
+        return "{sha}{extension}".format(sha=self.sha, extension=extension)
 
 
 class ExtraFile(Base):
@@ -56,6 +54,13 @@ class ExtraFile(Base):
         return "{short}_{id}.{extension}".format(
             short=self.sample.sha[:length], id=self.id,
             extension=self.extension
+        )
+
+    @property
+    def filename(self):
+        extension = ("." + self.extension) if len(self.extension) > 0 else ""
+        return "{sha}{id}{extension}".format(
+            sha=self.sha, id=self.id,  extension=extension
         )
 
 

@@ -65,32 +65,62 @@ def sample_by_hash(sample_hash):
                                   sample_hash)
 
 
+def serve_file_download(file_name, sub_folder='',
+                        content_type='application/octet-stream'):
+    from run import config
+
+    file_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''),
+                             'TestFiles', sub_folder, file_name)
+    response = make_response()
+    response.headers['Content-Description'] = 'File Transfer'
+    response.headers['Cache-Control'] = 'no-cache'
+    response.headers['Content-Type'] = content_type
+    response.headers['Content-Disposition'] = \
+        'attachment; filename=%s' % file_name
+    response.headers['Content-Length'] = \
+        os.path.getsize(file_path)
+    response.headers['X-Accel-Redirect'] = \
+        '/' + os.path.join('media-download', sub_folder, file_name)
+    return response
+
+
 @mod_sample.route('/download/<sample_id>')
 def download_sample(sample_id):
-    sample = Sample.query.filter(Sample.sha == sample_id).first()
+    from run import config
+    sample = Sample.query.filter(Sample.id == sample_id).first()
     if sample is not None:
-        response = make_response()
-        response.headers['Content-Description'] = 'File Transfer'
-        response.headers['Cache-Control'] = 'no-cache'
-        response.headers['Content-Type'] = 'application/octet-stream'
-        response.headers['Content-Disposition'] = \
-            'attachment; filename=%s' % sample.filename
-        # TODO: finish
-        response.headers['Content-Length'] = os.path.getsize("")
-        response.headers['X-Accel-Redirect'] = \
-            '/' + os.path.join('media-download', sample.filename)
-        return response
+        return serve_file_download(sample.filename)
     raise SampleNotFoundException('Sample not found')
 
 
 @mod_sample.route('/download/<sample_id>/media-info')
 def download_sample_media_info(sample_id):
-    pass
+    from run import config
+    sample = Sample.query.filter(Sample.id == sample_id).first()
+    if sample is not None:
+        # Fetch media info
+        media_info_path = os.path.join(
+            config.get('SAMPLE_REPOSITORY', ''), 'TestFiles', 'media',
+            sample.sha + '.xml')
+        if os.path.isfile(media_info_path):
+            return serve_file_download(sample.sha + '.xml', 'media',
+                                       'text/xml')
+        raise SampleNotFoundException('Media information for sample %s not '
+                                      'found' % sample.id)
+    raise SampleNotFoundException('Sample with id %s not found' % sample_id)
 
 
 @mod_sample.route('/download/<sample_id>/additional/<additional_id>')
 def download_sample_additional(sample_id, additional_id):
-    pass
+    sample = Sample.query.filter(Sample.id == sample_id).first()
+    if sample is not None:
+        # Fetch additional info
+        extra = ExtraFile.query.filter(ExtraFile.id == additional_id).first()
+        if extra is not None:
+            return serve_file_download(extra.filename, 'extra')
+        raise SampleNotFoundException('Extra file %s for sample %s not '
+                                      'found' % (additional_id, sample.id))
+    raise SampleNotFoundException('Sample with id %s not found' % sample_id)
 
 
 @mod_sample.route('/edit/<sample_id>', methods=['GET', 'POST'])

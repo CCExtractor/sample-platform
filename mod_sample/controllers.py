@@ -86,7 +86,6 @@ def serve_file_download(file_name, sub_folder='',
 
 @mod_sample.route('/download/<sample_id>')
 def download_sample(sample_id):
-    from run import config
     sample = Sample.query.filter(Sample.id == sample_id).first()
     if sample is not None:
         return serve_file_download(sample.filename)

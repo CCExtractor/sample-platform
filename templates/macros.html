@@ -23,16 +23,33 @@
 
 {% macro render_media_info(info) %}
     <ul style="list-style: none; margin-bottom: 0;">
-        {% for description, value in info recursive  %}
-            {% if value is iterable %}
+        {% for entry in info recursive  %}
+            {% if entry.value is iterable and not entry.value is string %}
                 <li>
-                    {{ description }}: <br/>
+                    {{ entry.name }}: <br/>
                     <ul style="list-style: none; margin-bottom: 0;">
-                        {{ loop(value) }}
+                        {% if entry.value is mapping %}
+                            {% for key, value in entry.value.iteritems() recursive %}
+                                {% if value is mapping %}
+                                    <li>
+                                        {{ key }}: <br/>
+                                        <ul style="list-style: none; margin-bottom: 0;">
+                                            {{ loop(value) }}
+                                        </ul>
+                                    </li>
+                                {% elif value != '' %}
+                                    <li>{{ key }}: {{ value }}</li>
+                                {% endif %}
+                            {% endfor %}
+                        {% elif entry.value|length == 0 %}
+                            <li>No entries available</li>
+                        {% else %}
+                            {{ loop(entry.value) }}
+                        {% endif %}
                     </ul>
                 </li>
             {% elif value != "" %}
-                <li>{{ description }}: {{ value }}</li>
+                <li>{{ entry.name }}: {{ entry.value }}</li>
             {% endif %}
         {% endfor %}
     </ul>

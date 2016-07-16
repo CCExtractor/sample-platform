@@ -29,7 +29,7 @@ fi
 echo "* Update setuptools            "
 easy_install -U setuptools >> "$install_log" 2>&1
 echo "* Installing pip dependencies"
-pip install sqlalchemy flask passlib pymysql flask-wtf gunicorn githubpy requests pyIsEmail ipaddress GitPython >> "$install_log" 2>&1
+pip install sqlalchemy flask passlib pymysql flask-wtf gunicorn githubpy requests pyIsEmail ipaddress GitPython xmltodict >> "$install_log" 2>&1
 echo ""
 echo "-------------------------------"
 echo "|        Configuration        |"

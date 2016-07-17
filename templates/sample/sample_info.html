@@ -20,7 +20,7 @@
                             Submitted by: <a href="{{ url_for('auth.user', uid=sample.upload.user.id) }}">{{ sample.upload.user.name }}</a><br/>
                         {% endif %}
                         Submitted for CCExtractor version {{ sample.upload.version.version }} (released {{ sample.upload.version.released }})<br />
-                        Platform: {{ sample.upload.platform }}<br />
+                        Platform: {{ sample.upload.platform.description }}<br />
                         Parameters: {{ sample.upload.parameters }}<br />
                         Notes: {{ sample.upload.notes }}<br />
                     </p>

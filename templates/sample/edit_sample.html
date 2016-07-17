@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Edit sample {{ super() }}{% endblock %}
+{% block body %}
+    {{ super() }}
+    <br />
+    <div class="row">
+        <div class="row">
+            <div class="column medium-12">
+                <h1>Edit sample</h1>
+                <p>Editing sample with id {{ sample.id }}</p>
+                <form method="post" name="editForm" id="editForm" action="{{ url_for('.edit_sample', sample_id=sample.id) }}">
+                    {{ form.csrf_token }}
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            <div class="row">
+                                <div class="callout alert">
+                                    <ul class="flashes">
+                                        {% for category, message in messages %}
+                                        <li class="{{ category }}">{{ message }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            </div>
+                        {% endif %}
+                    {% endwith %}
+                    {% if form.errors %}
+                        <div class="row">
+                            <div class="callout alert">
+                                {% for field, error in form.errors.items() %}
+                                    {% for e in error %}
+                                        {{ e }}<br>
+                                    {% endfor %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+                    <div class="row">
+                        <div class="medium-6 columns">
+                            {{ macros.render_field(form.version) }}
+                        </div>
+                        <div class="medium-6 columns">
+                            {{ macros.render_field(form.platform) }}
+                        </div>
+                        <div class="medium-12 columns">
+                            {{ macros.render_field(form.parameters, placeholder="-autoprogram -latin1 ...") }}
+                        </div>
+                        <div class="medium-12 columns">
+                            {{ macros.render_field(form.notes) }}
+                        </div>
+                        <div class="medium-12 columns">
+                            {{ macros.render_field(form.submit) }}
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock %}

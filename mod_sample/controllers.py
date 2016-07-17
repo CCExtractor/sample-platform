@@ -1,14 +1,17 @@
 import os
 
-from flask import Blueprint, make_response
+from flask import Blueprint, make_response, request, redirect, url_for, g
 
 from decorators import template_renderer
 from mod_auth.controllers import login_required, check_access_rights
 from mod_auth.models import Role
+from mod_home.models import CCExtractorVersion
+from mod_sample.forms import EditSampleForm
 from mod_sample.media_info_parser import MediaInfoFetcher, \
     InvalidMediaInfoError
 
 from mod_sample.models import Sample, ExtraFile, ForbiddenExtension
+from mod_upload.models import Platform
 
 mod_sample = Blueprint('sample', __name__)
 
@@ -130,8 +133,35 @@ def download_sample_additional(sample_id, additional_id):
 @mod_sample.route('/edit/<sample_id>', methods=['GET', 'POST'])
 @login_required
 @check_access_rights([Role.admin])
+@template_renderer()
 def edit_sample(sample_id):
-    pass
+    sample = Sample.query.filter(Sample.id == sample_id).first()
+    if sample is not None:
+        versions = CCExtractorVersion.query.all()
+        # Process or render form
+        form = EditSampleForm(request.form)
+        form.version.choices = [(v.id, v.version) for v in versions]
+        if form.validate_on_submit():
+            # Store values
+            upload = sample.upload
+            upload.notes = form.notes.data
+            upload.version_id = form.version.data
+            upload.platform = Platform.from_string(form.platform.data)
+            upload.parameters = form.parameters.data
+            g.db.commit()
+            return redirect(url_for('.sample_by_id', sample_id=sample.id))
+        if not form.is_submitted():
+            # Populate form with current set sample values
+            form.version.data = sample.upload.version.id
+            form.platform.data = sample.upload.platform.name
+            form.notes.data = sample.upload.notes
+            form.parameters.data = sample.upload.parameters
+
+        return {
+            'sample': sample,
+            'form': form
+        }
+    raise SampleNotFoundException('Sample with id %s not found' % sample_id)
 
 
 @mod_sample.route('/delete/<sample_id>', methods=['GET', 'POST'])

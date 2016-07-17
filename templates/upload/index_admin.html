@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}Upload a new sample {{ super() }}{% endblock %}
+{% block body %}
+    {{ super() }}
+    <br />
+    <div class="row">
+        <div class="column medium-12">
+            <h1>All currently queued samples/messages</h1>
+            {% set admin = true %}
+            {% include "upload/process_table.html" %}
+        </div>
+    </div>
+{% endblock %}

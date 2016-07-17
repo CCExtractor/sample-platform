@@ -1,0 +1,52 @@
+<h2>Queued samples</h2>
+{% if queue|length > 0 %}
+    <table class="sortable tight striped">
+        <thead>
+        <tr>
+            <th>Name</th>
+            <th>Extension</th>
+            {% if admin|default(false) %}
+                <th>User</th>
+            {% endif %}
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for entry in queue %}
+            <tr>
+                <td>{{ entry.original_name }}</td>
+                <td>{{ entry.extension }}</td>
+                {% if admin|default(false) %}
+                    <td>
+                        <a href="{{ url_for('auth.user', uid=entry.user.id) }}" title="View user info">{{ entry.user.name }}</a>
+                    </td>
+                {% endif %}
+                <td>
+                    {% if not admin|default(false) %}
+                        <a href="{{ url_for('.process_id', upload_id=entry.id) }}" title="Finish submission"><i class="fa fa-edit"></i></a>&nbsp;
+                        <a href="{{ url_for('.link_id', upload_id=entry.id) }}" title="Link to sample"><i class="fa fa-link"></i></a>&nbsp;
+                    {% endif %}
+                    <a href="{{ path_for('.delete_id', upload_id=entry.id) }}" title="Delete"><i class="fa fa-trash"></i></a>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>There are no queued samples.</p>
+{% endif %}
+{% if messages|length > 0 %}
+    <h2>Error messages</h2>
+    <p>This are the last 10 error messages that occurred during processing uploaded files</p>
+    <ul class="icons">
+        {% for entry in messages %}
+            <li>
+                <i class="fa fa-li fa-exclamation-circle"></i>&nbsp;
+                {{ entry.message }}&nbsp;
+                {% if admin|default(false) %}
+                    (user: <a href="{{ url_for('auth.user', uid=entry.user.id) }}" title="View user info">{{ entry.user.name }}</a>)
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+{% endif %}

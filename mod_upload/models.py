@@ -16,8 +16,7 @@ class Upload(Base):
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey(
-        'user.id', onupdate="RESTRICT", ondelete="RESTRICT"))
-
+        'user.id', onupdate="CASCADE", ondelete="RESTRICT"))
     user = relationship('User', uselist=False)
     sample_id = Column(Integer, ForeignKey(
         'sample.id', onupdate="CASCADE", ondelete="CASCADE"))
@@ -40,3 +39,35 @@ class Upload(Base):
 
     def __repr__(self):
         return '<Upload %r>' % self.id
+
+
+class QueuedSample(Base):
+    __tablename__ = 'upload_queue'
+    __table_args__ = {'mysql_engine': 'InnoDB'}
+    id = Column(Integer, primary_key=True)
+    sha = Column(String(128), unique=True)
+    extension = Column(String(64), nullable=False)
+    original_name = Column(Text(), nullable=False)
+    user_id = Column(Integer, ForeignKey(
+        'user.id', onupdate="CASCADE", ondelete="RESTRICT"))
+    user = relationship('User', uselist=False)
+
+    def __init__(self, sha, extension, original_name, user_id):
+        self.sha = sha
+        self.extension = extension
+        self.original_name = original_name
+        self.user_id = user_id
+
+
+class UploadLog(Base):
+    __tablename__ = 'upload_log'
+    __table_args__ = {'mysql_engine': 'InnoDB'}
+    id = Column(Integer, primary_key=True)
+    message = Column(Text(), nullable=False)
+    user_id = Column(Integer, ForeignKey(
+        'user.id', onupdate="CASCADE", ondelete="RESTRICT"))
+    user = relationship('User', uselist=False)
+
+    def __init__(self, message, user_id):
+        self.message = message
+        self.user_id = user_id

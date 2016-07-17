@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}Upload a new sample {{ super() }}{% endblock %}
+{% block body %}
+    {{ super() }}
+    <br />
+    <div class="row">
+        <div class="column medium-12">
+            <h1>Upload a new sample</h1>
+            <p>You can upload a new sample in two ways onto the platform:</p>
+            <ul class="icons">
+                <li><i class="fa fa-li fa-upload"></i> <a href="{{ url_for(".upload") }}">HTTP Upload (small samples)</a></li>
+                <li><i class="fa fa-li fa-folder"></i> <a href="{{ url_for(".ftp_index") }}">FTP Upload</a></li>
+            </ul>
+            <p>After you upload them, they are added into the queue below, from where you can add the necessary details in order to submit the sample.</p>
+            {% include "upload/process_table.html" %}
+        </div>
+    </div>
+{% endblock %}

@@ -6,7 +6,8 @@ from decorators import template_renderer
 from mod_auth.controllers import login_required, check_access_rights
 from mod_auth.models import Role
 from mod_home.models import CCExtractorVersion
-from mod_sample.forms import EditSampleForm
+from mod_sample.forms import EditSampleForm, DeleteSampleForm, \
+    DeleteAdditionalSampleForm
 from mod_sample.media_info_parser import MediaInfoFetcher, \
     InvalidMediaInfoError
 
@@ -167,13 +168,59 @@ def edit_sample(sample_id):
 @mod_sample.route('/delete/<sample_id>', methods=['GET', 'POST'])
 @login_required
 @check_access_rights([Role.admin])
+@template_renderer()
 def delete_sample(sample_id):
-    pass
+    from run import config
+    sample = Sample.query.filter(Sample.id == sample_id).first()
+    if sample is not None:
+        # Process or render form
+        form = DeleteSampleForm(request.form)
+        if form.validate_on_submit():
+            # Delete all files (sample, media info & additional files
+            basedir = os.path.join(
+                config.get('SAMPLE_REPOSITORY', ''), 'TestFiles')
+            os.remove(os.path.join(basedir, 'media', sample.sha + '.xml'))
+            for extra in sample.extra_files:
+                os.remove(os.path.join(basedir, 'extra', extra.filename))
+            os.remove(os.path.join(basedir, sample.filename))
+            g.db.delete(sample)
+            g.db.commit()
+            return redirect(url_for('.index'))
+
+        return {
+            'sample': sample,
+            'form': form
+        }
+    raise SampleNotFoundException('Sample with id %s not found' % sample_id)
 
 
 @mod_sample.route('/delete/<sample_id>/additional/<additional_id>',
                   methods=['GET', 'POST'])
 @login_required
 @check_access_rights([Role.admin])
+@template_renderer()
 def delete_sample_additional(sample_id, additional_id):
-    pass
+    from run import config
+    sample = Sample.query.filter(Sample.id == sample_id).first()
+    if sample is not None:
+        # Fetch additional info
+        extra = ExtraFile.query.filter(ExtraFile.id == additional_id).first()
+        if extra is not None:
+            # Process or render form
+            form = DeleteAdditionalSampleForm(request.form)
+            if form.validate_on_submit():
+                basedir = os.path.join(
+                    config.get('SAMPLE_REPOSITORY', ''), 'TestFiles')
+                os.remove(os.path.join(basedir, 'extra', extra.filename))
+                g.db.delete(extra)
+                g.db.commit()
+                return redirect(url_for('.sample_by_id', sample_id=sample.id))
+
+            return {
+                'sample': sample,
+                'extra': extra,
+                'form': form
+            }
+        raise SampleNotFoundException('Extra file %s for sample %s not '
+                                      'found' % (additional_id, sample.id))
+    raise SampleNotFoundException('Sample with id %s not found' % sample_id)

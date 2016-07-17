@@ -25,3 +25,11 @@ class EditSampleForm(Form):
             CCExtractorVersion.id == field.data).first()
         if v is None:
             raise ValidationError('Invalid version selected')
+
+
+class DeleteSampleForm(Form):
+    submit = SubmitField('Delete sample')
+
+
+class DeleteAdditionalSampleForm(Form):
+    submit = SubmitField('Delete extra file')

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Delete sample {{ super() }}{% endblock %}
+{% block body %}
+    {{ super() }}
+    <br />
+    <div class="row">
+        <div class="row">
+            <div class="column medium-12">
+                <h1>Delete sample extra file</h1>
+                <p>Are you sure you want to delete the extra file (id: {{ extra.id }}) from sample {{ sample.id }}?</p>
+                <p><strong>This will delete the file on the server!</strong></p>
+                <form method="post" name="deleteForm" id="deleteForm" action="{{ url_for('.delete_sample_additional', sample_id=sample.id, additional_id=extra.id) }}">
+                    {{ form.csrf_token }}
+                    <div class="row">
+                        <div class="medium-6 columns">
+                            {{ macros.render_field(form.submit) }}
+                        </div>
+                        <div class="medium-6 columns">
+                            <input type="button" class="button" onclick="history.back();" value="Cancel" />
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock %}

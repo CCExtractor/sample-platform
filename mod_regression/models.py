@@ -43,7 +43,7 @@ class RegressionTest(Base):
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
     sample_id = Column(Integer, ForeignKey('sample.id', onupdate='CASCADE',
-                                           ondelete='RESTRICT'))
+                                           ondelete='CASCADE'))
     sample = relationship('Sample', uselist=False, back_populates='tests')
     command = Column(Text(), nullable=False)
     input_type = Column(InputType.db_type())

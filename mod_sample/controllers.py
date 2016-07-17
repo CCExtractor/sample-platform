@@ -17,6 +17,15 @@ from mod_upload.models import Platform
 mod_sample = Blueprint('sample', __name__)
 
 
+@mod_sample.before_app_request
+def before_app_request():
+    g.menu_entries['samples'] = {
+        'title': 'Sample info',
+        'icon': 'object-group',
+        'route': 'sample.index'
+    }
+
+
 class SampleNotFoundException(Exception):
     def __init__(self, message):
         Exception.__init__(self)

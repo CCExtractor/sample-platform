@@ -1,9 +1,11 @@
-from flask import Blueprint, g
+import base64
+
+from flask import Blueprint, g, make_response, render_template
 
 from decorators import template_renderer, get_menu_entries
 from mod_auth.controllers import login_required, check_access_rights
 from mod_auth.models import Role
-from models import Upload, QueuedSample, UploadLog
+from models import Upload, QueuedSample, UploadLog, FTPCredentials
 
 mod_upload = Blueprint('upload', __name__)
 
@@ -54,14 +56,51 @@ def index_admin():
 
 @mod_upload.route('/ftp')
 @login_required
+@template_renderer()
 def ftp_index():
-    pass
+    from run import config
+    credentials = FTPCredentials.query.filter(FTPCredentials.user_id ==
+                                              g.user.id).first()
+    if credentials is None:
+        credentials = FTPCredentials(g.user.id)
+        g.db.add(credentials)
+        g.db.commit()
+
+    return {
+        'host': config.get('SERVER_NAME', ''),
+        'port': config.get('FTP_PORT', ''),
+        'username': credentials.user_name,
+        'password': credentials.password
+    }
 
 
 @mod_upload.route('/ftp/filezilla')
 @login_required
 def ftp_filezilla():
-    pass
+    from run import config
+    credentials = FTPCredentials.query.filter(FTPCredentials.user_id ==
+                                              g.user.id).first()
+    if credentials is None:
+        credentials = FTPCredentials(g.user.id)
+        g.db.add(credentials)
+        g.db.commit()
+
+    response = make_response(
+        render_template(
+            'upload/filezilla_template.xml',
+            host=config.get('SERVER_NAME', ''),
+            port=config.get('FTP_PORT', ''),
+            username=credentials.user_name,
+            password=base64.b64encode(credentials.password)
+        )
+    )
+    response.headers['Content-Description'] = 'File Transfer'
+    response.headers['Cache-Control'] = 'no-cache'
+    response.headers['Content-Type'] = 'text/xml'
+    response.headers['Content-Disposition'] = \
+        'attachment; filename=FileZilla.xml'
+
+    return response
 
 
 @mod_upload.route('/new', methods=['GET', 'POST'])

@@ -17,3 +17,4 @@ KVM_LINUX_NAME = ''
 KVM_WINDOWS_NAME = ''
 KVM_MAX_RUNTIME = 120  # In minutes
 SAMPLE_REPOSITORY = '/path/to/samples'
+FTP_PORT = 21

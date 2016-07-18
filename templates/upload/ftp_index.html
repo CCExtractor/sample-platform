@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Sample upload through FTP {{ super() }}{% endblock %}
+{% block body %}
+    {{ super() }}
+    <br />
+    <div class="row">
+        <div class="column medium-12">
+            <h1>Upload a new sample through FTP</h1>
+            <p>Below you can find the login details so you can upload your sample.</p>
+            <p><strong>These credentials are <em>for you alone</em>! This will guarantee your privacy. If you share them, your samples are no longer guaranteed to be viewable by you alone.</strong></p>
+            <blockquote class="row">
+                <div class="column medium-3">Server:</div><div class="column medium-9">{{ host }}</div>
+                <div class="column medium-3">Port:</div><div class="column medium-9">{{ port }}</div>
+                <div class="column medium-3">Username:</div><div class="column medium-9">{{ username }}</div>
+                <div class="column medium-3">Password:</div><div class="column medium-9">{{ password }}</div>
+            </blockquote>
+            <div class="notice warning">
+                <i class="fa fa-warning fa-large"></i> As soon as the server detects that the file was completely uploaded, the sample will be processed, which moves it to another location. You can see a list of the successfully uploaded files at the <a href="{{ url_for(".index") }}">upload</a> page.
+            </div>
+        </div>
+        <div class="column medium-12">
+            <h2>Pre-configured configuration files</h2>
+            <p>For some programs we offer a ready-made configuration, which you only need to import in order to be able to connect to the platform's FTP site.</p>
+            <h3>FileZilla</h3>
+            <div class="row">
+                <div class="column medium-8">
+                    <ol>
+                        <li>Download the <a target="_blank" href="{{ url_for(".ftp_filezilla") }}">FileZilla configuration file</a></li>
+                        <li>Open FileZilla</li>
+                        <li>Open the configuration file using File -> Import</li>
+                        <li>Confirm you want to import site entries</li>
+                        <li>You should now have an entry called "Sample Submission Platform", to which you can connect to</li>
+                    </ol>
+                </div>
+                <div class="column medium-4">
+                    <img src="{{ url_for('static', filename='img/filezilla.png') }}" width="100px;" />
+                </div>
+            </div>
+            <h3>Other clients</h3>
+            <p>At this moment, there are no automated configuration files yet available for other clients. You can connect to the server using the credentials above.</p>
+            {# FUTURE: add auto-generated files for other clients #}
+        </div>
+    </div>
+{% endblock %}

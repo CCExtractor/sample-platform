@@ -26,7 +26,7 @@
                         <a href="{{ url_for('.process_id', upload_id=entry.id) }}" title="Finish submission"><i class="fa fa-edit"></i></a>&nbsp;
                         <a href="{{ url_for('.link_id', upload_id=entry.id) }}" title="Link to sample"><i class="fa fa-link"></i></a>&nbsp;
                     {% endif %}
-                    <a href="{{ path_for('.delete_id', upload_id=entry.id) }}" title="Delete"><i class="fa fa-trash"></i></a>
+                    <a href="{{ url_for('.delete_id', upload_id=entry.id) }}" title="Delete"><i class="fa fa-trash"></i></a>
                 </td>
             </tr>
         {% endfor %}

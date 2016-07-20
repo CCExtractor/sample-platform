@@ -1,10 +1,16 @@
 import base64
+import hashlib
+import os
 
-from flask import Blueprint, g, make_response, render_template
+from flask import Blueprint, g, make_response, render_template, request, \
+    redirect, url_for
+from werkzeug.utils import secure_filename
 
 from decorators import template_renderer, get_menu_entries
 from mod_auth.controllers import login_required, check_access_rights
 from mod_auth.models import Role
+from mod_sample.models import Sample
+from mod_upload.forms import UploadForm
 from models import Upload, QueuedSample, UploadLog, FTPCredentials
 
 mod_upload = Blueprint('upload', __name__)
@@ -105,8 +111,53 @@ def ftp_filezilla():
 
 @mod_upload.route('/new', methods=['GET', 'POST'])
 @login_required
+@template_renderer()
 def upload():
-    pass
+    from run import config
+    form = UploadForm()
+    if form.validate_on_submit():
+        # Process uploaded file
+        uploaded_file = request.files[form.file.name]
+        if uploaded_file:
+            filename = secure_filename(uploaded_file.filename)
+            temp_path = os.path.join(
+                config.get('SAMPLE_REPOSITORY', ''), 'TempFiles', filename)
+            final_path = os.path.join(
+                config.get('SAMPLE_REPOSITORY', ''), 'QueuedFiles', filename)
+            # Save to temporary location
+            uploaded_file.save(temp_path)
+            # Get hash and check if it's already been submitted
+            hash_sha256 = hashlib.sha256()
+            with open(temp_path, "rb") as f:
+                for chunk in iter(lambda: f.read(4096), b""):
+                    hash_sha256.update(chunk)
+            file_hash = hash_sha256.hexdigest()
+
+            queued_sample = QueuedSample.query.filter(
+                QueuedSample.sha == file_hash).first()
+            sample = Sample.query.filter(Sample.sha == file_hash).first()
+
+            if sample is not None or queued_sample is not None:
+                # Remove existing file and notice user
+                os.remove(temp_path)
+                form.errors['file'] = [
+                    'Sample with same hash already uploaded or queued']
+            else:
+                # Move to queued folder
+                os.rename(temp_path, final_path)
+                # Add to queue
+                filename, file_extension = os.path.splitext(filename)
+                queued_sample = QueuedSample(file_hash, file_extension,
+                                             filename, g.user.id)
+                g.db.add(queued_sample)
+                g.db.commit()
+                # Redirect
+                return redirect(url_for('.index'))
+    return {
+        'form': form,
+        'accept': form.accept,
+        'upload_size': (config.get('MAX_CONTENT_LENGTH', 0)/(1024*1024)),
+    }
 
 
 @mod_upload.route('/<upload_id>', methods=['GET', 'POST'])

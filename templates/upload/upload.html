@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Upload a new sample {{ super() }}{% endblock %}
+{% block body %}
+    {{ super() }}
+    <br />
+    <div class="row">
+        <div class="column medium-12">
+            <h1>Upload a new sample</h1>
+            <p>Please select a file using the "browse" button below, and then press the "Upload file" button. This can take a while though! For bigger files it's recommended to use <a href="{{ url_for(".ftp_index") }}">FTP upload</a> instead.</p>
+            <p>The maximum allowed upload size is: {{ upload_size }} MB</p>
+            <form method="post" action="{{ url_for(".upload") }}" class="vertical" enctype="multipart/form-data">
+                {{ form.csrf_token }}
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        <div class="row">
+                            <div class="callout alert">
+                                <ul class="flashes">
+                                    {% for category, message in messages %}
+                                    <li class="{{ category }}">{{ message }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endwith %}
+                {% if form.errors %}
+                    <div class="row">
+                        <div class="callout alert">
+                            {% for field, error in form.errors.items() %}
+                                {% for e in error %}
+                                    {{ e }}<br>
+                                {% endfor %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+                <div class="medium-12 columns">
+                    {{ macros.render_field(form.file) }}
+                </div>
+                <div class="medium-12 columns">
+                    {{ macros.render_field(form.submit) }}
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="row">
+        <div class="callout warning">
+            <p>Accepted files: {{ accept }}. If you want to upload another type, please make a request to get it added.</p>
+        </div>
+    </div>
+{% endblock %}

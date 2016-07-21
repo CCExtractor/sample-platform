@@ -30,11 +30,6 @@ class DeleteQueuedSampleForm(Form):
     submit = SubmitField('Delete queued file')
 
 
-class LinkQueuedSampleForm(Form):
-    # TODO: finish
-    submit = SubmitField('Link queued file')
-
-
 class FinishQueuedSampleForm(Form):
     # TODO: finish
     submit = SubmitField('Create sample')

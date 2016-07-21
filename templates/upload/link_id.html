@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Link queued file to sample {{ super() }}{% endblock %}
+{% block body %}
+    {{ super() }}
+    <br />
+    <div class="row">
+        <div class="row">
+            <div class="column medium-12">
+                <h1>Link queued file to sample</h1>
+                <p>This will link the submitted file (filename: {{ queued_sample.original_name ~ queued_sample.extension }}) to a sample you submitted previously.</p>
+                {% if samples|length >= 1 %}
+                    <table class="sortable tight striped">
+                        <thead>
+                            <tr>
+                                <th>Original name</th>
+                                <th>Extension</th>
+                                <th class="sorttable_nosort">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for sample in samples %}
+                            <tr>
+                                <td>
+                                    <a href="{{ url_for('sample.sample_by_hash', sample_hash=sample.sha) }}" title="View details" target="_blank">{{ sample.original_name }}</a>
+                                </td>
+                                <td>{{ sample.extension }}</td>
+                                <td>
+                                    <a href="{{ url_for('.link_id_confirm', upload_id=queued_sample.id, sample_id=sample.id) }}" class="button">Link to this sample</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p>Sorry, but you need to submit a sample first before you can link anything to it...</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+{% endblock %}

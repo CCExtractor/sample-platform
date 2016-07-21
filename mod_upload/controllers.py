@@ -181,10 +181,42 @@ def process_id(upload_id):
     pass
 
 
-@mod_upload.route('/link/<upload_id>', methods=['GET', 'POST'])
+@mod_upload.route('/link/<upload_id>')
 @login_required
+@template_renderer()
 def link_id(upload_id):
-    pass
+    # Fetch upload id
+    queued_sample = QueuedSample.query.filter(QueuedSample.id ==
+                                              upload_id).first()
+    if queued_sample is not None:
+        if queued_sample.user_id == g.user.id:
+            # Allowed to link
+            user_uploads = Upload.query.filter(
+                Upload.user_id == g.user.id).all()
+            return {
+                'samples': [u.sample for u in user_uploads],
+                'queued_sample': queued_sample
+            }
+
+    # Raise error
+    raise QueuedSampleNotFoundException()
+
+
+@mod_upload.route('/link/<upload_id>/<sample_id>')
+@login_required
+def link_id_confirm(upload_id, sample_id):
+    # Fetch upload id
+    queued_sample = QueuedSample.query.filter(QueuedSample.id ==
+                                              upload_id).first()
+    sample = Sample.query.filter(Sample.id == sample_id).first()
+    if queued_sample is not None and sample is not None:
+        if queued_sample.user_id == g.user.id and sample.upload.user_id == \
+                g.user.id:
+            # Allowed to link
+            return redirect(url_for('.index'))
+
+    # Raise error
+    raise QueuedSampleNotFoundException()
 
 
 @mod_upload.route('/delete/<upload_id>', methods=['GET', 'POST'])

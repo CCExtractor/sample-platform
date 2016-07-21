@@ -48,7 +48,7 @@ class QueuedSample(Base):
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
     sha = Column(String(128), unique=True)
-    extension = Column(String(64), nullable=False)
+    extension = Column(String(64), nullable=False)  # contains the dot!
     original_name = Column(Text(), nullable=False)
     user_id = Column(Integer, ForeignKey(
         'user.id', onupdate="CASCADE", ondelete="RESTRICT"))
@@ -59,6 +59,11 @@ class QueuedSample(Base):
         self.extension = extension
         self.original_name = original_name
         self.user_id = user_id
+
+    @property
+    def filename(self):
+        return "{sha}{extension}".format(
+            sha=self.sha, extension=self.extension)
 
 
 class UploadLog(Base):

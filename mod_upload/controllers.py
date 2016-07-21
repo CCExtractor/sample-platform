@@ -10,10 +10,16 @@ from decorators import template_renderer, get_menu_entries
 from mod_auth.controllers import login_required, check_access_rights
 from mod_auth.models import Role
 from mod_sample.models import Sample
-from mod_upload.forms import UploadForm
+from mod_upload.forms import UploadForm, DeleteQueuedSampleForm
 from models import Upload, QueuedSample, UploadLog, FTPCredentials
 
 mod_upload = Blueprint('upload', __name__)
+
+
+class QueuedSampleNotFoundException(Exception):
+    def __init__(self, message):
+        Exception.__init__(self)
+        self.message = message
 
 
 @mod_upload.before_app_request
@@ -34,6 +40,14 @@ def before_app_request():
             config_entries['entries'] + g.menu_entries['config']['entries']
     else:
         g.menu_entries['config'] = config_entries
+
+
+@mod_upload.errorhandler(QueuedSampleNotFoundException)
+@template_renderer('upload/queued_sample_not_found.html', 404)
+def not_found(error):
+    return {
+        'message': error.message
+    }
 
 
 @mod_upload.route('/')
@@ -122,8 +136,6 @@ def upload():
             filename = secure_filename(uploaded_file.filename)
             temp_path = os.path.join(
                 config.get('SAMPLE_REPOSITORY', ''), 'TempFiles', filename)
-            final_path = os.path.join(
-                config.get('SAMPLE_REPOSITORY', ''), 'QueuedFiles', filename)
             # Save to temporary location
             uploaded_file.save(temp_path)
             # Get hash and check if it's already been submitted
@@ -143,12 +155,15 @@ def upload():
                 form.errors['file'] = [
                     'Sample with same hash already uploaded or queued']
             else:
-                # Move to queued folder
-                os.rename(temp_path, final_path)
-                # Add to queue
                 filename, file_extension = os.path.splitext(filename)
                 queued_sample = QueuedSample(file_hash, file_extension,
                                              filename, g.user.id)
+                final_path = os.path.join(
+                    config.get('SAMPLE_REPOSITORY', ''), 'QueuedFiles',
+                    queued_sample.filename)
+                # Move to queued folder
+                os.rename(temp_path, final_path)
+                # Add to queue
                 g.db.add(queued_sample)
                 g.db.commit()
                 # Redirect
@@ -172,7 +187,33 @@ def link_id(upload_id):
     pass
 
 
-@mod_upload.route('/delete/<upload_id>')
+@mod_upload.route('/delete/<upload_id>', methods=['GET', 'POST'])
 @login_required
+@template_renderer()
 def delete_id(upload_id):
-    pass
+    from run import config
+    # Fetch upload id
+    queued_sample = QueuedSample.query.filter(QueuedSample.id ==
+                                              upload_id).first()
+    if queued_sample is not None:
+        if queued_sample.user_id == g.user.id or g.user.is_admin:
+            # Allowed to remove
+            form = DeleteQueuedSampleForm(request.form)
+            if form.validate_on_submit():
+                # Delete file, then delete from database
+                file_path = os.path.join(
+                    config.get('SAMPLE_REPOSITORY', ''), 'QueuedFiles',
+                    queued_sample.filename)
+                os.remove(file_path)
+                g.db.delete(queued_sample)
+                g.db.commit()
+
+                return redirect(url_for('.index'))
+
+            return {
+                'form': form,
+                'queued_sample': queued_sample
+            }
+
+    # Raise error
+    raise QueuedSampleNotFoundException()

@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import os
+import traceback
 
 from flask import Blueprint, g, make_response, render_template, request, \
     redirect, url_for
@@ -9,9 +10,11 @@ from werkzeug.utils import secure_filename
 from decorators import template_renderer, get_menu_entries
 from mod_auth.controllers import login_required, check_access_rights
 from mod_auth.models import Role
+from mod_home.models import CCExtractorVersion
 from mod_sample.models import Sample
-from mod_upload.forms import UploadForm, DeleteQueuedSampleForm
-from models import Upload, QueuedSample, UploadLog, FTPCredentials
+from mod_upload.forms import UploadForm, DeleteQueuedSampleForm, \
+    FinishQueuedSampleForm
+from models import Upload, QueuedSample, UploadLog, FTPCredentials, Platform
 
 mod_upload = Blueprint('upload', __name__)
 
@@ -177,8 +180,58 @@ def upload():
 
 @mod_upload.route('/<upload_id>', methods=['GET', 'POST'])
 @login_required
+@template_renderer()
 def process_id(upload_id):
-    pass
+    from run import config
+    # Fetch upload id
+    queued_sample = QueuedSample.query.filter(QueuedSample.id ==
+                                              upload_id).first()
+    if queued_sample is not None:
+        if queued_sample.user_id == g.user.id:
+            # Allowed to process
+            versions = CCExtractorVersion.query.all()
+            form = FinishQueuedSampleForm(request.form)
+            form.version.choices = [(v.id, v.version) for v in versions]
+            if form.validate_on_submit():
+                # Store in DB
+                db_committed = False
+                temp_path = os.path.join(
+                    config.get('SAMPLE_REPOSITORY', ''), 'QueuedFiles',
+                    queued_sample.filename)
+                final_path = os.path.join(
+                    config.get('SAMPLE_REPOSITORY', ''), 'TestFiles',
+                    queued_sample.filename)
+                try:
+                    extension = queued_sample.extension[1:] if len(
+                        queued_sample.extension) > 0 else ""
+                    sample = Sample(queued_sample.sha, extension,
+                                    queued_sample.original_name)
+                    g.db.add(sample)
+                    uploaded = Upload(
+                        g.user.id, sample.id, form.version.data,
+                        Platform.from_string(form.platform.data),
+                        form.parameters.data, form.notes.data
+                    )
+                    g.db.add(uploaded)
+                    g.db.delete(queued_sample)
+                    g.db.commit()
+                    db_committed = True
+                except:
+                    traceback.print_exc()
+                    g.db.rollback()
+                # Move file
+                if db_committed:
+                    os.rename(temp_path, final_path)
+                    return redirect(
+                        url_for('sample.sample_by_id', sample_id=sample.id))
+
+            return {
+                'form': form,
+                'queued_sample': queued_sample
+            }
+
+    # Raise error
+    raise QueuedSampleNotFoundException()
 
 
 @mod_upload.route('/link/<upload_id>')

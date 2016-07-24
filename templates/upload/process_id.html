@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Finalize queued file {{ super() }}{% endblock %}
+{% block body %}
+    {{ super() }}
+    <br />
+    <div class="row">
+        <div class="row">
+            <div class="column medium-12">
+                <h1>Finalize queued file</h1>
+                <p>Please fill in the form below. All fields are required.</p>
+                <form method="post" name="finalizeForm" id="finalizeForm" action="{{ url_for('.process_id', upload_id=queued_sample.id) }}">
+                    {{ form.csrf_token }}
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            <div class="row">
+                                <div class="callout alert">
+                                    <ul class="flashes">
+                                        {% for category, message in messages %}
+                                        <li class="{{ category }}">{{ message }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            </div>
+                        {% endif %}
+                    {% endwith %}
+                    {% if form.errors %}
+                        <div class="row">
+                            <div class="callout alert">
+                                {% for field, error in form.errors.items() %}
+                                    {% for e in error %}
+                                        {{ e }}<br>
+                                    {% endfor %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+                    <div class="row">
+                        <div class="medium-6 columns">
+                            {{ macros.render_field(form.version) }}
+                        </div>
+                        <div class="medium-6 columns">
+                            {{ macros.render_field(form.platform) }}
+                        </div>
+                        <div class="medium-12 columns">
+                            {{ macros.render_field(form.parameters, placeholder="e.g. -autoprogram -latin1 ...") }}
+                        </div>
+                        <div class="medium-12 columns">
+                            {{ macros.render_field(form.notes) }}
+                        </div>
+                        <div class="medium-12 columns">
+                            {{ macros.render_field(form.submit) }}
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock %}

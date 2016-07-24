@@ -33,7 +33,14 @@ class SampleNotFoundException(Exception):
 
 
 def display_sample_info(sample):
-    media_info_fetcher = MediaInfoFetcher(sample)
+    try:
+        media_info_fetcher = MediaInfoFetcher(sample)
+    except InvalidMediaInfoError:
+        # Try to regenerate the file
+        try:
+            media_info_fetcher = MediaInfoFetcher.generate_media_xml(sample)
+        except InvalidMediaInfoError as i:
+            raise SampleNotFoundException(i.message)
     try:
         media_info = media_info_fetcher.get_media_info()
     except InvalidMediaInfoError as i:

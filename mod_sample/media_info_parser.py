@@ -1,6 +1,9 @@
 import os
 import traceback
 
+import sys
+from lxml import etree
+import subprocess
 import xmltodict
 
 
@@ -151,3 +154,31 @@ class MediaInfoFetcher:
             'value': self._process_generic(
                 track, ['Format', 'Menu_ID', 'Muxing_mode'])
         })
+
+    @staticmethod
+    def generate_media_xml(sample):
+        from run import config
+        if not sys.platform.startswith("linux"):
+            raise InvalidMediaInfoError('Windows generation of MediaInfo '
+                                        'unsupported')
+        media_folder = os.path.join(
+            config.get('SAMPLE_REPOSITORY', ''), 'TestFiles')
+        media_info_path = os.path.join(
+            media_folder, 'media', sample.sha + '.xml')
+        media_path = os.path.join(media_folder, sample.filename)
+        process = subprocess.Popen(
+            ['mediainfo', '--Output=xml', media_path, '>', media_info_path])
+        process.wait()
+        if os.path.isfile(media_info_path):
+            # Load media info, and replace full pathname
+            tree = etree.parse(media_info_path)
+            for elem in tree.xpath("//track[@type='General']"):
+                for child in elem:
+                    if child.tag == 'Complete_name':
+                        child.text = child.text.replace(media_folder, '')
+                        break
+            # Store
+            tree.write(media_info_path)
+            # Return instance
+            return MediaInfoFetcher(sample)
+        raise InvalidMediaInfoError('Could not generate media info')

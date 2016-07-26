@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Regression tests {{ super() }}{% endblock %}
+{% block body %}
+    {{ super() }}
+    <br />
+    <div class="row">
+        <div class="column medium-9">
+            <h1>Sample information</h1>
+            {% if tests|length > 0 %}
+                <p class="row">
+                    <label for="category" class="column medium-4">Select a category</label>
+                    <select id="category" onchange="switchCategory();"  class="column medium-6">
+                        {% for category in categories %}
+                            <option value="{{ category.id }}">{{ category.name }}</option>
+                        {% endfor %}
+                    </select>&nbsp;
+                    {% if user.id > 0 and user.is_admin %}
+                        <span class="medium-2">
+                            <a href="{{ url_for(".category_edit", category_id=categories[0].id) }}" title="Edit category" id="category_edit"><i class="fa fa-edit"></i></a>&nbsp;
+                            <a href="{{ url_for(".category_delete", category_id=categories[0].id) }}" title="Delete category" id="category_delete"><i class="fa fa-remove"></i></a>&nbsp;
+                        </span>
+                    {% endif %}
+                </p>
+                <p>Category description:
+                    <span id="category-descriptions">
+                        {% for category in categories %}
+                            <span {% if not loop.first %}class="hide" {% endif %}data-category="{{ category.id }}">{{ category.description }}</span>
+                        {% endfor %}
+                    </span>
+                </p>
+                <table id="regression_tests" class="sortable tight striped">
+                    <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Command</th>
+                        <th>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for test in tests %}
+                        {# TODO: make this work for multiple categories #}
+                        <tr data-category="{{ test.categories[0].id }}" {% if test.categories[0].id != categories[0].id %}class="hide"{% endif %}>
+                            <td>{{ test.categories[0].name }}</td>
+                            <td>{{ test.command }}</td>
+                            <td>
+                                <a href="{{ url_for('.test_view', regression_id=test.id) }}" title="View details"><i class="fa fa-info-circle"></i></a>&nbsp;
+                                {% if user.id > 0 and user.has_role('contributor') %}
+                                    <a href="{{ url_for('.test_edit', regression_id=test.id) }}" title="Edit regression test"><i class="fa fa-edit"></i></a>&nbsp;
+                                    <a href="{{ url_for('.test_delete', regression_id=test.id) }}" title="Delete regression test"><i class="fa fa-remove"></i></a>&nbsp;
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>There are no regression tests available</p>
+            {% endif %}
+        </div>
+        <div class="column medium-3">
+            {% if user.id > 0 and user.has_role('contributor') %}
+            <h5>Regression tests</h5>
+            <ul class="no-bullet">
+                <li><i class="fa fa-plus-circle"></i> <a href="{{ url_for(".test_add") }}">Add new regression test</a></li>
+                {% if user.is_admin %}
+                    <li><i class="fa fa-object-group"></i> <a href="{{ url_for(".category_add") }}">Add regression category</a></li>
+                {% endif %}
+            </ul>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    {{ super() }}
+    <script type="text/javascript">
+        function switchCategory(){
+            var id = $("#category").val();
+            window.location.hash = id;
+            $("tbody tr[data-category='"+id+"']").each(function(idx, elm){
+                elm.setAttribute("class","");
+            });
+            $("tbody tr[data-category!='"+id+"']").each(function(idx, elm){
+                elm.setAttribute("class","hide");
+            });
+            var cat_desc = $("#category-descriptions");
+            cat_desc.find("span[data-category='"+id+"']").each(function(idx, elm){
+                elm.setAttribute("class","");
+            });
+            cat_desc.find("span[data-category!='"+id+"']").each(function(idx, elm){
+                elm.setAttribute("class","hide");
+            });
+            {% if user.is_admin %}
+            var cat_edit = $("#category_edit");
+            var cat_delete = $("#category_delete");
+            var cat_parts = cat_edit.attr("href").split("/");
+            cat_edit.attr("href",cat_parts[cat_parts.length-3]+"/"+id+"/"+cat_parts[cat_parts.length-1]);
+            cat_parts = cat_delete.attr("href").split("/");
+            cat_delete.attr("href",cat_parts[cat_parts.length-3]+"/"+id+"/"+cat_parts[cat_parts.length-1]);
+            {% endif %}
+        }
+        $(document).ready(function(){
+            var hash = window.location.hash.slice(1);
+            $("#category").find("option").each(function(idx, elm){
+                if($(elm).val() === hash){
+                    $(elm).attr("selected","selected");
+                    switchCategory();
+                }
+            });
+        });
+    </script>
+{% endblock %}

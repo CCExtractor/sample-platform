@@ -1,8 +1,16 @@
 from sqlalchemy import Column, Integer, String, Text, ForeignKey
+from sqlalchemy import Table
 from sqlalchemy.orm import relationship
 
 from database import Base, DeclEnum
-from mod_sample.models import Sample
+
+regressionTestCategoryLinkTable = Table(
+    'regression_test_category', Base.metadata,
+    Column('regression_id', Integer, ForeignKey(
+        'regression_test.id', onupdate='CASCADE', ondelete='RESTRICT')),
+    Column('category_id', Integer, ForeignKey(
+        'category.id', onupdate='CASCADE', ondelete='RESTRICT'))
+)
 
 
 class Category(Base):
@@ -12,7 +20,8 @@ class Category(Base):
     name = Column(String(64), unique=True)
     description = Column(Text(), nullable=False)
     regression_tests = relationship(
-        'RegressionTest', back_populates='categories')
+        'RegressionTest', secondary=regressionTestCategoryLinkTable,
+        back_populates='categories')
 
     def __init__(self, name, description):
         self.name = name
@@ -48,15 +57,17 @@ class RegressionTest(Base):
     command = Column(Text(), nullable=False)
     input_type = Column(InputType.db_type())
     output_type = Column(OutputType.db_type())
-    category_id = Column(
-        Integer,
-        ForeignKey('category.id', onupdate='CASCADE', ondelete='RESTRICT')
-    )
-    categories = relationship('Category', back_populates='regression_tests')
+    categories = relationship(
+        'Category', secondary=regressionTestCategoryLinkTable,
+        back_populates='regression_tests')
 
-    def __init__(self):
-        # TODO: finish
-        pass
+    def __init__(self, sample_id, command, input_type, output_type,
+                 category_id):
+        self.sample_id = sample_id
+        self.command = command
+        self.input_type = input_type
+        self.output_type = output_type
+        self.category_id = category_id
 
     def __repr__(self):
         return '<RegressionTest %r>' % self.id

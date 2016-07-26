@@ -52,3 +52,6 @@ class User(Base):
     @property
     def is_admin(self):
         return self.role == Role.admin
+
+    def has_role(self, name):
+        return self.role.value == name or self.is_admin

@@ -1,3 +1,4 @@
+from sqlalchemy import Boolean
 from sqlalchemy import Column, Integer, String, Text, ForeignKey
 from sqlalchemy import Table
 from sqlalchemy.orm import relationship
@@ -60,6 +61,8 @@ class RegressionTest(Base):
     categories = relationship(
         'Category', secondary=regressionTestCategoryLinkTable,
         back_populates='regression_tests')
+    output_files = relationship('RegressionTestOutput',
+                                back_populates='regression_test')
 
     def __init__(self, sample_id, command, input_type, output_type,
                  category_id):
@@ -71,3 +74,28 @@ class RegressionTest(Base):
 
     def __repr__(self):
         return '<RegressionTest %r>' % self.id
+
+
+class RegressionTestOutput(Base):
+    __tablename__ = 'regression_test_output'
+    __table_args__ = {'mysql_engine': 'InnoDB'}
+    id = Column(Integer, primary_key=True)
+    regression_id = Column(Integer, ForeignKey(
+        'regression_test.id', onupdate='CASCADE', ondelete='RESTRICT'))
+    regression_test = relationship('RegressionTest',
+                                   back_populates='output_files')
+    correct = Column(Text())
+    correct_extension = Column(String(64), nullable=False)  # contains the .
+    expected_filename = Column(Text())
+    ignore = Column(Boolean())
+
+    def __init__(self, regression_id, correct, correct_extension,
+                 expected_filename, ignore=False):
+        self.sample_id = regression_id
+        self.correct = correct
+        self.correct_extension = correct_extension
+        self.expected_filename = expected_filename
+        self.ignore = ignore
+
+    def __repr__(self):
+        return '<RegressionTestOutput %r>' % self.id

@@ -146,7 +146,8 @@ def kvm_processor(db, kvm_name):
 
     # 2) Create git repo clone and merge PR into it (if necessary)
     try:
-        repo = Repo(config.get('INSTALL_FOLDER', ''))
+        repo = Repo(os.path.join(
+            config.get('SAMPLE_REPOSITORY', ''), 'ccextractor'))
     except InvalidGitRepositoryError:
         log.critical('Could not open CCExtractor\'s repository copy!')
         return

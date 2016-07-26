@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 
 import datetime
@@ -6,9 +7,11 @@ from flask import Blueprint, request, abort, g, url_for
 from git import Repo, InvalidGitRepositoryError, GitCommandError
 from github import GitHub
 from multiprocessing import Process
+from lxml import etree
 
 from mod_ci.models import Kvm
 from mod_deploy.controllers import request_from_github, is_valid_signature
+from mod_regression.models import RegressionTest, Category
 from mod_test.models import TestType, Test, TestStatus, TestProgress, Fork, \
     TestPlatform
 
@@ -102,7 +105,45 @@ def kvm_processor(db, kvm_name):
     status = Kvm(kvm_name, test)
     # Prepare data
     # 1) Generate test files
-    # TODO: finish
+    base_folder = config.get('SAMPLE_REPOSITORY', '')
+    categories = Category.query.order_by(Category.id.desc()).all()
+    # Init collection file
+    multi_test = etree.Element('multitest')
+    for category in categories:
+        # Create XML file for test
+        file_name = '{name}.xml'.format(name=category.name)
+        single_test = etree.Element('tests')
+        for regression_test in category.regression_tests:
+            entry = etree.SubElement(single_test, 'entry')
+            command = etree.SubElement(entry, 'command')
+            command.text = regression_test.command
+            input_node = etree.SubElement(
+                entry, 'input', type=regression_test.input_type.value)
+            # Need a relative path!
+            input_node.text = os.path.join(
+                'TestFiles', regression_test.sample.filename)
+            output_node = etree.SubElement(entry, 'output')
+            output_node.text = regression_test.output_type.value
+            compare = etree.SubElement(entry, 'compare')
+            for output_file in regression_test.output_files:
+                file_node = etree.SubElement(
+                    compare, 'file', ignore=output_file.ignore)
+                correct = etree.SubElement(file_node, 'correct')
+                # Need a relative path!
+                correct.text = os.path.join(
+                    'TestResults', output_file.filename_correct)
+                expected = etree.SubElement(file_node, 'epxected')
+                expected.text = output_file.filename_expected(
+                    regression_test.sample.sha)
+        # Save XML
+        single_test.write(os.path.join(base_folder, file_name))
+        # Append to collection file
+        test_file = etree.SubElement(multi_test, 'testfile')
+        location = etree.SubElement(test_file, 'location')
+        location.text = file_name
+    # Save collection file
+    multi_test.write(os.path.join(base_folder, 'TestAll.xml'))
+
     # 2) Create git repo clone and merge PR into it (if necessary)
     try:
         repo = Repo(config.get('INSTALL_FOLDER', ''))

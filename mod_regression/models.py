@@ -99,3 +99,13 @@ class RegressionTestOutput(Base):
 
     def __repr__(self):
         return '<RegressionTestOutput %r>' % self.id
+
+    @property
+    def filename_correct(self):
+        return "{name}{extension}".format(
+            sha=self.correct, extension=self.correct_extension)
+
+    def filename_expected(self, sample_hash):
+        return "{sha}{extra}{extension}".format(
+            sha=sample_hash, extra=self.expected_filename,
+            extension=self.extension)

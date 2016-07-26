@@ -146,7 +146,7 @@ def teardown(exception):
 # Register blueprints
 app.register_blueprint(mod_auth, url_prefix='/account')  # Needs to be first
 app.register_blueprint(mod_upload, url_prefix='/upload')
-app.register_blueprint(mod_regression)
+app.register_blueprint(mod_regression, url_prefix='/regression')
 app.register_blueprint(mod_sample, url_prefix='/sample')
 app.register_blueprint(mod_home)
 app.register_blueprint(mod_deploy)

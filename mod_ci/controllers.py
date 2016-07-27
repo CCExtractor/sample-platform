@@ -160,6 +160,8 @@ def kvm_processor(db, kvm_name):
     except InvalidGitRepositoryError:
         log.critical('Could not open CCExtractor\'s repository copy!')
         return
+    # Return to master
+    repo.heads.master.checkout(True)
     # Update repository from upstream
     try:
         origin = repo.remote('origin')
@@ -178,8 +180,6 @@ def kvm_processor(db, kvm_name):
         log.critical('Didn\'t pull any information from remote: %s!' %
                      pull_info[0].flags)
         return
-    # Return to master
-    repo.heads.master.checkout(True)
     # Delete the test branch if it exists, and recreate
     try:
         repo.delete_head('CI_Branch')

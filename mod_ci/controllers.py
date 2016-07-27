@@ -3,9 +3,11 @@ import os
 import sys
 
 import datetime
+import traceback
+
 from flask import Blueprint, request, abort, g, url_for
 from git import Repo, InvalidGitRepositoryError, GitCommandError
-from github import GitHub
+from github import GitHub, ApiError
 from multiprocessing import Process
 from lxml import etree
 
@@ -230,14 +232,18 @@ def queue_test(db, gh_commit, commit, test_type, branch="master"):
     db.add(windows)
     db.commit()
     # Update statuses on GitHub
-    gh_commit.post(
-        state=Status.PENDING, description="Tests queued",
-        context="CI - %s" % linux.platform.value,
-        target_url=url_for('test.test', test_id=linux.id))
-    gh_commit.post(
-        state=Status.PENDING, description="Tests queued",
-        context="CI - %s" % windows.platform.value,
-        target_url=url_for('test.test', test_id=windows.id))
+    try:
+        gh_commit.post(
+            state=Status.PENDING, description="Tests queued",
+            context="CI - %s" % linux.platform.value,
+            target_url=url_for('test.test', test_id=linux.id))
+        gh_commit.post(
+            state=Status.PENDING, description="Tests queued",
+            context="CI - %s" % windows.platform.value,
+            target_url=url_for('test.test', test_id=windows.id))
+    except ApiError:
+        traceback.print_exc()
+        return
     # Kick off KVM process
     p_lin = Process(target=kvm_processor_linux, args=(db))
     p_lin.start()
@@ -275,7 +281,6 @@ def start_ci():
             gh_commit = gh.repos(g.github['repository_owner'])(
                 g.github['repository']).statuses(commit)
             queue_test(g.db, gh_commit, commit, TestType.commit)
-            pass
 
         elif event == "pull_request":  # If it's a PR, run the tests
             commit = payload['after']
@@ -287,7 +292,6 @@ def start_ci():
             elif payload['action'] == 'synchronize':
                 # Run/queue a new test set
                 queue_test(g.db, gh_commit, commit, TestType.pull_request)
-                pass
             elif payload['action'] == 'closed':
                 # Cancel running queue
                 tests = Test.query.filter(Test.commit == commit).all()
@@ -304,12 +308,9 @@ def start_ci():
                         state=Status.FAILURE, description="Tests canceled",
                         context="CI - %s" % test.platform.value,
                         target_url=url_for('test.test', test_id=test.id))
-                pass
             elif payload['action'] == 'reopened':
                 # Run tests again
                 queue_test(g.db, gh_commit, commit, TestType.pull_request)
-                pass
-            pass
         else:
             # Unknown type
             g.log.warning('CI unrecognized event: %s' % event)

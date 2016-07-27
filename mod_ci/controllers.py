@@ -3,7 +3,6 @@ import os
 import sys
 
 import datetime
-import traceback
 
 from flask import Blueprint, request, abort, g, url_for
 from git import Repo, InvalidGitRepositoryError, GitCommandError
@@ -13,7 +12,7 @@ from lxml import etree
 
 from mod_ci.models import Kvm
 from mod_deploy.controllers import request_from_github, is_valid_signature
-from mod_regression.models import RegressionTest, Category
+from mod_regression.models import Category
 from mod_test.models import TestType, Test, TestStatus, TestProgress, Fork, \
     TestPlatform
 
@@ -220,6 +219,7 @@ def kvm_processor(db, kvm_name):
 
 
 def queue_test(db, gh_commit, commit, test_type, branch="master"):
+    from run import log
     fork = Fork.query.filter(Fork.github.like(
         "%/CCExtractor/ccextractor.git")).first()
     if test_type == TestType.commit:
@@ -243,13 +243,12 @@ def queue_test(db, gh_commit, commit, test_type, branch="master"):
             target_url=url_for(
                 'test.test', test_id=windows.id, _external=True))
     except ApiError as a:
-        print(a.response)
-        traceback.print_exc()
+        log.critical('Could not post to GitHub! Response: %s' % a.response)
         return
     # Kick off KVM process
-    p_lin = Process(target=kvm_processor_linux, args=(db))
+    p_lin = Process(target=kvm_processor_linux, args=(db,))
     p_lin.start()
-    p_win = Process(target=kvm_processor_windows, args=(db))
+    p_win = Process(target=kvm_processor_windows, args=(db,))
     p_win.start()
 
 

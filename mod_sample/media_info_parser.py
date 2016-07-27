@@ -178,7 +178,8 @@ class MediaInfoFetcher:
                         child.text = child.text.replace(media_folder, '')
                         break
             # Store
-            tree.write(media_info_path)
+            tree.write(media_info_path, encoding='utf-8',
+                       xml_declaration=True, pretty_print=True)
             # Return instance
             return MediaInfoFetcher(sample)
         raise InvalidMediaInfoError('Could not generate media info')

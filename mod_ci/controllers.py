@@ -236,12 +236,14 @@ def queue_test(db, gh_commit, commit, test_type, branch="master"):
         gh_commit.post(
             state=Status.PENDING, description="Tests queued",
             context="CI - %s" % linux.platform.value,
-            target_url=url_for('test.test', test_id=linux.id))
+            target_url=url_for('test.test', test_id=linux.id, _external=True))
         gh_commit.post(
             state=Status.PENDING, description="Tests queued",
             context="CI - %s" % windows.platform.value,
-            target_url=url_for('test.test', test_id=windows.id))
-    except ApiError:
+            target_url=url_for(
+                'test.test', test_id=windows.id, _external=True))
+    except ApiError as a:
+        print(a.response)
         traceback.print_exc()
         return
     # Kick off KVM process

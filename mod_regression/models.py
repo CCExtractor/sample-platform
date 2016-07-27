@@ -108,4 +108,4 @@ class RegressionTestOutput(Base):
     def filename_expected(self, sample_hash):
         return "{sha}{extra}{extension}".format(
             sha=sample_hash, extra=self.expected_filename,
-            extension=self.extension)
+            extension=self.correct_extension)

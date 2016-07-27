@@ -228,6 +228,7 @@ def queue_test(db, gh_commit, commit, test_type, branch="master"):
     # Create Windows test entry
     windows = Test(TestPlatform.windows, test_type, fork.id, branch, commit)
     db.add(windows)
+    db.commit()
     # Update statuses on GitHub
     gh_commit.post(
         state=Status.PENDING, description="Tests queued",

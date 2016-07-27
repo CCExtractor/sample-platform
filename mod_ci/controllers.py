@@ -139,13 +139,13 @@ def kvm_processor(db, kvm_name):
                 expected.text = output_file.filename_expected(
                     regression_test.sample.sha)
         # Save XML
-        single_test.write(os.path.join(base_folder, file_name))
+        single_test.getroottree().write(os.path.join(base_folder, file_name))
         # Append to collection file
         test_file = etree.SubElement(multi_test, 'testfile')
         location = etree.SubElement(test_file, 'location')
         location.text = file_name
     # Save collection file
-    multi_test.write(os.path.join(base_folder, 'TestAll.xml'))
+    multi_test.getroottree().write(os.path.join(base_folder, 'TestAll.xml'))
 
     # 2) Create git repo clone and merge PR into it (if necessary)
     try:

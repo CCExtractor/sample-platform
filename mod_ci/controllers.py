@@ -128,7 +128,9 @@ def kvm_processor(db, kvm_name):
             compare = etree.SubElement(entry, 'compare')
             for output_file in regression_test.output_files:
                 file_node = etree.SubElement(
-                    compare, 'file', ignore=output_file.ignore)
+                    compare, 'file',
+                    ignore='true' if output_file.ignore else 'false'
+                )
                 correct = etree.SubElement(file_node, 'correct')
                 # Need a relative path!
                 correct.text = os.path.join(
@@ -248,8 +250,8 @@ def queue_test(db, gh_commit, commit, test_type, branch="master"):
     # Kick off KVM process
     p_lin = Process(target=kvm_processor_linux, args=(db,))
     p_lin.start()
-    p_win = Process(target=kvm_processor_windows, args=(db,))
-    p_win.start()
+    # p_win = Process(target=kvm_processor_windows, args=(db,))
+    # p_win.start()
 
 
 @mod_ci.route('/start-ci', methods=['GET', 'POST'])

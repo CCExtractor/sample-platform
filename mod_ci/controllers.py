@@ -106,7 +106,8 @@ def kvm_processor(db, kvm_name):
     status = Kvm(kvm_name, test.id)
     # Prepare data
     # 1) Generate test files
-    base_folder = config.get('SAMPLE_REPOSITORY', '')
+    base_folder = os.path.join(
+        config.get('SAMPLE_REPOSITORY', ''), 'ci-tests')
     categories = Category.query.order_by(Category.id.desc()).all()
     # Init collection file
     multi_test = etree.Element('multitest')
@@ -120,9 +121,9 @@ def kvm_processor(db, kvm_name):
             command.text = regression_test.command
             input_node = etree.SubElement(
                 entry, 'input', type=regression_test.input_type.value)
-            # Need a relative path!
-            input_node.text = os.path.join(
-                'TestFiles', regression_test.sample.filename)
+            # Need a path that is relative to the folder we provide
+            # inside the CI environment.
+            input_node.text = regression_test.sample.filename
             output_node = etree.SubElement(entry, 'output')
             output_node.text = regression_test.output_type.value
             compare = etree.SubElement(entry, 'compare')
@@ -132,9 +133,9 @@ def kvm_processor(db, kvm_name):
                     ignore='true' if output_file.ignore else 'false'
                 )
                 correct = etree.SubElement(file_node, 'correct')
-                # Need a relative path!
-                correct.text = os.path.join(
-                    'TestResults', output_file.filename_correct)
+                # Need a path that is relative to the folder we provide
+                # inside the CI environment.
+                correct.text = output_file.filename_correct
                 expected = etree.SubElement(file_node, 'epxected')
                 expected.text = output_file.filename_expected(
                     regression_test.sample.sha)
@@ -156,7 +157,7 @@ def kvm_processor(db, kvm_name):
     # 2) Create git repo clone and merge PR into it (if necessary)
     try:
         repo = Repo(os.path.join(
-            config.get('SAMPLE_REPOSITORY', ''), 'ccextractor'))
+            config.get('SAMPLE_REPOSITORY', ''), 'unsafe-ccextractor'))
     except InvalidGitRepositoryError:
         log.critical('Could not open CCExtractor\'s repository copy!')
         return

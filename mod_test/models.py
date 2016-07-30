@@ -1,4 +1,6 @@
 import datetime
+import string
+
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 
@@ -56,12 +58,19 @@ class Test(Base):
         self.branch = branch
         self.commit = commit
         if token is None:
-            # Autogenerate token
-            token = User.create_random_password(64)
+            # Auto-generate token
+            token = self.create_token(64)
         self.token = token
 
     def __repr__(self):
         return '<TestEntry %r>' % self.id
+
+    @staticmethod
+    def create_token(length=64):
+        chars = string.ascii_letters + string.digits
+        import os
+        return ''.join(chars[ord(os.urandom(1)) % len(chars)] for i in
+                       range(length))
 
 
 class TestProgress(Base):

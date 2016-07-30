@@ -32,12 +32,12 @@ logFile="${reportFolder}/log.html"
 
 # Post status to the server
 function postStatus {
-    curl -s -A "${userAgent}" --data "type=progress&status=$1&message=$2" -w "\n" ${reportURL} >> "${logFile}"
+    curl -s -A "${userAgent}" --data "type=progress&status=$1&message=$2" -w "\n" "${reportURL}" >> "${logFile}"
 }
 # Exit script and post abort status
 function haltAndCatchFire {
 	postStatus "canceled" $1 >> "${logFile}"
-	curl -s -A "${userAgent}" --form "type=upload" --form "html=@${logFile}" -w "\n" ${reportURL}
+	curl -s -A "${userAgent}" --form "type=upload" --form "html=@${logFile}" -w "\n" "${reportURL}"
 	sudo shutdown -h now
 }
 # Fail when the exit status is not equal to 0
@@ -50,9 +50,12 @@ function executeCommand {
 	fi
 }
 
+postStatus "preparation" "Copy testsuite to local folder"
+executeCommand cp -r ${suiteSrcDir}/* ${suiteDstDir}
+
 postStatus "preparation" "Copy code to local folder"
-executeCommand cp -r "${srcDir}/*" "${dstDir}"
-executeCommand cd "${dstDir}"
+executeCommand cp -r ${srcDir}/* ${dstDir}
+executeCommand cd ${dstDir}
 
 postStatus "building" "Compiling CCExtractor"
 # Go to linux build folder
@@ -64,8 +67,8 @@ if [ -x "ccextractor" ]; then
 	chmod 700 ccextractor
 	# Run testSuite
 	postStatus "testing" "Running tests"
-	executeCommand cd "${suiteDir}"
-	executeCommand ${tester} --config "$DIR/dummy_config.xml" --entries "${testFile}" --executable "${dstDir}/linux/ccextractor" --tempfolder "${tempFolder}" --timeout 3000 --resultfolder "${reportFolder}" --samplefolder "${sampleFolder}" --method Server --url "${reportURL}"
+	executeCommand cd ${suiteDstDir}
+	executeCommand ${tester} --config "$DIR/dummy_config.xml" --entries "${testFile}" --executable "${dstDir}/linux/ccextractor" --tempfolder "${tempFolder}" --timeout 3000 --resultfolder "${resultFolder}" --samplefolder "${sampleFolder}" --method Server --url "${reportURL}"
 	postStatus "completed" "Ran all tests"
 	# Shut down
 	sudo shutdown -h now

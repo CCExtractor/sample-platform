@@ -10,13 +10,17 @@ srcDir="/path/to/ccextractor/repository"
 # Directory to copy the files to
 dstDir="/new/path/to/ccextractor/repository"
 # Directory where the test suite is located
-suiteDir="/path/to/test/suite"
+suiteSrcDir="/path/to/test/suite"
+# Directory where the test suite is located
+suiteDstDir="/path/to/test/suite"
 # Shell script to launch the test suite
 tester="./ccextractortester"
 # Location of the samples
 sampleFolder="/path/to/test/files"
+# Location of the result files
+resultFolder="/path/to/result/files"
 # Testfile location
-testFile="${sampleFolder}/testfile.xml"
+testFile="/path/to/testfile.xml"
 # The folder that will be used to store the results in
 reportFolder="/path/to/folder/"
 # The folder that will be used to temporarily store the result files in

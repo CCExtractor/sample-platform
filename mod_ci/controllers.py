@@ -237,7 +237,7 @@ def queue_test(db, gh_commit, commit, test_type, branch="master"):
     from run import log
     fork = Fork.query.filter(Fork.github.like(
         "%/CCExtractor/ccextractor.git")).first()
-    if test_type == TestType.commit:
+    if test_type == TestType.pull_request:
         branch = "pull_request"
     # Create Linux test entry
     linux = Test(TestPlatform.linux, test_type, fork.id, branch, commit)

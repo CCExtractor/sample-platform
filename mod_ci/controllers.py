@@ -105,6 +105,12 @@ def kvm_processor(db, kvm_name):
         return
     status = Kvm(kvm_name, test.id)
     # Prepare data
+    # 0) Write url to file
+    full_url = url_for('.progress_reporter', test_id=test.id,
+                       token=test.token, _external=True)
+    file_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'reportURL')
+    with open(file_path, 'w') as f:
+        f.write(full_url)
     # 1) Generate test files
     base_folder = os.path.join(
         config.get('SAMPLE_REPOSITORY', ''), 'ci-tests')

@@ -339,6 +339,17 @@ def progress_reporter(test_id, token):
     # Verify token
     test = Test.query.filter(Test.id == test_id).first()
     if test is not None and test.token == token:
-        # TODO: finish
-        return "OK"
+        if 'type' in request.form:
+            if request.form['type'] == 'progress':
+                # Progress, log
+                status = TestStatus.from_string(request.form['status'])
+                progress = TestProgress(
+                    test.id, status, request.form['message'])
+                g.db.add(progress)
+                g.db.commit()
+            elif request.form['type'] == 'upload':
+                # File upload, process
+                # TODO: finish
+                pass
+            return "OK"
     return "FAIL"

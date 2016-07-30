@@ -1,0 +1,74 @@
+#!/bin/bash
+
+# This script will run the test suite. It requires no parameters, but needs
+# some files to be present on the system. These are:
+# - file containing the URL to report to
+# - git repository with the code to compile & run
+
+DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+
+if [ ! -f "$DIR/variables" ]; then
+    # No variable file defined
+    sudo shutdown -h now
+fi
+
+# Source variables
+. "$DIR/variables"
+
+# Check if required files & folders are present
+if [ ! -f ${reportURLFile} ]; then
+    # No report URL file defined
+    sudo shutdown -h now
+fi
+if [ ! -d ${srcDir} ]; then
+    # No source dir defined
+    sudo shutdown -h now
+fi
+
+reportURL=$(cat ${reportURLFile})
+userAgent="CCX/CI_BOT"
+logFile="${reportFolder}/log.html"
+# Functions to shorten the script
+
+# Post status to the server
+function postStatus {
+    curl -s -A "${userAgent}" --data "type=progress&status=$1&message=$2" -w "\n" ${reportURL} >> "${logFile}"
+}
+# Exit script and post abort status
+function haltAndCatchFire {
+	postStatus "error" $1 >> "${logFile}"
+	curl -s -A "${userAgent}" --form "type=upload" --form "html=@${logFile}" -w "\n" ${reportURL}
+	sudo shutdown -h now
+}
+# Fail when the exit status is not equal to 0
+function executeCommand {
+	#echo "$@"
+	"$@" >> "${logFile}"
+	local status=$?
+	if [ ${status} -ne 0 ]; then
+		haltAndCatchFire "" # No message needed as we post before anyway
+	fi
+}
+
+postStatus "preparation" "copy code"
+executeCommand cp -r "${srcDir}" "${dstDir}"
+executeCommand cd "${dstDir}"
+
+postStatus "preparation" "building CCExtractor"
+# Go to linux build folder
+executeCommand cd linux
+# Build CCExtractor using the bash build script
+./build >> "${logFile}"
+# Check if build succeeded
+if [ -x "ccextractor" ]; then
+	chmod 700 ccextractor
+	# Run testSuite
+	postStatus "running" "test suite"
+	executeCommand cd "${suiteDir}"
+	executeCommand ${tester} --config "$DIR/dummy_config.xml" --entries "${testFile}" --executable "${dstDir}/linux/ccextractor" --tempfolder "${tempFolder}" --timeout 3000 --resultfolder "${reportFolder}" --samplefolder "${sampleFolder}" --method Server --url "${reportURL}"
+	postStatus "finalized" "finished"
+	# Shut down
+	sudo shutdown -h now
+else
+	haltAndCatchFire "build"
+fi

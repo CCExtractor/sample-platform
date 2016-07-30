@@ -1,0 +1,17 @@
+#!/bin/bash
+# /etc/init.d/testsuite
+#
+# Starts the test suite when booting
+case "${1}" in
+    start)
+        echo "Starting test suite daemon..."
+        cd /usr/src/ci/
+        ./runCI
+        ;;
+    *)
+        echo "Usage: /etc/init.d/testsuite {start}"
+        exit 1
+        ;;
+esac
+
+exit 0

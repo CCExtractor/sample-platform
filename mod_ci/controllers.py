@@ -339,6 +339,7 @@ def start_ci():
 
 @mod_ci.route('/progress-reporter/<test_id>/<token>', methods=['POST'])
 def progress_reporter(test_id, token):
+    from run import log
     # Verify token
     test = Test.query.filter(Test.id == test_id).first()
     if test is not None and test.token == token:
@@ -350,9 +351,21 @@ def progress_reporter(test_id, token):
                     test.id, status, request.form['message'])
                 g.db.add(progress)
                 g.db.commit()
+                # If status is complete, remove the Kvm entry
+                if status == TestStatus.completed:
+                    kvm = Kvm.query.filter(Kvm.test_id == test_id).first()
+                    g.db.remove(kvm)
+                    g.db.commit()
+            elif request.form['type'] == 'equality':
+                log.debug(
+                    "Result of sample {sample} matches the result "
+                    "{result}".format(sample=request.form['sample'],
+                                      result=request.form['equal']))
+                # TODO: finish
             elif request.form['type'] == 'upload':
                 # File upload, process
                 # TODO: finish
+                log.debug('We got a file.')
                 pass
             return "OK"
     return "FAIL"

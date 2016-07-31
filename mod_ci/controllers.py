@@ -142,7 +142,7 @@ def kvm_processor(db, kvm_name):
                 # Need a path that is relative to the folder we provide
                 # inside the CI environment.
                 correct.text = output_file.filename_correct
-                expected = etree.SubElement(file_node, 'epxected')
+                expected = etree.SubElement(file_node, 'expected')
                 expected.text = output_file.filename_expected(
                     regression_test.sample.sha)
         # Save XML

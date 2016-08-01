@@ -68,7 +68,7 @@ def kvm_processor(db, kvm_name):
                 test_progress = TestProgress(
                     status.test.id, TestStatus.canceled, 'Runtime exceeded')
                 db.add(test_progress)
-                db.remove(status)
+                db.delete(status)
                 db.commit()
                 # Abort process
                 if vm.destroy() == -1:
@@ -125,7 +125,8 @@ def kvm_processor(db, kvm_name):
         file_name = '{name}.xml'.format(name=category.name)
         single_test = etree.Element('tests')
         for regression_test in category.regression_tests:
-            entry = etree.SubElement(single_test, 'entry')
+            entry = etree.SubElement(
+                single_test, 'entry', id=regression_test.id)
             command = etree.SubElement(entry, 'command')
             command.text = regression_test.command
             input_node = etree.SubElement(
@@ -139,7 +140,8 @@ def kvm_processor(db, kvm_name):
             for output_file in regression_test.output_files:
                 file_node = etree.SubElement(
                     compare, 'file',
-                    ignore='true' if output_file.ignore else 'false'
+                    ignore='true' if output_file.ignore else 'false',
+                    id=output_file.id
                 )
                 correct = etree.SubElement(file_node, 'correct')
                 # Need a path that is relative to the folder we provide
@@ -354,18 +356,39 @@ def progress_reporter(test_id, token):
                 # If status is complete, remove the Kvm entry
                 if status == TestStatus.completed:
                     kvm = Kvm.query.filter(Kvm.test_id == test_id).first()
-                    g.db.remove(kvm)
+                    g.db.delete(kvm)
                     g.db.commit()
             elif request.form['type'] == 'equality':
-                log.debug(
-                    "Result of sample {sample} matches the result "
-                    "{result}".format(sample=request.form['sample'],
-                                      result=request.form['equal']))
                 # TODO: finish
+                log.debug(
+                    'Result for file {f_id} from test {id} is equal to '
+                    'the expected file!'.format(
+                        f_id=request.form['test_file_id'],
+                        id=request.form['test_id']
+                    )
+                )
+
             elif request.form['type'] == 'upload':
                 # File upload, process
                 # TODO: finish
-                log.debug('We got a file.')
+                log.debug(
+                    'Result for file {f_id} from test {id} is not equal to '
+                    'the expected file!'.format(
+                        f_id=request.form['test_file_id'],
+                        id=request.form['test_id']
+                    )
+                )
+                pass
+            elif request.form['type'] == 'finish':
+                # Test was done
+                # TODO: finish
+                log.debug(
+                    'Test {id} finished in {time} with code: {exit}'.format(
+                        id=request.form['test_id'],
+                        time=request.form['runTime'],
+                        exit=request.form['exitCode']
+                    )
+                )
                 pass
             return "OK"
     return "FAIL"

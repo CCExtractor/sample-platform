@@ -2,6 +2,7 @@ import datetime
 import string
 
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime
+from sqlalchemy import UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from database import Base, DeclEnum
@@ -49,6 +50,9 @@ class Test(Base):
     commit = Column(String(64), nullable=False)
     progress = relationship('TestProgress', back_populates='test',
                             order_by='TestProgress.id')
+    result = relationship('TestResult', back_populates='test',
+                          uselist=False)
+    result_files = relationship('TestResultFile', back_populates='test')
 
     def __init__(self, platform, test_type, fork_id, branch, commit,
                  token=None):
@@ -94,3 +98,71 @@ class TestProgress(Base):
 
     def __repr__(self):
         return '<TestStatus %r: %r>' % self.test_id, self.status
+
+
+class TestResult(Base):
+    __tablename__ = 'test_result'
+    __table_args__ = {'mysql_engine': 'InnoDB'}
+    test_id = Column(Integer, ForeignKey('test.id', onupdate="CASCADE",
+                                         ondelete="CASCADE"),
+                     primary_key=True)
+    test = relationship('Test', uselist=False, back_populates='result')
+    regression_test_id = Column(
+        Integer, ForeignKey('regression_test.id', onupdate="CASCADE",
+                            ondelete="CASCADE"), primary_key=True
+    )
+    regression_test = relationship('RegressionTest', uselist=False)
+    runtime = Column(Integer)  # Runtime in ms
+    exit_code = Column(Integer)
+
+    def __init__(self, test_id, regression_test_id, runtime, exit_code):
+        self.test_id = test_id
+        self.regression_test_id = regression_test_id
+        self.runtime = runtime
+        self.exit_code = exit_code
+
+    def __repr__(self):
+        return '<TestResult {tid},{rid}: {code} in {time} ms>'.format(
+            tid=self.test_id, rid=self.regression_test_id,
+            code=self.exit_code, time=self.runtime)
+
+
+class TestResultFile(Base):
+    __tablename__ = 'test_result_file'
+    __table_args__ = {'mysql_engine': 'InnoDB'}
+    test_id = Column(
+        Integer, ForeignKey('test.id', onupdate="CASCADE",
+                            ondelete="CASCADE"), primary_key=True
+    )
+    test = relationship('Test', uselist=False, back_populates='result_files')
+    regression_test_id = Column(
+        Integer, ForeignKey('regression_test.id', onupdate="CASCADE",
+                            ondelete="CASCADE"), primary_key=True
+    )
+    regression_test = relationship('RegressionTest', uselist=False)
+    regression_test_output_id = Column(
+        Integer, ForeignKey('regression_test_output.id', onupdate="CASCADE",
+                            ondelete="CASCADE"), primary_key=True
+    )
+    regression_test_output = relationship(
+        'RegressionTestOutput', uselist=False)
+    expected = Column(Text(), nullable=False)  # If the test changes in the
+    # future, we need to keep track of which sample was 'correct' at the
+    # time the test ran.
+    got = Column(Text(), nullable=True)  # If null/empty, it's equal to the
+    #  expected version
+
+    def __init__(self, test_id, regression_test_id,
+                 regression_test_output_id, expected, got=None):
+        self.test_id = test_id
+        self.regression_test_id = regression_test_id
+        self.regression_test_output_id = regression_test_output_id
+        self.expected = expected
+        self.got = got
+
+    def __repr__(self):
+        return '<TestResultFile {tid},{rid},{oid}: {equal}>'.format(
+            tid=self.test_id, rid=self.regression_test_id,
+            oid=self.regression_test_output_id,
+            equal="Equal" if self.got is None else "Unequal"
+        )

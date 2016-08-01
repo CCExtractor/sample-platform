@@ -1,6 +1,7 @@
 from flask import Blueprint
 
-from mod_test.models import Fork, Test, TestProgress
+from mod_test.models import Fork, Test, TestProgress, TestResult, \
+    TestResultFile
 
 mod_test = Blueprint('test', __name__)
 

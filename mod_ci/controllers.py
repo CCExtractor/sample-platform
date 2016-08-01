@@ -12,9 +12,9 @@ from lxml import etree
 
 from mod_ci.models import Kvm
 from mod_deploy.controllers import request_from_github, is_valid_signature
-from mod_regression.models import Category
+from mod_regression.models import Category, RegressionTestOutput
 from mod_test.models import TestType, Test, TestStatus, TestProgress, Fork, \
-    TestPlatform
+    TestPlatform, TestResultFile, TestResult
 
 if sys.platform.startswith("linux"):
     import libvirt
@@ -358,37 +358,33 @@ def progress_reporter(test_id, token):
                     kvm = Kvm.query.filter(Kvm.test_id == test_id).first()
                     g.db.delete(kvm)
                     g.db.commit()
+                    # TODO post GitHub update
             elif request.form['type'] == 'equality':
-                # TODO: finish
-                log.debug(
-                    'Result for file {f_id} from test {id} is equal to '
-                    'the expected file!'.format(
-                        f_id=request.form['test_file_id'],
-                        id=request.form['test_id']
-                    )
-                )
-
+                rto = RegressionTestOutput.query.filter(
+                    RegressionTestOutput.id == request.form[
+                        'test_file_id']).first()
+                result_file = TestResultFile(test.id, request.form[
+                    'test_id'], rto.id, rto.correct)
+                g.db.add(result_file)
+                g.db.commit()
             elif request.form['type'] == 'upload':
                 # File upload, process
-                # TODO: finish
-                log.debug(
-                    'Result for file {f_id} from test {id} is not equal to '
-                    'the expected file!'.format(
-                        f_id=request.form['test_file_id'],
-                        id=request.form['test_id']
-                    )
-                )
-                pass
+                # TODO: store file, calculate hash & store
+                file_hash = ''
+                rto = RegressionTestOutput.query.filter(
+                    RegressionTestOutput.id == request.form[
+                        'test_file_id']).first()
+                result_file = TestResultFile(test.id, request.form[
+                    'test_id'], rto.id, rto.correct, file_hash)
+                g.db.add(result_file)
+                g.db.commit()
             elif request.form['type'] == 'finish':
                 # Test was done
-                # TODO: finish
-                log.debug(
-                    'Test {id} finished in {time} with code: {exit}'.format(
-                        id=request.form['test_id'],
-                        time=request.form['runTime'],
-                        exit=request.form['exitCode']
-                    )
+                result = TestResult(
+                    test.id, request.form['test_id'], request.form['runTime'],
+                    request.form['exitCode']
                 )
-                pass
+                g.db.add(result)
+                g.db.commit()
             return "OK"
     return "FAIL"

@@ -126,7 +126,7 @@ def kvm_processor(db, kvm_name):
         single_test = etree.Element('tests')
         for regression_test in category.regression_tests:
             entry = etree.SubElement(
-                single_test, 'entry', id=regression_test.id)
+                single_test, 'entry', id=str(regression_test.id))
             command = etree.SubElement(entry, 'command')
             command.text = regression_test.command
             input_node = etree.SubElement(
@@ -141,7 +141,7 @@ def kvm_processor(db, kvm_name):
                 file_node = etree.SubElement(
                     compare, 'file',
                     ignore='true' if output_file.ignore else 'false',
-                    id=output_file.id
+                    id=str(output_file.id)
                 )
                 correct = etree.SubElement(file_node, 'correct')
                 # Need a path that is relative to the folder we provide

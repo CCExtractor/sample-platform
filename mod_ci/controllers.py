@@ -105,16 +105,14 @@ def kvm_processor(db, kvm_name, platform):
         snapshot.getName(), kvm_name))
     # Get oldest test for this platform
     finished_tests = TestProgress.query.filter(
-        TestProgress.status in [TestStatus.canceled, TestStatus.completed]
-    ).all()
-    finished_test_ids = [t.id for t in finished_tests]
-    log.debug('Finished tests: {tests}'.format(
-        tests=",".join(finished_test_ids)))
-    test = Test.query.filter(Test.id not in finished_test_ids).filter(
+        TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
+    ).subquery()
+    test = Test.query.filter(Test.id.notin_(finished_tests)).filter(
         Test.platform == platform).order_by(Test.id.asc()).first()
     if test is None:
         log.info('No more tests to run, returning')
         return
+    log.debug('Starting test %s' % test.id)
     status = Kvm(kvm_name, test.id)
     # Prepare data
     # 0) Write url to file

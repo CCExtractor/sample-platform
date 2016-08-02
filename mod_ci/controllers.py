@@ -29,19 +29,26 @@ class Status:
     FAILURE = "failure"
 
 
+def start_ci_vm(db):
+    p_lin = Process(target=kvm_processor_linux, args=(db,))
+    p_lin.start()
+    # p_win = Process(target=kvm_processor_windows, args=(db,))
+    # p_win.start()
+
+
 def kvm_processor_linux(db):
     from run import config
     kvm_name = config.get('KVM_LINUX_NAME', '')
-    return kvm_processor(db, kvm_name)
+    return kvm_processor(db, kvm_name, TestPlatform.linux)
 
 
 def kvm_processor_windows(db):
     from run import config
     kvm_name = config.get('KVM_WINDOWS_NAME', '')
-    return kvm_processor(db, kvm_name)
+    return kvm_processor(db, kvm_name, TestPlatform.windows)
 
 
-def kvm_processor(db, kvm_name):
+def kvm_processor(db, kvm_name, platform):
     from run import config, log
     if kvm_name == "":
         log.critical('KVM name is empty!')
@@ -96,10 +103,15 @@ def kvm_processor(db, kvm_name):
         return
     log.info('Reverted to snapshot %s for VM %s' % (
         snapshot.getName(), kvm_name))
-    # Get oldest test
-    test = Test.query.filter(Test.id not in TestProgress.query.filter(
+    # Get oldest test for this platform
+    finished_tests = TestProgress.query.filter(
         TestProgress.status in [TestStatus.canceled, TestStatus.completed]
-    ).all()).order_by(Test.id.asc()).first()
+    ).all()
+    finished_test_ids = [t.id for t in finished_tests]
+    log.debug('Finished tests: {tests}'.format(
+        tests=",".join(finished_test_ids)))
+    test = Test.query.filter(Test.id not in finished_test_ids).filter(
+        Test.platform == platform).order_by(Test.id.asc()).first()
     if test is None:
         log.info('No more tests to run, returning')
         return
@@ -266,10 +278,7 @@ def queue_test(db, gh_commit, commit, test_type, branch="master"):
         log.critical('Could not post to GitHub! Response: %s' % a.response)
         return
     # Kick off KVM process
-    p_lin = Process(target=kvm_processor_linux, args=(db,))
-    p_lin.start()
-    # p_win = Process(target=kvm_processor_windows, args=(db,))
-    # p_win.start()
+    start_ci_vm(db)
 
 
 @mod_ci.route('/start-ci', methods=['GET', 'POST'])
@@ -358,7 +367,30 @@ def progress_reporter(test_id, token):
                     kvm = Kvm.query.filter(Kvm.test_id == test_id).first()
                     g.db.delete(kvm)
                     g.db.commit()
-                    # TODO post GitHub update
+                    # Start next test if necessary
+                    start_ci_vm(g.db)
+                # Post status update
+                state = Status.PENDING
+                message = 'Tests queued'
+                target_url = url_for('test.test', test_id=test.id,
+                                     _external=True)
+                context = "CI - %s" % test.platform.value
+                if status == TestStatus.canceled:
+                    state = Status.ERROR
+                    message = 'Tests aborted due to an error; please check'
+                elif status == TestStatus.completed:
+                    # Determine if success or failure
+                    state = Status.SUCCESS
+                    message = 'Tests completed'
+                else:
+                    message = progress.message
+
+                gh = GitHub(access_token=g.github['bot_token'])
+                gh_commit = gh.repos(g.github['repository_owner'])(
+                    g.github['repository']).statuses(test.commit)
+
+                gh_commit.post(state=state, description=message,
+                               context=context, target_url=target_url)
             elif request.form['type'] == 'equality':
                 rto = RegressionTestOutput.query.filter(
                     RegressionTestOutput.id == request.form[

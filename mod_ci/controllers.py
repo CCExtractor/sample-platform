@@ -108,6 +108,10 @@ def kvm_processor(db, kvm_name, platform):
     finished_tests = g.db.query(TestProgress.id).filter(
         TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
     ).subquery()
+    finished_testss = g.db.query(TestProgress.id).filter(
+        TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
+    ).all()
+    log.debug(",".join(finished_testss))
     test = Test.query.filter(
         and_(Test.id.notin_(finished_tests), Test.platform == platform)
     ).order_by(Test.id.asc()).first()

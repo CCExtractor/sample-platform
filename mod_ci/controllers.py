@@ -105,7 +105,7 @@ def kvm_processor(db, kvm_name, platform):
     log.info('Reverted to snapshot %s for VM %s' % (
         snapshot.getName(), kvm_name))
     # Get oldest test for this platform
-    finished_tests = TestProgress.query.filter(
+    finished_tests = TestProgress.query(TestProgress.id).filter(
         TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
     ).subquery()
     test = Test.query.filter(

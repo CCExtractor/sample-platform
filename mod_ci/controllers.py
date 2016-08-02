@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import sys
@@ -10,6 +11,7 @@ from github import GitHub, ApiError
 from multiprocessing import Process
 from lxml import etree
 from sqlalchemy import and_
+from werkzeug.utils import secure_filename
 
 from mod_ci.models import Kvm
 from mod_deploy.controllers import request_from_github, is_valid_signature
@@ -350,7 +352,7 @@ def start_ci():
 
 @mod_ci.route('/progress-reporter/<test_id>/<token>', methods=['POST'])
 def progress_reporter(test_id, token):
-    from run import log
+    from run import config, log
     # Verify token
     test = Test.query.filter(Test.id == test_id).first()
     if test is not None and test.token == token:
@@ -365,8 +367,9 @@ def progress_reporter(test_id, token):
                 # If status is complete, remove the Kvm entry
                 if status == TestStatus.completed:
                     kvm = Kvm.query.filter(Kvm.test_id == test_id).first()
-                    g.db.delete(kvm)
-                    g.db.commit()
+                    if kvm is not None:
+                        g.db.delete(kvm)
+                        g.db.commit()
                     # Start next test if necessary
                     start_ci_vm(g.db)
                 # Post status update
@@ -401,15 +404,34 @@ def progress_reporter(test_id, token):
                 g.db.commit()
             elif request.form['type'] == 'upload':
                 # File upload, process
-                # TODO: store file, calculate hash & store
-                file_hash = ''
-                rto = RegressionTestOutput.query.filter(
-                    RegressionTestOutput.id == request.form[
-                        'test_file_id']).first()
-                result_file = TestResultFile(test.id, request.form[
-                    'test_id'], rto.id, rto.correct, file_hash)
-                g.db.add(result_file)
-                g.db.commit()
+                if 'file' in request.files:
+                    uploaded_file = request.files['file']
+                    filename = secure_filename(uploaded_file.filename)
+                    temp_path = os.path.join(
+                        config.get('SAMPLE_REPOSITORY', ''), 'TempFiles',
+                        filename)
+                    # Save to temporary location
+                    uploaded_file.save(temp_path)
+                    # Get hash and check if it's already been submitted
+                    hash_sha256 = hashlib.sha256()
+                    with open(temp_path, "rb") as f:
+                        for chunk in iter(lambda: f.read(4096), b""):
+                            hash_sha256.update(chunk)
+                    file_hash = hash_sha256.hexdigest()
+                    filename, file_extension = os.path.splitext(filename)
+                    final_path = os.path.join(
+                        config.get('SAMPLE_REPOSITORY', ''), 'TestResults',
+                        '{hash}{ext}'.format(
+                            hash=file_hash, ext=file_extension)
+                    )
+                    os.rename(temp_path, final_path)
+                    rto = RegressionTestOutput.query.filter(
+                        RegressionTestOutput.id == request.form[
+                            'test_file_id']).first()
+                    result_file = TestResultFile(test.id, request.form[
+                        'test_id'], rto.id, rto.correct, file_hash)
+                    g.db.add(result_file)
+                    g.db.commit()
             elif request.form['type'] == 'finish':
                 # Test was done
                 result = TestResult(

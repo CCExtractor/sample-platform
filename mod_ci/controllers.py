@@ -407,6 +407,8 @@ def progress_reporter(test_id, token):
                 if 'file' in request.files:
                     uploaded_file = request.files['file']
                     filename = secure_filename(uploaded_file.filename)
+                    if filename is '':
+                        return 'EMPTY'
                     temp_path = os.path.join(
                         config.get('SAMPLE_REPOSITORY', ''), 'TempFiles',
                         filename)

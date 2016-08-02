@@ -9,6 +9,7 @@ from git import Repo, InvalidGitRepositoryError, GitCommandError
 from github import GitHub, ApiError
 from multiprocessing import Process
 from lxml import etree
+from sqlalchemy import and_
 
 from mod_ci.models import Kvm
 from mod_deploy.controllers import request_from_github, is_valid_signature
@@ -107,8 +108,9 @@ def kvm_processor(db, kvm_name, platform):
     finished_tests = TestProgress.query.filter(
         TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
     ).subquery()
-    test = Test.query.filter(Test.id.notin_(finished_tests)).filter(
-        Test.platform == platform).order_by(Test.id.asc()).first()
+    test = Test.query.filter(
+        and_(Test.id.notin_(finished_tests), Test.platform == platform)
+    ).order_by(Test.id.asc()).first()
     if test is None:
         log.info('No more tests to run, returning')
         return

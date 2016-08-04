@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}Latest tests {{ super() }}{% endblock %}
+{% block body %}
+    {{ super() }}
+    <br />
+    <div class="row">
+        <div class="row">
+            <div class="column medium-8">
+                <h1>Latest tests</h1>
+                <p>Below you can see the overview of the last 10 test runs that were performed:</p>
+                {% include "test/list_table.html" %}
+            </div>
+        </div>
+
+    </div>
+{% endblock %}

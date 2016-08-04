@@ -118,3 +118,104 @@ input[type="checkbox"]:disabled +  label span::before {
     position: relative;
     display: inline-block;
 }
+
+ol.progtrckr {
+    display: table;
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    table-layout: fixed;
+    width: 100%;
+    margin-bottom: 2em;
+}
+ol.progtrckr li {
+    display: table-cell;
+    text-align: center;
+    line-height: 3em;
+}
+
+ol.progtrckr[data-progtrckr-steps="2"] li { width: 49%; }
+ol.progtrckr[data-progtrckr-steps="3"] li { width: 33%; }
+ol.progtrckr[data-progtrckr-steps="4"] li { width: 24%; }
+ol.progtrckr[data-progtrckr-steps="5"] li { width: 19%; }
+ol.progtrckr[data-progtrckr-steps="6"] li { width: 16%; }
+ol.progtrckr[data-progtrckr-steps="7"] li { width: 14%; }
+ol.progtrckr[data-progtrckr-steps="8"] li { width: 12%; }
+ol.progtrckr[data-progtrckr-steps="9"] li { width: 11%; }
+
+ol.progtrckr li.progtrckr-done {
+    color: black;
+    border-bottom: 4px solid yellowgreen;
+}
+ol.progtrckr li.progtrckr-todo {
+    color: silver;
+    border-bottom: 4px solid silver;
+}
+ol.progtrckr li.progtrckr-running {
+    color: black;
+    border-bottom: 4px solid orange;
+}
+
+ol.progtrckr li:after {
+    content: "\00a0\00a0";
+}
+ol.progtrckr li:before {
+    position: relative;
+    bottom: -2.5em;
+    float: left;
+    left: 50%;
+    line-height: 1em;
+}
+ol.progtrckr li.progtrckr-done:before {
+    content: "\2713";
+    color: white;
+    background-color: yellowgreen;
+    height: 1.2em;
+    width: 1.2em;
+    line-height: 1.2em;
+    border: none;
+    border-radius: 1.2em;
+}
+ol.progtrckr li.progtrckr-todo:before {
+    content: "\039F";
+    color: silver;
+    background-color: #FEFEFE;
+    font-size: 1.5em;
+    bottom: -1.6em;
+}
+ol.progtrckr li.progtrckr-running:before {
+    content: "\231B";
+    color: black;
+    background-color: orange;
+    height: 1.2em;
+    width: 1.2em;
+    line-height: 1.2em;
+    border: none;
+    border-radius: 1.2em;
+}
+
+
+ol.progtrckr li.progtrckr-running.error::before {
+    background-color: red;
+    content: "x";
+}
+
+ol.progtrckr li.progtrckr-running.error {
+    border-color: red;
+}
+
+.category-header {
+    cursor: pointer;
+}
+
+.category-header.pass {
+    color: green;
+}
+
+.category-header.fail {
+    color: red;
+}
+
+.diff_link {
+    cursor: pointer;
+}

@@ -100,6 +100,7 @@ def template_renderer(template=None, status=200):
                 menu_entries.get('home', {}),
                 menu_entries.get('samples', {}),
                 menu_entries.get('upload', {}),
+                menu_entries.get('tests', {}),
                 menu_entries.get('regression', {}),
                 menu_entries.get('config', {}),
                 menu_entries.get('account', {}),

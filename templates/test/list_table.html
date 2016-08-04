@@ -1,0 +1,24 @@
+{% if tests|length > 0 %}
+    <table class="tight striped">
+        <thead>
+        <tr>
+            <th>Repository</th>
+            <th>Type</th>
+            <th>Platform</th>
+            <th>Finished</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for test in tests %}
+            <tr>
+                <td><a href="{{ test.fork.github_url }}" target="_blank">{{ test.fork.github_name }}</a></td>
+                <td>{{ test.test_type.description }}</td>
+                <td>{{ test.platform.description }}</td>
+                <td><a href="{{ url_for('.by_id', test_id=test.id) }}">{{ "Yes" if test.finished else "No" }}</a></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>There are no tests available right now! Please check again later.</p>
+{% endif %}

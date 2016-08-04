@@ -83,6 +83,13 @@ def sub_menu_open(menu_entries, active_route):
 app.jinja_env.globals.update(sub_menu_open=sub_menu_open)
 
 
+# Add datetime format filter
+def date_time_format(value, fmt='%Y-%m-%d %H:%M:%S'):
+    return value.strftime(fmt)
+
+app.jinja_env.filters['date'] = date_time_format
+
+
 # Allow regexes in routes
 class RegexConverter(BaseConverter):
     def __init__(self, url_map, *items):

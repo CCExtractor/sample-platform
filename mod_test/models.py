@@ -20,12 +20,23 @@ class TestType(DeclEnum):
 
 
 class TestStatus(DeclEnum):
-    queued = "queued", "Queued"
     preparation = "preparation", "Preparation"
     building = "building", "Building"
     testing = "testing", "Testing"
     completed = "completed", "Completed"
-    canceled = "canceled", "Canceled"
+    canceled = "canceled", "Canceled/Error"
+
+    @staticmethod
+    def progress_step(inst):
+        try:
+            return TestStatus.stages().index(inst)
+        except ValueError:
+            return -1
+
+    @staticmethod
+    def stages():
+        return [TestStatus.preparation, TestStatus.building,
+                TestStatus.testing, TestStatus.completed]
 
 
 class Fork(Base):
@@ -34,6 +45,20 @@ class Fork(Base):
     id = Column(Integer, primary_key=True)
     github = Column(String(256), unique=True)
     tests = relationship('Test', back_populates='fork')
+
+    def __init__(self, github):
+        self.github = github
+
+    def __repr__(self):
+        return '<Fork %r>' % self.id
+
+    @property
+    def github_url(self):
+        return self.github.replace('.git', '')
+
+    @property
+    def github_name(self):
+        return self.github_url.replace('https://github.com/', '')
 
 
 class Test(Base):
@@ -50,9 +75,7 @@ class Test(Base):
     commit = Column(String(64), nullable=False)
     progress = relationship('TestProgress', back_populates='test',
                             order_by='TestProgress.id')
-    result = relationship('TestResult', back_populates='test',
-                          uselist=False)
-    result_files = relationship('TestResultFile', back_populates='test')
+    results = relationship('TestResult', back_populates='test')
 
     def __init__(self, platform, test_type, fork_id, branch, commit,
                  token=None):
@@ -68,6 +91,38 @@ class Test(Base):
 
     def __repr__(self):
         return '<TestEntry %r>' % self.id
+
+    @property
+    def finished(self):
+        if len(self.progress) > 0:
+            return self.progress[-1].status == TestStatus.completed
+        return False
+
+    def progress_data(self):
+        result = {
+            'progress': {
+                'state': 'error',
+                'step': -1
+            },
+            'stages': TestStatus.stages(),
+            'start': '-',
+            'end': '-'
+        }
+        if len(self.progress) > 0:
+            result['start'] = self.progress[0].timestamp
+            last_status = self.progress[-1]
+            if last_status.status in [TestStatus.completed,
+                                      TestStatus.canceled]:
+                result['end'] = last_status.timestamp
+            if last_status.status == TestStatus.canceled:
+                if len(self.progress) > 1:
+                    result['progress']['step'] = TestStatus.progress_step(
+                        self.progress[-2].status)
+            else:
+                result['progress']['state'] = 'ok'
+                result['progress']['step'] = TestStatus.progress_step(
+                    last_status.status)
+        return result
 
     @staticmethod
     def create_token(length=64):
@@ -106,7 +161,7 @@ class TestResult(Base):
     test_id = Column(Integer, ForeignKey('test.id', onupdate="CASCADE",
                                          ondelete="CASCADE"),
                      primary_key=True)
-    test = relationship('Test', uselist=False, back_populates='result')
+    test = relationship('Test', uselist=False, back_populates='results')
     regression_test_id = Column(
         Integer, ForeignKey('regression_test.id', onupdate="CASCADE",
                             ondelete="CASCADE"), primary_key=True
@@ -134,7 +189,7 @@ class TestResultFile(Base):
         Integer, ForeignKey('test.id', onupdate="CASCADE",
                             ondelete="CASCADE"), primary_key=True
     )
-    test = relationship('Test', uselist=False, back_populates='result_files')
+    test = relationship('Test', uselist=False)
     regression_test_id = Column(
         Integer, ForeignKey('regression_test.id', onupdate="CASCADE",
                             ondelete="CASCADE"), primary_key=True

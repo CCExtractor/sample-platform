@@ -270,12 +270,13 @@ def queue_test(db, gh_commit, commit, test_type, branch="master"):
         gh_commit.post(
             state=Status.PENDING, description="Tests queued",
             context="CI - %s" % linux.platform.value,
-            target_url=url_for('test.test', test_id=linux.id, _external=True))
+            target_url=url_for(
+                'test.by_id', test_id=linux.id, _external=True))
         gh_commit.post(
             state=Status.PENDING, description="Tests queued",
             context="CI - %s" % windows.platform.value,
             target_url=url_for(
-                'test.test', test_id=windows.id, _external=True))
+                'test.by_id', test_id=windows.id, _external=True))
     except ApiError as a:
         log.critical('Could not post to GitHub! Response: %s' % a.response)
         return
@@ -339,7 +340,8 @@ def start_ci():
                         g.github['repository']).statuses(test.commit).post(
                         state=Status.FAILURE, description="Tests canceled",
                         context="CI - %s" % test.platform.value,
-                        target_url=url_for('test.test', test_id=test.id))
+                        target_url=url_for(
+                            'test.by_id', test_id=test.id, _external=True))
             elif payload['action'] == 'reopened':
                 # Run tests again
                 queue_test(g.db, gh_commit, commit, TestType.pull_request)
@@ -375,8 +377,8 @@ def progress_reporter(test_id, token):
                 # Post status update
                 state = Status.PENDING
                 message = 'Tests queued'
-                target_url = url_for('test.test', test_id=test.id,
-                                     _external=True)
+                target_url = url_for(
+                    'test.by_id', test_id=test.id, _external=True)
                 context = "CI - %s" % test.platform.value
                 if status == TestStatus.canceled:
                     state = Status.ERROR

@@ -55,9 +55,9 @@ def by_id(test_id):
                    'category': category,
                    'tests': [{
                                  'test': rt,
-                                 'result': next(r for r in test.results if
+                                 'result': next((r for r in test.results if
                                                 r.regression_test_id ==
-                                                rt.id),
+                                                rt.id), None),
                                  'files': TestResultFile.query.filter(and_(
                                      TestResultFile.test_id == test.id,
                                      TestResultFile.regression_test_id ==
@@ -67,7 +67,8 @@ def by_id(test_id):
     for category in results:
         error = False
         for category_test in category['tests']:
-            if category_test['result'].exit_code != 0:
+            if category_test['result'] is not None and \
+                            category_test['result'].exit_code != 0:
                 error = True
                 break
             for result_file in category_test['files']:

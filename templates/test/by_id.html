@@ -100,7 +100,6 @@
                                                 {% else %}
                                                     <a href="#" class="diff_link" data-test="{{ file.test_id }}" data-regression="{{ file.regression_test_id }}" data-output="{{ file.regression_test_output_id }}">Fail</a>
                                                 {% endif %}
-                                                {{ 'Pass' if file.got is none else 'Fail' }}
                                                 {% if not loop.last %}<br />{% endif %}
                                             {% endfor %}
                                         </td>

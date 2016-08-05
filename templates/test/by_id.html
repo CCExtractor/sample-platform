@@ -114,7 +114,6 @@
             </div>
         </div>
     </div>
-    <div class="reveal" id="modal" data-reveal></div>
 {% endblock %}
 
 {% block scripts %}
@@ -137,7 +136,21 @@
                 url = url.replace('_0_', $(this).data('test')).replace('_1_', $(this).data('regression')).replace('_2_', $(this).data('output'));
 
                 $.ajax(url).done(function(resp){
-                    $modal.html(resp).foundation('open');
+                    var id, reveal, popup;
+
+                    reveal = document.createElement('div');
+                    id = 'diff-popup-'+(new Date()).getTime();
+                    reveal.setAttribute('id', id);
+                    reveal.setAttribute('class', 'large reveal');
+                    reveal.setAttribute('data-reveal', '');
+                    reveal.innerHTML = resp;
+                    reveal.innerHTML +=
+                        '<button class="close-button" data-close aria-label="Cancel" type="button">' +
+                        '   <span aria-hidden="true">&times;</span>' +
+                        '</button>';
+                    document.body.appendChild(reveal);
+                    popup = new Foundation.Reveal($('#'+id));
+                    popup.open();
                 });
             });
         });

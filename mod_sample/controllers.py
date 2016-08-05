@@ -1,17 +1,20 @@
 import os
+from operator import and_
 
 from flask import Blueprint, make_response, request, redirect, url_for, g
 
 from decorators import template_renderer
 from mod_auth.controllers import login_required, check_access_rights
 from mod_auth.models import Role
-from mod_home.models import CCExtractorVersion
+from mod_home.models import CCExtractorVersion, GeneralData
+from mod_regression.models import RegressionTest
 from mod_sample.forms import EditSampleForm, DeleteSampleForm, \
     DeleteAdditionalSampleForm
 from mod_sample.media_info_parser import MediaInfoFetcher, \
     InvalidMediaInfoError
 
 from mod_sample.models import Sample, ExtraFile, ForbiddenExtension
+from mod_test.models import Test, TestResult, TestResultFile
 from mod_upload.models import Platform
 
 mod_sample = Blueprint('sample', __name__)
@@ -46,11 +49,69 @@ def display_sample_info(sample):
     except InvalidMediaInfoError as i:
         raise SampleNotFoundException(i.message)
 
+    latest_commit = GeneralData.query.filter(
+        GeneralData.key == 'last_commit').first().value
+    last_release = CCExtractorVersion.query.order_by(
+        CCExtractorVersion.released.desc()).first().commit
+
+    test_commit = Test.query.filter(Test.commit == latest_commit).first()
+    test_release = Test.query.filter(Test.commit == last_release).first()
+    regression_tests = RegressionTest.query.filter(
+        RegressionTest.sample_id == sample.id).all()
+    status = 'Unknown'
+    status_release = 'Unknown'
+    if len(regression_tests) > 0:
+        if test_commit is not None:
+            sq = g.db.query(RegressionTest.id).filter(
+                        RegressionTest.sample_id == sample.id).subquery()
+            exit_code = g.db.query(TestResult.exit_code).filter(and_(
+                TestResult.exit_code != 0,
+                and_(
+                    TestResult.test_id == test_commit.id,
+                    TestResult.regression_test_id.in_(sq)
+                )
+            )).first()
+            not_null = g.db.query(TestResultFile.got).filter(and_(
+                TestResultFile.got.isnot(None),
+                and_(
+                    TestResultFile.test_id == test_commit.id,
+                    TestResultFile.regression_test_id.in_(sq)
+                )
+            )).first()
+            if exit_code is None and not_null is None:
+                status = 'Pass'
+            else:
+                status = 'Fail'
+        if test_release is not None:
+            sq = g.db.query(RegressionTest.id).filter(
+                RegressionTest.sample_id == sample.id).subquery()
+            exit_code = g.db.query(TestResult.exit_code).filter(and_(
+                TestResult.exit_code != 0,
+                TestResult.test_id == test_release.id,
+                TestResult.regression_test_id.in_(sq)
+            )).first()
+            not_null = g.db.query(TestResultFile.got).filter(and_(
+                TestResultFile.got.isnot(None),
+                TestResultFile.test_id == test_release.id,
+                TestResultFile.regression_test_id.in_(sq)
+            )).first()
+            if exit_code is None and not_null is None:
+                status = 'Pass'
+            else:
+                status = 'Fail'
+    else:
+        status = 'Not present in regression tests'
+        status_release = 'Not present in regression tests'
+
     return {
         'sample': sample,
         'media': media_info,
         'additional_files': ExtraFile.query.filter(
-            ExtraFile.sample_id == sample.id).all()
+            ExtraFile.sample_id == sample.id).all(),
+        'latest_commit': status,
+        'latest_commit_test': test_commit,
+        'latest_release': status_release,
+        'latest_release_test': test_release
     }
 
 

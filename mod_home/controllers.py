@@ -2,7 +2,7 @@ from flask import Blueprint, g
 from github import GitHub
 
 from decorators import template_renderer
-from mod_home.models import CCExtractorVersion
+from mod_home.models import CCExtractorVersion, GeneralData
 
 mod_home = Blueprint('home', __name__)
 
@@ -19,18 +19,13 @@ def before_app_request():
 @mod_home.route('/', methods=['GET', 'POST'])
 @template_renderer()
 def index():
-    from run import app
-    # TODO: do not look this up on every request
-    g = GitHub(access_token=app.config.get('GITHUB_TOKEN', ''))
-    ref = g.repos(app.config.get('GITHUB_OWNER', ''))(
-        app.config.get('GITHUB_REPOSITORY', '')).git().refs(
-        'heads/master').get()
-
+    last_commit = GeneralData.query.filter(
+        GeneralData.key == 'last_commit').first().value
     last_release = CCExtractorVersion.query.order_by(
             CCExtractorVersion.released.desc()).first()
     return {
         'ccx_last_release': last_release,
-        'ccx_latest_commit': ref['object']['sha']
+        'ccx_latest_commit': last_commit
     }
 
 

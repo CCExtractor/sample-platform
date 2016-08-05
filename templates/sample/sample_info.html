@@ -55,11 +55,10 @@
                         </tbody>
                     </table>
                 {% endif %}
-                <h2>Test status</h2>
-                <!--
-                <p>Repository: </p>
-                <p>Last release: </p> -->
-                <p><a href="{{ url_for("test.by_sample", sample_id=sample.id) }}">View all available tests for this sample</a></p>
+                <h2>Test status & regression tests</h2>
+                <p>Repository: {{ latest_commit }}</p>
+                <p>Last release: {{ latest_release }}</p>
+                <p><a href="{{ url_for("regression.by_sample", sample_id=sample.id) }}">See in which regression tests this sample has been used</a></p>
                 <h2>Media info</h2>
                 <p class="small">Full media info can be downloaded using the link at the right -->.</p>
                 <blockquote class="small">

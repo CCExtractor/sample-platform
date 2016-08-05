@@ -100,11 +100,6 @@ def by_commit(commit_hash):
     pass
 
 
-@mod_test.route('/sample/<sample_id>')
-def by_sample(sample_id):
-    pass
-
-
 @mod_test.route('/diff/<test_id>/<regression_test_id>/<output_id>')
 def generate_diff(test_id, regression_test_id, output_id):
     from run import config

@@ -225,6 +225,7 @@ class TestResultFile(Base):
         )
 
     def generate_html_diff(self, base_path):
+        # TODO: use difflib.SequenceMatcher and generate own HTML diff
         file_ok = os.path.join(
             base_path,
             self.expected + self.regression_test_output.correct_extension)

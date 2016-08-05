@@ -15,6 +15,7 @@ from werkzeug.utils import secure_filename
 
 from mod_ci.models import Kvm
 from mod_deploy.controllers import request_from_github, is_valid_signature
+from mod_home.models import GeneralData
 from mod_regression.models import Category, RegressionTestOutput
 from mod_test.models import TestType, Test, TestStatus, TestProgress, Fork, \
     TestPlatform, TestResultFile, TestResult
@@ -314,6 +315,13 @@ def start_ci():
             gh_commit = gh.repos(g.github['repository_owner'])(
                 g.github['repository']).statuses(commit)
             queue_test(g.db, gh_commit, commit, TestType.commit)
+            # Update the db to the new last commit
+            ref = gh.repos(g.github['repository_owner'])(
+                g.github['repository']).git().refs('heads/master').get()
+            last_commit = GeneralData.query.filter(GeneralData.key ==
+                                                   'last_commit').first()
+            last_commit.value = ref['object']['sha']
+            g.db.commit()
 
         elif event == "pull_request":  # If it's a PR, run the tests
             commit = payload['after']

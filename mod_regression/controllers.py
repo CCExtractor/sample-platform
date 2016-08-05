@@ -26,6 +26,12 @@ def index():
     }
 
 
+@mod_regression.route('/sample/<sample_id>')
+def by_sample(sample_id):
+    # Show all regression tests for sample
+    pass
+
+
 @mod_regression.route('/test/<regression_id>/view')
 def test_view(regression_id):
     pass

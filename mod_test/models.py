@@ -236,4 +236,4 @@ class TestResultFile(Base):
 
         return difflib.HtmlDiff().make_table(
             lines_ok, lines_fail, 'Correct sample', 'Generated sample',
-            True, 3)
+            True, 1)

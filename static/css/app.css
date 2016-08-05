@@ -219,3 +219,29 @@ ol.progtrckr li.progtrckr-running.error {
 .diff_link {
     cursor: pointer;
 }
+
+/* Diff generation */
+table.diff {
+    font-weight: 100;
+    line-height: 1;
+}
+
+table.diff td {
+    padding: 0.1rem;
+}
+
+table.diff td.diff_header {
+    padding-left: 0.5rem;
+}
+
+.diff_chg {
+    background-color: orange;
+}
+
+.diff_add {
+    background-color: green;
+}
+
+.diff_sub {
+    background-color: red;
+}

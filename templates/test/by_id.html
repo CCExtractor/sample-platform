@@ -137,8 +137,7 @@
                 url = url.replace('_0_', $(this).data('test')).replace('_1_', $(this).data('regression')).replace('_2_', $(this).data('output'));
 
                 $.ajax(url).done(function(resp){
-                    console.log(resp.html);
-                    $modal.html(resp.html).foundation('open');
+                    $modal.html(resp).foundation('open');
                 });
             });
         });

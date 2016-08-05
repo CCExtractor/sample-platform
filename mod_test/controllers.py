@@ -6,6 +6,7 @@ from flask import request
 from sqlalchemy import and_
 
 from decorators import template_renderer
+from mod_home.models import CCExtractorVersion
 from mod_regression.models import Category, regressionTestCategoryLinkTable
 from mod_test.models import Fork, Test, TestProgress, TestResult, \
     TestResultFile, TestType
@@ -29,7 +30,7 @@ def before_app_request():
 
 
 @mod_test.errorhandler(TestNotFoundException)
-@template_renderer('test/sample_not_found.html', 404)
+@template_renderer('test/test_not_found.html', 404)
 def not_found(error):
     return {
         'message': error.message
@@ -44,13 +45,10 @@ def index():
     }
 
 
-@mod_test.route('/<test_id>')
-@template_renderer()
-def by_id(test_id):
-    test = Test.query.filter(Test.id == test_id).first()
-    if test is None:
-        raise TestNotFoundException(
-            'Test with id {id} does not exist'.format(id=test_id))
+def get_data_for_test(test, title=None):
+    if title is None:
+        title = 'test {id}'.format(id=test.id)
+    
     populated_categories = g.db.query(
         regressionTestCategoryLinkTable.c.category_id).subquery()
     categories = Category.query.filter(Category.id.in_(
@@ -60,8 +58,8 @@ def by_id(test_id):
                    'tests': [{
                                  'test': rt,
                                  'result': next((r for r in test.results if
-                                                r.regression_test_id ==
-                                                rt.id), None),
+                                                 r.regression_test_id ==
+                                                 rt.id), None),
                                  'files': TestResultFile.query.filter(and_(
                                      TestResultFile.test_id == test.id,
                                      TestResultFile.regression_test_id ==
@@ -86,18 +84,51 @@ def by_id(test_id):
     return {
         'test': test,
         'TestType': TestType,
-        'results': results
+        'results': results,
+        'title': title
     }
 
 
+@mod_test.route('/<test_id>')
+@template_renderer()
+def by_id(test_id):
+    test = Test.query.filter(Test.id == test_id).first()
+    if test is None:
+        raise TestNotFoundException(
+            'Test with id {id} does not exist'.format(id=test_id))
+    return get_data_for_test(test)
+
+
 @mod_test.route('/ccextractor/<ccx_version>')
+@template_renderer('test/by_id.html')
 def ccextractor_version(ccx_version):
-    pass
+    # Look up the hash, find a test for it and redirect
+    version = CCExtractorVersion.query.filter(
+        CCExtractorVersion.version == ccx_version).first()
+    if version is not None:
+        test = Test.query.filter(Test.commit == version.commit).first()
+        if test is None:
+            raise TestNotFoundException(
+                'There are no tests available for CCExtractor version '
+                '{version}'.format(version=version.version))
+        return get_data_for_test(
+            test, 'CCExtractor {version}'.format(version=version.version))
+    raise TestNotFoundException(
+        'There is no CCExtractor version known as {version}'.format(
+            version=ccx_version))
 
 
 @mod_test.route('/commit/<commit_hash>')
+@template_renderer('test/by_id.html')
 def by_commit(commit_hash):
-    pass
+    # Look up the hash, find a test for it and redirect
+    test = Test.query.filter(Test.commit == commit_hash).first()
+    if test is None:
+        raise TestNotFoundException(
+            'There is no test available for commit {commit}'.format(
+                commit=commit_hash))
+    return get_data_for_test(
+        test, 'commit {commit}'.format(commit=commit_hash))
 
 
 @mod_test.route('/diff/<test_id>/<regression_test_id>/<output_id>')

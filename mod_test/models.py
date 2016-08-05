@@ -235,4 +235,5 @@ class TestResultFile(Base):
         lines_fail = open(file_fail, 'U').readlines()
 
         return difflib.HtmlDiff().make_table(
-            lines_ok, lines_fail, 'Correct sample', 'Generated sample')
+            lines_ok, lines_fail, 'Correct sample', 'Generated sample',
+            True, 3)

@@ -1,4 +1,8 @@
-from flask import Blueprint, g
+import os
+
+from flask import Blueprint, g, jsonify
+from flask import abort
+from flask import request
 from sqlalchemy import and_
 
 from decorators import template_renderer
@@ -99,3 +103,20 @@ def by_commit(commit_hash):
 @mod_test.route('/sample/<sample_id>')
 def by_sample(sample_id):
     pass
+
+
+@mod_test.route('/diff/<test_id>/<regression_test_id>/<output_id>')
+def generate_diff(test_id, regression_test_id, output_id):
+    from run import config
+    if request.is_xhr:
+        # Fetch test
+        result = TestResultFile.query.filter(and_(
+            TestResultFile.test_id == test_id,
+            TestResultFile.regression_test_id == regression_test_id,
+            TestResultFile.regression_test_output_id == output_id)).first()
+        if result is not None:
+            path = os.path.join(
+                config.get('SAMPLE_REPOSITORY', ''), 'TestResults')
+            return result.generate_html_diff(path)
+        abort(404)
+    abort(403)

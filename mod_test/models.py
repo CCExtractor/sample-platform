@@ -1,4 +1,6 @@
 import datetime
+import difflib
+import os
 import string
 
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime
@@ -221,3 +223,16 @@ class TestResultFile(Base):
             oid=self.regression_test_output_id,
             equal="Equal" if self.got is None else "Unequal"
         )
+
+    def generate_html_diff(self, base_path):
+        file_ok = os.path.join(
+            base_path,
+            self.expected + self.regression_test_output.correct_extension)
+        file_fail = os.path.join(
+            base_path,
+            self.got + self.regression_test_output.correct_extension)
+        lines_ok = open(file_ok, 'U').readlines()
+        lines_fail = open(file_fail, 'U').readlines()
+
+        return difflib.HtmlDiff().make_table(
+            lines_ok, lines_fail, 'Correct sample', 'Generated sample')

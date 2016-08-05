@@ -130,8 +130,14 @@
                 $('#progress_table').toggleClass('hide');
             });
             $('.diff_link').on('click', function(){
-                // TODO: finish
-                alert('Coming soon');
+                // Make ajax request to get a diff, and display it in a "popup"
+                var $modal = $('#modal');
+                var url = '{{ url_for('.generate_diff', test_id='_0_', regression_test_id='_1_', output_id='_2_') }}';
+
+                $.ajax(url.replace('_0_', $(this).data('test')).replace('_1_', $(this).data('regression')).replace('_2_', $(this).data('output')))
+                  .done(function(resp){
+                    $modal.html(resp.html).foundation('open');
+                });
             });
         });
     </script>

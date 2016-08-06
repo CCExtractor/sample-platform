@@ -24,11 +24,12 @@ def before_app_request():
         'icon': 'sign-in' if g.user is None else 'sign-out',
         'route': 'auth.login' if g.user is None else 'auth.logout'
     }
-    g.menu_entries['account'] = {
-        'title': 'Manage account',
-        'icon': 'user',
-        'route': 'auth.manage'
-    }
+    if g.user is not None:
+        g.menu_entries['account'] = {
+            'title': 'Manage account',
+            'icon': 'user',
+            'route': 'auth.manage'
+        }
     g.menu_entries['config'] = get_menu_entries(
         g.user, 'Platform mgmt', 'cog', [], '', [
             {'title': 'User manager', 'icon': 'users', 'route':

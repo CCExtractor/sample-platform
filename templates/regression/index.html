@@ -15,7 +15,7 @@
                             <option value="{{ category.id }}">{{ category.name }}</option>
                         {% endfor %}
                     </select>&nbsp;
-                    {% if user.id > 0 and user.is_admin %}
+                    {% if user is not none and user.is_admin %}
                         <span class="medium-2">
                             <a href="{{ url_for(".category_edit", category_id=categories[0].id) }}" title="Edit category" id="category_edit"><i class="fa fa-edit"></i></a>&nbsp;
                             <a href="{{ url_for(".category_delete", category_id=categories[0].id) }}" title="Delete category" id="category_delete"><i class="fa fa-remove"></i></a>&nbsp;
@@ -45,7 +45,7 @@
                             <td>{{ test.command }}</td>
                             <td>
                                 <a href="{{ url_for('.test_view', regression_id=test.id) }}" title="View details"><i class="fa fa-info-circle"></i></a>&nbsp;
-                                {% if user.id > 0 and user.has_role('contributor') %}
+                                {% if user is not none and user.has_role('contributor') %}
                                     <a href="{{ url_for('.test_edit', regression_id=test.id) }}" title="Edit regression test"><i class="fa fa-edit"></i></a>&nbsp;
                                     <a href="{{ url_for('.test_delete', regression_id=test.id) }}" title="Delete regression test"><i class="fa fa-remove"></i></a>&nbsp;
                                 {% endif %}
@@ -59,7 +59,7 @@
             {% endif %}
         </div>
         <div class="column medium-3">
-            {% if user.id > 0 and user.has_role('contributor') %}
+            {% if user is not none and user.has_role('contributor') %}
             <h5>Regression tests</h5>
             <ul class="no-bullet">
                 <li><i class="fa fa-plus-circle"></i> <a href="{{ url_for(".test_add") }}">Add new regression test</a></li>

@@ -48,7 +48,7 @@ def index():
 def get_data_for_test(test, title=None):
     if title is None:
         title = 'test {id}'.format(id=test.id)
-    
+
     populated_categories = g.db.query(
         regressionTestCategoryLinkTable.c.category_id).subquery()
     categories = Category.query.filter(Category.id.in_(

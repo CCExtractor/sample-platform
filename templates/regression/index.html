@@ -6,7 +6,7 @@
     <br />
     <div class="row">
         <div class="column medium-9">
-            <h1>Sample information</h1>
+            <h1>Regression tests</h1>
             {% if tests|length > 0 %}
                 <p class="row">
                     <label for="category" class="column medium-4">Select a category</label>
@@ -32,7 +32,7 @@
                 <table id="regression_tests" class="sortable tight striped">
                     <thead>
                     <tr>
-                        <th>Category</th>
+                        <th>ID</th>
                         <th>Command</th>
                         <th>Actions</th>
                     </tr>
@@ -41,7 +41,7 @@
                     {% for test in tests %}
                         {# TODO: make this work for multiple categories #}
                         <tr data-category="{{ test.categories[0].id }}" {% if test.categories[0].id != categories[0].id %}class="hide"{% endif %}>
-                            <td>{{ test.categories[0].name }}</td>
+                            <td>{{ test.id }}</td>
                             <td>{{ test.command }}</td>
                             <td>
                                 <a href="{{ url_for('.test_view', regression_id=test.id) }}" title="View details"><i class="fa fa-info-circle"></i></a>&nbsp;

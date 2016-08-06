@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Regression tests for sample {{ sample.id }} {{ super() }}{% endblock %}
+{% block body %}
+    {{ super() }}
+    <br />
+    <div class="row">
+        <div class="column medium-12">
+            <h1>Regression tests for sample {{ sample.id }}</h1>
+            {% if tests|length > 0 %}
+                <table id="regression_tests" class="sortable tight striped">
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Command</th>
+                        <th>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for test in tests %}
+                        <tr>
+                            <td>{{ test.id }}</td>
+                            <td>{{ test.command }}</td>
+                            <td>
+                                <a href="{{ url_for('.test_view', regression_id=test.id) }}" title="View details"><i class="fa fa-info-circle"></i></a>&nbsp;
+                                {% if user is not none and user.has_role('contributor') %}
+                                    <a href="{{ url_for('.test_edit', regression_id=test.id) }}" title="Edit regression test"><i class="fa fa-edit"></i></a>&nbsp;
+                                    <a href="{{ url_for('.test_delete', regression_id=test.id) }}" title="Delete regression test"><i class="fa fa-remove"></i></a>&nbsp;
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>There are no regression tests available</p>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}

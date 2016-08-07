@@ -411,6 +411,9 @@ def progress_reporter(test_id, token):
                 gh_commit.post(state=state, description=message,
                                context=context, target_url=target_url)
             elif request.form['type'] == 'equality':
+                log.debug('Equality for {t}/{rt}/{rto}'.format(
+                    t=test_id, rt=request.form['test_id'], rto=request.form[
+                        'test_file_id']))
                 rto = RegressionTestOutput.query.filter(
                     RegressionTestOutput.id == request.form[
                         'test_file_id']).first()
@@ -424,6 +427,9 @@ def progress_reporter(test_id, token):
                     g.db.add(result_file)
                     g.db.commit()
             elif request.form['type'] == 'upload':
+                log.debug('Upload for {t}/{rt}/{rto}'.format(
+                    t=test_id, rt=request.form['test_id'], rto=request.form[
+                        'test_file_id']))
                 # File upload, process
                 if 'file' in request.files:
                     uploaded_file = request.files['file']
@@ -456,6 +462,8 @@ def progress_reporter(test_id, token):
                     g.db.add(result_file)
                     g.db.commit()
             elif request.form['type'] == 'finish':
+                log.debug('Finish for {t}/{rt}'.format(
+                    t=test_id, rt=request.form['test_id']))
                 # Test was done
                 result = TestResult(
                     test.id, request.form['test_id'], request.form['runTime'],

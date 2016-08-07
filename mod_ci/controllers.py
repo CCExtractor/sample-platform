@@ -34,30 +34,34 @@ class Status:
     FAILURE = "failure"
 
 
-def start_ci_vm(db):
-    p_lin = Process(target=kvm_processor_linux, args=(db,))
+def start_ci_vm(db, delay=None):
+    p_lin = Process(target=kvm_processor_linux, args=(db, delay))
     p_lin.start()
-    # p_win = Process(target=kvm_processor_windows, args=(db,))
+    # p_win = Process(target=kvm_processor_windows, args=(db, delay))
     # p_win.start()
 
 
-def kvm_processor_linux(db):
+def kvm_processor_linux(db, delay):
     from run import config
     kvm_name = config.get('KVM_LINUX_NAME', '')
-    return kvm_processor(db, kvm_name, TestPlatform.linux)
+    return kvm_processor(db, kvm_name, TestPlatform.linux, delay)
 
 
-def kvm_processor_windows(db):
+def kvm_processor_windows(db, delay):
     from run import config
     kvm_name = config.get('KVM_WINDOWS_NAME', '')
-    return kvm_processor(db, kvm_name, TestPlatform.windows)
+    return kvm_processor(db, kvm_name, TestPlatform.windows, delay)
 
 
-def kvm_processor(db, kvm_name, platform):
+def kvm_processor(db, kvm_name, platform, delay):
     from run import config, log
     if kvm_name == "":
         log.critical('KVM name is empty!')
         return
+    if delay is not None:
+        import time
+        log.debug('Sleeping for {time} seconds'.format(time=delay))
+        time.sleep(delay)
     # Open connection to libvirt
     conn = libvirt.open("qemu:///system")
     if conn is None:
@@ -383,7 +387,7 @@ def progress_reporter(test_id, token):
                         g.db.delete(kvm)
                         g.db.commit()
                     # Start next test if necessary
-                    start_ci_vm(g.db)
+                    start_ci_vm(g.db, 60)
                 # Post status update
                 state = Status.PENDING
                 message = 'Tests queued'

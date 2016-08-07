@@ -4,6 +4,7 @@ import os
 import sys
 
 import datetime
+import traceback
 
 from flask import Blueprint, request, abort, g, url_for
 from git import Repo, InvalidGitRepositoryError, GitCommandError
@@ -209,10 +210,10 @@ def kvm_processor(db, kvm_name, platform):
         return
     # Delete the test branch if it exists, and recreate
     try:
-        repo.delete_head('CI_Branch')
+        repo.delete_head('CI_Branch', force=True)
     except GitCommandError:
         log.warn('Could not delete CI_Branch head')
-        pass
+        traceback.print_exc()
     # If PR, merge, otherwise reset to commit
     if test.test_type == TestType.pull_request:
         # Fetch PR (stored under origin/pull/<id>/head

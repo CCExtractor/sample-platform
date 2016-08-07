@@ -87,7 +87,7 @@ class RegressionTestOutput(Base):
     correct = Column(Text())
     correct_extension = Column(String(64), nullable=False)  # contains the .
     expected_filename = Column(Text())
-    ignore = Column(Boolean())
+    ignore = Column(Boolean(), default=False)
 
     def __init__(self, regression_id, correct, correct_extension,
                  expected_filename, ignore=False):

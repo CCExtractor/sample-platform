@@ -87,8 +87,12 @@ def get_data_for_test(test, title=None):
                     category_test['test'].id,
                     RegressionTestOutput.ignore is False
                 )).all()
+                got = None
                 if len(outputs) > 0:
                     error = True
+                    got = 'error'
+                # Add dummy entry for pass/fail display
+                category_test['files'] = [TestResultFile(-1, -1, -1, '', got)]
             if error:
                 break
         category['error'] = error

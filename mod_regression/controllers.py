@@ -24,7 +24,7 @@ def before_app_request():
 def index():
     return {
         'tests': RegressionTest.query.all(),
-        'categories': Category.query.order_by(Category.name.desc()).all()
+        'categories': Category.query.order_by(Category.name.asc()).all()
     }
 
 

@@ -101,6 +101,16 @@ def kvm_processor(db, kvm_name, platform, delay):
                 # Failed to shut down
                 log.critical("Failed to shut down %s" % kvm_name)
                 return
+    # Get oldest test for this platform
+    finished_tests = g.db.query(TestProgress.test_id).filter(
+        TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
+    ).subquery()
+    test = Test.query.filter(
+        and_(Test.id.notin_(finished_tests), Test.platform == platform)
+    ).order_by(Test.id.asc()).first()
+    if test is None:
+        log.info('No more tests to run, returning')
+        return
     # Reset to snapshot
     if vm.hasCurrentSnapshot() != 1:
         log.critical("VM %s has no current snapshot set!" % kvm_name)
@@ -112,16 +122,6 @@ def kvm_processor(db, kvm_name, platform, delay):
         return
     log.info('Reverted to snapshot %s for VM %s' % (
         snapshot.getName(), kvm_name))
-    # Get oldest test for this platform
-    finished_tests = g.db.query(TestProgress.test_id).filter(
-        TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
-    ).subquery()
-    test = Test.query.filter(
-        and_(Test.id.notin_(finished_tests), Test.platform == platform)
-    ).order_by(Test.id.asc()).first()
-    if test is None:
-        log.info('No more tests to run, returning')
-        return
     log.debug('Starting test %s' % test.id)
     status = Kvm(kvm_name, test.id)
     # Prepare data

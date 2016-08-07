@@ -207,6 +207,7 @@ def process_id(upload_id):
                     sample = Sample(queued_sample.sha, extension,
                                     queued_sample.original_name)
                     g.db.add(sample)
+                    g.db.flush(sample)
                     uploaded = Upload(
                         g.user.id, sample.id, form.version.data,
                         Platform.from_string(form.platform.data),

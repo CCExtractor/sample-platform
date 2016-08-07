@@ -263,8 +263,8 @@ def queue_test(db, gh_commit, commit, test_type, branch="master"):
     linux = Test(TestPlatform.linux, test_type, fork.id, branch, commit)
     db.add(linux)
     # Create Windows test entry
-    windows = Test(TestPlatform.windows, test_type, fork.id, branch, commit)
-    db.add(windows)
+    # windows = Test(TestPlatform.windows, test_type, fork.id, branch, commit)
+    # db.add(windows)
     db.commit()
     # Update statuses on GitHub
     try:
@@ -273,11 +273,11 @@ def queue_test(db, gh_commit, commit, test_type, branch="master"):
             context="CI - %s" % linux.platform.value,
             target_url=url_for(
                 'test.by_id', test_id=linux.id, _external=True))
-        gh_commit.post(
-            state=Status.PENDING, description="Tests queued",
-            context="CI - %s" % windows.platform.value,
-            target_url=url_for(
-                'test.by_id', test_id=windows.id, _external=True))
+        # gh_commit.post(
+        #     state=Status.PENDING, description="Tests queued",
+        #     context="CI - %s" % windows.platform.value,
+        #     target_url=url_for(
+        #         'test.by_id', test_id=windows.id, _external=True))
     except ApiError as a:
         log.critical('Could not post to GitHub! Response: %s' % a.response)
         return

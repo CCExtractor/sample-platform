@@ -414,10 +414,15 @@ def progress_reporter(test_id, token):
                 rto = RegressionTestOutput.query.filter(
                     RegressionTestOutput.id == request.form[
                         'test_file_id']).first()
-                result_file = TestResultFile(test.id, request.form[
-                    'test_id'], rto.id, rto.correct)
-                g.db.add(result_file)
-                g.db.commit()
+                if rto is None:
+                    # Equality posted on a file that's ignored presumably
+                    log.info('No rto for {test_id}: {test}'.format(
+                        test_id=test_id, test=request.form['test_id']))
+                else:
+                    result_file = TestResultFile(test.id, request.form[
+                        'test_id'], rto.id, rto.correct)
+                    g.db.add(result_file)
+                    g.db.commit()
             elif request.form['type'] == 'upload':
                 # File upload, process
                 if 'file' in request.files:

@@ -7,7 +7,8 @@ from sqlalchemy import and_
 
 from decorators import template_renderer
 from mod_home.models import CCExtractorVersion
-from mod_regression.models import Category, regressionTestCategoryLinkTable
+from mod_regression.models import Category, regressionTestCategoryLinkTable, \
+    RegressionTestOutput
 from mod_test.models import Fork, Test, TestProgress, TestResult, \
     TestResultFile, TestType
 
@@ -73,10 +74,21 @@ def get_data_for_test(test, title=None):
                             category_test['result'].exit_code != 0:
                 error = True
                 break
-            for result_file in category_test['files']:
-                if result_file.got is not None:
+            if len(category_test['files']) > 0:
+                for result_file in category_test['files']:
+                    if result_file.got is not None:
+                        error = True
+                        break
+            else:
+                # We need to check if the regression test had any file that
+                #  shouldn't have been ignored.
+                outputs = RegressionTestOutput.query.filter(and_(
+                    RegressionTestOutput.regression_id ==
+                    category_test['test'].id,
+                    RegressionTestOutput.ignore is False
+                )).all()
+                if len(outputs) > 0:
                     error = True
-                    break
             if error:
                 break
         category['error'] = error

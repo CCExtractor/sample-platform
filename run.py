@@ -81,6 +81,7 @@ def sub_menu_open(menu_entries, active_route):
     return False
 
 app.jinja_env.globals.update(sub_menu_open=sub_menu_open)
+app.jinja_env.add_extension('jinja2.ext.loopcontrols')
 
 
 # Add datetime format filter

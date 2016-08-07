@@ -39,6 +39,9 @@
                     </thead>
                     <tbody>
                     {% for test in tests %}
+                        {% if test.categories|length == 0 %}
+                            {% continue %}
+                        {% endif %}
                         {# TODO: make this work for multiple categories #}
                         <tr data-category="{{ test.categories[0].id }}" {% if test.categories[0].id != categories[0].id %}class="hide"{% endif %}>
                             <td>{{ test.id }}</td>

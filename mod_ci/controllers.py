@@ -211,6 +211,7 @@ def kvm_processor(db, kvm_name, platform):
     try:
         repo.delete_head('CI_Branch')
     except GitCommandError:
+        log.warn('Could not delete CI_Branch head')
         pass
     # If PR, merge, otherwise reset to commit
     if test.test_type == TestType.pull_request:

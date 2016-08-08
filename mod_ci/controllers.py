@@ -222,7 +222,8 @@ def kvm_processor(db, kvm_name, platform, delay):
     # If PR, merge, otherwise reset to commit
     if test.test_type == TestType.pull_request:
         # Fetch PR (stored under origin/pull/<id>/head
-        pull_info = origin.fetch('pull/2/head:CI_Branch')
+        pull_info = origin.fetch('pull/{id}/head:CI_Branch'.format(
+            id=test.pr_id))
         if len(pull_info) == 0:
             log.warn('Didn\'t pull any information from remote PR!')
 
@@ -260,17 +261,19 @@ def kvm_processor(db, kvm_name, platform, delay):
         return
 
 
-def queue_test(db, gh_commit, commit, test_type, branch="master"):
+def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     from run import log
     fork = Fork.query.filter(Fork.github.like(
         "%/CCExtractor/ccextractor.git")).first()
     if test_type == TestType.pull_request:
         branch = "pull_request"
     # Create Linux test entry
-    linux = Test(TestPlatform.linux, test_type, fork.id, branch, commit)
+    linux = Test(TestPlatform.linux, test_type, fork.id, branch, commit,
+                 pr_nr)
     db.add(linux)
     # Create Windows test entry
-    # windows = Test(TestPlatform.windows, test_type, fork.id, branch, commit)
+    # windows = Test(TestPlatform.windows, test_type, fork.id, branch,
+    # commit, pr_nr)
     # db.add(windows)
     db.commit()
     # Update statuses on GitHub
@@ -332,14 +335,17 @@ def start_ci():
 
         elif event == "pull_request":  # If it's a PR, run the tests
             commit = payload['after']
+            pr_nr = payload['pull_request']['number']
             gh_commit = gh.repos(g.github['repository_owner'])(
                 g.github['repository']).statuses(commit)
             if payload['action'] == 'opened':
                 # Run initial tests
-                queue_test(g.db, gh_commit, commit, TestType.pull_request)
+                queue_test(g.db, gh_commit, commit, TestType.pull_request,
+                           pr_nr=pr_nr)
             elif payload['action'] == 'synchronize':
                 # Run/queue a new test set
-                queue_test(g.db, gh_commit, commit, TestType.pull_request)
+                queue_test(g.db, gh_commit, commit, TestType.pull_request,
+                           pr_nr=pr_nr)
             elif payload['action'] == 'closed':
                 # Cancel running queue
                 tests = Test.query.filter(Test.commit == commit).all()

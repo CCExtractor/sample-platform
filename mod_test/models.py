@@ -75,17 +75,19 @@ class Test(Base):
     fork = relationship('Fork', uselist=False, back_populates='tests')
     branch = Column(Text(), nullable=False)
     commit = Column(String(64), nullable=False)
+    pr_nr = Column(Integer(), nullable=False, default=0)
     progress = relationship('TestProgress', back_populates='test',
                             order_by='TestProgress.id')
     results = relationship('TestResult', back_populates='test')
 
     def __init__(self, platform, test_type, fork_id, branch, commit,
-                 token=None):
+                 pr_nr=0, token=None):
         self.platform = platform
         self.test_type = test_type
         self.fork_id = fork_id
         self.branch = branch
         self.commit = commit
+        self.pr_nr = pr_nr
         if token is None:
             # Auto-generate token
             token = self.create_token(64)

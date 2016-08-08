@@ -12,6 +12,7 @@ from github import GitHub, ApiError
 from multiprocessing import Process
 from lxml import etree
 from sqlalchemy import and_
+from sqlalchemy.sql.functions import count
 from werkzeug.utils import secure_filename
 
 from mod_ci.models import Kvm
@@ -399,8 +400,23 @@ def progress_reporter(test_id, token):
                     message = 'Tests aborted due to an error; please check'
                 elif status == TestStatus.completed:
                     # Determine if success or failure
-                    state = Status.SUCCESS
-                    message = 'Tests completed'
+                    # It fails if any of these happen:
+                    # - A crash (non-zero exit code)
+                    # - A not None value on the "got" of a TestResultFile (
+                    #       meaning the hashes do not match)
+                    crashes = g.db.query(count(TestResult.exit_code)).where(
+                        and_(TestResult.test_id == test.id,
+                             TestResult.exit_code != 0)).first()
+                    results = g.db.query(count(TestResultFile.got)).where(
+                        and_(TestResultFile.test_id == test.id,
+                             TestResultFile.got.isnot(None))).first()
+                    if crashes > 0 or results > 0:
+                        state = Status.FAILURE
+                        message = 'Not all tests completed successfully, ' \
+                                  'please check'
+                    else:
+                        state = Status.SUCCESS
+                        message = 'Tests completed'
                 else:
                     message = progress.message
 

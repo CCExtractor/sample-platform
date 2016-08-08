@@ -223,7 +223,7 @@ def kvm_processor(db, kvm_name, platform, delay):
     if test.test_type == TestType.pull_request:
         # Fetch PR (stored under origin/pull/<id>/head
         pull_info = origin.fetch('pull/{id}/head:CI_Branch'.format(
-            id=test.pr_id))
+            id=test.pr_nr))
         if len(pull_info) == 0:
             log.warn('Didn\'t pull any information from remote PR!')
 

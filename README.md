@@ -6,18 +6,18 @@ report errors, submit samples, view existing samples and more. It was
 originally developed during GSoC 2015 and rewritten during GSoC 2016.
 
 You can find a running version here: 
-[CCExtractor Submission Platform](https://ccextractor.canihavesome.coffee)
+[CCExtractor Submission Platform](https://sampleplatform.ccextractor.org/)
 
 ## Concept
 
 While CCExtractor is an awesome tool and it works flawlessly most of the time,
-bugs occur occasionally (as with all software that exists). These are usually 
+bugs occur occasionally (as with all existing software). These are usually 
 reported through a variety of channels (private email, mailing list, GitHub, 
-...).
+and so on...).
 
 The aim of this project is to build a platform, which is accessible to 
-everyone (after sign up), that provides a single place to upload, view samples
-and associated test results.
+everyone (after signing up), that provides a single place to upload, view 
+samples and associated test results.
 
 ## Installation
 

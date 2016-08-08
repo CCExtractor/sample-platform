@@ -404,10 +404,10 @@ def progress_reporter(test_id, token):
                     # - A crash (non-zero exit code)
                     # - A not None value on the "got" of a TestResultFile (
                     #       meaning the hashes do not match)
-                    crashes = g.db.query(count(TestResult.exit_code)).where(
+                    crashes = g.db.query(count(TestResult.exit_code)).filter(
                         and_(TestResult.test_id == test.id,
                              TestResult.exit_code != 0)).first()
-                    results = g.db.query(count(TestResultFile.got)).where(
+                    results = g.db.query(count(TestResultFile.got)).filter(
                         and_(TestResultFile.test_id == test.id,
                              TestResultFile.got.isnot(None))).first()
                     if crashes > 0 or results > 0:

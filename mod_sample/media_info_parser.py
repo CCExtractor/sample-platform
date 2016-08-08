@@ -2,6 +2,8 @@ import os
 import traceback
 
 import sys
+from collections import OrderedDict
+
 from lxml import etree
 import subprocess
 import xmltodict
@@ -85,6 +87,9 @@ class MediaInfoFetcher:
             raise InvalidMediaInfoError('No File element present in XML')
 
     def _process_track(self, track):
+        if type(track) is not OrderedDict:
+            raise InvalidMediaInfoError('There is no useful information '
+                                        'present in this MediaInfo file.')
         if '@type' not in track:
             raise InvalidMediaInfoError('Track file does not contain a type')
         track_type = track['@type']

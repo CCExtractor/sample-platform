@@ -88,8 +88,7 @@ class MediaInfoFetcher:
 
     def _process_track(self, track):
         if type(track) is not OrderedDict:
-            raise InvalidMediaInfoError('There is no useful information '
-                                        'present in this MediaInfo file.')
+            return
         if '@type' not in track:
             raise InvalidMediaInfoError('Track file does not contain a type')
         track_type = track['@type']

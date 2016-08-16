@@ -334,7 +334,11 @@ def start_ci():
             g.db.commit()
 
         elif event == "pull_request":  # If it's a PR, run the tests
-            commit = payload['after']
+            try:
+                commit = payload['after']
+            except KeyError:
+                # If the PR is opened, there's no after available.
+                commit = ''
             pr_nr = payload['pull_request']['number']
             gh_commit = gh.repos(g.github['repository_owner'])(
                 g.github['repository']).statuses(commit)

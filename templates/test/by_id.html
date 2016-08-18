@@ -16,7 +16,7 @@
                             {% if test.test_type == TestType.commit %}
                                 <td><a href="{{ test.fork.github_url ~ "/commit/" ~ test.commit }}" target="_blank">{{ test.commit[:7] }}</a> (branch {{ test.branch }})</td>
                             {% elif test.test_type == TestType.pull_request %}
-                                <td><a href="{{ test.fork.github_url ~ "/pull/" ~ test.commit }}" target="_blank">{{ test.commit }}</a></td>
+                                <td><a href="{{ test.fork.github_url ~ "/pull/" ~ test.pr_nr }}" target="_blank">{{ test.pr_nr }}</a></td>
                             {% endif %}
                         </tr>
                         <tr>

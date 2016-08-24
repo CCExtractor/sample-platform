@@ -55,7 +55,7 @@ def kvm_processor_windows(db, delay):
 
 
 def kvm_processor(db, kvm_name, platform, delay):
-    from run import config, log
+    from run import config, log, app
     if kvm_name == "":
         log.critical('KVM name is empty!')
         return
@@ -127,8 +127,9 @@ def kvm_processor(db, kvm_name, platform, delay):
     status = Kvm(kvm_name, test.id)
     # Prepare data
     # 0) Write url to file
-    full_url = url_for('.progress_reporter', test_id=test.id,
-                       token=test.token, _external=True)
+    with app.app_context():
+        full_url = url_for('.progress_reporter', test_id=test.id,
+                           token=test.token, _external=True)
     file_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'reportURL')
     with open(file_path, 'w') as f:
         f.write(full_url)
@@ -242,7 +243,6 @@ def kvm_processor(db, kvm_name, platform, delay):
         try:
             repo.git.rebase('master')
         except GitCommandError:
-            # TODO: handle merge conflict, and report back
             progress = TestProgress(
                 test.id, TestStatus.preparation, 
                 'Rebase on master'
@@ -259,8 +259,9 @@ def kvm_processor(db, kvm_name, platform, delay):
             gh_commit = gh.repos(g.github['repository_owner'])(
                 g.github['repository']).statuses(test.pr_nr)
 
-            target_url = url_for(
-                'test.by_id', test_id=test.id, _external=True)
+            with app.app_context():
+                target_url = url_for(
+                    'test.by_id', test_id=test.id, _external=True)
             context = "CI - %s" % test.platform.value
             gh_commit.post(
                 state=Status.ERROR, description='Failed to rebase',

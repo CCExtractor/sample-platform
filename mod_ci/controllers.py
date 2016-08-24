@@ -128,7 +128,7 @@ def kvm_processor(db, kvm_name, platform, delay):
     # Prepare data
     # 0) Write url to file
     with app.app_context():
-        full_url = url_for('.progress_reporter', test_id=test.id,
+        full_url = url_for('ci.progress_reporter', test_id=test.id,
                            token=test.token, _external=True)
     file_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'reportURL')
     with open(file_path, 'w') as f:

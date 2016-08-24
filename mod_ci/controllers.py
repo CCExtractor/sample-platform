@@ -103,7 +103,7 @@ def kvm_processor(db, kvm_name, platform, delay):
                 log.critical("Failed to shut down %s" % kvm_name)
                 return
     # Get oldest test for this platform
-    finished_tests = g.db.query(TestProgress.test_id).filter(
+    finished_tests = db.query(TestProgress.test_id).filter(
         TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
     ).subquery()
     test = Test.query.filter(
@@ -247,13 +247,13 @@ def kvm_processor(db, kvm_name, platform, delay):
                 test.id, TestStatus.preparation, 
                 'Rebase on master'
             )
-            g.db.add(progress)
+            db.add(progress)
             progress = TestProgress(
                 test.id, TestStatus.canceled, 
                 'Merge conflict, please resolve.'
             )
-            g.db.add(progress)
-            g.db.commit()
+            db.add(progress)
+            db.commit()
             # Report back
             gh = GitHub(access_token=g.github['bot_token'])
             gh_commit = gh.repos(g.github['repository_owner'])(

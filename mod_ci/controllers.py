@@ -239,7 +239,34 @@ def kvm_processor(db, kvm_name, platform, delay):
         # Check out branch
         test_branch.checkout(True)
         # Rebase on master
-        repo.git.rebase('master')
+        try:
+            repo.git.rebase('master')
+        except GitCommandError:
+            # TODO: handle merge conflict, and report back
+            progress = TestProgress(
+                test.id, TestStatus.preparation, 
+                'Rebase on master'
+            )
+            g.db.add(progress)
+            progress = TestProgress(
+                test.id, TestStatus.canceled, 
+                'Merge conflict, please resolve.'
+            )
+            g.db.add(progress)
+            g.db.commit()
+            # Report back
+            gh = GitHub(access_token=g.github['bot_token'])
+            gh_commit = gh.repos(g.github['repository_owner'])(
+                g.github['repository']).statuses(test.pr_nr)
+
+            target_url = url_for(
+                'test.by_id', test_id=test.id, _external=True)
+            context = "CI - %s" % test.platform.value
+            gh_commit.post(
+                state=Status.ERROR, description='Failed to rebase',
+                context=context, target_url=target_url)
+            # Return, so next one can be handled
+            return
         # TODO: check what happens on merge conflicts
     else:
         test_branch = repo.create_head('CI_Branch', 'HEAD')
@@ -341,7 +368,7 @@ def start_ci():
                 commit = ''
             pr_nr = payload['pull_request']['number']
             gh_commit = gh.repos(g.github['repository_owner'])(
-                g.github['repository']).statuses(commit)
+                g.github['repository']).statuses(pr_nr)
             if payload['action'] == 'opened':
                 # Run initial tests
                 queue_test(g.db, gh_commit, commit, TestType.pull_request,

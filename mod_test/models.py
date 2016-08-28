@@ -102,6 +102,14 @@ class Test(Base):
             return self.progress[-1].status in [
                 TestStatus.completed, TestStatus.canceled]
         return False
+        
+    
+    @property
+    def failed(self):
+        if len(self.progress) > 0:
+            return self.progress[-1].status == TestStatus.canceled
+        return False
+
 
     def progress_data(self):
         result = {

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Regression test {{ test.id }} {{ super() }}{% endblock %}
+{% block body %}
+    {{ super() }}
+    <br />
+    <div class="row">
+        <div class="column medium-9">
+            <h1>Regression test  {{ test.id }}</h1>
+            <p>Sample: <a href="{{ url_for('sample.id', sample_id=test.sample_id) }}">Sample #{{ test.sample.id }}</a></p>
+            <p>Command: {{ test.command }}</p>
+            <p>Input type: {{ test.input_type.description }}</p>
+            <p>Output type: {{ test.output_type.description }}</p>
+            <p>Output files: Coming soon<!-- TODO: finish --></p>
+        </div>
+        <div class="column medium-3">
+            {% if user is not none and user.has_role('contributor') %}
+            <h5>Regression tests</h5>
+            <ul class="no-bullet">
+                <li>Coming soon</li>
+            </ul>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}

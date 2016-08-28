@@ -43,9 +43,17 @@ def by_sample(sample_id):
 
 
 @mod_regression.route('/test/<regression_id>/view')
+@template_renderer()
 def test_view(regression_id):
     # Show a single regression test
-    pass
+    test = RegressionTest.query.filter(RegressionTest.id == regression_id).first()
+    
+    if test is None:
+        abort(404)
+    
+    return {
+        'test': test   
+    }
 
 
 @mod_regression.route('/test/<regression_id>/delete')

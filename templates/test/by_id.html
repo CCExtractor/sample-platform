@@ -69,7 +69,7 @@
                 {% else %}
                     <p>This test is still in the queue! Please check again later.</p>
                 {% endif %}
-                {% if test.finished %}
+                {% if test.finished and not test.failed %}
                     <h2>Test results</h2>
                     <p>Click on the category names to expand the results, and on "Fail" to see the differences.</p>
                     {% for result in results %}

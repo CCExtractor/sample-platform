@@ -14,6 +14,7 @@ from lxml import etree
 from sqlalchemy import and_
 from sqlalchemy.sql.functions import count
 from werkzeug.utils import secure_filename
+from pymysql.err import IntegrityError
 
 from mod_ci.models import Kvm
 from mod_deploy.controllers import request_from_github, is_valid_signature
@@ -102,6 +103,12 @@ def kvm_processor(db, kvm_name, platform, delay):
                 # Failed to shut down
                 log.critical("Failed to shut down %s" % kvm_name)
                 return
+    # Check if there's no KVM status left
+    status = Kvm.query.filter(Kvm.name == kvm_name).first()
+    if status is not None:
+        log.warn("KVM is powered off, but test is still in there: %s" % status.test.id)
+        db.delete(status)
+        db.commit()
     # Get oldest test for this platform
     finished_tests = db.query(TestProgress.test_id).filter(
         TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
@@ -286,7 +293,8 @@ def kvm_processor(db, kvm_name, platform, delay):
         db.commit()
     except libvirt.libvirtError:
         log.critical("Failed to launch VM %s" % kvm_name)
-        return
+    except IntegrityError:
+        log.warn("Duplicate entry for %s" % test.id)
 
 
 def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):

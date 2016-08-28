@@ -6,6 +6,7 @@
             <th>Type</th>
             <th>Platform</th>
             <th>Finished</th>
+            <th title="Indicates if an error occurred during any preparational step (merging, compiling).">Run errors</th>
         </tr>
         </thead>
         <tbody>
@@ -15,6 +16,7 @@
                 <td>{{ test.test_type.description }}</td>
                 <td>{{ test.platform.description }}</td>
                 <td><a href="{{ url_for('.by_id', test_id=test.id) }}">{{ "Yes" if test.finished else "No" }}</a></td>
+                <td>{{ "Yes" if test.failed else "No" }}</td>
             </tr>
         {% endfor %}
         </tbody>

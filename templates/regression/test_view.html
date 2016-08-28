@@ -7,7 +7,7 @@
     <div class="row">
         <div class="column medium-9">
             <h1>Regression test  {{ test.id }}</h1>
-            <p>Sample: <a href="{{ url_for('sample.id', sample_id=test.sample_id) }}">Sample #{{ test.sample.id }}</a></p>
+            <p>Sample: <a href="{{ url_for('sample.sample_by_id', sample_id=test.sample_id) }}">Sample #{{ test.sample.id }}</a></p>
             <p>Command: {{ test.command }}</p>
             <p>Input type: {{ test.input_type.description }}</p>
             <p>Output type: {{ test.output_type.description }}</p>

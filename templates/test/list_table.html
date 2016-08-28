@@ -16,7 +16,7 @@
                 <td>{{ test.test_type.description }}</td>
                 <td>{{ test.platform.description }}</td>
                 <td><a href="{{ url_for('.by_id', test_id=test.id) }}">{{ "Yes" if test.finished else "No" }}</a></td>
-                <td>{{ "Yes" if test.failed else "No" }}</td>
+                <td>{{ "Unknown" if not test.finished else "Yes" if test.failed else "No" }}</td>
             </tr>
         {% endfor %}
         </tbody>

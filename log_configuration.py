@@ -6,7 +6,7 @@ class LogConfiguration:
     """
     This class handles common logging options for the entire project
     """
-    def __init__(self, filename, debug=False):
+    def __init__(self, folder, filename, debug=False):
         # create console handler
         self._consoleLogger = logging.StreamHandler()
         self._consoleLogger.setFormatter(logging.Formatter(
@@ -16,8 +16,9 @@ class LogConfiguration:
         else:
             self._consoleLogger.setLevel(logging.INFO)
         # create a file handler
-        self._fileLogger = logging.handlers.RotatingFileHandler(
-            'logs/%s.log' % filename,
+       	path = os.path.join(folder, 'logs', '%s.log' % filename) 
+	self._fileLogger = logging.handlers.RotatingFileHandler(
+            path,
             maxBytes=1024*1024,  # 1 Mb
             backupCount=20)
         self._fileLogger.setLevel(logging.DEBUG)

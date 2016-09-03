@@ -264,7 +264,7 @@ def kvm_processor(db, kvm_name, platform, delay):
             # Report back
             gh = GitHub(access_token=g.github['bot_token'])
             gh_commit = gh.repos(g.github['repository_owner'])(
-                g.github['repository']).statuses(test.pr_nr)
+                g.github['repository']).statuses(test.commit)
 
             with app.app_context():
                 target_url = url_for(
@@ -370,14 +370,25 @@ def start_ci():
             g.db.commit()
 
         elif event == "pull_request":  # If it's a PR, run the tests
-            try:
-                commit = payload['after']
-            except KeyError:
-                # If the PR is opened, there's no after available.
-                commit = ''
+            if payload['action'] == 'opened':
+                try:
+                    commit = payload['pull_request']['head']['sha']
+                except KeyError:
+                    g.log.critical(
+                        "Didn't find a SHA value for a newly opened PR!")
+                    g.log.debug(payload)
+                    commit = ''
+            else:
+                try:
+                    commit = payload['after']
+                except KeyError:
+                    g.log.critical("Didn't find the after SHA for the "
+                                   "updated commit!")
+                    g.log.debug(payload)
+                    commit = ''
             pr_nr = payload['pull_request']['number']
             gh_commit = gh.repos(g.github['repository_owner'])(
-                g.github['repository']).statuses(pr_nr)
+                g.github['repository']).statuses(commit)
             if payload['action'] == 'opened':
                 # Run initial tests
                 queue_test(g.db, gh_commit, commit, TestType.pull_request,

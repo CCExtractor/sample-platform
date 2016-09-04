@@ -3,20 +3,20 @@
         <thead>
         <tr>
             <th>Repository</th>
-            <th>Type</th>
+            <th>Details</th>
             <th>Platform</th>
-            <th>Finished</th>
             <th title="Indicates if an error occurred during any preparational step (merging, compiling).">Run errors</th>
+            <th title="Did the test suite finish or error out?">Completed</th>
         </tr>
         </thead>
         <tbody>
         {% for test in tests %}
             <tr>
-                <td><a href="{{ test.fork.github_url }}" target="_blank">{{ test.fork.github_name }}</a></td>
-                <td>{{ test.test_type.description }}</td>
+                <td>{{ test.fork.github_name }}</td>
+                <td><a href="{{ test.github_link }}" target="_blank">{{ test.test_type.description ~ (test.commit if test.test_type == TestType.commit else test.pr_nr) }}</a></td>
                 <td>{{ test.platform.description }}</td>
+                <td>{{ "Unknown" if not test.finished else ("Yes" if test.failed else "No") }}</td>
                 <td><a href="{{ url_for('.by_id', test_id=test.id) }}">{{ "Yes" if test.finished else "No" }}</a></td>
-                <td>{{ "Unknown" if not test.finished else "Yes" if test.failed else "No" }}</td>
             </tr>
         {% endfor %}
         </tbody>

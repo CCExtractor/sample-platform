@@ -102,7 +102,6 @@ class Test(Base):
             return self.progress[-1].status in [
                 TestStatus.completed, TestStatus.canceled]
         return False
-        
     
     @property
     def failed(self):
@@ -110,6 +109,17 @@ class Test(Base):
             return self.progress[-1].status == TestStatus.canceled
         return False
 
+    @property
+    def github_link(self):
+        if self.test_type == TestType.commit:
+            test_type = 'commit'
+            test_id = self.commit
+        else:
+            test_type = 'pull'
+            test_id = self.pr_nr
+
+        return "{base}/{test_type}/{test_id}".format(
+            base=self.fork.github_url, test_type=test_type, test_id=test_id)
 
     def progress_data(self):
         result = {

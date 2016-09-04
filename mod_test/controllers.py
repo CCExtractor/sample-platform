@@ -42,7 +42,8 @@ def not_found(error):
 @template_renderer()
 def index():
     return {
-        'tests': Test.query.order_by(Test.id.desc()).limit(50).all()
+        'tests': Test.query.order_by(Test.id.desc()).limit(50).all(),
+        'TestType': TestType
     }
 
 

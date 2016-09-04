@@ -13,7 +13,7 @@
         {% for test in tests %}
             <tr>
                 <td>{{ test.fork.github_name }}</td>
-                <td><a href="{{ test.github_link }}" target="_blank">{{ test.test_type.description ~ (test.commit if test.test_type == TestType.commit else test.pr_nr) }}</a></td>
+                <td>{{ test.test_type.description }} <a href="{{ test.github_link }}" target="_blank">{{ (test.commit if test.test_type == TestType.commit else test.pr_nr) }}</a></td>
                 <td>{{ test.platform.description }}</td>
                 <td>{{ "Unknown" if not test.finished else ("Yes" if test.failed else "No") }}</td>
                 <td><a href="{{ url_for('.by_id', test_id=test.id) }}">{{ "Yes" if test.finished else "No" }}</a></td>

@@ -119,8 +119,10 @@ def internal_error(error):
 @app.errorhandler(403)
 @template_renderer('403.html', 403)
 def forbidden(error):
+    user_name = 'Guest' if g.user is None else g.user.name
+    user_role = 'Guest' if g.user is None else g.user.role.value
     log.debug('%s (role: %s) tried to access %s' %
-              (g.user.name, g.user.role.value, error.description))
+              (user_name, user_role, error.description))
     return {
         'user_role': g.user.role,
         'endpoint': error.description

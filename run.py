@@ -124,7 +124,7 @@ def forbidden(error):
     log.debug('%s (role: %s) tried to access %s' %
               (user_name, user_role, error.description))
     return {
-        'user_role': g.user.role,
+        'user_role': user_role,
         'endpoint': error.description
     }
 

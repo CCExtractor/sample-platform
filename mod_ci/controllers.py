@@ -439,7 +439,7 @@ def progress_reporter(test_id, token):
                 g.db.add(progress)
                 g.db.commit()
                 # If status is complete, remove the Kvm entry
-                if status == TestStatus.completed:
+                if status in [TestStatus.completed, TestStatus.canceled]:
                     kvm = Kvm.query.filter(Kvm.test_id == test_id).first()
                     if kvm is not None:
                         g.db.delete(kvm)

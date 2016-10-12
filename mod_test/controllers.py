@@ -162,4 +162,4 @@ def generate_diff(test_id, regression_test_id, output_id):
                 config.get('SAMPLE_REPOSITORY', ''), 'TestResults')
             return result.generate_html_diff(path)
         abort(404)
-    abort(403)
+    abort(403, 'generate_diff')

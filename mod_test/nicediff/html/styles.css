@@ -1,0 +1,17 @@
+.diff-same-region {
+	display: inline;
+	color: #3BA3D0;
+}
+
+.diff-table-td {
+	padding-top: 3px;
+	padding-left: 10px;
+	padding-bottom: 3px;
+	font-family: monospace;
+}
+
+.diff-div-text {
+	color: #d88484;
+	display:inline;
+	font-family: monospace;
+}

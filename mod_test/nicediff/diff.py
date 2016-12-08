@@ -130,23 +130,28 @@ def _process(test_result, correct, suffix_id):
         else:
             html_correct += '</div>'
     html_correct += ''.join(cr_compr[iter:])
-    return '<div class="diff-div-text">' + html_test + '</div>', '<div class="diff-div-text">' + html_correct + '</div>'
+    return '<div class="diff-div-text">' + html_test + '</div>', \
+           '<div class="diff-div-text">' + html_correct + '</div>'
 
 
 def get_html_diff(test_correct_lines, test_res_lines):
     # test_res_lines = open(path_test_res).readlines()
     # test_correct_lines = open(path_correct).readlines()
-    styles = '<style>' + open('html/styles.css').read() + '</style>'
-    html = styles
+    html = ''
     for line in range(min(len(test_res_lines), len(test_correct_lines))):
         html += '<table>'
         a, b = _process(test_res_lines[line], test_correct_lines[line],
                         suffix_id=str(line))
-        html += '<tr><td class="diff-table-td" style="width: 30px;">{line_id}</td><td class="diff-table-td">'.format(
-            line_id=line + 1) + a + '</td></tr>'
-        html += '<tr><td class="diff-table-td" style="width: 30px;"></td><td class="diff-table-td">' + b + '</td></tr>'
+        html += '<tr>' \
+                '   <td class="diff-table-td" style="width: 30px;">' \
+                '       {line_id}' \
+                '   </td>' \
+                '   <td class="diff-table-td">{a}</td>' \
+                '</tr>' \
+                '<tr>' \
+                '   <td class="diff-table-td" style="width: 30px;"></td>' \
+                '   <td class="diff-table-td">{b}</td>' \
+                '</tr>'.format(line_id=line + 1, a=a, b=b)
         html += '</table>'
 
-    html += '<script>' + open(
-        'html/same-blocks-highlight.js').read() + '</script>'
     return html

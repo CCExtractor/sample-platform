@@ -1,4 +1,4 @@
-{
+window.onload = () => {
 	let elems = document.getElementsByClassName('diff-same-region');
 
 	for (let i = 0; i < elems.length; i++) {

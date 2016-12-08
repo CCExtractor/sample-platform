@@ -137,11 +137,12 @@ def _process(test_result, correct, suffix_id):
 def get_html_diff(test_correct_lines, test_res_lines):
     # test_res_lines = open(path_test_res).readlines()
     # test_correct_lines = open(path_correct).readlines()
-    html = ''
+    html = '<table><tr><td>Result</td></tr><tr><td>Expected</td></tr></table>'
     for line in range(min(len(test_res_lines), len(test_correct_lines))):
         html += '<table>'
-        a, b = _process(test_res_lines[line], test_correct_lines[line],
-                        suffix_id=str(line))
+        actual, expected = _process(test_res_lines[line],
+                                    test_correct_lines[line],
+                                    suffix_id=str(line))
         html += '<tr>' \
                 '   <td class="diff-table-td" style="width: 30px;">' \
                 '       {line_id}' \
@@ -151,7 +152,7 @@ def get_html_diff(test_correct_lines, test_res_lines):
                 '<tr>' \
                 '   <td class="diff-table-td" style="width: 30px;"></td>' \
                 '   <td class="diff-table-td">{b}</td>' \
-                '</tr>'.format(line_id=line + 1, a=a, b=b)
+                '</tr>'.format(line_id=line + 1, a=actual, b=expected)
         html += '</table>'
 
     return html

@@ -378,6 +378,9 @@ def start_ci():
                         "Didn't find a SHA value for a newly opened PR!")
                     g.log.debug(payload)
                     commit = ''
+            elif payload['action'] == 'closed':
+                g.log.debug('PR was closed, no after hash available')
+                commit = ''
             else:
                 try:
                     commit = payload['after']
@@ -399,7 +402,7 @@ def start_ci():
                            pr_nr=pr_nr)
             elif payload['action'] == 'closed':
                 # Cancel running queue
-                tests = Test.query.filter(Test.commit == commit).all()
+                tests = Test.query.filter(Test.pr_nr == pr_nr).all()
                 for test in tests:
                     # Add canceled status only if the test hasn't started yet
                     if len(test.progress) > 0:

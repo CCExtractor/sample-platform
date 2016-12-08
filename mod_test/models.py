@@ -1,14 +1,12 @@
 import datetime
-import nicediff
 import os
 import string
 
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime
-from sqlalchemy import UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from database import Base, DeclEnum
-from mod_auth.models import User
+from mod_test.nicediff import diff
 
 
 class TestPlatform(DeclEnum):
@@ -256,4 +254,4 @@ class TestResultFile(Base):
         lines_ok = open(file_ok, 'U').readlines()
         lines_fail = open(file_fail, 'U').readlines()
 
-        return nicediff.diff.get_html_diff(lines_ok, lines_fail)
+        return diff.get_html_diff(lines_ok, lines_fail)

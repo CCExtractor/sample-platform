@@ -234,14 +234,20 @@ table.diff td.diff_header {
     padding-left: 0.5rem;
 }
 
-.diff_chg {
-    background-color: orange;
+.diff-same-region {
+	display: inline;
+	color: #3BA3D0;
 }
 
-.diff_add {
-    background-color: green;
+.diff-table-td {
+	padding-top: 3px;
+	padding-left: 10px;
+	padding-bottom: 3px;
+	font-family: monospace;
 }
 
-.diff_sub {
-    background-color: red;
+.diff-div-text {
+	color: #d88484;
+	display:inline;
+	font-family: monospace;
 }

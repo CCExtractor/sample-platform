@@ -118,6 +118,7 @@
 
 {% block scripts %}
     {{ super() }}
+    <script type="text/javascript" src="{{ url_for('static', filename='js/same-blocks-highlight.js') }}"></script>
     <script type="text/javascript">
         $(document).ready(function(){
             $('.category-header').on('click', function(){

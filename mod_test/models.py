@@ -1,6 +1,5 @@
 import datetime
-import difflib
-from nicediff import diff as nicediff
+import nicediff
 import os
 import string
 
@@ -257,4 +256,4 @@ class TestResultFile(Base):
         lines_ok = open(file_ok, 'U').readlines()
         lines_fail = open(file_fail, 'U').readlines()
 
-        return nicediff.get_html_diff(lines_ok, lines_fail)
+        return nicediff.diff.get_html_diff(lines_ok, lines_fail)

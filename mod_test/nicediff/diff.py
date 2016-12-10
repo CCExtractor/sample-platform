@@ -38,9 +38,11 @@ def eq(a, b, same_regions=None, delta_a=0, delta_b=0, only_onetype=False):
         best_len, a_iter, b_iter = -1, -1, -1
         find = False
         for l in range(min(len(a), len(b)), 0, -1):
-            if find: break
+            if find:
+                break
             for i in range(len(a) - l + 1):
-                if find: break
+                if find:
+                    break
                 for j in range(len(b) - l + 1):
                     if a[i:i + l] != b[j:j + l]:
                         continue

@@ -31,7 +31,8 @@ except KeyError:
     app.config['DEBUG'] = False
 
 # Init logger
-log_configuration = LogConfiguration(app.root_path, 'platform', app.config['DEBUG'])
+log_configuration = LogConfiguration(
+    app.root_path, 'platform', app.config['DEBUG'])
 log = log_configuration.create_logger("Platform")
 
 

@@ -118,7 +118,7 @@ sed -i "s#BASE_DIR#${root_dir}#g" /etc/init.d/platform >> "$install_log" 2>&1
 chmod 755 /etc/init.d/platform >> "$install_log" 2>&1
 update-rc.d platform defaults >> "$install_log" 2>&1
 echo "* Creating Nginx config"
-# TODO: update for sample_dir variable
+# TODO: update for SAMPLE_DIR variable and LOGFILE_DIR
 cp "${dir}/nginx.conf" /etc/nginx/sites-available/platform >> "$install_log" 2>&1
 sed -i "s/NGINX_HOST/${config_server_name}/g" /etc/nginx/sites-available/platform >> "$install_log" 2>&1
 sed -i "s#NGINX_CERT#${config_ssl_cert}#g" /etc/nginx/sites-available/platform >> "$install_log" 2>&1

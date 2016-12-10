@@ -2,6 +2,7 @@ import os
 
 from flask import Blueprint, g, jsonify
 from flask import abort
+from flask import make_response
 from flask import request
 from sqlalchemy import and_
 
@@ -163,3 +164,38 @@ def generate_diff(test_id, regression_test_id, output_id):
             return result.generate_html_diff(path)
         abort(404)
     abort(403, 'generate_diff')
+
+
+def serve_file_download(file_name, content_type='application/octet-stream'):
+    from run import config
+
+    file_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''),
+                             'LogFiles', file_name)
+    response = make_response()
+    response.headers['Content-Description'] = 'File Transfer'
+    response.headers['Cache-Control'] = 'no-cache'
+    response.headers['Content-Type'] = content_type
+    response.headers['Content-Disposition'] = \
+        'attachment; filename=%s' % file_name
+    response.headers['Content-Length'] = \
+        os.path.getsize(file_path)
+    response.headers['X-Accel-Redirect'] = \
+        '/' + os.path.join('logfile-download', file_name)
+    return response
+
+
+@mod_test.route('/log-files/<test_id>')
+def download_build_log_file(test_id):
+    from run import config
+    test = Test.query.filter(Test.id == test_id).first()
+    if test is not None:
+        # Fetch logfile
+        log_file_path = os.path.join(
+            config.get('SAMPLE_REPOSITORY', ''), 'LogFiles',
+            test_id + '.txt')
+        if os.path.isfile(log_file_path):
+            return serve_file_download(test_id + '.txt',
+                                       'text/plain')
+        raise TestNotFoundException('Build log for Test %s not found' %
+                                    test_id)
+    raise TestNotFoundException('Test with id %s not found' % test_id)

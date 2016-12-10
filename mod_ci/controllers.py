@@ -330,38 +330,6 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     # Kick off KVM process
     start_ci_vm(db)
 
-def serve_file_download(file_name, content_type='application/octet-stream'):
-    from run import config
-
-    file_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''),
-                             'LogFiles', file_name)
-    response = make_response()
-    response.headers['Content-Description'] = 'File Transfer'
-    response.headers['Cache-Control'] = 'no-cache'
-    response.headers['Content-Type'] = content_type
-    response.headers['Content-Disposition'] = \
-        'attachment; filename=%s' % file_name
-    response.headers['Content-Length'] = \
-        os.path.getsize(file_path)
-    response.headers['X-Accel-Redirect'] = \
-        '/' + os.path.join('logfile-download', file_name)
-    return response
-
-@mod_ci.route('/log-files/<test_id>')
-def download_build_log_file(test_id):
-    from run import config
-    test = Test.query.filter(Test.id == test_id).first()
-    if test is not None:
-        # Fetch logfile
-        log_file_path = os.path.join(
-            config.get('SAMPLE_REPOSITORY', ''), 'LogFiles',
-            test_id + '.txt')
-        if os.path.isfile(log_file_path):
-            return serve_file_download(test_id + '.txt',
-                                       'text/plain')
-        raise TestNotFoundException('Build log for Test %s not '
-                                      'found' % test_id)
-    raise TestNotFoundException('Test with id %s not found' % test_id)
 
 @mod_ci.route('/start-ci', methods=['GET', 'POST'])
 @request_from_github()
@@ -536,26 +504,24 @@ def progress_reporter(test_id, token):
                     g.db.commit()
                     
             elif request.form['type'] == 'logupload':
-                 # File upload, process
+                # File upload, process
                 if 'file' in request.files:
                     uploaded_file = request.files['file']
-                    filename = secure_filename(uploaded_file.filename)  #to avoid XSS
+                    filename = secure_filename(uploaded_file.filename)
                     if filename is '':
                         return 'EMPTY'
 
-                    temp_path = os.path.join(                           #saving it to a temporary location
+                    temp_path = os.path.join(
                        config.get('SAMPLE_REPOSITORY', ''), 'TempFiles',
                        filename)
                     # Save to temporary location
                     uploaded_file.save(temp_path)
                     final_path = os.path.join(
-                        config.get('SAMPLE_REPOSITORY', ''), 'LogFiles',        #LogFiles is the directory in which file is saved in SAMPLE_REPOSITORY
-                        '{id}{ext}'.format(                                      #the format is id.txt
-                           id=test.id, ext='.txt')              
+                        config.get('SAMPLE_REPOSITORY', ''), 'LogFiles',
+                        '{id}{ext}'.format(id=test.id, ext='.txt')
                     )
                     
                     os.rename(temp_path, final_path)
-                    
                 
             elif request.form['type'] == 'upload':
                 log.debug('Upload for {t}/{rt}/{rto}'.format(

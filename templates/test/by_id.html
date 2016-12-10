@@ -73,7 +73,7 @@
                 {% if test.finished %}
                     {% if test.failed %}
                         <h3>The compilation of CCExtractor failed.</h3>
-                        <p>Click <a target="_blank" href = "{{ url_for('ci.download_build_log_file',test_id=test.id) }}">here</a> to access the build log for {{ title }} </p>
+                        <p>Click <a target="_blank" href = "{{ url_for('.download_build_log_file',test_id=test.id) }}">here</a> to access the build log for {{ title }} </p>
                     {% else %}
                         <h2>Test results</h2>
                         <p>Click on the category names to expand the results, and on "Fail" to see the differences.</p>

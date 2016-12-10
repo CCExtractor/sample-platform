@@ -69,48 +69,58 @@
                 {% else %}
                     <p>This test is still in the queue! Please check again later.</p>
                 {% endif %}
-                {% if test.finished and not test.failed %}
-                    <h2>Test results</h2>
-                    <p>Click on the category names to expand the results, and on "Fail" to see the differences.</p>
-                    {% for result in results %}
-                        <h4 class="category-header {{ 'fail' if result.error else 'pass' }}" data-category="{{ result.category.id }}">{{ result.category.name }} - {{ 'Fail' if result.error else 'Pass' }}</h4>
-                        <table class="striped sortable hide" data-category="{{ result.category.id }}">
-                            <thead>
-                                <tr>
-                                    <th>Regression ID</th>
-                                    <th>Sample</th>
-                                    <th>Command</th>
-                                    <th>Runtime (ms)</th>
-                                    <th>Exit code</th>
-                                    <th>Result</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for test in result.tests %}
-                                    <tr>
-                                        <td><a href="{{ url_for('regression.test_view', regression_id=test.test.id) }}">{{ test.test.id }}</a></td>
-                                        <td><a href="{{ url_for('sample.sample_by_id', sample_id=test.test.sample.id) }}">{{ test.test.sample.sha[:10] }}...</a></td>
-                                        <td>{{ test.test.command }}</td>
-                                        <td>{{ test.result.runtime }}</td>
-                                        <td>{{ test.result.exit_code }}</td>
-                                        <td>
-                                            {% for file in test.files %}
-                                                {% if file.got is none %}
-                                                    Pass
-                                                {% else %}
-                                                    <a href="#" class="diff_link" data-test="{{ file.test_id }}" data-regression="{{ file.regression_test_id }}" data-output="{{ file.regression_test_output_id }}">Fail</a>
-                                                {% endif %}
-                                                {% if not loop.last %}<br />{% endif %}
-                                            {% endfor %}
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                
+                {% if test.finished %}
+                    {% if test.failed %}
+                
+                        <h3>The compilation of CCExtractor failed.</h3>
+                        <p>Click <a target="_blank" href = "{{ url_for('.download_build_log_file',test_id=test.id) }}">here</a> to access the build log for {{ title }} </p>
+                
                     {% else %}
-                        <p>There are no results available, though the status indicates the tests are done. Please get in touch.</p>
-                    {% endfor %}
+                        <h2>Test results</h2>
+                        <p>Click on the category names to expand the results, and on "Fail" to see the differences.</p>
+                        {% for result in results %}
+                            <h4 class="category-header {{ 'fail' if result.error else 'pass' }}" data-category="{{ result.category.id }}">{{ result.category.name }} - {{ 'Fail' if result.error else 'Pass' }}</h4>
+                            <table class="striped sortable hide" data-category="{{ result.category.id }}">
+                                <thead>
+                                    <tr>
+                                        <th>Regression ID</th>
+                                        <th>Sample</th>
+                                        <th>Command</th>
+                                        <th>Runtime (ms)</th>
+                                        <th>Exit code</th>
+                                        <th>Result</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for test in result.tests %}
+                                        <tr>
+                                            <td><a href="{{ url_for('regression.test_view', regression_id=test.test.id) }}">{{ test.test.id }}</a></td>
+                                            <td><a href="{{ url_for('sample.sample_by_id', sample_id=test.test.sample.id) }}">{{ test.test.sample.sha[:10] }}...</a></td>
+                                            <td>{{ test.test.command }}</td>
+                                            <td>{{ test.result.runtime }}</td>
+                                            <td>{{ test.result.exit_code }}</td>
+                                            <td>
+                                                {% for file in test.files %}
+                                                    {% if file.got is none %}
+                                                        Pass
+                                                    {% else %}
+                                                        <a href="#" class="diff_link" data-test="{{ file.test_id }}" data-regression="{{ file.regression_test_id }}" data-output="{{ file.regression_test_output_id }}">Fail</a>
+                                                    {% endif %}
+                                                    {% if not loop.last %}<br />{% endif %}
+                                                {% endfor %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% else %}
+                            <p>There are no results available, though the status indicates the tests are done. Please get in touch.</p>
+                        {% endfor %}                
+              
+                    {% endif %}
                 {% endif %}
+               
             </div>
         </div>
     </div>

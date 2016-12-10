@@ -37,7 +37,7 @@ function postStatus {
 # Exit script and post abort status
 function haltAndCatchFire {
 	postStatus "canceled" $1 >> "${logFile}"
-	curl -s -A "${userAgent}" --form "type=upload" --form "html=@${logFile}" -w "\n" "${reportURL}"
+	curl -s -A "${userAgent}" --form "type=logupload" --form "file=@${logFile}" -w "\n" "${reportURL}" #field type field to send a file
 	sudo shutdown -h now
 }
 # Fail when the exit status is not equal to 0
@@ -61,7 +61,7 @@ postStatus "building" "Compiling CCExtractor"
 # Go to linux build folder
 executeCommand cd linux
 # Build CCExtractor using the bash build script
-./build >> "${logFile}"
+./build >> "${logFile}" 2>&1
 # Check if build succeeded
 if [ -x "ccextractor" ]; then
 	chmod 700 ccextractor

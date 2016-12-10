@@ -36,26 +36,28 @@ class Status:
     FAILURE = "failure"
 
 
-def start_ci_vm(db, delay=None):
-    p_lin = Process(target=kvm_processor_linux, args=(db, delay))
+def start_ci_vm(db, repository, delay=None):
+    p_lin = Process(target=kvm_processor_linux, args=(db, repository, delay))
     p_lin.start()
     # p_win = Process(target=kvm_processor_windows, args=(db, delay))
     # p_win.start()
 
 
-def kvm_processor_linux(db, delay):
+def kvm_processor_linux(db, repository, delay):
     from run import config
     kvm_name = config.get('KVM_LINUX_NAME', '')
-    return kvm_processor(db, kvm_name, TestPlatform.linux, delay)
+    return kvm_processor(
+        db, kvm_name, TestPlatform.linux, repository, delay)
 
 
-def kvm_processor_windows(db, delay):
+def kvm_processor_windows(db, repository, delay):
     from run import config
     kvm_name = config.get('KVM_WINDOWS_NAME', '')
-    return kvm_processor(db, kvm_name, TestPlatform.windows, delay)
+    return kvm_processor(
+        db, kvm_name, TestPlatform.windows, repository, delay)
 
 
-def kvm_processor(db, kvm_name, platform, delay):
+def kvm_processor(db, kvm_name, platform, repository, delay):
     from run import config, log, app
     if kvm_name == "":
         log.critical('KVM name is empty!')
@@ -106,7 +108,8 @@ def kvm_processor(db, kvm_name, platform, delay):
     # Check if there's no KVM status left
     status = Kvm.query.filter(Kvm.name == kvm_name).first()
     if status is not None:
-        log.warn("KVM is powered off, but test is still in there: %s" % status.test.id)
+        log.warn("KVM is powered off, but test is still in there: %s" %
+                 status.test.id)
         db.delete(status)
         db.commit()
     # Get oldest test for this platform
@@ -267,9 +270,7 @@ def kvm_processor(db, kvm_name, platform, delay):
             db.add(progress)
             db.commit()
             # Report back
-            gh = GitHub(access_token=g.github['bot_token'])
-            gh_commit = gh.repos(g.github['repository_owner'])(
-                g.github['repository']).statuses(test.commit)
+            gh_commit = repository.statuses(test.commit)
 
             with app.app_context():
                 target_url = url_for(
@@ -302,7 +303,8 @@ def kvm_processor(db, kvm_name, platform, delay):
         log.warn("Duplicate entry for %s" % test.id)
 
 
-def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
+def queue_test(db, repository, gh_commit, commit, test_type, branch="master",
+               pr_nr=0):
     from run import log
     fork = Fork.query.filter(Fork.github.like(
         "%/CCExtractor/ccextractor.git")).first()
@@ -333,7 +335,7 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
         log.critical('Could not post to GitHub! Response: %s' % a.response)
         return
     # Kick off KVM process
-    start_ci_vm(db)
+    start_ci_vm(db, repository)
 
 
 @mod_ci.route('/start-ci', methods=['GET', 'POST'])
@@ -360,15 +362,15 @@ def start_ci():
             abort(abort_code)
 
         gh = GitHub(access_token=g.github['bot_token'])
+        repository = gh.repos(g.github['repository_owner'])(
+            g.github['repository'])
 
         if event == "push":  # If it's a push, run the tests
             commit = payload['after']
-            gh_commit = gh.repos(g.github['repository_owner'])(
-                g.github['repository']).statuses(commit)
-            queue_test(g.db, gh_commit, commit, TestType.commit)
+            gh_commit = repository.statuses(commit)
+            queue_test(g.db, repository, gh_commit, commit, TestType.commit)
             # Update the db to the new last commit
-            ref = gh.repos(g.github['repository_owner'])(
-                g.github['repository']).git().refs('heads/master').get()
+            ref = repository.git().refs('heads/master').get()
             last_commit = GeneralData.query.filter(GeneralData.key ==
                                                    'last_commit').first()
             last_commit.value = ref['object']['sha']
@@ -395,16 +397,15 @@ def start_ci():
                     g.log.debug(payload)
                     commit = ''
             pr_nr = payload['pull_request']['number']
-            gh_commit = gh.repos(g.github['repository_owner'])(
-                g.github['repository']).statuses(commit)
+            gh_commit = repository.statuses(commit)
             if payload['action'] == 'opened':
                 # Run initial tests
-                queue_test(g.db, gh_commit, commit, TestType.pull_request,
-                           pr_nr=pr_nr)
+                queue_test(g.db, repository, gh_commit, commit,
+                           TestType.pull_request, pr_nr=pr_nr)
             elif payload['action'] == 'synchronize':
                 # Run/queue a new test set
-                queue_test(g.db, gh_commit, commit, TestType.pull_request,
-                           pr_nr=pr_nr)
+                queue_test(g.db, repository, gh_commit, commit,
+                           TestType.pull_request, pr_nr=pr_nr)
             elif payload['action'] == 'closed':
                 # Cancel running queue
                 tests = Test.query.filter(Test.pr_nr == pr_nr).all()
@@ -416,15 +417,15 @@ def start_ci():
                                             "PR closed",
                                             datetime.datetime.now())
                     g.db.add(progress)
-                    gh.repos(g.github['repository_owner'])(
-                        g.github['repository']).statuses(test.commit).post(
+                    repository.statuses(test.commit).post(
                         state=Status.FAILURE, description="Tests canceled",
                         context="CI - %s" % test.platform.value,
                         target_url=url_for(
                             'test.by_id', test_id=test.id, _external=True))
             elif payload['action'] == 'reopened':
                 # Run tests again
-                queue_test(g.db, gh_commit, commit, TestType.pull_request)
+                queue_test(g.db, repository, gh_commit, commit,
+                           TestType.pull_request)
         else:
             # Unknown type
             g.log.warning('CI unrecognized event: %s' % event)
@@ -446,6 +447,10 @@ def progress_reporter(test_id, token):
                     test.id, status, request.form['message'])
                 g.db.add(progress)
                 g.db.commit()
+
+                gh = GitHub(access_token=g.github['bot_token'])
+                repository = gh.repos(g.github['repository_owner'])(
+                    g.github['repository'])
                 # If status is complete, remove the Kvm entry
                 if status in [TestStatus.completed, TestStatus.canceled]:
                     kvm = Kvm.query.filter(Kvm.test_id == test_id).first()
@@ -453,7 +458,7 @@ def progress_reporter(test_id, token):
                         g.db.delete(kvm)
                         g.db.commit()
                     # Start next test if necessary
-                    start_ci_vm(g.db, 60)
+                    start_ci_vm(g.db, repository, 60)
                 # Post status update
                 state = Status.PENDING
                 message = 'Tests queued'
@@ -485,10 +490,7 @@ def progress_reporter(test_id, token):
                 else:
                     message = progress.message
 
-                gh = GitHub(access_token=g.github['bot_token'])
-                gh_commit = gh.repos(g.github['repository_owner'])(
-                    g.github['repository']).statuses(test.commit)
-
+                gh_commit = repository.statuses(test.commit)
                 gh_commit.post(state=state, description=message,
                                context=context, target_url=target_url)
             elif request.form['type'] == 'equality':

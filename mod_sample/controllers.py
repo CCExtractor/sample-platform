@@ -192,7 +192,7 @@ def download_sample_media_info(sample_id):
             return serve_file_download(sample.sha + '.xml', 'media',
                                        'text/xml')
         raise SampleNotFoundException('Media information for sample %s not '
-                                      'found' % sample.id)
+                                      'found' % sample_id)
     raise SampleNotFoundException('Sample with id %s not found' % sample_id)
 
 

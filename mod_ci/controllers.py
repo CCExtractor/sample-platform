@@ -119,6 +119,11 @@ def kvm_processor(db, kvm_name, platform, delay):
     if test is None:
         log.info('No more tests to run, returning')
         return
+    if test.test_type == TestType.pull_request and test.pr_nr == 0:
+        log.warn('Got an invalid test with number %s, deleting' % test.id)
+        db.delete(test)
+        db.commit()
+        return
     # Reset to snapshot
     if vm.hasCurrentSnapshot() != 1:
         log.critical("VM %s has no current snapshot set!" % kvm_name)

@@ -236,9 +236,12 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     except GitCommandError:
         log.warn('Could not delete CI_Branch head')
     # Remove possible left rebase-apply directory
-    shutil.rmtree(os.path.join(
-        config.get('SAMPLE_REPOSITORY', ''), 'unsafe-ccextractor',
-        '.git', 'rebase-apply'))
+    try:
+        shutil.rmtree(os.path.join(
+            config.get('SAMPLE_REPOSITORY', ''), 'unsafe-ccextractor',
+            '.git', 'rebase-apply'))
+    except OSError:
+        log.warn('Could not delete rebase-apply')
     # If PR, merge, otherwise reset to commit
     if test.test_type == TestType.pull_request:
         # Fetch PR (stored under origin/pull/<id>/head

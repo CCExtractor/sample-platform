@@ -163,7 +163,7 @@ class TestProgress(Base):
                                          ondelete="CASCADE"))
     test = relationship('Test', uselist=False, back_populates='progress')
     status = Column(TestStatus.db_type(), nullable=False)
-    timestamp = Column(DateTime(True), nullable=False)
+    timestamp = Column(DateTime(timezone=True), nullable=False)
     message = Column(Text(), nullable=False)
 
     def __init__(self, test_id, status, message, timestamp=None):

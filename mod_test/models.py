@@ -1,11 +1,11 @@
 import datetime
 import pytz
-import tzlocal
 import os
 import string
 
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
+from tzlocal import get_localzone
 
 from database import Base, DeclEnum
 from mod_test.nicediff import diff
@@ -169,10 +169,10 @@ class TestProgress(Base):
     def __init__(self, test_id, status, message, timestamp=None):
         self.test_id = test_id
         self.status = status
-        tz=get_localzone()
+        tz = get_localzone()
         if timestamp is None:
-            timestamp = tz.localize(datetime.datetime.now(),is_dst=None)  
-        self.timestamp = timestamp.astimezone(pytz.UTC) #Storing timestamp in UTC
+            timestamp = tz.localize(datetime.datetime.now(), is_dst=None)
+        self.timestamp = timestamp.astimezone(pytz.UTC)
         self.message = message
 
     def __repr__(self):

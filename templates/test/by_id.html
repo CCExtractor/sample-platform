@@ -25,11 +25,11 @@
                         </tr>
                         <tr>
                             <td>Start time</td>
-                            <td>{{ progress.start }}</td>
+                            <td>{{ progress.start|date('%Y-%m-%d %H:%M:%S (%Z)') }}</td>
                         </tr>
                         <tr>
                             <td>End time</td>
-                            <td>{{ progress.end }}</td>
+                            <td>{{ progress.end|date('%Y-%m-%d %H:%M:%S (%Z)') }}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -59,7 +59,7 @@
                         <tbody>
                             {% for entry in test.progress %}
                                 <tr>
-                                    <td>{{ entry.timestamp|date }}</td>
+                                    <td>{{ entry.timestamp|date('%Y-%m-%d %H:%M:%S (%Z)') }}</td>
                                     <td>{{ entry.status.description }}</td>
                                     <td>{{ entry.message }}</td>
                                 </tr>

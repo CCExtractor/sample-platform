@@ -25,11 +25,11 @@
                         </tr>
                         <tr>
                             <td>Start time</td>
-                            <td>{{ progress.start|date('%Y-%m-%d %H:%M:%S (%Z)') }}</td>
+                            <td>{{ progress.start if progress.start == '-' else progress.start|date('%Y-%m-%d %H:%M:%S (%Z)') }}</td>
                         </tr>
                         <tr>
                             <td>End time</td>
-                            <td>{{ progress.end|date('%Y-%m-%d %H:%M:%S (%Z)') }}</td>
+                            <td>{{ progress.end if progress.end == '-' else progress.end|date('%Y-%m-%d %H:%M:%S (%Z)') }}</td>
                         </tr>
                     </tbody>
                 </table>

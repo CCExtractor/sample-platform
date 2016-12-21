@@ -172,7 +172,10 @@ class TestProgress(Base):
         tz = get_localzone()
         if timestamp is None:
             timestamp = tz.localize(datetime.datetime.now(), is_dst=None)
-        self.timestamp = timestamp.astimezone(pytz.UTC)
+            timestamp = timestamp.astimezone(pytz.UTC)
+        if timestamp.tzinfo is None:
+            timestamp = pytz.utc.localize(timestamp, is_dst=None)
+        self.timestamp = timestamp
         self.message = message
 
     def __repr__(self):

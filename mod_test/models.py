@@ -3,7 +3,7 @@ import pytz
 import os
 import string
 
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, orm
 from sqlalchemy.orm import relationship
 from tzlocal import get_localzone
 
@@ -180,6 +180,10 @@ class TestProgress(Base):
 
     def __repr__(self):
         return '<TestStatus %r: %r>' % self.test_id, self.status
+    
+    @orm.reconstructor
+    def may_the_timezone_be_with_it(self):
+        self.timestamp = pytz.utc.localize(self.timestamp, is_dst=None)
 
 
 class TestResult(Base):

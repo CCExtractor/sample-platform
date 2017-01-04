@@ -200,12 +200,14 @@ class TestResult(Base):
     regression_test = relationship('RegressionTest', uselist=False)
     runtime = Column(Integer)  # Runtime in ms
     exit_code = Column(Integer)
+    expected_rc = Column(Integer)
 
-    def __init__(self, test_id, regression_test_id, runtime, exit_code):
+    def __init__(self, test_id, regression_test_id, runtime, exit_code, expected_rc):
         self.test_id = test_id
         self.regression_test_id = regression_test_id
         self.runtime = runtime
         self.exit_code = exit_code
+        self.expected_rc = expected_rc
 
     def __repr__(self):
         return '<TestResult {tid},{rid}: {code} in {time} ms>'.format(

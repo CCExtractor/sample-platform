@@ -113,7 +113,7 @@ echo "In the following lines, enter the path "
 
 read -e -p "    To SSL certificate: " -i "/etc/letsencrypt/live/${config_server_name}/fullchain.pem" config_ssl_cert
 read -e -p "    To SSL key: " -i "/etc/letsencrypt/live/${config_server_name}/privkey.pem" config_ssl_key
-read -e -p "    To the root directory containing all files (Samples, reports etc.) : " -i "" sample_repository
+read -e -p "    To the root directory containing all files (Samples, reports etc.) : " -i "/repository" sample_repository
 
 echo "Setting up the directories.."
 
@@ -170,7 +170,7 @@ FTP_PORT = $ftp_port
 MAX_CONTENT_LENGTH = $max_content_length
 " > "${dir}/../config.py"
 # Ensure the files are executable by www-data
-chown -R www-data:www-data "${root_dir} "${sample_repository}"
+chown -R www-data:www-data "${root_dir}" "${sample_repository}"
 echo "* Creating startup script"
 cp "${dir}/platform" /etc/init.d/platform >> "$install_log" 2>&1
 sed -i "s#BASE_DIR#${root_dir}#g" /etc/init.d/platform >> "$install_log" 2>&1

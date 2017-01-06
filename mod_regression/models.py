@@ -63,14 +63,16 @@ class RegressionTest(Base):
         back_populates='regression_tests')
     output_files = relationship('RegressionTestOutput',
                                 back_populates='regression_test')
+    expected_rc = Column(Integer)
 
     def __init__(self, sample_id, command, input_type, output_type,
-                 category_id):
+                 category_id, expected_rc):
         self.sample_id = sample_id
         self.command = command
         self.input_type = input_type
         self.output_type = output_type
         self.category_id = category_id
+        self.expected_rc = expected_rc
 
     def __repr__(self):
         return '<RegressionTest %r>' % self.id

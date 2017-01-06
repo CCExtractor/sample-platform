@@ -42,8 +42,7 @@
                         {% if test.categories|length == 0 %}
                             {% continue %}
                         {% endif %}
-                        {# TODO: make this work for multiple categories #}
-                        <tr data-category="{{ test.categories[0].id }}" {% if test.categories[0].id != categories[0].id %}class="hide"{% endif %}>
+                        <tr data-category="[{% for i in range(0,test.categories|length) %}{{test.categories[i].id}}{% if i != test.categories|length - 1 %},{% endif %}{% endfor %}]" {% if test.categories[0].id != categories[0].id %}class="hide"{% endif %}>
                             <td>{{ test.id }}</td>
                             <td>{{ test.command }}</td>
                             <td>
@@ -81,11 +80,19 @@
         function switchCategory(){
             var id = $("#category").val();
             window.location.hash = id;
-            $("tbody tr[data-category='"+id+"']").each(function(idx, elm){
-                elm.setAttribute("class","");
-            });
-            $("tbody tr[data-category!='"+id+"']").each(function(idx, elm){
-                elm.setAttribute("class","hide");
+            $("tbody tr[data-category]").each(function(idx, elm){
+                var array = JSON.parse(elm.getAttribute("data-category"));
+                var can = false;
+                for (var i = 0; i < array.length; i++) {
+                    if (array[i].valueOf() == id.valueOf()) {
+                        can = true;
+                        break;
+                    }
+                }
+                if (can)
+                    elm.setAttribute("class","");
+                else
+                    elm.setAttribute("class","hide");
             });
             var cat_desc = $("#category-descriptions");
             cat_desc.find("span[data-category='"+id+"']").each(function(idx, elm){

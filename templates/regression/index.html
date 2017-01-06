@@ -105,10 +105,9 @@
             $("#category").find("option").each(function(idx, elm){
                 if($(elm).val() === hash){
                     $(elm).attr("selected","selected");
-                    switchCategory();
                 }
             });
+            switchCategory();
         });
-        switchCategory();
     </script>
 {% endblock %}

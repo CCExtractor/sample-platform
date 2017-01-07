@@ -65,9 +65,7 @@ def display_sample_info(sample):
             sq = g.db.query(RegressionTest.id).filter(
                         RegressionTest.sample_id == sample.id).subquery()
             exit_code = g.db.query(TestResult.exit_code).filter(and_(
-                TestResult.exit_code not in (
-                    0, TestResult.regression_test.expected_rc
-                ),
+                TestResult.exit_code != TestResult.regression_test.expected_rc,
                 and_(
                     TestResult.test_id == test_commit.id,
                     TestResult.regression_test_id.in_(sq)
@@ -88,9 +86,7 @@ def display_sample_info(sample):
             sq = g.db.query(RegressionTest.id).filter(
                 RegressionTest.sample_id == sample.id).subquery()
             exit_code = g.db.query(TestResult.exit_code).filter(and_(
-                TestResult.exit_code not in (
-                    0, TestResult.regression_test.expected_rc
-                ),
+                TestResult.exit_code != TestResult.regression_test.expected_rc,
                 and_(
                     TestResult.test_id == test_release.id,
                     TestResult.regression_test_id.in_(sq))

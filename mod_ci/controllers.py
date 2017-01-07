@@ -478,14 +478,13 @@ def progress_reporter(test_id, token):
                 elif status == TestStatus.completed:
                     # Determine if success or failure
                     # It fails if any of these happen:
-                    # - A crash (non-zero or non-expected exit code)
+                    # - A crash (unexpected exit code)
                     # - A not None value on the "got" of a TestResultFile (
                     #       meaning the hashes do not match)
                     crashes = g.db.query(count(TestResult.exit_code)).filter(
                         and_(TestResult.test_id == test.id,
-                             TestResult.exit_code not in (
-                                 0, TestResult.regression_test.expected_rc
-                             ))).first()
+                             TestResult.exit_code !=
+                             TestResult.regression_test.expected_rc)).first()
                     results = g.db.query(count(TestResultFile.got)).filter(
                         and_(TestResultFile.test_id == test.id,
                              TestResultFile.got.isnot(None))).first()

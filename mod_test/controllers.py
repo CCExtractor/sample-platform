@@ -72,9 +72,9 @@ def get_data_for_test(test, title=None):
     for category in results:
         error = False
         for category_test in category['tests']:
-            if category_test['result'] is not None and \
-                    category_test['result'].exit_code != \
-                            category['result'].regression_test.expected_rc:
+            result = category_test['result']
+            if result is not None and result.exit_code != \
+                    result.regression_test.expected_rc:
                 error = True
                 break
             if len(category_test['files']) > 0:

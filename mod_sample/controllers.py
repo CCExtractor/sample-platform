@@ -68,7 +68,7 @@ def display_sample_info(sample):
                 TestResult.exit_code != g.db.query(
                     RegressionTest.expected_rc).filter(
                     RegressionTest.id ==
-                    TestResult.regression_test_id).first(),
+                    TestResult.regression_test_id),
                 and_(
                     TestResult.test_id == test_commit.id,
                     TestResult.regression_test_id.in_(sq)
@@ -93,7 +93,7 @@ def display_sample_info(sample):
                     TestResult.exit_code != g.db.query(
                         RegressionTest.expected_rc).filter(
                         RegressionTest.id ==
-                        TestResult.regression_test_id).first(),
+                        TestResult.regression_test_id),
                     and_(
                         TestResult.test_id == test_release.id,
                         TestResult.regression_test_id.in_(sq))

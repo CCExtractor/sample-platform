@@ -20,7 +20,8 @@ from pymysql.err import IntegrityError
 from mod_ci.models import Kvm
 from mod_deploy.controllers import request_from_github, is_valid_signature
 from mod_home.models import GeneralData
-from mod_regression.models import Category, RegressionTestOutput
+from mod_regression.models import Category, RegressionTestOutput, \
+    RegressionTest
 from mod_test.models import TestType, Test, TestStatus, TestProgress, Fork, \
     TestPlatform, TestResultFile, TestResult
 
@@ -482,9 +483,12 @@ def progress_reporter(test_id, token):
                     # - A not None value on the "got" of a TestResultFile (
                     #       meaning the hashes do not match)
                     crashes = g.db.query(count(TestResult.exit_code)).filter(
-                        and_(TestResult.test_id == test.id,
-                             TestResult.exit_code !=
-                             TestResult.regression_test.expected_rc)).first()
+                        and_(
+                            TestResult.test_id == test.id,
+                            TestResult.exit_code != g.db.query(
+                                RegressionTest.expected_rc).filter(
+                                RegressionTest.id ==
+                        )).first()
                     results = g.db.query(count(TestResultFile.got)).filter(
                         and_(TestResultFile.test_id == test.id,
                              TestResultFile.got.isnot(None))).first()

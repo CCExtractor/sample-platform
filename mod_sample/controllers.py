@@ -65,7 +65,10 @@ def display_sample_info(sample):
             sq = g.db.query(RegressionTest.id).filter(
                         RegressionTest.sample_id == sample.id).subquery()
             exit_code = g.db.query(TestResult.exit_code).filter(and_(
-                TestResult.exit_code != TestResult.regression_test.expected_rc,
+                TestResult.exit_code != g.db.query(
+                    RegressionTest.expected_rc).filter(
+                    RegressionTest.id ==
+                    TestResult.regression_test_id).first(),
                 and_(
                     TestResult.test_id == test_commit.id,
                     TestResult.regression_test_id.in_(sq)
@@ -85,12 +88,17 @@ def display_sample_info(sample):
         if test_release is not None:
             sq = g.db.query(RegressionTest.id).filter(
                 RegressionTest.sample_id == sample.id).subquery()
-            exit_code = g.db.query(TestResult.exit_code).filter(and_(
-                TestResult.exit_code != TestResult.regression_test.expected_rc,
+            exit_code = g.db.query(TestResult.exit_code).filter(
                 and_(
-                    TestResult.test_id == test_release.id,
-                    TestResult.regression_test_id.in_(sq))
-            )).first()
+                    TestResult.exit_code != g.db.query(
+                        RegressionTest.expected_rc).filter(
+                        RegressionTest.id ==
+                        TestResult.regression_test_id).first(),
+                    and_(
+                        TestResult.test_id == test_release.id,
+                        TestResult.regression_test_id.in_(sq))
+                )
+            ).first()
             not_null = g.db.query(TestResultFile.got).filter(and_(
                 TestResultFile.got.isnot(None),
                 and_(

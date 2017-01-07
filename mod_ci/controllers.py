@@ -488,6 +488,7 @@ def progress_reporter(test_id, token):
                             TestResult.exit_code != g.db.query(
                                 RegressionTest.expected_rc).filter(
                                 RegressionTest.id ==
+                                TestResult.regression_test_id)
                         )).first()
                     results = g.db.query(count(TestResultFile.got)).filter(
                         and_(TestResultFile.test_id == test.id,

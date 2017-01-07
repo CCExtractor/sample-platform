@@ -9,7 +9,7 @@ from sqlalchemy import and_
 from decorators import template_renderer
 from mod_home.models import CCExtractorVersion
 from mod_regression.models import Category, regressionTestCategoryLinkTable, \
-    RegressionTestOutput
+    RegressionTestOutput, RegressionTest
 from mod_test.models import Fork, Test, TestProgress, TestResult, \
     TestResultFile, TestType
 
@@ -73,7 +73,8 @@ def get_data_for_test(test, title=None):
         error = False
         for category_test in category['tests']:
             if category_test['result'] is not None and \
-                            category_test['result'].exit_code != 0:
+                    category_test['result'].exit_code != \
+                            category['result'].regression_test.expected_rc:
                 error = True
                 break
             if len(category_test['files']) > 0:

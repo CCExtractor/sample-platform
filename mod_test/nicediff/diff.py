@@ -145,9 +145,9 @@ def get_html_diff(test_correct_lines, test_res_lines):
         till = res_len
 
     for line in range(use):
-        html += '<table>'
         if test_correct_lines[line] == test_res_lines[line]:
             continue
+        html += '<table>'        
         actual, expected = _process(test_res_lines[line],
                                     test_correct_lines[line],
                                     suffix_id=str(line))

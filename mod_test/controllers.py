@@ -69,17 +69,23 @@ def get_data_for_test(test, title=None):
                                      rt.id)).all()
                              } for rt in category.regression_tests]
                } for category in categories]
+    # Run through the categories to see if they should be marked as failed or
+    # passed. A category failed if one or more tests in said category failed.
     for category in results:
         error = False
         for category_test in category['tests']:
+            test_error = False
+            # A test fails if:
+            # - Exit code is not what we expected
+            # - There are result files but one of them is not identical
+            # - There are no result files but there should have been
             result = category_test['result']
             if result is not None and result.exit_code != result.expected_rc:
-                error = True
-                break
+                test_error = True
             if len(category_test['files']) > 0:
                 for result_file in category_test['files']:
                     if result_file.got is not None:
-                        error = True
+                        test_error = True
                         break
             else:
                 # We need to check if the regression test had any file that
@@ -91,12 +97,14 @@ def get_data_for_test(test, title=None):
                 )).all()
                 got = None
                 if len(outputs) > 0:
-                    error = True
+                    test_error = True
                     got = 'error'
                 # Add dummy entry for pass/fail display
                 category_test['files'] = [TestResultFile(-1, -1, -1, '', got)]
-            if error:
-                break
+            # Store test status in error field
+            category_test['error'] = test_error
+            # Update category error
+            error = error or test_error
         category['error'] = error
     results.sort()
     return {

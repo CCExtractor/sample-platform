@@ -106,7 +106,7 @@ def get_data_for_test(test, title=None):
             # Update category error
             error = error or test_error
         category['error'] = error
-    results.sort()
+    results.sort(key=lambda entry: entry['category'].name)
     return {
         'test': test,
         'TestType': TestType,

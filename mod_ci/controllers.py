@@ -485,10 +485,7 @@ def progress_reporter(test_id, token):
                     crashes = g.db.query(count(TestResult.exit_code)).filter(
                         and_(
                             TestResult.test_id == test.id,
-                            TestResult.exit_code != g.db.query(
-                                RegressionTest.expected_rc).filter(
-                                RegressionTest.id ==
-                                TestResult.regression_test_id)
+                            TestResult.exit_code != TestResult.expected_rc
                         )).first()
                     results = g.db.query(count(TestResultFile.got)).filter(
                         and_(TestResultFile.test_id == test.id,
@@ -582,9 +579,11 @@ def progress_reporter(test_id, token):
                 log.debug('Finish for {t}/{rt}'.format(
                     t=test_id, rt=request.form['test_id']))
                 # Test was done
+                regression_test = RegressionTest.query(
+                    RegressionTest.id == request.form['test_id']).first()
                 result = TestResult(
-                    test.id, request.form['test_id'], request.form['runTime'],
-                    request.form['exitCode']
+                    test.id, regression_test.id, request.form['runTime'],
+                    request.form['exitCode'], regression_test.expected_rc
                 )
                 g.db.add(result)
                 g.db.commit()

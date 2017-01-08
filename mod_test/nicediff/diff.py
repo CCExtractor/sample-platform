@@ -1,4 +1,5 @@
 import re
+import cgi
 index = dict()  # for optimization
 
 
@@ -66,6 +67,8 @@ def eq(a, b, same_regions=None, delta_a=0, delta_b=0, only_onetype=False):
 
 # processing one line
 def _process(test_result, correct, suffix_id):
+    test_result = cgi.escape(test_result)
+    correct = cgi.escape(correct)
     tr_compr = compress(test_result)
     cr_compr = compress(correct)
     html = ''

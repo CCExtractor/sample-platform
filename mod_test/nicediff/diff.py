@@ -1,3 +1,4 @@
+import re
 index = dict()  # for optimization
 
 
@@ -7,28 +8,8 @@ def zip(ls):
 
 # compress words and digits to one list
 def compress(s):
-    rez = []
-    _stack = ''
-    prev = ''
-    for c in s:
-        if c.isalpha():
-            if not prev.isalpha() and _stack:
-                rez.append(_stack)
-                _stack = ''
-            _stack += c
-        elif c.isdigit():
-            if not prev.isdigit() and _stack:
-                rez.append(_stack)
-                _stack = ''
-            _stack += c
-        else:
-            rez.append(_stack)
-            _stack = ''
-            rez += c
-        prev = c
-
+    rez = re.split('(\W)',s)
     return rez
-
 
 # equality factor
 def eq(a, b, same_regions=None, delta_a=0, delta_b=0, only_onetype=False):
@@ -136,6 +117,7 @@ def _process(test_result, correct, suffix_id):
            '<div class="diff-div-text">' + html_correct + '</div>'
 
 
+
 def get_html_diff(test_correct_lines, test_res_lines):
     # test_res_lines = open(path_test_res).readlines()
     # test_correct_lines = open(path_correct).readlines()
@@ -150,11 +132,27 @@ def get_html_diff(test_correct_lines, test_res_lines):
            '        <td class="diff-table-td">Expected</td>' \
            '    </tr>' \
            '</table>'
-    for line in range(min(len(test_res_lines), len(test_correct_lines))):
+
+    res_len = len(test_res_lines)
+    correct_len = len(test_correct_lines)
+
+    if res_len <= correct_len:
+        use = res_len
+        till = correct_len
+
+    else:
+        use = correct_len
+        till = res_len
+
+    for line in range(use):
         html += '<table>'
+        if test_correct_lines[line] == test_res_lines[line]:
+            continue
         actual, expected = _process(test_res_lines[line],
                                     test_correct_lines[line],
                                     suffix_id=str(line))
+
+
         html += '<tr>' \
                 '   <td class="diff-table-td" style="width: 30px;">' \
                 '       {line_id}' \
@@ -166,5 +164,40 @@ def get_html_diff(test_correct_lines, test_res_lines):
                 '   <td class="diff-table-td">{b}</td>' \
                 '</tr>'.format(line_id=line + 1, a=actual, b=expected)
         html += '</table>'
+        
+    #processing remaining lines
+    
+    for line in range(use+1,till):
+        if till == res_len :
+            output,garbage = _process(test_res_lines[line], " ", suffix_id=str(line))
+        else:
+            garbage,output = _process(" ", test_correct_lines[line], suffix_id=str(line))
+        html += '<table>'
+        if till == res_len:
+            html += '<tr>' \
+                    '   <td class="diff-table-td" style="width: 30px;">' \
+                    '       {line_id}' \
+                    '   </td>' \
+                    '   <td class="diff-table-td">{a}</td>' \
+                    '</tr>' \
+                    '<tr>' \
+                    '   <td class="diff-table-td" style="width: 30px;"></td>' \
+                    '   <td class="diff-table-td"></td>' \
+                    '</tr>'.format(line_id=line + 1, a=output)
+            html += '</table>'
+        else:
+            html += '<tr>' \
+                    '   <td class="diff-table-td" style="width: 30px;">' \
+                    '       {line_id}' \
+                    '   </td>' \
+                    '   <td class="diff-table-td"></td>' \
+                    '</tr>' \
+                    '<tr>' \
+                    '   <td class="diff-table-td" style="width: 30px;"></td>' \
+                    '   <td class="diff-table-td">{b}</td>' \
+                    '</tr>'.format(line_id=line + 1, b=output)
+            html += '</table>'
+
+
 
     return html

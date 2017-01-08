@@ -98,7 +98,7 @@
                                             <td><a href="{{ url_for('sample.sample_by_id', sample_id=test.test.sample.id) }}">{{ test.test.sample.sha[:10] }}...</a></td>
                                             <td>{{ test.test.command }}</td>
                                             <td>{{ test.result.runtime }}</td>
-                                            <td>{{ test.result.exit_code }}</td>
+                                            <td>{{ test.result.exit_code }} {{ '' if test.result.exit_code == test.result.expected_rc else '(Expected '~test.result.expected_rc~')' }}</td>
                                             <td>
                                                 {% for file in test.files %}
                                                     {% if file.got is none %}
@@ -107,6 +107,8 @@
                                                         <a href="#" class="diff_link" data-test="{{ file.test_id }}" data-regression="{{ file.regression_test_id }}" data-output="{{ file.regression_test_output_id }}">Fail</a>
                                                     {% endif %}
                                                     {% if not loop.last %}<br />{% endif %}
+                                                {% else %}
+                                                    No files expected for this test
                                                 {% endfor %}
                                             </td>
                                         </tr>

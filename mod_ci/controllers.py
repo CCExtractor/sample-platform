@@ -579,7 +579,7 @@ def progress_reporter(test_id, token):
                 log.debug('Finish for {t}/{rt}'.format(
                     t=test_id, rt=request.form['test_id']))
                 # Test was done
-                regression_test = RegressionTest.query(
+                regression_test = RegressionTest.query.filter(
                     RegressionTest.id == request.form['test_id']).first()
                 result = TestResult(
                     test.id, regression_test.id, request.form['runTime'],

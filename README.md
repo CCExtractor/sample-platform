@@ -30,7 +30,46 @@ samples and associated test results.
 
 ### Automated install
 
-TBA.
+#### Linux
+
+Clone the latest sample-platform repository from https://github.com/canihavesomecoffee/sample-platform.
+```
+git clone https://github.com/canihavesomecoffee/sample-platform.git
+```
+The `sample-repository` directory needs to be accessible by www-data.
+
+Recommended directory :`/var/www/`
+
+Navigate to the `install` folder and run `install.sh` as root.
+```
+cd sample-platform/install/
+sudo ./install.sh
+```    
+Installer script will begin downloading and updating all the necessary dependecies. Once done, it'll prompt you for some details for setting up the sample-platform.
+
+Simply answer all the questions in required format and sample-platform will be ready to use.
+
+Please read the below troubleshooting notes in case of any error or doubt.
+
+#### Troubleshooting
+
+1. Both installation and running the platform requires root (or sudo).
+
+2. The configuration of the sample platform assumes that no other application already runs on port 80. A default installation of nginx leaves a `default` config file behind, so it's advised to delete that and stop other applications that use the port.
+
+    Note : Do not forget to do `service nginx reload` and `service platform start` after making the changes.
+
+3. SSL is a requirement. If you are running this on a live server, you may use Let's Encrypt for the certificates. If you run it locally, you may use self-signed certificates.
+
+4. When prompted for server name, enter the domain name you wish to run it upon. If you are trying to run it locally, enter `localhost` as the server name.
+
+5. If you get a `502 Bad Gateway` response, the platform wasn't started correctly. You may manually run (as root!) `bootstrap_gunicorn.py` to determine what goes wrong.
+
+   ```
+   cd /var/www/sample-platform/
+   sudo python bootstrap_gunicorn.py
+   ```
+6. If `gunicorn` boots up successfully, most relevant logs would be stored under `logs` directory, otherwise you may have to read `syslog`.
 
 ### Nginx configuration for X-Accel-Redirect
 

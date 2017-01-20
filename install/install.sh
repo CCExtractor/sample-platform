@@ -18,6 +18,7 @@ if [[ $EUID -ne 0 ]]
 fi
 echo ""
 echo "Detailed information will be written to $install_log"
+echo "Please read the installation instructions carefully before installing."
 echo ""
 echo "-------------------------------"
 echo "|   Installing dependencies   |"
@@ -25,8 +26,8 @@ echo "-------------------------------"
 echo ""
 echo "* Updating package list        "
 apt-get update >> "$install_log" 2>&1
-echo "* Installing nginx, python & pip      "
-apt-get -q -y install nginx python python-dev python-pip >> "$install_log" 2>&1
+echo "* Installing nginx, python, pip, kvm, libvirt and virt-manager      "
+apt-get -q -y install nginx python python-dev python-pip qemu-kvm libvirt-bin virt-manager >> "$install_log" 2>&1
 if [ ! -f /etc/init.d/mysql* ]; then
     echo "* Installing MySQL (root password will be empty!)"
     DEBIAN_FRONTEND=noninteractive apt-get install -y mysql-server >> "$install_log" 2>&1
@@ -117,15 +118,15 @@ read -e -p "    To the root directory containing all files (Samples, reports etc
 
 echo "Setting up the directories.."
 
-mkdir -p sample_repository >> "$install_log" 2>&1
-mkdir -p sample_repository/ci-tests >> "$install_log" 2>&1
-mkdir -p sample_repository/unsafe-ccextractor >> "$install_log" 2>&1
-mkdir -p sample_repository/TempFiles >> "$install_log" 2>&1
-mkdir -p sample_repository/LogFiles >> "$install_log" 2>&1
-mkdir -p sample_repository/TestResults >> "$install_log" 2>&1
-mkdir -p sample_repository/TestFiles/ >> "$install_log" 2>&1
-mkdir -p sample_repository/TestFiles/media >> "$install_log" 2>&1
-mkdir -p sample_repository/QueuedFiles >> "$install_log" 2>&1
+mkdir -p "${sample_repository}" >> "$install_log" 2>&1
+mkdir -p "${sample_repository}/ci-tests" >> "$install_log" 2>&1
+mkdir -p "${sample_repository}/unsafe-ccextractor" >> "$install_log" 2>&1
+mkdir -p "${sample_repository}/TempFiles" >> "$install_log" 2>&1
+mkdir -p "${sample_repository}/LogFiles" >> "$install_log" 2>&1
+mkdir -p "${sample_repository}/TestResults" >> "$install_log" 2>&1
+mkdir -p "${sample_repository}/TestFiles" >> "$install_log" 2>&1
+mkdir -p "${sample_repository}/TestFiles/media" >> "$install_log" 2>&1
+mkdir -p "${sample_repository}/QueuedFiles" >> "$install_log" 2>&1
 
 config_db_uri="mysql+pymysql://${db_user}:${db_user_password}@localhost:3306/${db_name}"
 

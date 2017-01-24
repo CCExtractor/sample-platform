@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Mediainfo version="0.7.70">
+<File>
+<track type="General">
+<ID>1 (0x1)</ID>
+<Complete_name>9a496d38281a9499c89b2212a66d0ee40b7778858de549c76232ac54a62aa1d9.ts</Complete_name>
+<Format>MPEG-TS</Format>
+<File_size>5.12 MiB</File_size>
+<Duration>19s 292ms</Duration>
+<Overall_bit_rate_mode>Variable</Overall_bit_rate_mode>
+<Overall_bit_rate>2 224 Kbps</Overall_bit_rate>
+<Movie_name>Countdown</Movie_name>
+<Law_rating>G</Law_rating>
+</track>
+
+<track type="Video">
+<ID>2176 (0x880)</ID>
+<Menu_ID>10 (0xA)</Menu_ID>
+<Format>MPEG Video</Format>
+<Format_version>Version 2</Format_version>
+<Format_profile>Main@Main</Format_profile>
+<Format_settings__BVOP>Yes</Format_settings__BVOP>
+<Format_settings__Matrix>Custom</Format_settings__Matrix>
+<Format_settings__GOP>Variable</Format_settings__GOP>
+<Codec_ID>128</Codec_ID>
+<Duration>19s 119ms</Duration>
+<Bit_rate_mode>Variable</Bit_rate_mode>
+<Bit_rate>1 920 Kbps</Bit_rate>
+<Maximum_bit_rate>15.0 Mbps</Maximum_bit_rate>
+<Width>528 pixels</Width>
+<Height>480 pixels</Height>
+<Display_aspect_ratio>4:3</Display_aspect_ratio>
+<Frame_rate>29.970 fps</Frame_rate>
+<Color_space>YUV</Color_space>
+<Chroma_subsampling>4:2:0</Chroma_subsampling>
+<Bit_depth>8 bits</Bit_depth>
+<Compression_mode>Lossy</Compression_mode>
+<Bits__Pixel_Frame_>0.253</Bits__Pixel_Frame_>
+<Time_code_of_first_frame>10:17:14;06</Time_code_of_first_frame>
+<Time_code_source>Group of pictures header</Time_code_source>
+<Stream_size>4.38 MiB (85%)</Stream_size>
+</track>
+
+<track type="Audio">
+<ID>2177 (0x881)</ID>
+<Menu_ID>10 (0xA)</Menu_ID>
+<Format>AC-3</Format>
+<Format_Info>Audio Coding 3</Format_Info>
+<Mode_extension>CM (complete main)</Mode_extension>
+<Format_settings__Endianness>Big</Format_settings__Endianness>
+<Codec_ID>129</Codec_ID>
+<Duration>19s 200ms</Duration>
+<Bit_rate_mode>Constant</Bit_rate_mode>
+<Bit_rate>192 Kbps</Bit_rate>
+<Channel_s_>2 channels</Channel_s_>
+<Channel_positions>Front: L R</Channel_positions>
+<Sampling_rate>48.0 KHz</Sampling_rate>
+<Bit_depth>16 bits</Bit_depth>
+<Compression_mode>Lossy</Compression_mode>
+<Delay_relative_to_video>-400ms</Delay_relative_to_video>
+<Stream_size>450 KiB (9%)</Stream_size>
+<Language>English</Language>
+</track>
+
+<track type="Text" streamid="1">
+<ID>2176 (0x880)-CC1</ID>
+<Menu_ID>10 (0xA)</Menu_ID>
+<Format>EIA-608</Format>
+<Muxing_mode>A/53 / DTVCC Transport</Muxing_mode>
+<Muxing_mode__more_info>Muxed in Video #1</Muxing_mode__more_info>
+<Duration>19s 119ms</Duration>
+<Bit_rate_mode>Constant</Bit_rate_mode>
+<Stream_size>0.00 Byte (0%)</Stream_size>
+<Language>English</Language>
+</track>
+
+<track type="Text" streamid="2">
+<ID>2176 (0x880)-1</ID>
+<Menu_ID>10 (0xA)</Menu_ID>
+<Format>EIA-708</Format>
+<Muxing_mode>A/53 / DTVCC Transport</Muxing_mode>
+<Muxing_mode__more_info>Muxed in Video #1</Muxing_mode__more_info>
+<Duration>19s 119ms</Duration>
+<Bit_rate_mode>Constant</Bit_rate_mode>
+<Stream_size>0.00 Byte (0%)</Stream_size>
+<Language>English</Language>
+</track>
+
+<track type="Text" streamid="3">
+<ID>2176 (0x880)-CC1</ID>
+<Menu_ID>10 (0xA)</Menu_ID>
+<Format>EIA-608</Format>
+<Muxing_mode>SCTE 20</Muxing_mode>
+<Muxing_mode__more_info>Muxed in Video #1</Muxing_mode__more_info>
+<Duration>19s 119ms</Duration>
+<Bit_rate_mode>Constant</Bit_rate_mode>
+<Stream_size>0.00 Byte (0%)</Stream_size>
+</track>
+
+</File>
+</Mediainfo>

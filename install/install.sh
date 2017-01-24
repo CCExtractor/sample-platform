@@ -89,6 +89,9 @@ if [ ! "${db_access}" == "" ]; then
     echo "Failed to grant user access to database! Please check the installation log!"
     exit -1
 fi
+
+read -p "Do you want to install a sample database? (y/n) :" sample_response
+
 # Request information for generating the config.py file
 echo ""
 echo "For the following questions, press enter to leave a field blank."
@@ -127,6 +130,31 @@ mkdir -p "${sample_repository}/TestResults" >> "$install_log" 2>&1
 mkdir -p "${sample_repository}/TestFiles" >> "$install_log" 2>&1
 mkdir -p "${sample_repository}/TestFiles/media" >> "$install_log" 2>&1
 mkdir -p "${sample_repository}/QueuedFiles" >> "$install_log" 2>&1
+
+
+#creating sample database
+
+if [ ${sample_response} == 'y' ]; then
+	mysql -u root --password="${db_root_password}" -e "use ${db_name}; insert into category (`name`,`description`) values ('Broken','Samples that are broken');insert into category (`name`,`description`) values ('DVB','Samples that contain DVB subtitles'); insert into category (`name`,`description`) values ('DVD','Samples that contain DVD subtitles'); insert into category (`name`,`description`) values ('MP4','Samples that are stored in the MP4 format'); insert into category (`name`,`description`) values ('General','General regression samples');"
+
+	mysql -u root --password="${db_root_password}" -e "use ${db_name}; insert into ccextractor_version (`version`,`released`,`commit`) values ('0.84','2016-12-16','77da2dc873cc25dbf606a3b04172aa9fb1370f32');"
+
+	mysql -u root --password="${db_root_password}" -e "use ${db_name}; insert into sample (`sha`,`extension`,`original_name`) values ('9a496d38281a9499c89b2212a66d0ee40b7778858de549c76232ac54a62aa1d9','ts','sample1');insert into sample (`sha`,`extension`,`original_name`) values ('56c9f345482c635f20340d13001f1083a7c1913c787075d6055c112fe8e2fcaa','mpg','sample2');"
+
+	mysql -u root --password="${db_root_password}" -e "use ${db_name}; insert into regression_test (`sample_id`,`command`,`input_type`,`output_type`,`expected_rc`) values ('1','-autoprogram -out=ttxt -latin1','file','file',10); insert into regression_test (`sample_id`,`command`,`input_type`,`output_type`,`expected_rc`) values ('2','-autoprogram -out=ttxt -latin1 -ucla','file','file',0);"
+
+	mysql -u root --password="${db_root_password}" -e "use ${db_name}; insert into regression_test_category (`regression_id`,`category_id`) values (1,5); insert into regression_test_category (`regression_id`,`category_id`) values (2,5);"
+
+	mysql -u root --password="${db_root_password}" -e "use ${db_name}; insert into general_data (`key`,value`) values ('last_commit','71dffd6eb30c1f4b5cf800307de845072ce33262');"
+
+
+  cp sample_files ../TestFiles
+  rm sample_files
+
+fi
+
+
+
 
 config_db_uri="mysql+pymysql://${db_user}:${db_user_password}@localhost:3306/${db_name}"
 

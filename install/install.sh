@@ -133,7 +133,6 @@ mkdir -p "${sample_repository}/QueuedFiles" >> "$install_log" 2>&1
 
 
 
-
 config_db_uri="mysql+pymysql://${db_user}:${db_user_password}@localhost:3306/${db_name}"
 
 # Request info for creating admin account
@@ -143,31 +142,17 @@ read -e -p "Admin username: " -i "admin" admin_name
 read -e -p "Admin email: " admin_email
 read -e -p "Admin password: " admin_password
 echo "Creating admin account: "
-python "${dir}/init_db.py" "${config_db_uri}" "${admin_name}" "${admin_email}" "${admin_password}"
+python "${dir}/init_db.py" "${config_db_uri}" "${admin_name}" "${admin_email}" "${admin_password}" "${sample_response}"
 
 
 #creating sample database
 
 if [ ${sample_response} == 'y' ]; then
-	mysql -u root --password="${db_root_password}" -e "use ${db_name}; insert into category (name,description) values ('Broken','Samples that are broken');insert into category (name,description) values ('DVB','Samples that contain DVB subtitles'); insert into category (name,description) values ('DVD','Samples that contain DVD subtitles'); insert into category (name,description) values ('MP4','Samples that are stored in the MP4 format'); insert into category (name,description) values ('General','General regression samples');">> "$install_log" 2>&1
 
-	mysql -u root --password="${db_root_password}" -e "use ${db_name}; insert into ccextractor_version (version,released,commit) values ('0.84','2016-12-16','77da2dc873cc25dbf606a3b04172aa9fb1370f32');">> "$install_log" 2>&1
-
-	mysql -u root --password="${db_root_password}" -e "use ${db_name}; insert into sample (sha,extension,original_name) values ('9a496d38281a9499c89b2212a66d0ee40b7778858de549c76232ac54a62aa1d9','ts','sample1');insert into sample (sha,extension,original_name) values ('56c9f345482c635f20340d13001f1083a7c1913c787075d6055c112fe8e2fcaa','mpg','sample2');">> "$install_log" 2>&1
-
-	mysql -u root --password="${db_root_password}" -e "use ${db_name}; insert into regression_test (sample_id,command,input_type,output_type,expected_rc) values ('1','-autoprogram -out=ttxt -latin1','file','file',10); insert into regression_test (sample_id,command,input_type,output_type,expected_rc) values ('2','-autoprogram -out=ttxt -latin1 -ucla','file','file',0);">> "$install_log" 2>&1
-
-	mysql -u root --password="${db_root_password}" -e "use ${db_name}; insert into regression_test_category (regression_id,category_id) values (1,5); insert into regression_test_category (regression_id,category_id) values (2,5);">> "$install_log" 2>&1
-
-	mysql -u root --password="${db_root_password}" -e "use ${db_name}; insert into general_data (key,value) values ('last_commit','71dffd6eb30c1f4b5cf800307de845072ce33262');">> "$install_log" 2>&1
-
-
-  cp -r sample_files/* ../TestFiles
+  cp -r sample_files/* "${sample_repository}/TestFiles"
   rm -r sample_files
 
 fi
-
-
 
 
 echo ""

@@ -486,10 +486,10 @@ def progress_reporter(test_id, token):
                         and_(
                             TestResult.test_id == test.id,
                             TestResult.exit_code != TestResult.expected_rc
-                        )).first()
+                        )).scalar()
                     results = g.db.query(count(TestResultFile.got)).filter(
                         and_(TestResultFile.test_id == test.id,
-                             TestResultFile.got.isnot(None))).first()
+                             TestResultFile.got.isnot(None))).scalar()
                     log.debug(
                         'Test {id} completed: {crashes} crashes, {results} '
                         'results'.format(id=test.id, crashes=crashes,

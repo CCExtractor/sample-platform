@@ -490,6 +490,10 @@ def progress_reporter(test_id, token):
                     results = g.db.query(count(TestResultFile.got)).filter(
                         and_(TestResultFile.test_id == test.id,
                              TestResultFile.got.isnot(None))).first()
+                    log.debug(
+                        'Test {id} completed: {crashes} crashes, {results} '
+                        'results'.format(id=test.id, crashes=crashes,
+                                         results=results))
                     if crashes > 0 or results > 0:
                         state = Status.FAILURE
                         message = 'Not all tests completed successfully, ' \

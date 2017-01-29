@@ -84,7 +84,7 @@ def get_data_for_test(test, title=None):
                 test_error = True
             if len(category_test['files']) > 0:
                 for result_file in category_test['files']:
-                    if result_file.got is not None:
+                    if result_file.got is not None and result.exit_code == 0:
                         test_error = True
                         break
             else:

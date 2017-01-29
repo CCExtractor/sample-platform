@@ -101,7 +101,7 @@
                                             <td>{{ test.result.exit_code }} {{ '' if test.result.exit_code == test.result.expected_rc else '(Expected '~test.result.expected_rc~')' }}</td>
                                             <td>
                                                 {% for file in test.files %}
-                                                    {% if file.got is none %}
+                                                    {% if file.got is none or (test.result.exit_code == test.result.expected_rc and test.result.exit_code != 0) %}
                                                         Pass
                                                     {% else %}
                                                         <a href="#" class="diff_link" data-test="{{ file.test_id }}" data-regression="{{ file.regression_test_id }}" data-output="{{ file.regression_test_output_id }}">Fail</a>

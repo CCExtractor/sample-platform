@@ -487,9 +487,14 @@ def progress_reporter(test_id, token):
                             TestResult.test_id == test.id,
                             TestResult.exit_code != TestResult.expected_rc
                         )).scalar()
+                    results_zero_rc = g.db.query(RegressionTest.id).filter(
+                        RegressionTest.expected_rc == 0
+                    ).subquery()
                     results = g.db.query(count(TestResultFile.got)).filter(
-                        and_(TestResultFile.test_id == test.id,
-                             TestResultFile.got.isnot(None))).scalar()
+                        and_(TestResultFile.id == test_id,
+                            TestResultFile.regression_test_id.in_(results_zero_rc),
+                            TestResultFile.got.isnot(None)
+                        )).scalar()
                     log.debug(
                         'Test {id} completed: {crashes} crashes, {results} '
                         'results'.format(id=test.id, crashes=crashes,

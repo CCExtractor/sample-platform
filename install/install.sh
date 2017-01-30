@@ -45,12 +45,9 @@ echo "In order to configure the platform, we need some information from you. Ple
 echo ""
 
 # Verify password
-mysql_config_editor set --login-path=root_login --host=localhost --user=root --password $db_root_password
-as=2;
-echo "checkout\n";
+mysql_config_editor set --login-path=root_login --host=localhost --user=root --password 
 while ! mysql  --login-path=root_login  -e ";" ; do
-      echo "sasasa\n";
-      supress_warning=`mysql_config_editor set --login-path=root_login --host=localhost --user=root --password $db_root_password` >> "$install_log" 2>&1
+      mysql_config_editor set --login-path=root_login --host=localhost --user=root --password
 done
 
 

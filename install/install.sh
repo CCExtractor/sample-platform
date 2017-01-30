@@ -43,11 +43,13 @@ echo "-------------------------------"
 echo ""
 echo "In order to configure the platform, we need some information from you. Please reply to the following questions:"
 echo ""
-read -e -p "Password of the 'root' user of MySQL: " -i "" db_root_password
+
 # Verify password
-supress_warning=`mysql_config_editor set --login-path=root_login --host=localhost --user=root --password $db_root_password` >> "$install_log" 2>&1
+mysql_config_editor set --login-path=root_login --host=localhost --user=root --password $db_root_password
+as=2;
+echo "checkout\n";
 while ! mysql  --login-path=root_login  -e ";" ; do
-      read -e -p "Invalid password, please retry: " -i "" db_root_password
+      echo "sasasa\n";
       supress_warning=`mysql_config_editor set --login-path=root_login --host=localhost --user=root --password $db_root_password` >> "$install_log" 2>&1
 done
 
@@ -68,7 +70,7 @@ if [ ${db_user_exists} = 0 ]; then
     rand_pass=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 16 | head -n 1)
     read -e -p "Password for ${db_user} (will be created): " -i "${rand_pass}" db_user_password
     # Attempt to create the user
-    mysql -u root --password="$db_root_password" -e "CREATE USER '${db_user}'@'localhost' IDENTIFIED BY '${db_user_password}';" >> "$install_log" 2>&1
+    mysql --login-path=root_login -e "CREATE USER '${db_user}'@'localhost' IDENTIFIED BY '${db_user_password}';" >> "$install_log" 2>&1
     db_user_exists=`mysql --login-path=root_login -sse "SELECT EXISTS(SELECT 1 FROM mysql.user WHERE user = '$db_user')"`
     if [ ${db_user_exists} = 0 ]; then
         echo "Failed to create the user! Please check the installation log!"
@@ -85,7 +87,7 @@ supress_warning=`mysql_config_editor set --login-path=user_login --host=localhos
 # Grant user access to database
 mysql -u root --password="${db_root_password}" -e "GRANT ALL ON ${db_name}.* TO '${db_user}'@'localhost';" >> "$install_log" 2>&1
 # Check if user has access
-db_access=`mysql --login-path=user_login -se"USE ${db_name};" 2>&1`
+db_access=`mysql --login-path=root_login -se"USE ${db_name};" 2>&1`
 if [ ! "${db_access}" == "" ]; then
     echo "Failed to grant user access to database! Please check the installation log!"
     exit -1

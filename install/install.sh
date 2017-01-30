@@ -45,11 +45,12 @@ echo "In order to configure the platform, we need some information from you. Ple
 echo ""
 read -e -p "Password of the 'root' user of MySQL: " -i "" db_root_password
 # Verify password
-while ! mysql -u root --password="${db_root_password}"  -e ";" ; do
+supress_warning=`mysql_config_editor set --login-path=root_login --host=localhost --user=root --password $db_root_password` >> "$install_log" 2>&1
+while ! mysql  --login-path=root_login  -e ";" ; do
       read -e -p "Invalid password, please retry: " -i "" db_root_password
+      supress_warning=`mysql_config_editor set --login-path=root_login --host=localhost --user=root --password $db_root_password` >> "$install_log" 2>&1
 done
 
-supress_warning=`mysql_config_editor set --login-path=root_login --host=localhost --user=root --password $db_root_password` >> "$install_log" 2>&1
 
 read -e -p "Database name for storing data: " -i "sample_platform" db_name
 mysql -u root --password="${db_root_password}" -e "CREATE DATABASE IF NOT EXISTS ${db_name};" >> "$install_log" 2>&1

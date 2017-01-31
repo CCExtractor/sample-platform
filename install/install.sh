@@ -44,11 +44,10 @@ echo ""
 echo "In order to configure the platform, we need some information from you. Please reply to the following questions:"
 echo ""
 read -e -p "Password of the 'root' user of MySQL: " -i "" db_root_password
-# Verify password
-$db_root_password
-mysql_config_editor set --login-path=root_login --host=localhost --user=root --password $db_root_password 
+supress_warning=`mysql_config_editor set --login-path=root_login --host=localhost --user=root --password $db_root_password` >> "$install_log" 2>&1
 while ! mysql  --login-path=root_login  -e ";" ; do
-      mysql_config_editor set --login-path=root_login --host=localhost --user=root --password $db_root_password
+      read -e -p "Invalid password, please retry: " -i "" db_root_password
+      supress_warning=`mysql_config_editor set --login-path=root_login --host=localhost --user=root --password $db_root_password` >> "$install_log" 2>&1
 done
 
 
@@ -81,11 +80,10 @@ else
        read -e -p "Invalid password, please retry: " -i "" db_user_password
     done
 fi
-#e=`mysql_config_editor set --login-path=mypath --host=localhost --user=$db_user --password '${db_user_password}' >> "$install_log" 2>&1`
-#echo $e;
+#login with user account in mysql by veryfying mysql password
 mysql_config_editor set --login-path=mypath --host=localhost --user=$db_user --password ;
 # Grant user access to database
-e1=`mysql --login-path=root_login -e "GRANT ALL ON ${db_name}.* TO '${db_user}'@localhost;" 2>&1`
+mysql --login-path=root_login -e "GRANT ALL ON ${db_name}.* TO '${db_user}'@localhost;"
 # Check if user has access
 
 db_access=`mysql --login-path=mypath -se "USE ${db_name};" 2>&1`

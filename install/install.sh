@@ -132,6 +132,16 @@ mkdir -p "${sample_repository}/TestFiles/media" >> "$install_log" 2>&1
 mkdir -p "${sample_repository}/QueuedFiles" >> "$install_log" 2>&1
 
 
+#creating sample database
+
+if [ ${sample_response} == 'y' ]; then
+
+  cp -r sample_files/* "${sample_repository}/TestFiles"
+  #rm -r sample_files
+
+fi
+
+
 
 config_db_uri="mysql+pymysql://${db_user}:${db_user_password}@localhost:3306/${db_name}"
 
@@ -142,16 +152,14 @@ read -e -p "Admin username: " -i "admin" admin_name
 read -e -p "Admin email: " admin_email
 read -e -p "Admin password: " admin_password
 echo "Creating admin account: "
-python "${dir}/init_db.py" "${config_db_uri}" "${admin_name}" "${admin_email}" "${admin_password}" "${sample_response}"
+python "${dir}/init_db.py" "${config_db_uri}" "${admin_name}" "${admin_email}" "${admin_password}"
 
 
 #creating sample database
 
 if [ ${sample_response} == 'y' ]; then
-
-  cp -r sample_files/* "${sample_repository}/TestFiles"
-  rm -r sample_files
-
+  python "${dir}/sample_db.py" ${config_db_uri}
+  mysql -u root --password="${db_root_password}" -e "use ${db_name}; insert into regression_test_category (regression_id,category_id) values (1,5); insert into regression_test_category (regression_id,category_id) values (2,5);"
 fi
 
 

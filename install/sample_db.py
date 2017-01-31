@@ -71,7 +71,7 @@ def run():
     MediaInfoFetcher.generate_media_xml(sample)
 
     db = create_session(sys.argv[1])
-    sample = Sample('sample2','mpg','sample2')
+    sample = Sample('sample2','ts','sample2')
     db.add(sample)
     db.commit()
     MediaInfoFetcher.generate_media_xml(sample)

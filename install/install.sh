@@ -89,6 +89,7 @@ if [ ! "${db_access}" == "" ]; then
     echo "Failed to grant user access to database! Please check the installation log!"
     exit -1
 fi
+read -p "Do you want to install a sample database? (y/n) :" sample_response
 # Request information for generating the config.py file
 echo ""
 echo "For the following questions, press enter to leave a field blank."
@@ -108,10 +109,8 @@ read -e -p "KVM Max Runtime (In minutes): " -i "120" kvm_max_runtime
 read -e -p "FTP Server IP/Domain name :" -i "" server_name
 read -e -p "FTP port: " -i "21" ftp_port
 read -e -p "Max HTTP sample size (in bytes) : " -i "536870912" max_content_length
-
 echo ""
 echo "In the following lines, enter the path "
-
 read -e -p "    To SSL certificate: " -i "/etc/letsencrypt/live/${config_server_name}/fullchain.pem" config_ssl_cert
 read -e -p "    To SSL key: " -i "/etc/letsencrypt/live/${config_server_name}/privkey.pem" config_ssl_key
 read -e -p "    To the root directory containing all files (Samples, reports etc.) : " -i "/repository" sample_repository
@@ -129,7 +128,6 @@ mkdir -p "${sample_repository}/TestFiles/media" >> "$install_log" 2>&1
 mkdir -p "${sample_repository}/QueuedFiles" >> "$install_log" 2>&1
 
 config_db_uri="mysql+pymysql://${db_user}:${db_user_password}@localhost:3306/${db_name}"
-
 # Request info for creating admin account
 echo ""
 echo "We need some information for the admin account"
@@ -138,6 +136,14 @@ read -e -p "Admin email: " admin_email
 read -e -p "Admin password: " admin_password
 echo "Creating admin account: "
 python "${dir}/init_db.py" "${config_db_uri}" "${admin_name}" "${admin_email}" "${admin_password}"
+#creating sample database
+if [ ${sample_response} == 'y' ]; then
+  echo "Creating sample database.."
+  cp -r sample_files/* "${sample_repository}/TestFiles"
+  #rm -r sample_files
+  python "${dir}/sample_db.py" ${config_db_uri}
+  mysql -u root --password="${db_root_password}" -e "use ${db_name}; insert into regression_test_category (regression_id,category_id) values (1,5); insert into regression_test_category (regression_id,category_id) values (2,5);"
+fi
 echo ""
 echo "-------------------------------"
 echo "|      Finalizing install     |"

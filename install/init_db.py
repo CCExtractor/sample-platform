@@ -15,7 +15,7 @@ if len(sys.argv) != 5:
 def run():
     from database import create_session
     from mod_auth.models import User, Role
-
+    
     db = create_session(sys.argv[1])
     # Check if there's at least one admin user
     admin = User.query.filter(User.role == Role.admin).first()
@@ -26,6 +26,7 @@ def run():
     user = User(sys.argv[2], Role.admin, sys.argv[3],
                 User.generate_hash(sys.argv[4]))
     db.add(user)
+
     db.commit()
     print("Admin user created with name: %s" % user.name)
 

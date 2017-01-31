@@ -15,7 +15,7 @@ if len(sys.argv) != 5:
 def run():
     from database import create_session
     from mod_auth.models import User, Role
-    from flask import g
+    
     db = create_session(sys.argv[1])
     # Check if there's at least one admin user
     admin = User.query.filter(User.role == Role.admin).first()

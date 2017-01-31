@@ -136,13 +136,11 @@ read -e -p "Admin email: " admin_email
 read -e -p "Admin password: " admin_password
 echo "Creating admin account: "
 python "${dir}/init_db.py" "${config_db_uri}" "${admin_name}" "${admin_email}" "${admin_password}"
-#creating sample database
+# Create sample database if user wanted to
 if [ ${sample_response} == 'y' ]; then
   echo "Creating sample database.."
   cp -r sample_files/* "${sample_repository}/TestFiles"
-  #rm -r sample_files
   python "${dir}/sample_db.py" ${config_db_uri}
-  mysql -u root --password="${db_root_password}" -e "use ${db_name}; insert into regression_test_category (regression_id,category_id) values (1,5); insert into regression_test_category (regression_id,category_id) values (2,5);"
 fi
 echo ""
 echo "-------------------------------"

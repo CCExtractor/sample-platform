@@ -80,13 +80,12 @@ else
        read -e -p "Invalid password, please retry: " -i "" db_user_password
     done
 fi
-#login with user account in mysql by veryfying mysql password
-mysql_config_editor set --login-path=mypath --host=localhost --user=$db_user --password ;
+supress_warning=`mysql_config_editor set --login-path=user_login --host=localhost --user=$db_user --password $db_user_password` >> "$install_log" 2>&1
 # Grant user access to database
 mysql --login-path=root_login -e "GRANT ALL ON ${db_name}.* TO '${db_user}'@localhost;"
 # Check if user has access
 
-db_access=`mysql --login-path=mypath -se "USE ${db_name};" 2>&1`
+db_access=`mysql --login-path=user_login -se "USE ${db_name};" 2>&1`
 if [ ! "${db_access}" == "" ]; then
     echo "Failed to grant user access to database! Please check the installation log!"
     exit -1

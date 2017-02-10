@@ -42,13 +42,13 @@ class LoginForm(Form):
     email = StringField('Email', [DataRequired(
         message='Email is not filled in.')])
     password = PasswordField('Password', [
-        DataRequired(message='Password cannot be empty.')])
+        DataRequired(message='Password cannot be empty.'), Email("entered value is not a valid email address")])
     submit = SubmitField('Login')
 
 
 class SignupForm(Form):
     email = StringField('Email', [DataRequired(
-        message='Email is not filled in.')])
+        message='Email is not filled in.'), Email("entered value is not a valid email address")])
     submit = SubmitField('Register')
 
 

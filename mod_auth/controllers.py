@@ -14,7 +14,9 @@ from mod_auth.models import Role, User
 
 mod_auth = Blueprint('auth', __name__)
 
-
+""" 
+    Adds Menu to the Page on load
+"""
 @mod_auth.before_app_request
 def before_app_request():
     user_id = session.get('user_id', 0)
@@ -37,7 +39,9 @@ def before_app_request():
         ]
     )
 
-
+""" 
+   Checks Login
+"""
 def login_required(f):
     """
     Decorator that redirects to the login page if a user is not logged in.
@@ -50,7 +54,10 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-
+""" 
+    @params roles,parent_route
+    Checks Access Rights
+"""
 def check_access_rights(roles=None, parent_route=None):
     """
     Decorator that checks if a user can access the page.
@@ -83,7 +90,10 @@ def check_access_rights(roles=None, parent_route=None):
 
     return access_decorator
 
-
+""" 
+    @param usr is which user to reset password
+    send_reset_email reset password
+"""
 def send_reset_email(usr):
     from run import app
     expires = int(time.time()) + 86400
@@ -107,7 +117,9 @@ def send_reset_email(usr):
         flash('Could not send an email. Please get in touch',
               'error-message')
 
-
+""" 
+    Login Function
+"""
 @mod_auth.route('/login', methods=['GET', 'POST'])
 @template_renderer()
 def login():
@@ -130,7 +142,9 @@ def login():
         'form': form
     }
 
-
+""" 
+    Reset 
+"""
 @mod_auth.route('/reset', methods=['GET', 'POST'])
 @template_renderer()
 def reset():
@@ -194,7 +208,9 @@ def complete_reset(uid, expires, mac):
           'email again to start over.', 'error-message')
     return redirect(url_for('.reset'))
 
-
+""" 
+    Signup Function
+"""
 @mod_auth.route('/signup', methods=['GET', 'POST'])
 @template_renderer()
 def signup():
@@ -299,7 +315,9 @@ def complete_signup(email, expires, mac):
           'enter your email again to start over.', 'error-message')
     return redirect(url_for('.signup'))
 
-
+""" 
+    Logout Function
+"""
 @mod_auth.route('/logout')
 @template_renderer()
 def logout():
@@ -308,7 +326,9 @@ def logout():
     flash('You have been logged out', 'success')
     return redirect(url_for('.login'))
 
-
+""" 
+    Manage Profile Details:Email,Password
+"""
 @mod_auth.route('/manage', methods=['GET', 'POST'])
 @login_required
 @template_renderer()
@@ -382,7 +402,10 @@ def user(uid):
     else:
         abort(403, request.endpoint)
 
-
+""" 
+    @params reset_user
+    reset user
+"""
 @mod_auth.route('/reset_user/<uid>')
 @login_required
 @check_access_rights([Role.admin])
@@ -400,7 +423,10 @@ def reset_user(uid):
     else:
         abort(403, request.endpoint)
 
-
+""" 
+    @params user_id
+    role
+"""
 @mod_auth.route('/role/<uid>', methods=['GET', 'POST'])
 @login_required
 @check_access_rights([Role.admin])
@@ -422,7 +448,10 @@ def role(uid):
         }
     abort(404)
 
-
+""" 
+    @params user_id
+    Deactivate Account
+"""
 @mod_auth.route('/deactivate/<uid>', methods=['GET', 'POST'])
 @login_required
 @template_renderer()

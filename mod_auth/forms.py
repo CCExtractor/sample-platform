@@ -10,14 +10,14 @@ def unique_username(form, field):
     # Check if a user already exists with this name
     user = User.query.filter(User.name == field.data).first()
     if user is not None:
-        raise ValidationError('there is already a user with this name')
+        raise ValidationError('There is already a user with this name')
 
 
 def valid_password(form, field):
     if len(field.data) == 0:
         raise ValidationError('new password cannot be empty')
     if len(field.data) < 10 or len(field.data) > 500:
-        raise ValidationError('password needs to be between 10 and 500 '
+        raise ValidationError('Password needs to be between 10 and 500 '
                               'characters long (you entered %s characters'
                               % len(field.data))
 
@@ -28,19 +28,19 @@ def email_not_in_use(has_user_field=False):
         # Check if email is not already in use
         user = User.query.filter(User.email == field.data).first()
         if user is not None and user.id != user_id and len(field.data) > 0:
-            raise ValidationError('this address is already in use')
+            raise ValidationError('This address is already in use')
     return _email_not_in_use
 
 
 def role_id_is_valid(form, field):
     role = Role.query.filter(Role.id == field.data).first()
     if role is None:
-        raise ValidationError('role id is invalid')
+        raise ValidationError('Role id is invalid')
 
 
 class LoginForm(Form):
     email = EmailField('Email', [
-        DataRequired(message='email address is not filled in'),
+        DataRequired(message='Email address is not filled in'),
         Email(message='Entered value is not a valid email address')
     ])
     password = PasswordField('Password', [
@@ -50,7 +50,7 @@ class LoginForm(Form):
 
 class SignupForm(Form):
     email = EmailField('Email', [
-        DataRequired(message='email address is not filled in'),
+        DataRequired(message='Email address is not filled in'),
         Email(message='Entered value is not a valid email address')
     ])
     submit = SubmitField('Register')
@@ -78,7 +78,7 @@ class CompleteSignupForm(Form):
     @staticmethod
     def validate_password_repeat(form, field):
         if field.data != form.password.data:
-            raise ValidationError('the password needs to match the new '
+            raise ValidationError('The password needs to match the new '
                                   'password')
 
 
@@ -106,9 +106,9 @@ class AccountForm(Form):
     def validate_current_password(form, field):
         if form.user is not None:
             if not form.user.is_password_valid(field.data):
-                raise ValidationError('invalid password')
+                raise ValidationError('Invalid password')
         else:
-            raise ValidationError('user instance not passed to form '
+            raise ValidationError('User instance not passed to form '
                                   'validation')
 
     @staticmethod
@@ -127,13 +127,13 @@ class AccountForm(Form):
                 return
 
         if field.data != form.new_password.data:
-            raise ValidationError('the password needs to match the new '
+            raise ValidationError('The password needs to match the new '
                                   'password')
 
 
 class ResetForm(Form):
     email = EmailField('Email', [
-        DataRequired(message='email address is not filled in'),
+        DataRequired(message='Email address is not filled in'),
         Email(message='Entered value is not a valid email address')
     ])
     submit = SubmitField('Request reset instructions')
@@ -149,5 +149,5 @@ class CompleteResetForm(Form):
     @staticmethod
     def validate_password_repeat(form, field):
         if field.data != form.password.data:
-            raise ValidationError('the password needs to match the new '
+            raise ValidationError('The password needs to match the new '
                                   'password')

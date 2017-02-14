@@ -31,4 +31,5 @@ build_commit.py
 # Gunicorn
 gunicorn.pid
 
+# OS Generated Files
 .DS_Store

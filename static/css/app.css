@@ -305,3 +305,35 @@ table.diff td.diff_header {
   */
   #no-more-tables td:before { content: attr(data-title); }
 }
+
+article,
+aside,
+details,
+figcaption,
+figure,
+footer,
+header,
+hgroup,
+main,
+menu,
+nav,
+section,
+summary {
+  display: block;
+  padding-bottom:0.5%; }
+
+.row {
+    max-width: 75rem;
+    margin-left: 2%;
+    margin-right: 2%; }
+
+.columns {
+    width:100%;
+    word-wrap:break-word;
+    float:left;
+    padding-left:.625rem;
+    padding-right:.625rem }
+
+table.stack td {
+    border-top:0;
+    word-break:break-word; }

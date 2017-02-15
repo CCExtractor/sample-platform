@@ -265,6 +265,9 @@ table.diff td.diff_header {
     display: block; 
   }
  
+  #no-more-tables tbody{
+     padding: 10px;
+  }
   /* Hide table headers (but not display: none;, for accessibility) */
   #no-more-tables thead tr { 
     position: absolute;

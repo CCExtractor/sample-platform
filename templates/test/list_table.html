@@ -1,27 +1,27 @@
 {% if tests|length > 0 %} 
-<div id="no-more-tables">
-<table class="col-md-12 table-bordered table-striped table-condensed cf">
-        <thead class="cf">
-       <tr>
-            <th class="numeric">Repository</th>
-            <th class="numeric">Details</th>
-            <th class="numeric">Platform</th>
-            <th class="numeric" title="Indicates if an error occurred during any preparational step (merging, compiling).">Run errors</th>
-            <th class="numeric" title="Did the test suite finish or error out?">Completed</th>
-        </tr>
-        </thead>
-        <tbody>
-        {% for test in tests %}
-            <tr>
-                <td data-title="Repository">{{ test.fork.github_name }}</td>
-                <td data-title="Details">{{ test.test_type.description }} <a href="{{ test.github_link }}" target="_blank">{{ (test.commit[:7] if test.test_type == TestType.commit else test.pr_nr) }}</a></td>
-                <td data-title="Platform">{{ test.platform.description }}</td>
-                <td data-title="Run Errors">{{ "Unknown" if not test.finished else ("Yes" if test.failed else "No") }}</td>
-                <td data-title="Completed"><a href="{{ url_for('.by_id', test_id=test.id) }}">{{ "Yes" if test.finished else "No" }}</a></td>
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
+    <div id="no-more-tables">
+        <table class="col-md-12 table-bordered table-striped table-condensed cf">
+            <thead class="cf">
+                <tr>
+                    <th class="numeric">Repository</th>
+                    <th class="numeric">Details</th>
+                    <th class="numeric">Platform</th>
+                    <th class="numeric" title="Indicates if an error occurred during any preparational step (merging, compiling).">Run errors</th>
+                    <th class="numeric" title="Did the test suite finish or error out?">Completed</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for test in tests %}
+                    <tr>
+                        <td data-title="Repository">{{ test.fork.github_name }}</td>
+                        <td data-title="Details">{{ test.test_type.description }} <a href="{{ test.github_link }}" target="_blank">{{ (test.commit[:7] if test.test_type == TestType.commit else test.pr_nr) }}</a></td>
+                        <td data-title="Platform">{{ test.platform.description }}</td>
+                        <td data-title="Run Errors">{{ "Unknown" if not test.finished else ("Yes" if test.failed else "No") }}</td>
+                        <td data-title="Completed"><a href="{{ url_for('.by_id', test_id=test.id) }}">{{ "Yes" if test.finished else "No" }}</a></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 {% else %}
     <p>There are no tests available right now! Please check again later.</p>

@@ -337,3 +337,11 @@ summary {
 table.stack td {
     border-top:0;
     word-break:break-word; }
+
+@media only screen and (max-device-width: 480px) {
+  .off-canvas.position-left {
+    left: -250px;
+    top: 0;
+    width: 200px;
+    }
+}

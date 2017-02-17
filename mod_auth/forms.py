@@ -39,30 +39,24 @@ def role_id_is_valid(form, field):
 
 
 class LoginForm(Form):
-<<<<<<< HEAD
     email = StringField('Email', [DataRequired(
         message='Email is not filled in.'), Email("entered value is not a valid email address")])
-=======
     email = EmailField('Email', [
         DataRequired(message='Email address is not filled in'),
         Email(message='Entered value is not a valid email address')
     ])
->>>>>>> upstream/master
     password = PasswordField('Password', [
         DataRequired(message='Password cannot be empty.')])
     submit = SubmitField('Login')
 
 
 class SignupForm(Form):
-<<<<<<< HEAD
     email = StringField('Email', [DataRequired(
         message='Email is not filled in.'), Email("entered value is not a valid email address")])
-=======
     email = EmailField('Email', [
         DataRequired(message='Email address is not filled in'),
         Email(message='Entered value is not a valid email address')
     ])
->>>>>>> upstream/master
     submit = SubmitField('Register')
 
 

@@ -7,7 +7,41 @@
     <div class="row">
         <div class="column medium-9">
             <h1>Regression tests</h1>
-            {% if tests|length > 0 %}
+              <p class="row">
+               
+             <label for="category" class="column medium-4">Select a category</label>
+                   <select id="category" onchange="switchCategory();" class="column medium-6">
+                        
+                            <option value="1">Broken</option>
+                        
+                            <option value="11">CEA-708</option>
+                        
+                            <option value="2">DVB</option>
+                        
+                            <option value="13">DVD</option>
+                        
+                            <option value="3">DVR-MS</option>
+                        
+                            <option value="4">General</option>
+                        
+                            <option value="5">Hauppage</option>
+                        
+                            <option value="6">MP4</option>
+                        
+                            <option value="12">Multiprogram</option>
+                        
+                            <option value="7">NoCC</option>
+                        
+                            <option value="14">Options</option>
+                        
+                            <option value="8">Teletext</option>
+                        
+                            <option value="9">WTV</option>
+                        
+                            <option value="10">XDS</option>
+                        
+                    </select>
+            </p>{% if tests|length > 0 %}
                 <p class="row">
                     <label for="category" class="column medium-4">Select a category</label>
                     <select id="category" onchange="switchCategory();"  class="column medium-6">
@@ -91,6 +125,10 @@
             cat_desc.find("span[data-category!='"+id+"']").each(function(idx, elm){
                 elm.setAttribute("class","hide");
             });
+            var elements=document.getElementsByClassName("off-canvas-content");
+            for (var i = 0; i < elements.length; i++) {
+                elements[i].style.minHeight = "1000px";
+            }
             {% if user.is_admin %}
             var cat_edit = $("#category_edit");
             var cat_delete = $("#category_delete");
@@ -109,5 +147,92 @@
             });
             switchCategory();
         });
+        $(function () {
+
+    var defaultselectbox = $('#category');
+    var numOfOptions = $('#category').children('option').length;
+
+    // hide select tag
+    defaultselectbox.addClass('s-hidden');
+
+    // wrapping default selectbox into custom select block
+    defaultselectbox.wrap('<div class="cusSelBlock"></div>');
+
+    // creating custom select div
+    defaultselectbox.after('<div class="selectLabel"></div>');
+
+    // getting default select box selected value
+    $('.selectLabel').text(defaultselectbox.children('option').eq(0).text());
+
+    // appending options to custom un-ordered list tag
+    var cusList = $('<ul/>', { 'class': 'options'} ).insertAfter($('.selectLabel'));
+
+    // generating custom list items
+    for(var i=0; i< numOfOptions; i++) {
+        $('<li/>', {
+        text: defaultselectbox.children('option').eq(i).text(),
+        rel: defaultselectbox.children('option').eq(i).val()
+        }).appendTo(cusList);
+    }
+
+    // open-list and close-list items functions
+    function openList() {
+        for(var i=0; i< numOfOptions; i++) {
+            $('.options').children('li').eq(i).attr('tabindex', i).css(
+                'transform', 'translateY('+(i*100+100)+'%)').css(
+                'transition-delay', i*30+'ms');
+        }
+    }
+
+    function closeList() {
+        for(var i=0; i< numOfOptions; i++) {
+            $('.options').children('li').eq(i).css(
+                'transform', 'translateY('+i*0+'px)').css('transition-delay', i*0+'ms');
+        }
+        $('.options').children('li').eq(1).css('transform', 'translateY('+2+'px)');
+        $('.options').children('li').eq(2).css('transform', 'translateY('+4+'px)');
+    }
+
+    // click event functions
+    $('.selectLabel').click(function () {
+        $(this).toggleClass('active');
+        if( $(this).hasClass('active') ) {
+            openList();
+            focusItems();
+        }
+        else {
+            closeList();
+        }
+    });
+
+    $(".options li").on('keypress click', function(e) {
+        e.preventDefault();
+        $('.options li').siblings().removeClass();
+        closeList();
+        $('.selectLabel').removeClass('active');
+        $('.selectLabel').text($(this).text());
+        defaultselectbox.val($(this).text());
+        $('.selected-item p span').text($('.selectLabel').text());
+    });
+    
+});
+
+function focusItems() {
+
+    $('.options').on('focus', 'li', function() {
+        $this = $(this);
+        $this.addClass('active').siblings().removeClass();
+    }).on('keydown', 'li', function(e) {
+        $this = $(this);
+        if (e.keyCode == 40) {
+            $this.next().focus();
+            return false;
+        } else if (e.keyCode == 38) {
+            $this.prev().focus();
+            return false;
+        }
+    }).find('li').first().focus();
+
+}
     </script>
 {% endblock %}

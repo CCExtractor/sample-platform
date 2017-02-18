@@ -10,7 +10,7 @@
             {% if tests|length > 0 %}
                 <p class="row">
                     <label for="category" class="column medium-4">Select a category</label>
-                    <select id="category" onchange="switchCategory();"  class="column medium-6">
+                    <select id="category" style="background-position: right 0rem center"onchange="switchCategory();" class="column medium-6">
                         {% for category in categories %}
                             <option value="{{ category.id }}">{{ category.name }}</option>
                         {% endfor %}

@@ -7,41 +7,7 @@
     <div class="row">
         <div class="column medium-9">
             <h1>Regression tests</h1>
-              <p class="row">
-               
-             <label for="category" class="column medium-4">Select a category</label>
-                   <select id="category" onchange="switchCategory();" class="column medium-6">
-                        
-                            <option value="1">Broken</option>
-                        
-                            <option value="11">CEA-708</option>
-                        
-                            <option value="2">DVB</option>
-                        
-                            <option value="13">DVD</option>
-                        
-                            <option value="3">DVR-MS</option>
-                        
-                            <option value="4">General</option>
-                        
-                            <option value="5">Hauppage</option>
-                        
-                            <option value="6">MP4</option>
-                        
-                            <option value="12">Multiprogram</option>
-                        
-                            <option value="7">NoCC</option>
-                        
-                            <option value="14">Options</option>
-                        
-                            <option value="8">Teletext</option>
-                        
-                            <option value="9">WTV</option>
-                        
-                            <option value="10">XDS</option>
-                        
-                    </select>
-            </p>{% if tests|length > 0 %}
+            {% if tests|length > 0 %}
                 <p class="row">
                     <label for="category" class="column medium-4">Select a category</label>
                     <select id="category" onchange="switchCategory();"  class="column medium-6">

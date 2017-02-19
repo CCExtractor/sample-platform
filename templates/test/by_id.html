@@ -7,6 +7,10 @@
     <div class="row">
         <div class="row">
             <div class="column medium-8">
+            {{results}}
+            {{TestType}}
+           
+                
                 <h1>Test progress for {{ title }}</h1>
                 {% set progress = test.progress_data() %}
                 <table class="tight">
@@ -46,7 +50,7 @@
                     {% endfor %}
                 </ol>
                 <br class="clear" />
-                {% if test.progress|length > 0 %}
+                {% if test.progress|length >  0 %}
                     <input type="button" id="progress_button" class="button" value="Show test progress" />
                     <table id="progress_table" class="hide striped">
                         <thead>
@@ -67,7 +71,34 @@
                         </tbody>
                     </table>
                 {% else %}
-                    <p>This test is still in the queue! Please check again later.</p>
+                      <p>This test is still in the queue! Please check again later.Wait {{time}} minutes</p>
+                      <p>Other Tests in queue</p>
+                        {% set counter=1 %}
+                        {% for ntest in next %}
+                            {% set progress = ntest.progress_data() %}
+                            <table class="tight">
+                            <thead>
+                                   <td>{{ ntest.test_type.description }}</td>
+                                   <td>Repository</td>
+                                   <td>Expected Waiting time</td>
+                                     
+                            </thead>
+                                <tbody>
+                                    <tr>
+                                        {% set counter=counter+1 %}
+                                        {% if ntest.test_type == TestType.commit %}
+                                            <td><a href="{{ ntest.github_link }}" target="_blank">{{ ntest.commit[:7] }}</a> (branch {{ ntest.branch }})</td>
+                                        {% elif ntest.test_type == TestType.pull_request %}
+                                            <td><a href="{{ ntest.github_link }}" target="_blank">{{ ntest.pr_nr }}</a></td>
+                                        {% endif %}
+                                        <td><a href="{{ ntest.fork.github_url }}" target="_blank">{{ ntest.fork.github_name }}</a></td>
+                                        <td>{{ time*counter }} minutes</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                      
+                        {% endfor %}
+                                            
                 {% endif %}
                 
                 {% if test.finished %}

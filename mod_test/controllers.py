@@ -47,10 +47,6 @@ def index():
         'TestType': TestType
     }
 
-def diffdates(d1, d2):
-    #Date format: %Y-%m-%d %H:%M:%S
-    return (time.mktime(time.strptime(d2,"%Y-%m-%d %H:%M:%S")) -
-               time.mktime(time.strptime(d1, "%Y-%m-%d %H:%M:%S")))
 def get_data_for_test(test, title=None):
     if title is None:
         title = 'test {id}'.format(id=test.id)
@@ -59,10 +55,10 @@ def get_data_for_test(test, title=None):
         regressionTestCategoryLinkTable.c.category_id).subquery()
     categories = Category.query.filter(Category.id.in_(
         populated_categories)).order_by(Category.name.asc()).all()
-    comming_test=Test.query.filter(Test.progress == None).all()
+    comming_test=Test.query.filter(and_(Test.progress == None, Test.id >test.id)).all()
     last_running_test=Test.query.filter(Test.progress != None).order_by(Test.id.desc()).first()
     if(last_running_test!=None):
-    pr=last_running_test.progress_data()
+       pr=last_running_test.progress_data()
     last_running_test=pr['end']-pr['start']
     last_running_test=last_running_test.TotalMinutes
     results = [{

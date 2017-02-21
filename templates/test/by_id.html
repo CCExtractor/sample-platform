@@ -67,8 +67,7 @@
                         </tbody>
                     </table>
                 {% else %}
-                      <p>This test is still in the queue! Please check again later.Wait {{time}} minutes</p>
-                      <p>There are {{ next.count() }} Tests in queue</p>     
+                      <p>This test is still in the queue! Please check again later.This test is still queued. There are {{ next }} tests queued before this one. Based on the average runtime, this test will be finished in {{ hr }} hours {{ min }} minutes.</p>     
                 {% endif %}
                 
                 {% if test.finished %}

@@ -10,7 +10,7 @@ from decorators import template_renderer
 from mod_home.models import CCExtractorVersion
 from mod_regression.models import Category, regressionTestCategoryLinkTable, \
     RegressionTestOutput, RegressionTest
-from mod_test.models import Fork, Test, TestProgress, TestResult, \
+from mod_test.models import Fork, Test, TestProgress,TestStatus, TestResult, \
     TestResultFile, TestType
 
 mod_test = Blueprint('test', __name__)
@@ -55,12 +55,36 @@ def get_data_for_test(test, title=None):
         regressionTestCategoryLinkTable.c.category_id).subquery()
     categories = Category.query.filter(Category.id.in_(
         populated_categories)).order_by(Category.name.asc()).all()
-    comming_test=Test.query.filter(and_(Test.progress == None, Test.id >test.id)).all()
-    last_running_test=Test.query.filter(Test.progress != None).order_by(Test.id.desc()).first()
-    if(last_running_test!=None):
-       pr=last_running_test.progress_data()
-    last_running_test=pr['end']-pr['start']
-    last_running_test=last_running_test.TotalMinutes
+    hours=0
+    minutes=0
+    running_test_before_this="" 
+    #evaluating estimated time if the test is still in queue
+    if len(test.progress) == 0:
+        comming_test = Test.query.filter(and_(Test.progress == None, Test.id < test.id)).all()
+        progress_test = Test.query.filter(and_(Test.progress != None, Test.id < test.id)).all()
+        total = 0
+        last_running_test_id_all = TestProgress.query.filter(TestProgress.status == TestStatus.completed).all()
+        canceled=TestProgress.query.filter(TestProgress.status == TestStatus.canceled).all()
+        running_test_before_this = len(comming_test) + len(progress_test) - len(last_running_test_id_all) - len(canceled)
+        #calculating average estimated time
+        if last_running_test_id_all != None:
+           for last_running_test_id in last_running_test_id_all:
+               last_running_test_id = last_running_test_id.test_id
+               last_running_test = Test.query.filter(Test.id == last_running_test_id).first()
+               pr = last_running_test.progress_data()
+               last_running_test = pr['end'] - pr['start']
+               last_running_test = last_running_test.total_seconds()
+               total += last_running_test
+            average_time = total // len(last_running_test_id_all)
+        time_run = 0
+        for pr_test in progress_test:
+            if pr_test.finished == False and pr_test.failed == False:
+                data = pr_test.progress[-1].timestamp-pr_test.progress[0].timestamp
+                time_run += data.total_seconds()
+        #subtracting current running tests
+        total = average_time * running_test_before_this-time_run
+        minutes = (total%3600) // 60
+        hours = (total) // 3600
     results = [{
                    'category': category,
                    'tests': [{
@@ -117,8 +141,9 @@ def get_data_for_test(test, title=None):
         'TestType': TestType,
         'results': results,
         'title': title,
-        'next': comming_test,
-        'time':last_running_test
+        'next': running_test_before_this ,
+        'min': minutes,
+        'hr' : hours
     }
 
 

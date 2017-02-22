@@ -75,7 +75,7 @@ def get_data_for_test(test, title=None):
                last_running_test = pr['end'] - pr['start']
                last_running_test = last_running_test.total_seconds()
                total += last_running_test
-            average_time = total // len(last_running_test_id_all)
+           average_time = total // len(last_running_test_id_all)
         time_run = 0
         for pr_test in progress_test:
             if pr_test.finished == False and pr_test.failed == False:

@@ -10,9 +10,10 @@ from decorators import template_renderer
 from mod_home.models import CCExtractorVersion
 from mod_regression.models import Category, regressionTestCategoryLinkTable, \
     RegressionTestOutput, RegressionTest
-from mod_test.models import Fork, Test, TestProgress,TestStatus, TestResult, \
+from mod_test.models import Fork, Test, TestProgress, TestStatus, TestResult, \
     TestResultFile, TestType
-
+from mod_home.models import GeneralData
+from mod_ci.models import Kvm
 mod_test = Blueprint('test', __name__)
 
 
@@ -60,23 +61,11 @@ def get_data_for_test(test, title=None):
     running_test_before_this="" 
     #evaluating estimated time if the test is still in queue
     if len(test.progress) == 0:
-        comming_test = Test.query.filter(and_(Test.progress == None, Test.id < test.id)).all()
+        kvm_test = Kvm.query.filter(Kvm.test_id < test.id).first()
         progress_test = Test.query.filter(and_(Test.progress != None, Test.id < test.id)).all()
-        total = 0
-        last_running_test_id_all = TestProgress.query.filter(TestProgress.status == TestStatus.completed).all()
-        canceled=TestProgress.query.filter(TestProgress.status == TestStatus.canceled).all()
-        running_test_before_this = len(comming_test) + len(progress_test) - len(last_running_test_id_all) - len(canceled)
-        #calculating average estimated time
-        if last_running_test_id_all != None:
-           for last_running_test_id in last_running_test_id_all:
-               last_running_test_id = last_running_test_id.test_id
-               last_running_test = Test.query.filter(Test.id == last_running_test_id).first()
-               pr = last_running_test.progress_data()
-               last_running_test = pr['end'] - pr['start']
-               last_running_test = last_running_test.total_seconds()
-               total += last_running_test
-           average_time = total // len(last_running_test_id_all)
-        time_run = 0
+        u1 = GeneralData.query.filter(GeneralData.key == 'average_time').first()
+        average_time=float(u1.value)
+        running_test_before_this = len(kvm_test)
         for pr_test in progress_test:
             if pr_test.finished == False and pr_test.failed == False:
                 data = pr_test.progress[-1].timestamp-pr_test.progress[0].timestamp
@@ -143,7 +132,8 @@ def get_data_for_test(test, title=None):
         'title': title,
         'next': running_test_before_this ,
         'min': minutes,
-        'hr' : hours
+        'hr' : hours,
+        'gnew': u1
     }
 
 

@@ -120,7 +120,7 @@ input[type="checkbox"]:disabled +  label span::before {
 }
 
 ol.progtrckr {
-    display: table-cell;
+    display: table;
     list-style-type: none;
     padding: 0;
     table-layout: fixed;
@@ -128,7 +128,7 @@ ol.progtrckr {
     margin: 0 0 2em;
 }
 ol.progtrckr li {
-    display: table;
+    display: table-cell;
     text-align: center;
     line-height: 3em;
 }

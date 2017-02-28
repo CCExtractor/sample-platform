@@ -120,7 +120,7 @@ input[type="checkbox"]:disabled +  label span::before {
 }
 
 ol.progtrckr {
-    display: table;
+    display: table-cell;
     list-style-type: none;
     margin: 0;
     padding: 0;
@@ -251,6 +251,11 @@ table.diff td.diff_header {
 	display:inline;
 	font-family: monospace;
 }
+@media only screen and (max-width: 400px) {
+    ol.progtrckr li:before {
+        bottom: -3.8em;
+    }
+}
 /* Responsive Tables
      ========================================================================== */
 @media only screen and (max-width: 800px) {
@@ -304,6 +309,7 @@ table.diff td.diff_header {
   Label the data
   */
   #no-more-tables td:before { content: attr(data-title); }
+
 }
 
 article,

@@ -309,7 +309,6 @@ table.diff td.diff_header {
   Label the data
   */
   #no-more-tables td:before { content: attr(data-title); }
-
 }
 
 article,

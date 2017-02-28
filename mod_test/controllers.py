@@ -48,6 +48,7 @@ def index():
         'TestType': TestType
     }
 
+
 def get_data_for_test(test, title=None):
     if title is None:
         title = 'test {id}'.format(id=test.id)
@@ -132,8 +133,7 @@ def get_data_for_test(test, title=None):
         'title': title,
         'next': running_test_before_this ,
         'min': minutes,
-        'hr' : hours,
-        'gnew': u1
+        'hr' : hours
     }
 
 

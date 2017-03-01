@@ -25,6 +25,14 @@ class User(Base):
     def __init__(self, name, role=Role.user, email=None, password=''):
 	'''
 	Parametrized constructor for the User model
+	:param name: The value of the 'name' field of User model
+	:type name: str
+	:param role: The value of the 'role' field of User model
+	:type role: Role Model
+	:param email: The value of the 'email' field of User model (None by default)
+	:type email: str
+	:param password: The value of the 'password' field of User model ('' by default)
+	:type password: str
 	'''
         self.name = name
         self.email = email
@@ -35,6 +43,8 @@ class User(Base):
 	'''
 	Representation function
 	Represent a User Model by its 'name' Field.
+	:return name: Returns the 'name' field of the User model
+	:rtype name: str
 	'''
         return '<User %r>' % self.name
 
@@ -43,7 +53,9 @@ class User(Base):
 	'''
 	Generates a Hash value for a password
 	:param password: The password to be hashed
-	:type password: str
+	:type password: str 
+	:return : The hashed password
+	:rtype : str
 	'''
         # Go for increased strength no matter what
         return pwd_context.encrypt(password, category='admin')
@@ -54,6 +66,8 @@ class User(Base):
 	Creates a random password of default length 16
 	:param length: If parameter is passed, length will be the parameter. 16 by default
 	:type length: int
+	:return : Randomly generated password
+	:rtype : str
 	'''
         chars = string.ascii_letters + string.digits + '!@#$%^&*()'
         import os
@@ -65,6 +79,8 @@ class User(Base):
 	Checks the validity of the password
 	:param password: The password to be validated
 	:type password: str
+	:return : Validity of password
+	:rtype : boolean
 	'''
         return pwd_context.verify(password, self.password)
 
@@ -80,6 +96,8 @@ class User(Base):
     def is_admin(self):
 	'''
 	Verifies if a User is the admin
+	:return : Compares role of the passed Model with 'Admin' and returns result	
+	:rtype: boolean
 	'''
         return self.role == Role.admin
 
@@ -88,5 +106,7 @@ class User(Base):
 	Checks whether the User has a particular role
 	:param name: Name of the user
 	:type name: str
+	:return : Checks whether a passed User has a role.
+	:rtype: boolean
 	'''
         return self.role.value == name or self.is_admin

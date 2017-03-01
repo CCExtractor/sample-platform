@@ -8,7 +8,7 @@ from mod_auth.models import User, Role
 
 def unique_username(form, field):
     '''
-	Check if a user already exists with this name
+		Check if a user already exists with this name
 	'''
     user = User.query.filter(User.name == field.data).first()
     if user is not None:
@@ -48,14 +48,7 @@ def role_id_is_valid(form, field):
 
 class LoginForm(Form):
 	'''
-	Form for Login
-
-	attr email: user's email
-	type email: EmailField
-	attr password: user's password
-	type: PasswordField
-	attr submit: Submit button
-	type submit: SubmitField
+		The form rendered when a User has to enter Log in credentials
 	'''
     email = EmailField('Email', [
         DataRequired(message='Email address is not filled in'),
@@ -68,12 +61,7 @@ class LoginForm(Form):
 
 class SignupForm(Form):
 	'''
-	Sign up for new Users.
-
-	attr email: Email entered during sign up
-	type email: EmailField
-	attr submit: Submit button
-	type submit: SubmitField
+		Sign up form for new Users.
 	'''
     email = EmailField('Email', [
         DataRequired(message='Email address is not filled in'),
@@ -84,17 +72,14 @@ class SignupForm(Form):
 
 class DeactivationForm(Form):
 	'''
-	Deactivate existing account
+		Deactivate existing account
 	'''
     submit = SubmitField('Deactivate account')
 
 
 class RoleChangeForm(Form):
 	'''
-	Changing the Role
-
-	attr role: New role to be changed to
-	type role: SelectField
+		Changing the Role
 	'''
     role = SelectField('Select a role', [DataRequired(
         message='Role is not filled in.')], coerce=str)
@@ -103,12 +88,8 @@ class RoleChangeForm(Form):
 
 class CompleteSignupForm(Form):
 	'''
-	The Complete Sign up form for new users.
+		The Complete Sign up form for new users.
 
-	attr name: Username
-	type name: StringField
-	attr password, password_repeat: The password and the repeated password
-	type password, password_repeat: PasswordField
 	'''
     name = StringField('Name', [DataRequired(
         message='Name is not filled in.')])
@@ -121,7 +102,7 @@ class CompleteSignupForm(Form):
     @staticmethod
     def validate_password_repeat(form, field):
 	'''
-	Validates if the repeated password is the same as 'password'
+		Validates if the repeated password is the same as 'password'
 	'''
         if field.data != form.password.data:
             raise ValidationError('The password needs to match the new '
@@ -130,14 +111,7 @@ class CompleteSignupForm(Form):
 
 class AccountForm(Form):
 	'''
-	Form for editing current Account
-	
-	attr current_password, new_password, new_password_repeat : The respective passwords.
-	type current_password, new_password, new_password_repeat: PasswordField
-	attr name: Username
-	type name: StringField
-	attr email: User's email
-	type email: EmailField
+		Form for editing current Account
 	'''
     def __init__(self, formdata=None, obj=None, prefix='', *args, **kwargs):
         super(AccountForm, self).__init__(formdata, obj, prefix, *args,
@@ -161,7 +135,7 @@ class AccountForm(Form):
     @staticmethod
     def validate_current_password(form, field):
 	'''
-	Validates current password entered with the password stored in database
+		Validates current password entered with the password stored in database
 	'''
         if form.user is not None:
             if not form.user.is_password_valid(field.data):
@@ -173,7 +147,7 @@ class AccountForm(Form):
     @staticmethod
     def validate_new_password(form, field):
 	'''
-	Validates the new password entered
+		Validates the new password entered
 	'''
         if len(field.data) == 0 and \
                         len(form.new_password_repeat.data) == 0:
@@ -184,7 +158,7 @@ class AccountForm(Form):
     @staticmethod
     def validate_new_password_repeat(form, field):
 	'''
-	Validates new password repeat and checks if it matches 'new_password'
+		Validates new password repeat and checks if it matches 'new_password'
 	'''
         if form.email is not None:
             # Email form is present, so it's optional
@@ -198,10 +172,7 @@ class AccountForm(Form):
 
 class ResetForm(Form):
 	'''
-	Form for resetting password
-
-	attr email: User's email
-	type email: EmailField
+		Form for resetting password
 	'''
     email = EmailField('Email', [
         DataRequired(message='Email address is not filled in'),
@@ -212,10 +183,7 @@ class ResetForm(Form):
 
 class CompleteResetForm(Form):
 	'''
-	Resetting password after clicking on the link in the email
-
-	attr password, password_repeat: The new password and its repeat
-	type password, password_repeat: PasswordField
+		Resetting password after clicking on the link in the email
 	'''
     password = PasswordField('Password', [DataRequired(
         message='Password is not filled in.'), valid_password])
@@ -226,7 +194,7 @@ class CompleteResetForm(Form):
     @staticmethod
     def validate_password_repeat(form, field):
 	'''
-	Validates new password repeat and checks if it matches 'password'
+		Validates new password repeat and checks if it matches 'password'
 	'''
         if field.data != form.password.data:
             raise ValidationError('The password needs to match the new '

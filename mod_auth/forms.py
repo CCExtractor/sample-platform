@@ -7,8 +7,8 @@ from mod_auth.models import User, Role
 
 
 def unique_username(form, field):
-    """
-	Check if a user already exists with this name
+    	"""
+    	Check if a user already exists with this name
 
 	:param field: The data value for the 'name' inserted by new User
 	:type field.data : str

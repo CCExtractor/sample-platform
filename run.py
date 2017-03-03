@@ -71,6 +71,7 @@ def install_secret_keys(application, secret_session='secret_key',
     if do_exit:
         sys.exit(1)
 
+        
 install_secret_keys(app)
 
 
@@ -86,6 +87,7 @@ def sub_menu_open(menu_entries, active_route):
             return True
     return False
 
+
 app.jinja_env.globals.update(sub_menu_open=sub_menu_open)
 app.jinja_env.add_extension('jinja2.ext.loopcontrols')
 
@@ -96,6 +98,7 @@ def date_time_format(value, fmt='%Y-%m-%d %H:%M:%S'):
     Filters the datatime into strftime format
     '''
     return value.strftime(fmt)
+
 
 app.jinja_env.filters['date'] = date_time_format
 
@@ -111,6 +114,7 @@ class RegexConverter(BaseConverter):
 
 
 app.url_map.converters['regex'] = RegexConverter
+
 
 #Error 404 Not Found: The requested page could not be found
 @app.errorhandler(404)
@@ -157,12 +161,12 @@ def forbidden(error):
 
 
 @app.before_request
-def before_request():
+def before_request():   
     '''
-    Create the following, before a request is made:
+    Create the following, before a request is made
     :menu_entries: All menu entries, set to an empty dictionary
     :db: database session is created
-    :mailer: calls Mailer.py 
+    :mailer: calls Mailer.py
     :version: Specifies version being used
     :log: Logger used to debug
     :github: GitHub related information
@@ -195,6 +199,7 @@ def teardown(exception):
     if db is not None:
         db.remove()
 
+        
 # Register blueprints
 app.register_blueprint(mod_auth, url_prefix='/account')  # Needs to be first
 app.register_blueprint(mod_upload, url_prefix='/upload')

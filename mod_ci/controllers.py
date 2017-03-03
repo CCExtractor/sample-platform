@@ -460,31 +460,35 @@ def progress_reporter(test_id, token):
                 repository = gh.repos(g.github['repository_owner'])(
                     g.github['repository'])
                 # If status is complete, remove the Kvm entry
-                u1 = GeneralData.query.filter(GeneralData.key == 'average_time').first()
-                average_time=0
-                last_running_test_id_all = TestProgress.query.filter(TestProgress.status == TestStatus.completed).all()
+                u1 = GeneralData.query.filter(
+                    GeneralData.key == 'average_time').first()
+                average_time = 0
+                last_running_test_id_all = TestProgress.query.filter(
+                    TestProgress.status == TestStatus.completed).all()
                 if status in [TestStatus.completed, TestStatus.canceled]:
-                    if u1==None:
+                    if u1 == None:
                         if last_running_test_id_all != None:
-                           for last_running_test_id in last_running_test_id_all:
-                               last_running_test_id = last_running_test_id.test_id
-                               last_running_test = Test.query.filter(Test.id == last_running_test_id).first()
-                               pr = last_running_test.progress_data()
-                               last_running_test = pr['end'] - pr['start']
-                               last_running_test = last_running_test.total_seconds()
-                               total += last_running_test
-                           average_time = total // len(last_running_test_id_all)
-                        newf = GeneralData('average_time',average_time)
+                            for last_running_test_id in last_running_test_id_all:
+                                last_running_test_id = last_running_test_id.test_id
+                                last_running_test = Test.query.filter(
+                                    Test.id == last_running_test_id).first()
+                                pr = last_running_test.progress_data()
+                                last_running_test = pr['end'] - pr['start']
+                                last_running_test = last_running_test.total_seconds()
+                                total += last_running_test
+                            average_time = total // len(
+                                last_running_test_id_all)
+                        newf = GeneralData('average_time', average_time)
                         g.db.add(newf)
                         g.db.commit()
-                        average_time=float(newf.value)
+                        average_time = float(newf.value)
                     else:
-                        number=len(last_running_test_id_all)
-                        fl = float(u1.value)*(number-1)
+                        number = len(last_running_test_id_all)
+                        fl = float(u1.value) * (number - 1)
                         pr = test.progress_data()
                         last_running_test = pr['end'] - pr['start']
                         last_running_test = last_running_test.total_seconds()
-                        fl = (fl+last_running_test) // number
+                        fl = (fl + last_running_test) // number
                         u1.value = fl
                         g.db.commit()
                     kvm = Kvm.query.filter(Kvm.test_id == test_id).first()
@@ -558,7 +562,7 @@ def progress_reporter(test_id, token):
                         'test_id'], rto.id, rto.correct)
                     g.db.add(result_file)
                     g.db.commit()
-                    
+
             elif request.form['type'] == 'logupload':
                 # File upload, process
                 if 'file' in request.files:
@@ -568,17 +572,17 @@ def progress_reporter(test_id, token):
                         return 'EMPTY'
 
                     temp_path = os.path.join(
-                       config.get('SAMPLE_REPOSITORY', ''), 'TempFiles',
-                       filename)
+                        config.get('SAMPLE_REPOSITORY', ''), 'TempFiles',
+                        filename)
                     # Save to temporary location
                     uploaded_file.save(temp_path)
                     final_path = os.path.join(
                         config.get('SAMPLE_REPOSITORY', ''), 'LogFiles',
                         '{id}{ext}'.format(id=test.id, ext='.txt')
                     )
-                    
+
                     os.rename(temp_path, final_path)
-                
+
             elif request.form['type'] == 'upload':
                 log.debug('Upload for {t}/{rt}/{rto}'.format(
                     t=test_id, rt=request.form['test_id'], rto=request.form[

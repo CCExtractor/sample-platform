@@ -18,6 +18,7 @@ mod_test = Blueprint('test', __name__)
 
 
 class TestNotFoundException(Exception):
+
     def __init__(self, message):
         Exception.__init__(self)
         self.message = message
@@ -57,37 +58,40 @@ def get_data_for_test(test, title=None):
         regressionTestCategoryLinkTable.c.category_id).subquery()
     categories = Category.query.filter(Category.id.in_(
         populated_categories)).order_by(Category.name.asc()).all()
-    hours=0
-    minutes=0
-    running_test_before_this="" 
-    #evaluating estimated time if the test is still in queue
+    hours = 0
+    minutes = 0
+    running_test_before_this = ""
+    # evaluating estimated time if the test is still in queue
     if len(test.progress) == 0:
         kvm_test = Kvm.query.filter(Kvm.test_id < test.id).first()
-        progress_test = Test.query.filter(and_(Test.progress != None, Test.id < test.id)).all()
-        u1 = GeneralData.query.filter(GeneralData.key == 'average_time').first()
-        average_time=float(u1.value)
+        progress_test = Test.query.filter(
+            and_(Test.progress != None, Test.id < test.id)).all()
+        u1 = GeneralData.query.filter(
+            GeneralData.key == 'average_time').first()
+        average_time = float(u1.value)
         running_test_before_this = len(kvm_test)
         for pr_test in progress_test:
             if pr_test.finished == False and pr_test.failed == False:
-                data = pr_test.progress[-1].timestamp-pr_test.progress[0].timestamp
+                data = pr_test.progress[-1].timestamp - \
+                    pr_test.progress[0].timestamp
                 time_run += data.total_seconds()
-        #subtracting current running tests
-        total = average_time * running_test_before_this-time_run
-        minutes = (total%3600) // 60
+        # subtracting current running tests
+        total = average_time * running_test_before_this - time_run
+        minutes = (total % 3600) // 60
         hours = (total) // 3600
     results = [{
-                   'category': category,
-                   'tests': [{
-                                 'test': rt,
-                                 'result': next((r for r in test.results if
-                                                 r.regression_test_id ==
-                                                 rt.id), None),
-                                 'files': TestResultFile.query.filter(and_(
-                                     TestResultFile.test_id == test.id,
-                                     TestResultFile.regression_test_id ==
-                                     rt.id)).all()
-                             } for rt in category.regression_tests]
-               } for category in categories]
+        'category': category,
+        'tests': [{
+            'test': rt,
+            'result': next((r for r in test.results if
+                            r.regression_test_id ==
+                            rt.id), None),
+            'files': TestResultFile.query.filter(and_(
+                TestResultFile.test_id == test.id,
+                TestResultFile.regression_test_id ==
+                rt.id)).all()
+        } for rt in category.regression_tests]
+    } for category in categories]
     # Run through the categories to see if they should be marked as failed or
     # passed. A category failed if one or more tests in said category failed.
     for category in results:
@@ -131,9 +135,9 @@ def get_data_for_test(test, title=None):
         'TestType': TestType,
         'results': results,
         'title': title,
-        'next': running_test_before_this ,
+        'next': running_test_before_this,
         'min': minutes,
-        'hr' : hours
+        'hr': hours
     }
 
 

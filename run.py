@@ -76,6 +76,11 @@ install_secret_keys(app)
 
 # Expose submenu method for jinja templates
 def sub_menu_open(menu_entries, active_route):
+    '''
+    Checks if a menu_entry route is active
+    If it is an active_route, returns True
+    If it is not an active_route, returns False
+    '''
     for menu_entry in menu_entries:
         if 'route' in menu_entry and menu_entry['route'] == active_route:
             return True
@@ -87,6 +92,9 @@ app.jinja_env.add_extension('jinja2.ext.loopcontrols')
 
 # Add datetime format filter
 def date_time_format(value, fmt='%Y-%m-%d %H:%M:%S'):
+    '''
+    Filters the datatime into strftime format
+    '''
     return value.strftime(fmt)
 
 app.jinja_env.filters['date'] = date_time_format
@@ -95,31 +103,49 @@ app.jinja_env.filters['date'] = date_time_format
 # Allow regexes in routes
 class RegexConverter(BaseConverter):
     def __init__(self, url_map, *items):
+        '''
+        Constructor for RegexConveter
+        '''
         super(RegexConverter, self).__init__(url_map)
         self.regex = items[0]
 
 
 app.url_map.converters['regex'] = RegexConverter
 
-
+#Error 404 Not Found: The requested page could not be found
 @app.errorhandler(404)
 @template_renderer('404.html', 404)
 def not_found(error):
+    '''
+    Called when Error 404 is encountered
+    Request could not be found
+    '''
     return
 
 
+#Error 500 Internal Server Error
 @app.errorhandler(500)
 @template_renderer('500.html', 500)
 def internal_error(error):
+    '''
+    Called when Error 500 is encountered
+    Internal Server Error    
+    '''
     log.debug('500 error: %s' % error)
     log.debug('Stacktrace:')
     log.debug(traceback.format_exc())
     return
 
 
+#403 Forbidden: The request was a legal request, but server refuses
 @app.errorhandler(403)
 @template_renderer('403.html', 403)
 def forbidden(error):
+    '''
+    Called when Error 403 is encountered
+    Request is forbidden
+    '''
+    
     user_name = 'Guest' if g.user is None else g.user.name
     user_role = 'Guest' if g.user is None else g.user.role.value
     log.debug('%s (role: %s) tried to access %s' %
@@ -132,6 +158,16 @@ def forbidden(error):
 
 @app.before_request
 def before_request():
+    '''
+    Create the following, before a request is made:
+    :menu_entries: All menu entries, set to an empty dictionary
+    :db: database session is created
+    :mailer: calls Mailer.py 
+    :version: Specifies version being used
+    :log: Logger used to debug
+    :github: GitHub related information
+    '''
+    
     g.menu_entries = {}
     g.db = create_session(app.config['DATABASE_URI'])
     g.mailer = Mailer(app.config.get('EMAIL_DOMAIN', ''),
@@ -150,6 +186,11 @@ def before_request():
 
 @app.teardown_appcontext
 def teardown(exception):
+    '''
+    Checks if db returns None. If it is not None,
+    db is removed.
+    '''
+    
     db = g.get('db', None)
     if db is not None:
         db.remove()

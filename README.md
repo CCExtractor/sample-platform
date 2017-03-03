@@ -211,6 +211,13 @@ branch for the issue/problem/... and afterwards create a pull request for it.
 
 It will be reviewed as soon as possible.
 
+### Code style
+
+Please keep in mind that before accepting the PR you need to conform to the
+coding guidelines (PEP-8), and keep in mind that indentation happens with 
+spaces (4 spaces replaces 1 tab, but your IDE should be able to do that for 
+you).
+
 ## Security
 
 Security is taken seriously, but even though many precautions have been taken,

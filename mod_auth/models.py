@@ -29,7 +29,7 @@ class User(Base):
 	:param name: The value of the 'name' field of User model
 	:type name: str
 	:param role: The value of the 'role' field of User model
-	:type role: Role Model
+	:type role: Role
 	:param email: The value of the 'email' field of User model (None by default)
 	:type email: str
 	:param password: The value of the 'password' field of User model ('' by default)
@@ -103,7 +103,7 @@ class User(Base):
 	"""
 	Verifies if a User is the admin
 
-	:return : Compares role of the passed Model with 'Admin' and returns result	
+	:return : Checks if User has an admin role
 	:rtype: boolean
 	"""
         return self.role == Role.admin
@@ -112,9 +112,9 @@ class User(Base):
 	"""
 	Checks whether the User has a particular role
 
-	:param name: Name of the user
+	:param name: Role of the user
 	:type name: str
-	:return : Checks whether a passed User has a role.
+	:return : Checks whether a User has 'name' role
 	:rtype: boolean
 	"""
         return self.role.value == name or self.is_admin

@@ -122,11 +122,10 @@ input[type="checkbox"]:disabled +  label span::before {
 ol.progtrckr {
     display: table;
     list-style-type: none;
-    margin: 0;
     padding: 0;
     table-layout: fixed;
     width: 100%;
-    margin-bottom: 2em;
+    margin: 0 0 2em;
 }
 ol.progtrckr li {
     display: table-cell;
@@ -156,17 +155,17 @@ ol.progtrckr li.progtrckr-running {
     border-bottom: 4px solid orange;
 }
 
-ol.progtrckr li:after {
+ol.progtrckr li::after {
     content: "\00a0\00a0";
 }
-ol.progtrckr li:before {
+ol.progtrckr li::before {
     position: relative;
     bottom: -2.5em;
     float: left;
     left: 50%;
     line-height: 1em;
 }
-ol.progtrckr li.progtrckr-done:before {
+ol.progtrckr li.progtrckr-done::before {
     content: "\2713";
     color: white;
     background-color: yellowgreen;
@@ -176,14 +175,14 @@ ol.progtrckr li.progtrckr-done:before {
     border: none;
     border-radius: 1.2em;
 }
-ol.progtrckr li.progtrckr-todo:before {
+ol.progtrckr li.progtrckr-todo::before {
     content: "\039F";
     color: silver;
     background-color: #FEFEFE;
     font-size: 1.5em;
     bottom: -1.6em;
 }
-ol.progtrckr li.progtrckr-running:before {
+ol.progtrckr li.progtrckr-running::before {
     content: "\231B";
     color: black;
     background-color: orange;
@@ -202,6 +201,15 @@ ol.progtrckr li.progtrckr-running.error::before {
 
 ol.progtrckr li.progtrckr-running.error {
     border-color: red;
+}
+
+@media only screen and (max-width: 400px) {
+    ol.progtrckr li {
+        display: table-cell;
+    }
+    ol.progtrckr li::before {
+        bottom: -3.8em;
+    }
 }
 
 .category-header {
@@ -251,59 +259,64 @@ table.diff td.diff_header {
 	display:inline;
 	font-family: monospace;
 }
-/* Responsive Tables
-     ========================================================================== */
+
+
+/* Responsive Tables */
 @media only screen and (max-width: 800px) {
-    
     /* Force table to not be like tables anymore */
-  #no-more-tables table, 
-  #no-more-tables thead, 
-  #no-more-tables tbody, 
-  #no-more-tables th, 
-  #no-more-tables td, 
-  #no-more-tables tr { 
-    display: block; 
-  }
- 
-  #no-more-tables tbody{
-     padding: 10px;
-  }
-  /* Hide table headers (but not display: none;, for accessibility) */
-  #no-more-tables thead tr { 
-    position: absolute;
-    top: -9999px;
-    left: -9999px;
-  }
- 
-  #no-more-tables tr { border: 1px solid #ccc; }
- 
-  #no-more-tables td { 
-    /* Behave  like a "row" */
-    border: none;
-    border-bottom: 1px solid #eee; 
-    position: relative;
-    padding-left: 50%; 
-    white-space: normal;
-    text-align:left;
-  }
- 
-  #no-more-tables td:before { 
-    /* Now like a table header */
-    position: absolute;
-    /* Top/left values mimic padding */
-    top: 6px;
-    left: 6px;
-    width: 45%; 
-    padding-right: 10px; 
-    white-space: nowrap;
-    text-align:left;
-    font-weight: bold;
-  }
- 
-  /*
-  Label the data
-  */
-  #no-more-tables td:before { content: attr(data-title); }
+    #no-more-tables table,
+    #no-more-tables thead,
+    #no-more-tables tbody,
+    #no-more-tables th,
+    #no-more-tables td,
+    #no-more-tables tr {
+        display: block;
+    }
+
+    #no-more-tables tbody {
+        padding: 10px;
+    }
+
+    /* Hide table headers (but not display: none;, for accessibility) */
+    #no-more-tables thead tr {
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+    }
+
+    #no-more-tables tr {
+        border: 1px solid #ccc;
+    }
+
+    #no-more-tables td {
+        /* Behave  like a "row" */
+        border: none;
+        border-bottom: 1px solid #eee;
+        position: relative;
+        padding-left: 50%;
+        white-space: normal;
+        text-align: left;
+    }
+
+    #no-more-tables td:before {
+        /* Now like a table header */
+        position: absolute;
+        /* Top/left values mimic padding */
+        top: 6px;
+        left: 6px;
+        width: 45%;
+        padding-right: 10px;
+        white-space: nowrap;
+        text-align: left;
+        font-weight: bold;
+    }
+
+    /*
+    Label the data
+    */
+    #no-more-tables td:before {
+        content: attr(data-title);
+    }
 }
 
 article,
@@ -319,21 +332,25 @@ menu,
 nav,
 section,
 summary {
-  display: block;
-  padding-bottom:0.5%; }
+    display: block;
+    padding-bottom: 0.5%;
+}
 
 .row {
     max-width: 75rem;
     margin-left: 2%;
-    margin-right: 2%; }
+    margin-right: 2%;
+}
 
 .columns {
-    width:100%;
-    word-wrap:break-word;
-    float:left;
-    padding-left:.625rem;
-    padding-right:.625rem }
+    width: 100%;
+    word-wrap: break-word;
+    float: left;
+    padding-left: .625rem;
+    padding-right: .625rem
+}
 
 table.stack td {
-    border-top:0;
-    word-break:break-word; }
+    border-top: 0;
+    word-break: break-word;
+}

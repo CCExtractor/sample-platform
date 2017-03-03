@@ -352,5 +352,5 @@ summary {
 
 table.stack td {
     border-top: 0;
-    word-break: break-word;
+    word-break: break-all;
 }

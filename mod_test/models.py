@@ -3,7 +3,8 @@ import pytz
 import os
 import string
 
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, orm
+from sqlalchemy import (Column, Integer, String, Text, ForeignKey,
+                        DateTime, orm)
 from sqlalchemy.orm import relationship
 from tzlocal import get_localzone
 

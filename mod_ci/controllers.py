@@ -478,10 +478,10 @@ def progress_reporter(test_id, token):
                                 total += last_running_test
                             average_time = total // len(
                                 last_running_test_id_all)
-                        newf = GeneralData('average_time', average_time)
-                        g.db.add(newf)
-                        g.db.commit()
-                        average_time = float(newf.value)
+                            newf = GeneralData('average_time', average_time)
+                            g.db.add(newf)
+                            g.db.commit()
+                            average_time = float(newf.value)
                     else:
                         number = len(last_running_test_id_all)
                         fl = float(u1.value) * (number - 1)

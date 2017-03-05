@@ -69,6 +69,7 @@ def get_data_for_test(test, title=None):
         average_time = float(u1.value)
         running_test_before_this = len(kvm_test)
         for pr_test in kvm_test:
+            pr_test = pr_test.test
             if pr_test.test.finished == False and pr_test.test.failed == False:
                 data = pr_test.progress[-1].timestamp - \
                     pr_test.progress[0].timestamp

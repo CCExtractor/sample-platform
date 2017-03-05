@@ -483,8 +483,7 @@ def progress_reporter(test_id, token):
                             g.db.commit()
                             average_time = float(newf.value)
                     else:
-                        last_running_test_id_all = TestResult.query.count()
-                        number = len(last_running_test_id_all)
+                        number = TestResult.query.count()
                         fl = float(u1.value) * (number - 1)
                         pr = test.progress_data()
                         last_running_test = pr['end'] - pr['start']

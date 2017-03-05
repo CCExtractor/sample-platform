@@ -463,11 +463,11 @@ def progress_reporter(test_id, token):
                 u1 = GeneralData.query.filter(
                     GeneralData.key == 'average_time').first()
                 average_time = 0
-                last_running_test_id_all = TestProgress.query.filter(
-                    TestProgress.status == TestStatus.completed).all()
                 if status in [TestStatus.completed, TestStatus.canceled]:
                     if u1 == None:
                         if last_running_test_id_all != None:
+                            last_running_test_id_all = TestProgress.query.filter(
+                            TestProgress.status == TestStatus.completed).all()
                             for last_running_test_id in last_running_test_id_all:
                                 last_running_test_id = last_running_test_id.test_id
                                 last_running_test = Test.query.filter(
@@ -483,6 +483,7 @@ def progress_reporter(test_id, token):
                             g.db.commit()
                             average_time = float(newf.value)
                     else:
+                        last_running_test_id_all = TestResult.query.count()
                         number = len(last_running_test_id_all)
                         fl = float(u1.value) * (number - 1)
                         pr = test.progress_data()

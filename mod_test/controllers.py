@@ -64,14 +64,12 @@ def get_data_for_test(test, title=None):
     # evaluating estimated time if the test is still in queue
     if len(test.progress) == 0:
         kvm_test = Kvm.query.filter(Kvm.test_id < test.id).first()
-        progress_test = Test.query.filter(
-            and_(Test.progress != None, Test.id < test.id)).all()
         u1 = GeneralData.query.filter(
             GeneralData.key == 'average_time').first()
         average_time = float(u1.value)
         running_test_before_this = len(kvm_test)
-        for pr_test in progress_test:
-            if pr_test.finished == False and pr_test.failed == False:
+        for pr_test in kvm_test:
+            if pr_test.test.finished == False and pr_test.test.failed == False:
                 data = pr_test.progress[-1].timestamp - \
                     pr_test.progress[0].timestamp
                 time_run += data.total_seconds()

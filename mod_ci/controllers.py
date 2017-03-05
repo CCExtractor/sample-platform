@@ -465,9 +465,9 @@ def progress_reporter(test_id, token):
                 average_time = 0
                 if status in [TestStatus.completed, TestStatus.canceled]:
                     if u1 == None:
+                        last_running_test_id_all = TestProgress.query.filter(
+                            TestProgress.status == TestStatus.completed).all()    
                         if last_running_test_id_all != None:
-                            last_running_test_id_all = TestProgress.query.filter(
-                            TestProgress.status == TestStatus.completed).all()
                             for last_running_test_id in last_running_test_id_all:
                                 last_running_test_id = last_running_test_id.test_id
                                 last_running_test = Test.query.filter(

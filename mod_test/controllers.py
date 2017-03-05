@@ -63,7 +63,7 @@ def get_data_for_test(test, title=None):
     running_test_before_this = ""
     # evaluating estimated time if the test is still in queue
     if len(test.progress) == 0:
-        kvm_test = Kvm.query.filter(Kvm.test_id < test.id).first()
+        kvm_test = Kvm.query.filter(Kvm.test_id < test.id)
         u1 = GeneralData.query.filter(
             GeneralData.key == 'average_time').first()
         average_time = float(u1.value)

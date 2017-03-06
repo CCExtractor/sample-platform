@@ -78,9 +78,9 @@ install_secret_keys(app)
 # Expose submenu method for jinja templates
 def sub_menu_open(menu_entries, active_route):
     """
-    Checks if a menu_entry route is active
-    If it is an active_route, returns True
-    If it is not an active_route, returns False
+    Checks if the menu_entry is a valid route
+    and if the route of the menu_entry is the active_route    
+    
     :param menu_entries: Dict that countains list of menu entries
     :type menu_entries: dictionary
     :param active_route: Route of the endpoint that matched the request
@@ -99,9 +99,6 @@ app.jinja_env.add_extension('jinja2.ext.loopcontrols')
 
 # Add datetime format filter
 def date_time_format(value, fmt='%Y-%m-%d %H:%M:%S'):
-    """
-    Filters the datatime into strftime format
-    """
     return value.strftime(fmt)
 
 
@@ -111,9 +108,6 @@ app.jinja_env.filters['date'] = date_time_format
 # Allow regexes in routes
 class RegexConverter(BaseConverter):
     def __init__(self, url_map, *items):
-        """
-        Constructor for RegexConveter
-        """
         super(RegexConverter, self).__init__(url_map)
         self.regex = items[0]
 
@@ -131,10 +125,6 @@ def not_found(error):
 @app.errorhandler(500)
 @template_renderer('500.html', 500)
 def internal_error(error):
-    """
-    Called when Error 500 is encountered
-    Internal Server Error    
-    """
     
     log.debug('500 error: %s' % error)
     log.debug('Stacktrace:')
@@ -142,14 +132,10 @@ def internal_error(error):
     return
 
 
-#403 Forbidden: The request was a legal request, but server refuses
+#403 Forbidden: Legal request, refused by server
 @app.errorhandler(403)
 @template_renderer('403.html', 403)
 def forbidden(error):
-    """
-    Called when Error 403 is encountered
-    Request is forbidden
-    """
     
     user_name = 'Guest' if g.user is None else g.user.name
     user_role = 'Guest' if g.user is None else g.user.role.value
@@ -162,11 +148,7 @@ def forbidden(error):
 
 
 @app.before_request
-def before_request():   
-    """
-    Create the following, before a request is made
-    """
-    
+def before_request():       
     g.menu_entries = {}
     g.db = create_session(app.config['DATABASE_URI'])
     g.mailer = Mailer(app.config.get('EMAIL_DOMAIN', ''),
@@ -186,8 +168,8 @@ def before_request():
 @app.teardown_appcontext
 def teardown(exception):
     """
-    Teardown restore app state to it's initial state
-    Checks if a database was created, and removes it
+    Restores app state to it's initial state
+    Removes all databases created during testing
     """
     
     db = g.get('db', None)

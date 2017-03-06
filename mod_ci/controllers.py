@@ -20,7 +20,7 @@ from pymysql.err import IntegrityError
 from mod_ci.models import Kvm
 from mod_deploy.controllers import request_from_github, is_valid_signature
 from mod_home.models import GeneralData
-from mod_regression.models import Category, RegressionTestOutput, \
+from mod_regression.models import Category, RegressionTestOutput, \ 
     RegressionTest
 from mod_test.models import TestType, Test, TestStatus, TestProgress, Fork, \
     TestPlatform, TestResultFile, TestResult
@@ -465,10 +465,9 @@ def progress_reporter(test_id, token):
                         GeneralData.key == 'average_time').first()
                     average_time = 0
                     if u1 == None:
-                        last_running_test_id_all = TestResult.all()    
+                        last_running_test_id_all = Test.query.filter(Test.results != None).all()   
                         if last_running_test_id_all != None:
                             for last_running_test_id in last_running_test_id_all:
-                                last_running_test = last_running_test_id.test
                                 pr = last_running_test.progress_data()
                                 last_running_test = pr['end'] - pr['start']
                                 last_running_test = last_running_test.total_seconds()

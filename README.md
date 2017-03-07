@@ -1,23 +1,14 @@
 # CCExtractor Sample Platform
 
-This repository contains the code for a platform that manages a test suite 
-bot, sample upload and more. This platform allows for a unified place to 
-report errors, submit samples, view existing samples and more. It was 
-originally developed during GSoC 2015 and rewritten during GSoC 2016.
+This repository contains the code for a platform that manages a test suite bot, sample upload and more. This platform allows for a unified place to report errors, submit samples, view existing samples and more. It was originally developed during GSoC 2015 and rewritten during GSoC 2016.
 
-You can find a running version here: 
-[CCExtractor Submission Platform](https://sampleplatform.ccextractor.org/)
+You can find a running version here: [CCExtractor Submission Platform](https://sampleplatform.ccextractor.org/)
 
 ## Concept
 
-While CCExtractor is an awesome tool and it works flawlessly most of the time,
-bugs occur occasionally (as with all existing software). These are usually 
-reported through a variety of channels (private email, mailing list, GitHub, 
-and so on...).
+While CCExtractor is an awesome tool and it works flawlessly most of the time, bugs occur occasionally (as with all existing software). These are usually reported through a variety of channels (private email, mailing list, GitHub, and so on...).
 
-The aim of this project is to build a platform, which is accessible to 
-everyone (after signing up), that provides a single place to upload, view 
-samples and associated test results.
+The aim of this project is to build a platform, which is accessible to everyone (after signing up), that provides a single place to upload, view samples and associated test results.
 
 ## Installation
 
@@ -73,9 +64,7 @@ Please read the below troubleshooting notes in case of any error or doubt.
 
 ### Nginx configuration for X-Accel-Redirect
 
-To serve files without any PHP overhead, the X-Accel-Redirect feature of Nginx
-is used. To enable it, a special section (as seen below) needs to be added to 
-the nginx configuration file:
+To serve files without any PHP overhead, the X-Accel-Redirect feature of Nginx is used. To enable it, a special section (as seen below) needs to be added to the nginx configuration file:
 
 ```
 location /protected/ {
@@ -84,24 +73,17 @@ location /protected/ {
 }
 ```
 
-More info on this directive is available at the 
-[Nginx wiki](http://wiki.nginx.org/NginxXSendfile).
+More info on this directive is available at the [Nginx wiki](http://wiki.nginx.org/NginxXSendfile).
 
-Other web servers can be configured too (see this excellent 
-[SO](http://stackoverflow.com/a/3731639) answer), but will require a small 
-modification in the relevant section of the SampleInfoController that handles 
-the download.
+Other web servers can be configured too (see this excellent [SO](http://stackoverflow.com/a/3731639) answer), but will require a small modification in the relevant section of the SampleInfoController that handles the download.
 
 ### File upload size for HTTP
 
-There are a couple of places where you need to take care to set a big enough 
-size (depending on your wishes) when you want to set/increase the upload limit 
-for HTTP uploads.
+There are a couple of places where you need to take care to set a big enough size (depending on your wishes) when you want to set/increase the upload limit for HTTP uploads.
 
 #### Nginx
 
-If the upload is too large, Nginx will throw a `413 Request entity too large`. 
-This can be solved by adding
+If the upload is too large, Nginx will throw a `413 Request entity too large`. This can be solved by adding
 
 ```
 # Increase Nginx upload limit
@@ -112,12 +94,9 @@ And setting it to an appropriate limit.
 
 ### Pure-FTPD configuration
 
-To allow upload of big files, FTP can be used. Since the goal is to keep the 
-uploaded files of the users anonymous for other users, every user should get 
-it's own FTP account.
+To allow upload of big files, FTP can be used. Since the goal is to keep the uploaded files of the users anonymous for other users, every user should get it's own FTP account.
 
-Since system accounts pose a possible security threat, virtual accounts using 
-MySQL can be used instead (and it's easier to manage too).
+Since system accounts pose a possible security threat, virtual accounts using MySQL can be used instead (and it's easier to manage too).
 
 #### Pure-FTPD installation
 
@@ -132,8 +111,7 @@ Do you want pure-ftpwho to be installed setuid root? <-- No
 
 #### Special group & user creation
 
-All MySQL users will be mapped to this user. Pick a group and user id that is 
-still free
+All MySQL users will be mapped to this user. Pick a group and user id that is still free
 
 ```
 sudo groupadd -g 2015 ftpgroup
@@ -142,8 +120,7 @@ sudo useradd -u 2015 -s /bin/false -d /bin/null -c "pureftpd user" -g ftpgroup f
 
 #### Configure Pure-FTPD
 
-Edit the `/etc/pure-ftpd/db/mysql.conf` file (in case of Debian/Ubuntu) so it 
-matches the next configuration:
+Edit the `/etc/pure-ftpd/db/mysql.conf` file (in case of Debian/Ubuntu) so it matches the next configuration:
 
 ```
 MYSQLSocket      /var/run/mysqld/mysqld.sock
@@ -174,8 +151,7 @@ Create a file `/etc/pure-ftpd/conf/ChrootEveryone` with the following contents:
 yes
 ```
 
-And do the same for `/etc/pure-ftpd/conf/CreateHomeDir` and 
-`/etc/pure-ftpd/conf/CallUploadScript`
+And do the same for `/etc/pure-ftpd/conf/CreateHomeDir` and `/etc/pure-ftpd/conf/CallUploadScript`
 
 Then modify the `/etc/default/pure-ftpd-common`, and configure the next values:
 
@@ -185,44 +161,22 @@ UPLOADUID=1234 # User that owns the upload.sh script
 UPLOADGID=1234 # Group that owns the upload.sh script
 ```
 
-If necessary, you can also set an appropriate value in the Umask file 
-(`/etc/pure-ftpd/conf/Umask`).
+If necessary, you can also set an appropriate value in the Umask file (`/etc/pure-ftpd/conf/Umask`).
 
-After this you can restart Pure-FTPD with 
-`sudo /etc/init.d/pure-ftpd-mysql restart`
+After this you can restart Pure-FTPD with `sudo /etc/init.d/pure-ftpd-mysql restart`
 
-Note: if you don't see a line saying:
+Note: if you don't see a line saying: `Restarting ftp upload handler: pure-uploadscript.`
 
-`Restarting ftp upload handler: pure-uploadscript.`
-
-You need to start the pure-uploadscript. This can be done as follows (where 
-1000 is replaced with the gid & uid specified above):
+You need to start the pure-uploadscript. This can be done as follows (where 1000 is replaced with the gid & uid specified above):
 
 `sudo pure-uploadscript -u 1000 -g 1000 -B -r /home/path/to/src/cron/upload.sh`
 
-You can also verify this by running `ps aux | grep pure-uploadscript`. 
-If it still doesn't work, rebooting the server might help.
+You can also verify this by running `ps aux | grep pure-uploadscript`. If it still doesn't work, rebooting the server might help.
 
 ## Contributing
 
-If you want to help this project forward, or have a solution for some of the 
-issues or bugs, don't hesitate to help! You can fork the project, create a 
-branch for the issue/problem/... and afterwards create a pull request for it.
-
-It will be reviewed as soon as possible.
-
-### Code style
-
-Please keep in mind that before accepting the PR you need to conform to the
-coding guidelines (PEP-8), and keep in mind that indentation happens with 
-spaces (4 spaces replaces 1 tab, but your IDE should be able to do that for 
-you).
+All information with regards to contributing can be found here: [contributors guide](https://github.com/canihavesomecoffee/sample-platform/blob/master/.github/CONTRIBUTING.md).
 
 ## Security
 
-Security is taken seriously, but even though many precautions have been taken,
-bugs always can occur. If you discover any security related issues, please 
-send an email to ccextractor@canihavesome.coffee (GPG key 
-[0xF8643F5B](http://pgp.mit.edu/pks/lookup?op=vindex&search=0x3AFDC9BFF8643F5B), 
-fingerprint 53FF DE55 6DFC 27C3 C688 1A49 3AFD C9BF F864 3F5B) instead of 
-using the issue tracker, in order to prevent abuse while it's being patched.
+Security is taken seriously, but even though many precautions have been taken, bugs always can occur. If you discover any security related issues, please send an email to ccextractor@canihavesome.coffee (GPG key [0xF8643F5B](http://pgp.mit.edu/pks/lookup?op=vindex&search=0x3AFDC9BFF8643F5B), fingerprint 53FF DE55 6DFC 27C3 C688 1A49 3AFD C9BF F864 3F5B) instead of using the issue tracker, in order to prevent abuse while it's being patched.

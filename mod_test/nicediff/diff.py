@@ -3,18 +3,19 @@ import cgi
 index = dict()  # for optimization
 
 
-def zip(ls):
+def zip_(ls):
     return ''.join(ls)
 
 
 # compress words and digits to one list
 def compress(s):
-    rez = re.split('(\W)',s)
+    rez = re.split('(\W)', s)
     return rez
+
 
 # equality factor
 def eq(a, b, same_regions=None, delta_a=0, delta_b=0, only_onetype=False):
-    if index.get(zip(a), dict()).get(zip(b), None) is None:
+    if index.get(zip_(a), dict()).get(zip_(b), None) is None:
         e = 0
         rez = []
         best_len, a_iter, b_iter = -1, -1, -1
@@ -40,12 +41,12 @@ def eq(a, b, same_regions=None, delta_a=0, delta_b=0, only_onetype=False):
                         best_len = l
                         a_iter = i
                         b_iter = j
-                        rez = eq(sub_a_beg, sub_b_beg)[1] + a[i: i + l] + \
-                              eq(sub_a_end, sub_b_end)[1]
-        index[zip(a)] = index.get(zip(a), dict())
-        index[zip(a)][zip(b)] = [e, rez, a_iter, b_iter, best_len]
-    if same_regions is not None and index[zip(a)][zip(b)][0] != 0:
-        a_iter, b_iter, best_len = index[zip(a)][zip(b)][2:]
+                        rez = (eq(sub_a_beg, sub_b_beg)[1] + a[i: i + l] +
+                               eq(sub_a_end, sub_b_end)[1])
+        index[zip_(a)] = index.get(zip_(a), dict())
+        index[zip_(a)][zip_(b)] = [e, rez, a_iter, b_iter, best_len]
+    if same_regions is not None and index[zip_(a)][zip_(b)][0] != 0:
+        a_iter, b_iter, best_len = index[zip_(a)][zip_(b)][2:]
         # print(delta)
         same_regions.append([
             a_iter + delta_a, a_iter + best_len + delta_a,
@@ -62,7 +63,7 @@ def eq(a, b, same_regions=None, delta_a=0, delta_b=0, only_onetype=False):
            delta_a=delta_a + a_iter + best_len,
            delta_b=delta_b + b_iter + best_len
            )
-    return index[zip(a)][zip(b)]
+    return index[zip_(a)][zip_(b)]
 
 
 # processing one line
@@ -120,21 +121,20 @@ def _process(test_result, correct, suffix_id):
            '<div class="diff-div-text">' + html_correct + '</div>'
 
 
-
 def get_html_diff(test_correct_lines, test_res_lines):
     # test_res_lines = open(path_test_res).readlines()
     # test_correct_lines = open(path_correct).readlines()
-    html = '<table>' \
-           '    <tr>' \
-           '        <td class="diff-table-td" style="width: ' \
-           '30px;">n&deg;</td>' \
-           '        <td class="diff-table-td">Result</td>' \
-           '    </tr>' \
-           '    <tr>' \
-           '        <td class="diff-table-td" style="width: 30px;"></td>' \
-           '        <td class="diff-table-td">Expected</td>' \
-           '    </tr>' \
-           '</table>'
+    html = """
+    <table>
+        <tr>
+            <td class="diff-table-td" style="width: 30px;">n&deg;</td>
+            <td class="diff-table-td">Result</td>
+        </tr>
+        <tr>
+            <td class="diff-table-td" style="width: 30px;"></td>
+            <td class="diff-table-td">Expected</td>
+        </tr>
+    </table>"""
 
     res_len = len(test_res_lines)
     correct_len = len(test_correct_lines)
@@ -155,52 +155,50 @@ def get_html_diff(test_correct_lines, test_res_lines):
                                     test_correct_lines[line],
                                     suffix_id=str(line))
 
-
-        html += '<tr>' \
-                '   <td class="diff-table-td" style="width: 30px;">' \
-                '       {line_id}' \
-                '   </td>' \
-                '   <td class="diff-table-td">{a}</td>' \
-                '</tr>' \
-                '<tr>' \
-                '   <td class="diff-table-td" style="width: 30px;"></td>' \
-                '   <td class="diff-table-td">{b}</td>' \
-                '</tr>'.format(line_id=line + 1, a=actual, b=expected)
+        html += """
+        <tr>
+            <td class="diff-table-td" style="width: 30px;">{line_id}</td>
+            <td class="diff-table-td">{a}</td>
+        </tr>
+        <tr>
+            <td class="diff-table-td" style="width: 30px;"></td>
+            <td class="diff-table-td">{b}</td>
+        </tr>""".format(line_id=line + 1, a=actual, b=expected)
         html += '</table>'
         
-    #processing remaining lines
+    # processing remaining lines
     
-    for line in range(use+1,till):
-        if till == res_len :
-            output,garbage = _process(test_res_lines[line], " ", suffix_id=str(line))
+    for line in range(use+1, till):
+        if till == res_len:
+            output, garbage = _process(test_res_lines[line], " ",
+                                       suffix_id=str(line))
         else:
-            garbage,output = _process(" ", test_correct_lines[line], suffix_id=str(line))
+            garbage, output = _process(" ", test_correct_lines[line],
+                                       suffix_id=str(line))
         html += '<table>'
         if till == res_len:
-            html += '<tr>' \
-                    '   <td class="diff-table-td" style="width: 30px;">' \
-                    '       {line_id}' \
-                    '   </td>' \
-                    '   <td class="diff-table-td">{a}</td>' \
-                    '</tr>' \
-                    '<tr>' \
-                    '   <td class="diff-table-td" style="width: 30px;"></td>' \
-                    '   <td class="diff-table-td"></td>' \
-                    '</tr>'.format(line_id=line + 1, a=output)
+            html += """
+            <tr>
+                <td class="diff-table-td" style="width: 30px;">{line_id}</td>
+                <td class="diff-table-td">{a}</td>
+            </tr>
+            <tr>
+                <td class="diff-table-td" style="width: 30px;"></td>
+                <td class="diff-table-td"></td>
+            </tr>
+            """.format(line_id=line + 1, a=output)
             html += '</table>'
         else:
-            html += '<tr>' \
-                    '   <td class="diff-table-td" style="width: 30px;">' \
-                    '       {line_id}' \
-                    '   </td>' \
-                    '   <td class="diff-table-td"></td>' \
-                    '</tr>' \
-                    '<tr>' \
-                    '   <td class="diff-table-td" style="width: 30px;"></td>' \
-                    '   <td class="diff-table-td">{b}</td>' \
-                    '</tr>'.format(line_id=line + 1, b=output)
+            html += """
+            <tr>
+                <td class="diff-table-td" style="width: 30px;">{line_id}</td>
+                <td class="diff-table-td"></td>
+            </tr>
+            <tr>
+                <td class="diff-table-td" style="width: 30px;"></td>
+                <td class="diff-table-td">{b}</td>
+            </tr>
+            """.format(line_id=line + 1, b=output)
             html += '</table>'
-
-
 
     return html

@@ -13,9 +13,12 @@ from github import GitHub, ApiError
 from multiprocessing import Process
 from lxml import etree
 from sqlalchemy import and_
+from sqlalchemy import func
+from sqlalchemy.sql import label
 from sqlalchemy.sql.functions import count
 from werkzeug.utils import secure_filename
 from pymysql.err import IntegrityError
+from datetime import datetime
 
 from mod_ci.models import Kvm
 from mod_deploy.controllers import request_from_github, is_valid_signature
@@ -465,28 +468,31 @@ def progress_reporter(test_id, token):
                         GeneralData.key == 'average_time').first()
                     average_time = 0
                     if u1 == None:
-                        last_running_test_id_all = g.db.query(TestProgress.test_id).filter(
-                            TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
-                                ).subquery()   
-                        if last_running_test_id_all != None:
-                            finished_tests2 = g.db.query(TestProgress).subquery()
-                            times = g.db.query(TestProgress.timestamp, finished_tests2.c.timestamp).filter(
-                                    and_(TestProgress.test_id.in_(last_running_test_id_all),TestProgress.test_id == finished_tests2.c.test_id,
-                                    finished_tests2.c.status == TestStatus.building,
-                                    TestProgress.status.in_([TestStatus.completed,TestStatus.canceled]))
-                                    ).order_by(TestProgress.test_id).all()
-                            for x in times:
-                                pr = x[0] - x[1]
-                                sec = pr.total_seconds()
-                                if sec < 0 :
-                                    sec *= -1
-                                average_time += sec
+                        finished_tests = g.db.query(TestProgress.test_id).filter(
+                                        TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
+                                        ).subquery()
+                        times2 = g.db.query(TestProgress).filter(
+                                    and_(TestProgress.test_id.in_(finished_tests), TestProgress.status.in_(
+                                        [TestStatus.building,TestStatus.completed,TestStatus.canceled]))
+                                    ).subquery()
+                        finished_tests = times2
+                        times = g.db.query(finished_tests.c.test_id,label('time',func.group_concat(
+                                finished_tests.c.timestamp))).group_by(finished_tests.c.test_id).all()
+                        for p in times:
+                            k = p.time.split(',')
+                            pr1 = datetime.strptime(k[0], '%Y-%m-%d %H:%M:%S')
+                            pr2 = datetime.strptime(k[1], '%Y-%m-%d %H:%M:%S')
+                            sec = (pr1-pr2).total_seconds()
+                            if sec < 0 :
+                                sec *= -1
+                            average_time += sec
+                        if len(finished_tests) !=0 :
                             average_time = total // len(
-                                last_running_test_id_all)
-                            newf = GeneralData('average_time', average_time)
-                            g.db.add(newf)
-                            g.db.commit()
-                            average_time = float(newf.value)
+                                finished_tests)
+                        newf = GeneralData('average_time', average_time)
+                        g.db.add(newf)
+                        g.db.commit()
+                        average_time = float(newf.value)
                     else:
                         number = TestResult.query.count()
                         fl = float(u1.value) * (number - 1)

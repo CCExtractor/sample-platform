@@ -469,14 +469,16 @@ def progress_reporter(test_id, token):
                             TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
                                 ).subquery()   
                         if last_running_test_id_all != None:
-                            times = g.db.query(TestProgress.timestamp).filter(
-                                and_(TestProgress.test_id.in_(last_running_test_id_all), TestProgress.status.in_([TestStatus.building,TestStatus.completed,TestStatus.canceled]))
-                                ).order_by(TestProgress.test_id).all()
-                            leng = len(times)
-                            for k in range(leng/2):
-                                pr = times[2*k][0] - times[2*k+1][0]
+                            finished_tests2 = g.db.query(TestProgress).subquery()
+                            times = g.db.query(TestProgress.timestamp, finished_tests2.c.timestamp).filter(
+                                    and_(TestProgress.test_id.in_(last_running_test_id_all),TestProgress.test_id == finished_tests2.c.test_id,
+                                    finished_tests2.c.status == TestStatus.building,
+                                    TestProgress.status.in_([TestStatus.completed,TestStatus.canceled]))
+                                    ).order_by(TestProgress.test_id).all()
+                            for x in times:
+                                pr = x[0] - x[1]
                                 sec = pr.total_seconds()
-                                if sec < 0:
+                                if sec < 0 :
                                     sec *= -1
                                 average_time += sec
                             average_time = total // len(

@@ -39,8 +39,8 @@ class Kvm(Base):
         """
         Representation function
         Represent a Kvm Model by its 'test_id' Field.
-        :return <KCM test running: test_id>: Returns the 'test_id' 
-            field of Kvm Model 
+        :return <KCM test running: test_id>: Returns the 'test_id'
+            field of Kvm Model
         :rtype: string
         """
         return '<KVM test running: %r>' % self.test_id

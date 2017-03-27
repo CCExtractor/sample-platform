@@ -467,34 +467,34 @@ def progress_reporter(test_id, token):
                     u1 = GeneralData.query.filter(
                         GeneralData.key == 'average_time').first()
                     average_time = 0
-                    if u1 == None:
+                    total_time = 0
+                    if u1 is None:
                         finished_tests = g.db.query(TestProgress.test_id).filter(
                                         TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
                                         ).subquery()
-                        times2 = g.db.query(TestProgress).filter(
+                        finished_tests_progress = g.db.query(TestProgress).filter(
                                     and_(TestProgress.test_id.in_(finished_tests), TestProgress.status.in_(
-                                        [TestStatus.building,TestStatus.completed,TestStatus.canceled]))
+                                        [TestStatus.preparation,TestStatus.completed,TestStatus.canceled]))
                                     ).subquery()
-                        finished_tests = times2
-                        times = g.db.query(finished_tests.c.test_id,label('time',func.group_concat(
-                                finished_tests.c.timestamp))).group_by(finished_tests.c.test_id).all()
+                        times = g.db.query(finished_tests_progress.c.test_id,label('time',func.group_concat(
+                                finished_tests_progress.c.timestamp))).group_by(finished_tests_progress.c.test_id).all()
                         for p in times:
                             k = p.time.split(',')
                             pr1 = datetime.strptime(k[0], '%Y-%m-%d %H:%M:%S')
                             pr2 = datetime.strptime(k[1], '%Y-%m-%d %H:%M:%S')
                             sec = (pr1-pr2).total_seconds()
-                            if sec < 0 :
-                                sec *= -1
-                            average_time += sec
-                        if len(finished_tests) !=0 :
-                            average_time = total // len(
-                                finished_tests)
+                            total_time += sec
+                        if len(finished_tests_progress) !=0 :
+                            average_time = total_time // len(
+                                finished_tests_progress)
                         newf = GeneralData('average_time', average_time)
                         g.db.add(newf)
                         g.db.commit()
                         average_time = float(newf.value)
                     else:
                         number = TestResult.query.count()
+                        regression_test_count = RegressionTest.query.count()
+                        number = number / regression_test_count
                         fl = float(u1.value) * (number - 1)
                         pr = test.progress_data()
                         last_running_test = pr['end'] - pr['start']

@@ -82,8 +82,6 @@ def get_data_for_test(test, title=None):
             s0 = datetime.strptime(k[0], '%Y-%m-%d %H:%M:%S')
             s1 = datetime.strptime(k[leng-1], '%Y-%m-%d %H:%M:%S')
             time_run_new = (s1-s0).total_seconds()
-            if time_run_new < 0:
-                time_run_new *= -1
             time_run += time_run_new
         # subtracting current running tests
         total = average_time * running_test_before_this - time_run

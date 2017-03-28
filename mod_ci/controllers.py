@@ -492,14 +492,14 @@ def progress_reporter(test_id, token):
                         g.db.commit()
                         average_time = float(newf.value)
                     else:
-                        number = TestResult.query.count()
+                        total_number = TestResult.query.count()
                         regression_test_count = RegressionTest.query.count()
-                        number = number / regression_test_count
-                        fl = float(u1.value) * (number - 1)
+                        number_test = total_number / regression_test_count
+                        fl = float(u1.value) * (number_test - 1)
                         pr = test.progress_data()
                         last_running_test = pr['end'] - pr['start']
                         last_running_test = last_running_test.total_seconds()
-                        fl = (fl + last_running_test) // number
+                        fl = (fl + last_running_test) // number_test
                         u1.value = fl
                         g.db.commit()
                     kvm = Kvm.query.filter(Kvm.test_id == test_id).first()

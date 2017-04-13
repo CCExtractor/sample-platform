@@ -66,9 +66,9 @@ def get_data_for_test(test, title=None):
     # evaluating estimated time if the test is still in queue
     if len(test.progress) == 0:
         
-        kvm_test = g.db.query(Kvm.test_id).filter(Kvm.test_id < test.id).subquery()
+        kvm_test_all = g.db.query(Kvm.test_id).filter(Kvm.test_id < test.id).subquery()
         times2 = g.db.query(TestProgress.test_id,label('time',func.group_concat(TestProgress.timestamp))).filter(
-                TestProgress.test_id.in_(kvm_test)
+                TestProgress.test_id.in_(kvm_test_all)
                 ).group_by(TestProgress.test_id).all()
         kvm_test = times2
         u1 = GeneralData.query.filter(

@@ -42,6 +42,19 @@ Simply answer all the questions in required format and sample-platform will be r
 
 Please read the below troubleshooting notes in case of any error or doubt.
 
+#### Windows
+
+1. Follow the instructions at http://cygwin.com/install.html. You will run an executable called setup.exe which will guide you through the installation. You will eventually arrive at a screen where you can select the packages you want to install. Be sure to install Python and MySql.
+
+2. Once installation is complete, start a terminal session.
+
+3. To setup Nginx Server in widows, Download Nginx from http://sysoev.ru/nginx/nginx-0.6.32.tar.gz. After extracting and changing path to corresponding directory, run the command.
+'''
+./configure --with-http_ssl_module --without-mail_pop3_module --without-mail_imap_module --without-mail_smtp_module
+'''
+
+4. Now Follow the steps similar to linux installation in Cygwin terminal.
+
 #### Troubleshooting
 
 1. Both installation and running the platform requires root (or sudo).

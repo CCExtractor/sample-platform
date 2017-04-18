@@ -5,18 +5,22 @@ from flask import abort
 from flask import make_response
 from flask import request
 from sqlalchemy import and_
-
+from sqlalchemy import func
+from sqlalchemy.sql import label
 from decorators import template_renderer
 from mod_home.models import CCExtractorVersion
 from mod_regression.models import Category, regressionTestCategoryLinkTable, \
     RegressionTestOutput, RegressionTest
-from mod_test.models import Fork, Test, TestProgress, TestResult, \
+from mod_test.models import Fork, Test, TestProgress, TestStatus, TestResult, \
     TestResultFile, TestType
-
+from mod_home.models import GeneralData
+from mod_ci.models import Kvm
+from datetime import datetime
 mod_test = Blueprint('test', __name__)
 
 
 class TestNotFoundException(Exception):
+
     def __init__(self, message):
         Exception.__init__(self)
         self.message = message
@@ -56,19 +60,47 @@ def get_data_for_test(test, title=None):
         regressionTestCategoryLinkTable.c.category_id).subquery()
     categories = Category.query.filter(Category.id.in_(
         populated_categories)).order_by(Category.name.asc()).all()
+    hours = 0
+    minutes = 0
+    running_test_before_this = ""
+    # evaluating estimated time if the test is still in queue
+    if len(test.progress) == 0:
+        
+        kvm_test = g.db.query(Kvm.test_id).filter(Kvm.test_id < test.id).subquery()
+        times2 = g.db.query(TestProgress.test_id,label('time',func.group_concat(TestProgress.timestamp))).filter(
+                TestProgress.test_id.in_(kvm_test)
+                ).group_by(TestProgress.test_id).all()
+        kvm_test = times2
+        u1 = GeneralData.query.filter(
+            GeneralData.key == 'average_time').first()
+        average_time = float(u1.value)
+        running_test_before_this = len(kvm_test)
+        time_run = 0
+        for pr_test in kvm_test:
+            k = pr_test.time.split(',')
+            leng = len(k)
+            s0 = datetime.strptime(k[0], '%Y-%m-%d %H:%M:%S')
+            s1 = datetime.strptime(k[leng-1], '%Y-%m-%d %H:%M:%S')
+            time_run_new = (s1-s0).total_seconds()
+            time_run += time_run_new
+        # subtracting current running tests
+        total = average_time * running_test_before_this - time_run
+        minutes = (total % 3600) // 60
+        hours = (total) // 3600
+                      
     results = [{
-                   'category': category,
-                   'tests': [{
-                                 'test': rt,
-                                 'result': next((r for r in test.results if
-                                                 r.regression_test_id ==
-                                                 rt.id), None),
-                                 'files': TestResultFile.query.filter(and_(
-                                     TestResultFile.test_id == test.id,
-                                     TestResultFile.regression_test_id ==
-                                     rt.id)).all()
-                             } for rt in category.regression_tests]
-               } for category in categories]
+        'category': category,
+        'tests': [{
+            'test': rt,
+            'result': next((r for r in test.results if
+                            r.regression_test_id ==
+                            rt.id), None),
+            'files': TestResultFile.query.filter(and_(
+                TestResultFile.test_id == test.id,
+                TestResultFile.regression_test_id ==
+                rt.id)).all()
+        } for rt in category.regression_tests]
+    } for category in categories]
     # Run through the categories to see if they should be marked as failed or
     # passed. A category failed if one or more tests in said category failed.
     for category in results:
@@ -111,7 +143,10 @@ def get_data_for_test(test, title=None):
         'test': test,
         'TestType': TestType,
         'results': results,
-        'title': title
+        'title': title,
+        'next': running_test_before_this,
+        'min': minutes,
+        'hr': hours
     }
 
 

@@ -480,9 +480,10 @@ def progress_reporter(test_id, token):
                                 finished_tests_progress.c.timestamp))).group_by(finished_tests_progress.c.test_id).all()
                         for p in times:
                             k = p.time.split(',')
+                            leng = len(k)
                             pr1 = datetime.strptime(k[0], '%Y-%m-%d %H:%M:%S')
-                            pr2 = datetime.strptime(k[1], '%Y-%m-%d %H:%M:%S')
-                            sec = (pr1-pr2).total_seconds()
+                            pr2 = datetime.strptime(k[leng-1], '%Y-%m-%d %H:%M:%S')
+                            sec = (pr2-pr1).total_seconds()
                             total_time += sec
                         if len(finished_tests_progress) !=0 :
                             average_time = total_time // len(

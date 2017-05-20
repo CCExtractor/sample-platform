@@ -469,22 +469,33 @@ def progress_reporter(test_id, token):
                     average_time = 0
                     total_time = 0
                     if u1 is None:
-                        finished_tests = g.db.query(TestProgress.test_id).filter(
-                                        TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
-                                        ).subquery()
-                        finished_tests_progress = g.db.query(TestProgress).filter(
-                                    and_(TestProgress.test_id.in_(finished_tests), TestProgress.status.in_(
-                                        [TestStatus.preparation,TestStatus.completed,TestStatus.canceled]))
-                                    ).subquery()
-                        times = g.db.query(finished_tests_progress.c.test_id,label('time',func.group_concat(
-                                finished_tests_progress.c.timestamp))).group_by(finished_tests_progress.c.test_id).all()
+                        finished_tests = g.db.query(
+                            TestProgress.test_id).filter(
+                            TestProgress.status.in_(
+                                [TestStatus.canceled, TestStatus.completed])
+                        ).subquery()
+                        finished_tests_progress = g.db.query(
+                            TestProgress).filter(
+                            and_(TestProgress.test_id.in_(
+                                finished_tests), TestProgress.status.in_(
+                                [TestStatus.preparation, TestStatus.completed,
+                                 TestStatus.canceled]))
+                        ).subquery()
+                        times = g.db.query(finished_tests_progress.c.test_id,
+                                           label('time', func.group_concat(
+                                            finished_tests_progress.c.timestamp
+                                            ))).group_by(
+                                            finished_tests_progress.c.test_id
+                                            ).all()
                         for p in times:
                             k = p.time.split(',')
+                            leng = len(k)
                             pr1 = datetime.strptime(k[0], '%Y-%m-%d %H:%M:%S')
-                            pr2 = datetime.strptime(k[1], '%Y-%m-%d %H:%M:%S')
-                            sec = (pr1-pr2).total_seconds()
+                            pr2 = datetime.strptime(
+                                k[leng - 1], '%Y-%m-%d %H:%M:%S')
+                            sec = (pr2 - pr1).total_seconds()
                             total_time += sec
-                        if len(finished_tests_progress) !=0 :
+                        if len(finished_tests_progress) != 0:
                             average_time = total_time // len(
                                 finished_tests_progress)
                         newf = GeneralData('average_time', average_time)

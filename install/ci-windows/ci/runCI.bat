@@ -20,7 +20,29 @@ SET userAgent="CCX/CI_BOT"
 SET logFile="%reportFolder%/log.html"
 
 call :postStatus "preparation" "Copy testsuite to local folder"
+call :executeCommand robocopy %srcDir% %dstDir% /e
+call :executeCommand cd %dstDir%
 
+call :postStatus "building" "Compiling CCExtractor"
+:: Go to Windows build folder
+call :executeCommand cd windows
+:: Build CCExtractor using the sln script
+call :executeCommand "C:\Program Files (x86)\MSBuild\14.0\Bin\MSBuild" ccextractor.sln
+:: check whether installation successful
+if EXIST Debug\ccextractorwin.exe (
+ cd Debug
+ :: Run testsuite
+ call :postStatus "testing" "Running tests"
+ call :executeCommand cd %suiteDstDir%
+ call :executeCommand "%tester%" --entries "%testFile%" --executable "%dstDir%/windows/Debug/ccextractor" --tempfolder "%tempFolder%" --timeout 3000 --reportfolder "%reportFolder%" --resultfolder "%resultFolder%" --samplefolder "%sampleFolder%" --method Server --url "%reportURL%"
+ call :postStatus "completed" "Ran all tests"
+ :: Shut down
+ shutdown -s -t 0
+)
+else
+(
+ call :haltAndCatchFire "build"
+)
 EXIT /B %ERRORLEVEL%
 :: Functions to shorten the script
 
@@ -43,3 +65,4 @@ EXIT /B 0
 postStatus "canceled" %~1 >> "a.txt"
 shutdown -s -t 0
 EXIT /B 0
+

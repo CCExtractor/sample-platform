@@ -495,9 +495,9 @@ def progress_reporter(test_id, token):
                                 k[leng - 1], '%Y-%m-%d %H:%M:%S')
                             sec = (pr2 - pr1).total_seconds()
                             total_time += sec
-                        if len(finished_tests_progress) != 0:
+                        if len(times) != 0:
                             average_time = total_time // len(
-                                finished_tests_progress)
+                                times)
                         newf = GeneralData('average_time', average_time)
                         g.db.add(newf)
                         g.db.commit()

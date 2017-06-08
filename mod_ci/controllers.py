@@ -223,7 +223,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
                     correct = etree.SubElement(file_node, 'correct')
                     # Need a path that is relative to the folder we provide
                     # inside the CI environment.
-                    if output_file.got is none:
+                    if output_file.got is None:
                         correct.text = regression_test_output.filename_correct
                     else:
                         correct.text = output_file.got + \
@@ -232,7 +232,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
                     expected.text = regression_test_output.filename_expected(
                         regression_test.sample.sha)
             else:
-                for output_file in regression_test.files:
+                for output_file in regression_test.output_files:
                     file_node = etree.SubElement(
                         compare, 'file',
                         ignore='true' if output_file.ignore else 'false',

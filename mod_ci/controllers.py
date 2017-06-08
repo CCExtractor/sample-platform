@@ -157,6 +157,10 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     base_folder = os.path.join(
         config.get('SAMPLE_REPOSITORY', ''), 'ci-tests')
     categories = Category.query.order_by(Category.id.desc()).all()
+    commit_hash = GeneralData.query.filter(
+        GeneralData.key == 'last_commit').first().value
+    last_commit = Test.query.filter(Test.commit == commit_hash).first()
+
     # Init collection file
     multi_test = etree.Element('multitest')
     for category in categories:
@@ -179,16 +183,27 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
             output_node = etree.SubElement(entry, 'output')
             output_node.text = regression_test.output_type.value
             compare = etree.SubElement(entry, 'compare')
+            result_files = TestResultFile.query.filter(and_(
+                TestResultFile.test_id == last_commit.id,
+                TestResultFile.regression_test_id ==
+                regression_test.id)).subquery()
             for output_file in regression_test.output_files:
                 file_node = etree.SubElement(
                     compare, 'file',
                     ignore='true' if output_file.ignore else 'false',
                     id=str(output_file.id)
                 )
+                lastcommitfile = g.db.query(result_files.c.got).filter(and_(
+                    result_files.c.regression_test_output_id == output_file.id,
+                    result_files.c.got is not None)).first()
                 correct = etree.SubElement(file_node, 'correct')
                 # Need a path that is relative to the folder we provide
                 # inside the CI environment.
-                correct.text = output_file.filename_correct
+                if lastcommitfile is None:
+                    correct.text = output_file.filename_correct
+                else:
+                    correct.text = output_file.filename_expected(
+                        lastcommitfile)
                 expected = etree.SubElement(file_node, 'expected')
                 expected.text = output_file.filename_expected(
                     regression_test.sample.sha)
@@ -481,12 +496,13 @@ def progress_reporter(test_id, token):
                                 [TestStatus.preparation, TestStatus.completed,
                                  TestStatus.canceled]))
                         ).subquery()
-                        times = g.db.query(finished_tests_progress.c.test_id,
-                                           label('time', func.group_concat(
-                                            finished_tests_progress.c.timestamp
-                                            ))).group_by(
-                                            finished_tests_progress.c.test_id
-                                            ).all()
+                        times = g.db.query(
+                            finished_tests_progress.c.test_id,
+                            label('time', func.group_concat(
+                                finished_tests_progress.c.timestamp
+                            ))).group_by(
+                            finished_tests_progress.c.test_id
+                        ).all()
                         for p in times:
                             k = p.time.split(',')
                             leng = len(k)

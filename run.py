@@ -71,15 +71,27 @@ def install_secret_keys(application, secret_session='secret_key',
     if do_exit:
         sys.exit(1)
 
+        
 install_secret_keys(app)
 
 
 # Expose submenu method for jinja templates
 def sub_menu_open(menu_entries, active_route):
+    """
+    Checks if the menu_entry is a valid route
+    and if the route of the menu_entry is the active_route    
+    
+    :param menu_entries: Dict that countains list of menu entries
+    :type menu_entries: dictionary
+    :param active_route: Route of the endpoint that matched the request
+    :type active_route: request.path
+    """
+    
     for menu_entry in menu_entries:
         if 'route' in menu_entry and menu_entry['route'] == active_route:
             return True
     return False
+
 
 app.jinja_env.globals.update(sub_menu_open=sub_menu_open)
 app.jinja_env.add_extension('jinja2.ext.loopcontrols')
@@ -88,6 +100,7 @@ app.jinja_env.add_extension('jinja2.ext.loopcontrols')
 # Add datetime format filter
 def date_time_format(value, fmt='%Y-%m-%d %H:%M:%S'):
     return value.strftime(fmt)
+
 
 app.jinja_env.filters['date'] = date_time_format
 
@@ -108,18 +121,22 @@ def not_found(error):
     return
 
 
+#Error 500 Internal Server Error
 @app.errorhandler(500)
 @template_renderer('500.html', 500)
 def internal_error(error):
+    
     log.debug('500 error: %s' % error)
     log.debug('Stacktrace:')
     log.debug(traceback.format_exc())
     return
 
 
+#403 Forbidden: Legal request, refused by server
 @app.errorhandler(403)
 @template_renderer('403.html', 403)
 def forbidden(error):
+    
     user_name = 'Guest' if g.user is None else g.user.name
     user_role = 'Guest' if g.user is None else g.user.role.value
     log.debug('%s (role: %s) tried to access %s' %
@@ -131,7 +148,7 @@ def forbidden(error):
 
 
 @app.before_request
-def before_request():
+def before_request():       
     g.menu_entries = {}
     g.db = create_session(app.config['DATABASE_URI'])
     g.mailer = Mailer(app.config.get('EMAIL_DOMAIN', ''),
@@ -150,10 +167,16 @@ def before_request():
 
 @app.teardown_appcontext
 def teardown(exception):
+    """
+    Restores app state to it's initial state
+    Removes all databases created during testing
+    """
+    
     db = g.get('db', None)
     if db is not None:
         db.remove()
 
+        
 # Register blueprints
 app.register_blueprint(mod_auth, url_prefix='/account')  # Needs to be first
 app.register_blueprint(mod_upload, url_prefix='/upload')

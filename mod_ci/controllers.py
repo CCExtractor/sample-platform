@@ -193,17 +193,17 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
                     ignore='true' if output_file.ignore else 'false',
                     id=str(output_file.id)
                 )
-                lastcommitfile = g.db.query(result_files.c.got).filter(
+                lastcommitfile = g.db.query(result_files.c.got).filter(and_(
                     result_files.c.regression_test_output_id == output_file.id,
-                    result_files.c.got is not None).first()
+                    result_files.c.got is not None)).first()
                 correct = etree.SubElement(file_node, 'correct')
                 # Need a path that is relative to the folder we provide
                 # inside the CI environment.
                 if lastcommitfile is None:
                     correct.text = output_file.filename_correct
                 else:
-                    correct.text = lastcommitfile + \
-                        output_file.correct_extension
+                    correct.text = output_file.filename_expected(
+                        lastcommitfile)
                 expected = etree.SubElement(file_node, 'expected')
                 expected.text = output_file.filename_expected(
                     regression_test.sample.sha)

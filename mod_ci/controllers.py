@@ -186,41 +186,27 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
             result_files = TestResultFile.query.filter(and_(
                 TestResultFile.test_id == last_commit.id,
                 TestResultFile.regression_test_id ==
-                regression_test.id)).all()
-            if len(result_files) != 0:
-                for output_file in result_files:
-                    regression_test_output = output_file.regression_test_output
-                    file_node = etree.SubElement(
-                        compare, 'file',
-                        ignore='true'
-                        if regression_test_output.ignore else 'false',
-                        id=str(regression_test_output.id)
-                    )
-                    correct = etree.SubElement(file_node, 'correct')
-                    # Need a path that is relative to the folder we provide
-                    # inside the CI environment.
-                    if output_file.got is None:
-                        correct.text = regression_test_output.filename_correct
-                    else:
-                        correct.text = output_file.got + \
-                            regression_test_output.correct_extension
-                    expected = etree.SubElement(file_node, 'expected')
-                    expected.text = regression_test_output.filename_expected(
-                        regression_test.sample.sha)
-            else:
-                for output_file in regression_test.output_files:
-                    file_node = etree.SubElement(
-                        compare, 'file',
-                        ignore='true' if output_file.ignore else 'false',
-                        id=str(output_file.id)
-                    )
-                    correct = etree.SubElement(file_node, 'correct')
-                    # Need a path that is relative to the folder we provide
-                    # inside the CI environment.
+                regression_test.id)).subquery()
+            for output_file in regression_test.output_files:
+                file_node = etree.SubElement(
+                    compare, 'file',
+                    ignore='true' if output_file.ignore else 'false',
+                    id=str(output_file.id)
+                )
+                lastcommitfile = g.db.query(result_files.c.got).filter(
+                    result_files.c.regression_test_output_id == output_file.id,
+                    result_files.c.got is not None).first()
+                correct = etree.SubElement(file_node, 'correct')
+                # Need a path that is relative to the folder we provide
+                # inside the CI environment.
+                if lastcommitfile is None:
                     correct.text = output_file.filename_correct
-                    expected = etree.SubElement(file_node, 'expected')
-                    expected.text = output_file.filename_expected(
-                        regression_test.sample.sha)
+                else:
+                    correct.text = lastcommitfile + \
+                        output_file.correct_extension
+                expected = etree.SubElement(file_node, 'expected')
+                expected.text = output_file.filename_expected(
+                    regression_test.sample.sha)
         # Save XML
         single_test.getroottree().write(
             os.path.join(base_folder, file_name),

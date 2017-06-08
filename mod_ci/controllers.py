@@ -164,7 +164,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     # Init collection file
     multi_test = etree.Element('multitest')
     for category in categories:
-        if len(categories['tests']) == 0:
+        if len(category.regression_tests) == 0:
             # Skip categories without tests
             continue
         # Create XML file for test

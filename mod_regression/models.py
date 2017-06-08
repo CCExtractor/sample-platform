@@ -104,7 +104,7 @@ class RegressionTestOutput(Base):
 
     @property
     def filename_correct(self):
-        self.create_correct_filename(self.correct)
+        return self.create_correct_filename(self.correct)
 
     def filename_expected(self, sample_hash):
         return "{sha}{extra}{extension}".format(

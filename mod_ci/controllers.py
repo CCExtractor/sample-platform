@@ -61,6 +61,7 @@ def kvm_processor_windows(db, repository, delay):
     return kvm_processor(
         db, kvm_name, TestPlatform.windows, repository, delay)
 
+
 def get_data_for_last_commit(test, title=None):
     if title is None:
         title = 'test {id}'.format(id=test.id)
@@ -84,6 +85,7 @@ def get_data_for_last_commit(test, title=None):
     } for category in categories]
     results.sort(key=lambda entry: entry['category'].name)
     return results
+
 
 def kvm_processor(db, kvm_name, platform, repository, delay):
     from run import config, log, app
@@ -209,12 +211,13 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
             output_node = etree.SubElement(entry, 'output')
             output_node.text = regression_test.output_type.value
             compare = etree.SubElement(entry, 'compare')
-            if len(tests['files'])!=0:
+            if len(tests['files']) != 0:
                 for output_file in tests['files']:
-                    regression_test_output=output_file.regression_test_output
+                    regression_test_output = output_file.regression_test_output
                     file_node = etree.SubElement(
                         compare, 'file',
-                        ignore='true' if regression_test_output.ignore else 'false',
+                        ignore='true'
+                        if regression_test_output.ignore else 'false',
                         id=str(regression_test_output.id)
                     )
                     correct = etree.SubElement(file_node, 'correct')
@@ -223,7 +226,8 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
                     if output_file.got is none:
                         correct.text = regression_test_output.filename_correct
                     else:
-                        correct.text = output_file.got+regression_test_output.correct_extension
+                        correct.text = output_file.got + \
+                                       regression_test_output.correct_extension
                     expected = etree.SubElement(file_node, 'expected')
                     expected.text = regression_test_output.filename_expected(
                         regression_test.sample.sha)
@@ -530,12 +534,13 @@ def progress_reporter(test_id, token):
                                 [TestStatus.preparation, TestStatus.completed,
                                  TestStatus.canceled]))
                         ).subquery()
-                        times = g.db.query(finished_tests_progress.c.test_id,
-                                           label('time', func.group_concat(
-                                            finished_tests_progress.c.timestamp
-                                            ))).group_by(
-                                            finished_tests_progress.c.test_id
-                                            ).all()
+                        times = g.db.query(
+                            finished_tests_progress.c.test_id,
+                            label('time', func.group_concat(
+                                finished_tests_progress.c.timestamp
+                                           ))).group_by(
+                            finished_tests_progress.c.test_id
+                        ).all()
                         for p in times:
                             k = p.time.split(',')
                             leng = len(k)

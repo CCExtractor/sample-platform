@@ -62,31 +62,6 @@ def kvm_processor_windows(db, repository, delay):
         db, kvm_name, TestPlatform.windows, repository, delay)
 
 
-def get_data_for_last_commit(test, title=None):
-    if title is None:
-        title = 'test {id}'.format(id=test.id)
-
-    populated_categories = g.db.query(
-        regressionTestCategoryLinkTable.c.category_id).subquery()
-    categories = Category.query.filter(Category.id.in_(
-        populated_categories)).order_by(Category.name.asc()).all()
-    results = [{
-        'category': category,
-        'tests': [{
-            'test': rt,
-            'result': next((r for r in test.results if
-                            r.regression_test_id ==
-                            rt.id), None),
-            'files': TestResultFile.query.filter(and_(
-                TestResultFile.test_id == test.id,
-                TestResultFile.regression_test_id ==
-                rt.id)).all()
-        } for rt in category.regression_tests]
-    } for category in categories]
-    results.sort(key=lambda entry: entry['category'].name)
-    return results
-
-
 def kvm_processor(db, kvm_name, platform, repository, delay):
     from run import config, log, app
     if kvm_name == "":
@@ -185,20 +160,17 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     commit_hash = GeneralData.query.filter(
         GeneralData.key == 'last_commit').first().value
     last_commit = Test.query.filter(Test.commit == commit_hash).first()
-    result_last_commit = get_data_for_last_commit(
-        last_commit, 'commit {commit}'.format(commit=commit_hash))
 
     # Init collection file
     multi_test = etree.Element('multitest')
-    for categories in result_last_commit:
+    for category in categories:
         if len(categories['tests']) == 0:
             # Skip categories without tests
             continue
         # Create XML file for test
-        file_name = '{name}.xml'.format(name=categories['category'].name)
+        file_name = '{name}.xml'.format(name=category.name)
         single_test = etree.Element('tests')
-        for tests in categories['tests']:
-            regression_test = tests['test']
+        for regression_test in category.regression_tests:
             entry = etree.SubElement(
                 single_test, 'entry', id=str(regression_test.id))
             command = etree.SubElement(entry, 'command')
@@ -211,8 +183,12 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
             output_node = etree.SubElement(entry, 'output')
             output_node.text = regression_test.output_type.value
             compare = etree.SubElement(entry, 'compare')
-            if len(tests['files']) != 0:
-                for output_file in tests['files']:
+            result_files = TestResultFile.query.filter(and_(
+                TestResultFile.test_id == last_commit.id,
+                TestResultFile.regression_test_id ==
+                regression_test.id)).all()
+            if len(result_files) != 0:
+                for output_file in result_files:
                     regression_test_output = output_file.regression_test_output
                     file_node = etree.SubElement(
                         compare, 'file',
@@ -227,7 +203,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
                         correct.text = regression_test_output.filename_correct
                     else:
                         correct.text = output_file.got + \
-                                       regression_test_output.correct_extension
+                            regression_test_output.correct_extension
                     expected = etree.SubElement(file_node, 'expected')
                     expected.text = regression_test_output.filename_expected(
                         regression_test.sample.sha)
@@ -538,7 +514,7 @@ def progress_reporter(test_id, token):
                             finished_tests_progress.c.test_id,
                             label('time', func.group_concat(
                                 finished_tests_progress.c.timestamp
-                                           ))).group_by(
+                            ))).group_by(
                             finished_tests_progress.c.test_id
                         ).all()
                         for p in times:

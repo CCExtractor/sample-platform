@@ -158,6 +158,8 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     commit_hash = GeneralData.query.filter(
         GeneralData.key == 'last_commit').first().value
     last_commit = Test.query.filter(Test.commit == commit_hash).first()
+    log.debug("We will compare against the results of test {id}".format(
+        id=last_commit.id))
 
     # Init collection file
     multi_test = etree.Element('multitest')
@@ -201,7 +203,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
                     correct.text = output_file.filename_correct
                 else:
                     correct.text = output_file.create_correct_filename(
-                        last_commit_files)
+                        last_commit_files[0])
                 expected = etree.SubElement(file_node, 'expected')
                 expected.text = output_file.filename_expected(
                     regression_test.sample.sha)

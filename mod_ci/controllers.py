@@ -526,9 +526,9 @@ def progress_reporter(test_id, token):
                         pr = test.progress_data()
                         endtime = pr['end']
                         starttime = pr['start']
-                        if endtime.tzinfo == None :
+                        if endtime.tzinfo is None:
                             endtime.replace(tzinfo=None)
-                        if starttime.tzinfo == None :
+                        if starttime.tzinfo is None:
                             starttime.replace(tzinfo=None)
                         last_running_test = endtime - starttime
                         updated_average = (updated_average +

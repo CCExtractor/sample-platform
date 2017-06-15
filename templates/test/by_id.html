@@ -46,86 +46,89 @@
                     {% endfor %}
                 </ol>
                 <br class="clear" />
-                {% if test.progress|length > 0 %}
-                    <input type="button" id="progress_button" class="button" value="Show test progress" />
-                    <table id="progress_table" class="hide striped">
-                        <thead>
-                        <tr>
-                            <th>Time</th>
-                            <th>Status</th>
-                            <th>Message</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                            {% for entry in test.progress %}
-                                <tr>
-                                    <td>{{ entry.timestamp|date('%Y-%m-%d %H:%M:%S (%Z)') }}</td>
-                                    <td>{{ entry.status.description }}</td>
-                                    <td>{{ entry.message }}</td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                {% else %}
-                      <p>This test is still queued. There are {{ next }} tests queued before this one. Based on the average runtime, this test will be finished in {{ hr }} hours {{ min }} minutes.</p>     
-                {% endif %}
-                
-                {% if test.finished %}
-                    {% if test.failed %}
-                        <h2>An error occurred</h2>
-                        <p>Something went wrong while the tests where running. You should be able to see in the bar above during which stage it went wrong exactly.</p>
-                        <p>If you have build errors, you can access a log file with build errors <a target="_blank" href = "{{ url_for('.download_build_log_file',test_id=test.id) }}">here</a>.</p>
-                    {% else %}
-                        <h2>Test results</h2>
-                        <p>Click on the category names to expand the results, and on "Fail" to see the differences.</p>
-                        {% for result in results %}
-                            <h4 class="category-header {{ 'fail' if result.error else 'pass' }}" data-category="{{ result.category.id }}">{{ result.category.name }} - {{ 'Fail' if result.error else 'Pass' }}</h4>
-                            <table class="striped sortable hide" data-category="{{ result.category.id }}">
-                                <thead>
+                <div id="progress_details">
+                    {% if test.progress|length > 0 %}
+                        <input type="button" id="progress_button" class="button" value="Show test progress" />
+                        <table id="progress_table" class="hide striped">
+                            <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Status</th>
+                                <th>Message</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in test.progress %}
                                     <tr>
-                                        <th>Regression ID</th>
-                                        <th>Sample</th>
-                                        <th>Command</th>
-                                        <th>Runtime (ms)</th>
-                                        <th>Exit code</th>
-                                        <th>Result</th>
+                                        <td>{{ entry.timestamp|date('%Y-%m-%d %H:%M:%S (%Z)') }}</td>
+                                        <td>{{ entry.status.description }}</td>
+                                        <td>{{ entry.message }}</td>
                                     </tr>
-                                </thead>
-                                <tbody>
-                                    {% for test in result.tests %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                          <p>This test is still queued. There are {{ next }} tests queued before this one. Based on the average runtime, this test will be finished in {{ hr }} hours {{ min }} minutes.</p>     
+                    {% endif %}
+                </div>
+                <div id="progress_report">
+                    {% if test.finished %}
+                        {% if test.failed %}
+                            <h2>An error occurred</h2>
+                            <p>Something went wrong while the tests where running. You should be able to see in the bar above during which stage it went wrong exactly.</p>
+                            <p>If you have build errors, you can access a log file with build errors <a target="_blank" href = "{{ url_for('.download_build_log_file',test_id=test.id) }}">here</a>.</p>
+                        {% else %}
+                            <h2>Test results</h2>
+                            <p>Click on the category names to expand the results, and on "Fail" to see the differences.</p>
+                            {% for result in results %}
+                                <h4 class="category-header {{ 'fail' if result.error else 'pass' }}" data-category="{{ result.category.id }}">{{ result.category.name }} - {{ 'Fail' if result.error else 'Pass' }}</h4>
+                                <table class="striped sortable hide" data-category="{{ result.category.id }}">
+                                    <thead>
                                         <tr>
-                                            <td><a href="{{ url_for('regression.test_view', regression_id=test.test.id) }}">{{ test.test.id }}</a></td>
-                                            <td><a href="{{ url_for('sample.sample_by_id', sample_id=test.test.sample.id) }}">{{ test.test.sample.sha[:10] }}...</a></td>
-                                            <td>{{ test.test.command }}</td>
-                                            <td>{{ test.result.runtime }}</td>
-                                            <td>{{ test.result.exit_code }} {{ '' if test.result.exit_code == test.result.expected_rc else '(Expected '~test.result.expected_rc~')' }}</td>
-                                            <td>
-                                                {% for file in test.files %}
-                                                    {% if test.result.exit_code != test.result.expected_rc %}
-                                                        {% if file.got is none %}
-                                                            Fail
+                                            <th>Regression ID</th>
+                                            <th>Sample</th>
+                                            <th>Command</th>
+                                            <th>Runtime (ms)</th>
+                                            <th>Exit code</th>
+                                            <th>Result</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for test in result.tests %}
+                                            <tr>
+                                                <td><a href="{{ url_for('regression.test_view', regression_id=test.test.id) }}">{{ test.test.id }}</a></td>
+                                                <td><a href="{{ url_for('sample.sample_by_id', sample_id=test.test.sample.id) }}">{{ test.test.sample.sha[:10] }}...</a></td>
+                                                <td>{{ test.test.command }}</td>
+                                                <td>{{ test.result.runtime }}</td>
+                                                <td>{{ test.result.exit_code }} {{ '' if test.result.exit_code == test.result.expected_rc else '(Expected '~test.result.expected_rc~')' }}</td>
+                                                <td>
+                                                    {% for file in test.files %}
+                                                        {% if test.result.exit_code != test.result.expected_rc %}
+                                                            {% if file.got is none %}
+                                                                Fail
+                                                            {% else %}
+                                                                <a href="#" class="diff_link" data-test="{{ file.test_id }}" data-regression="{{ file.regression_test_id }}" data-output="{{ file.regression_test_output_id }}">Fail</a>
+                                                            {% endif %}          
+                                                        {% elif file.got is none or test.result.exit_code != 0 %}
+                                                            Pass
                                                         {% else %}
                                                             <a href="#" class="diff_link" data-test="{{ file.test_id }}" data-regression="{{ file.regression_test_id }}" data-output="{{ file.regression_test_output_id }}">Fail</a>
-                                                        {% endif %}          
-                                                    {% elif file.got is none or test.result.exit_code != 0 %}
-                                                        Pass
+                                                        {% endif %}
+                                                        {% if not loop.last %}<br />{% endif %}
                                                     {% else %}
-                                                        <a href="#" class="diff_link" data-test="{{ file.test_id }}" data-regression="{{ file.regression_test_id }}" data-output="{{ file.regression_test_output_id }}">Fail</a>
-                                                    {% endif %}
-                                                    {% if not loop.last %}<br />{% endif %}
-                                                {% else %}
-                                                    No files expected for this test
-                                                {% endfor %}
-                                            </td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        {% else %}
-                            <p>There are no results available, though the status indicates the tests are done. Please get in touch.</p>
-                        {% endfor %}
+                                                        No files expected for this test
+                                                    {% endfor %}
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            {% else %}
+                                <p>There are no results available, though the status indicates the tests are done. Please get in touch.</p>
+                            {% endfor %}
+                        {% endif %}
                     {% endif %}
-                {% endif %}
+                </div>
             </div>
         </div>
     </div>
@@ -135,7 +138,29 @@
     {{ super() }}
     <script type="text/javascript" src="{{ url_for('static', filename='js/same-blocks-highlight.js') }}"></script>
     <script type="text/javascript">
+
         $(document).ready(function(){
+            {% if not test.finished %}
+            setInterval(function(){ 
+            $.ajax({
+            type:"GET",
+            url: "{{ url_for('.by_id', test_id=test.id) }}",
+            contentType:"application/json; charset=utf-8",
+            success:function (data) {
+                var result = $('<div />').append(data).find('#progress_details').html();
+                $('#progress_details').html(result);
+                var report = $('<div />').append(data).find('#progress_report').html();
+                $('#progress_report').html(report);       
+                
+            },
+            failure:function (errMsg) {
+                console.log("Error Fetching");
+            }
+        });
+            //code goes here that will be run every 5 seconds.    
+            }, 20000);
+            {% endif %}
+            
             $('.category-header').on('click', function(){
                 var id = $(this).data('category');
                 $('table[data-category="'+id+'"').toggleClass('hide');

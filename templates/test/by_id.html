@@ -29,7 +29,7 @@
                         </tr>
                         <tr>
                             <td>End time</td>
-                            <td>{{ progress.end if progress.end == '-' else progress.end|date('%Y-%m-%d %H:%M:%S (%Z)') }}</td>
+                            <td id="endtime">{{ progress.end if progress.end == '-' else progress.end|date('%Y-%m-%d %H:%M:%S (%Z)') }}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -42,7 +42,7 @@
                         {% if progress.progress.state == 'error' and progress.progress.step == loop.index0 %}
                             {% set status = status ~ ' error' %}
                         {% endif %}
-                        <li class="progtrckr-{{ status }}">{{ stage.description }}</li>
+                        <li class="progtrckr-{{ status }}" id="trckr-{{ stage.description }}">{{ stage.description }}</li>
                     {% endfor %}
                 </ol>
                 <br class="clear" />
@@ -57,7 +57,7 @@
                                 <th>Message</th>
                             </tr>
                             </thead>
-                            <tbody>
+                            <tbody id='progress_table'>
                                 {% for entry in test.progress %}
                                     <tr>
                                         <td>{{ entry.timestamp|date('%Y-%m-%d %H:%M:%S (%Z)') }}</td>
@@ -138,19 +138,60 @@
     {{ super() }}
     <script type="text/javascript" src="{{ url_for('static', filename='js/same-blocks-highlight.js') }}"></script>
     <script type="text/javascript">
-
+        {% set progress = test.progress_data() %}
+        var testprogress = 1;
+        {% if test.progress|length == 0 %}
+            testprogress = 0;
+        {% endif %}
         $(document).ready(function(){
             {% if not test.finished %}
-            setInterval(function(){ 
+            var timer = setInterval(function(){        
             $.ajax({
             type:"GET",
-            url: "{{ url_for('.by_id', test_id=test.id) }}",
+            url: "{{ url_for('.get_json_data', test_id=test.id) }}",
             contentType:"application/json; charset=utf-8",
+            dataType: "json",
             success:function (data) {
-                var result = $('<div />').append(data).find('#progress_details').html();
-                $('#progress_details').html(result);
-                var report = $('<div />').append(data).find('#progress_report').html();
-                $('#progress_report').html(report);       
+                {% for stage in progress.stages %}
+
+                        if (data.details.step >= {{ loop.index0 }})
+                            status = 'done';
+                        else
+                            status = 'todo';
+                        if (data.details.step == {{ loop.index0 }})
+                        {
+                            {% if not loop.last %}
+                            status = 'running';
+                            {% endif %}
+                        }
+                        
+                        if (data.details.state == 'error' && data.details.step == {{ loop.index0 }})
+                            status = 'error';
+                        
+                       var track = $("#trckr-{{ stage.description }}");
+                       track.removeClass("progtrckr-done progtrckr-running progtrckr-error");
+                       track.addClass("progtrckr-"+status);
+                       
+                {% endfor %}
+                var val = data.progress_array;
+                if( testprogress == 0 && val.length != 0 ){
+                    window.location.reload();
+                }
+                var row = "";
+                for(var i=0;i<val.length;i++){
+                    row += '<tr>';
+                    row += '<td> ' + val[i].timestamp + '</td>';
+                    row += '<td> ' + val[i].status + ' </td>';
+                    row += '<td> ' + val[i].message + ' </td>';
+                    row += '</tr>'
+                }
+                $('#progress_table').html(row);
+                if(data.complete != 0)
+                {
+                    $('#endtime').html(data.end);
+                    window.location.reload();
+                }
+                
                 
             },
             failure:function (errMsg) {

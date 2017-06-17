@@ -1,0 +1,11 @@
+Written on https://gist.github.com/satyammittal/94bd97e2b22859b1db4dbba770f65d20
+::1) http://stackoverflow.com/questions/35664861/how-to-target-windows-xp-in-microsoft-visual-studio-c
+:: https://msdn.microsoft.com/en-in/library/ms229859(v=vs.110).aspx::
+:: msbuild ccextractor.sln
+::2) msbuild ccx_testsuite.sln /property:Configuration=Release /property:Platform=x86
+:: copy CCExtractor Tester/ccx_testsuite.csproj to same folder containing ccx_testsuite.sln::
+:: copy ccextractor/windows/debug to c://proram files x86/CCExtractor
+::3) Installing Curl
+:: https://curl.haxx.se/download.html
+:: http://callejoabel.blogspot.in/2013/09/making-curl-work-on-windows-7.html
+:: batch file

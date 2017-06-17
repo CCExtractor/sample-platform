@@ -42,8 +42,8 @@ class Status:
 def start_ci_vm(db, repository, delay=None):
     p_lin = Process(target=kvm_processor_linux, args=(db, repository, delay))
     p_lin.start()
-    # p_win = Process(target=kvm_processor_windows, args=(db, delay))
-    # p_win.start()
+    p_win = Process(target=kvm_processor_windows, args=(db, delay))
+    p_win.start()
 
 
 def kvm_processor_linux(db, repository, delay):
@@ -341,9 +341,9 @@ def queue_test(db, repository, gh_commit, commit, test_type, branch="master",
                  pr_nr)
     db.add(linux)
     # Create Windows test entry
-    # windows = Test(TestPlatform.windows, test_type, fork.id, branch,
-    # commit, pr_nr)
-    # db.add(windows)
+    windows = Test(TestPlatform.windows, test_type, fork.id, branch,
+                   commit, pr_nr)
+    db.add(windows)
     db.commit()
     # Update statuses on GitHub
     try:

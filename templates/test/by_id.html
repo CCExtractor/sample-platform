@@ -188,12 +188,12 @@
                     $('#endtime').html(data.end);
                     window.location.reload();
                 }
-                console.log(data);
 
             }
             else{
                 console.log(data.error);
                 clearTimeout(timer);
+                //stop the timer if error
             }
             },
             failure:function (errMsg) {
@@ -202,7 +202,7 @@
             }
         });
             //code goes here that will be run every 20 seconds.    
-            }, 1000);
+            }, 20000);
             {% endif %}
             
             $('.category-header').on('click', function(){

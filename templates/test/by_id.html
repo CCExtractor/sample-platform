@@ -34,16 +34,16 @@
                     </tbody>
                 </table>
                 <ol class="col_12 progtrckr">
-                    {% for stage in progress.stages %}
+                    {% for stage in progress.stages -%}
                         {% set status = 'done' if progress.progress.step >= loop.index0 else 'todo' %}
-                        {% if progress.progress.step == loop.index0 and not loop.last %}
+                        {% if progress.progress.step == loop.index0 and not loop.last -%}
                             {% set status = 'running' %}
-                        {% endif %}
-                        {% if progress.progress.state == 'error' and progress.progress.step == loop.index0 %}
+                        {%- endif %}
+                        {% if progress.progress.state == 'error' and progress.progress.step == loop.index0 -%}
                             {% set status = status ~ ' error' %}
-                        {% endif %}
+                        {%- endif %}
                         <li class="progtrckr-{{ status }}" id="trckr-{{ stage.description }}">{{ stage.description }}</li>
-                    {% endfor %}
+                    {%- endfor %}
                 </ol>
                 <br class="clear" />
                 {% if test.progress|length > 0 %}

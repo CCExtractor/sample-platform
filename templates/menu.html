@@ -6,7 +6,7 @@
         {%- else -%}
             {%- set href = url_for(data.route) -%}
         {%- endif -%}
-    {%- endif -%}
+    {%- endif %}
     <li{% if 'route' in data and data.route == active_route %} class="active"{% endif %}>
         <a href="{{ href }}"{% if level > 0 %} class="subitem"{% endif %}>
             <i class="fa fa-{{ data.icon }}"></i> {{ data.title }}
@@ -18,7 +18,7 @@
                 <li>{{ render_entry(sub_entry, active_route, level) }}</li>
                 {%- endfor -%}
             </ul>
-        {%- endif -%}
+        {%- endif %}
     </li>
 {% endmacro %}
 

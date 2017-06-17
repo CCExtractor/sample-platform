@@ -117,7 +117,7 @@
                                                 {%- endfor %}
                                             </td>
                                         </tr>
-                                    {% endfor %}
+                                    {%- endfor %}
                                 </tbody>
                             </table>
                         {% else %}
@@ -164,7 +164,7 @@
                                 if (data.details.step === {{ loop.index0 }}) {
                                     {% if not loop.last %}
                                     status = 'running';
-                                    {% endif %}
+                                    {%- endif %}
                                 }
                                 if (data.details.state === 'error' && data.details.step === {{ loop.index0 }}) {
                                     status = 'error';

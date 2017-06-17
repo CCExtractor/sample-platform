@@ -57,12 +57,12 @@ EXIT /B 0
 
 :: Post status to the server
 :postStatus
-echo curl -s -A "%userAgent%" --data "type=progress&status=%~1&message=%~2" -w "\n" "%reportURL%" >> "a.txt"
+echo curl -s -A "%userAgent%" --data "type=progress&status=%~1&message=%~2" -w "\n" "%reportURL%" >> "%logFile%"
 EXIT /B 0
 
 :: Exit script and post abort status
 :haltAndCatchFire
-postStatus "canceled" %~1 >> "a.txt"
+postStatus "canceled" %~1 >> "%logFile%"
 shutdown -s -t 0
 EXIT /B 0
 

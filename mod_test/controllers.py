@@ -152,19 +152,18 @@ def get_json_data(test_id):
     pr_data = test.progress_data()
     progress_array = []
     for entry in test.progress:
-        progress_array.append({'timestamp': entry.timestamp.strftime(
-            '%Y-%m-%d %H:%M:%S (%Z)'), 'status': entry.status.description,
-             'message': entry.message})
-    complete = int(0)
-    if test.finished:
-        complete = int(1)
+        progress_array.append({
+            'timestamp': entry.timestamp.strftime('%Y-%m-%d %H:%M:%S (%Z)'),
+            'status': entry.status.description,
+            'message': entry.message
+        })
 
-    endtime = pr_data['end']
-    if endtime != '-':
-        endtime = endtime.strptime('%Y-%m-%d %H:%M:%S (%Z)')
-    return jsonify({'status': 'success', 'details': pr_data["progress"],
-                    'complete': complete, 'end': endtime,
-                    'progress_array': progress_array})
+    return jsonify({
+        'status': 'success',
+        'details': pr_data["progress"],
+        'complete': test.finished,
+        'progress_array': progress_array
+    })
 
 
 @mod_test.route('/<test_id>')

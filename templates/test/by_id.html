@@ -148,6 +148,7 @@
             contentType:"application/json; charset=utf-8",
             dataType: "json",
             success:function (data) {
+                if (data.status === "success") {
                 {% for stage in progress.stages %}
 
                         if (data.details.step >= {{ loop.index0 }})
@@ -187,14 +188,21 @@
                     $('#endtime').html(data.end);
                     window.location.reload();
                 }
-                
+                console.log(data);
+
+            }
+            else{
+                console.log(data.error);
+                clearTimeout(timer);
+            }
             },
             failure:function (errMsg) {
                 console.log("Error Fetching");
+                clearTimeout(timer);
             }
         });
             //code goes here that will be run every 20 seconds.    
-            }, 20000);
+            }, 1000);
             {% endif %}
             
             $('.category-header').on('click', function(){

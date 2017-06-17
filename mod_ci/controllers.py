@@ -62,6 +62,7 @@ def kvm_processor_windows(db, repository, delay):
 
 def kvm_processor(db, kvm_name, platform, repository, delay):
     from run import config, log, app
+    log.info("Running kvm_processor for {platform}".format(platform=platform))
     if kvm_name == "":
         log.critical('KVM name is empty!')
         return

@@ -105,12 +105,12 @@
                                                             Fail
                                                         {% else %}
                                                             <a href="#" class="diff_link" data-test="{{ file.test_id }}" data-regression="{{ file.regression_test_id }}" data-output="{{ file.regression_test_output_id }}">Fail</a>
-                                                        {% endif %}          
+                                                        {%- endif %}
                                                     {% elif file.got is none or test.result.exit_code != 0 %}
                                                         Pass
                                                     {% else %}
                                                         <a href="#" class="diff_link" data-test="{{ file.test_id }}" data-regression="{{ file.regression_test_id }}" data-output="{{ file.regression_test_output_id }}">Fail</a>
-                                                    {% endif %}
+                                                    {%- endif %}
                                                     {% if not loop.last %}<br />{% endif %}
                                                 {% else %}
                                                     No files expected for this test

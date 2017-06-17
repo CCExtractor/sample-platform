@@ -5,7 +5,6 @@ import shutil
 import sys
 
 import datetime
-import traceback
 
 from flask import Blueprint, request, abort, g, url_for
 from git import Repo, InvalidGitRepositoryError, GitCommandError
@@ -18,7 +17,6 @@ from sqlalchemy.sql import label
 from sqlalchemy.sql.functions import count
 from werkzeug.utils import secure_filename
 from pymysql.err import IntegrityError
-from datetime import datetime
 
 from mod_ci.models import Kvm
 from mod_deploy.controllers import request_from_github, is_valid_signature
@@ -87,7 +85,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         status = Kvm.query.filter(Kvm.name == kvm_name).first()
         max_runtime = config.get("KVM_MAX_RUNTIME", 120)
         if status is not None:
-            if datetime.datetime.now() >= status.timestamp + \
+            if datetime.datetime.now() - status.timestamp >= \
                     datetime.timedelta(minutes=max_runtime):
                 # Mark entry as aborted
                 test_progress = TestProgress(
@@ -157,6 +155,12 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     base_folder = os.path.join(
         config.get('SAMPLE_REPOSITORY', ''), 'ci-tests')
     categories = Category.query.order_by(Category.id.desc()).all()
+    commit_hash = GeneralData.query.filter(
+        GeneralData.key == 'last_commit').first().value
+    last_commit = Test.query.filter(Test.commit == commit_hash).first()
+    log.debug("We will compare against the results of test {id}".format(
+        id=last_commit.id))
+
     # Init collection file
     multi_test = etree.Element('multitest')
     for category in categories:
@@ -179,16 +183,27 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
             output_node = etree.SubElement(entry, 'output')
             output_node.text = regression_test.output_type.value
             compare = etree.SubElement(entry, 'compare')
+            last_files = TestResultFile.query.filter(and_(
+                TestResultFile.test_id == last_commit.id,
+                TestResultFile.regression_test_id ==
+                regression_test.id)).subquery()
             for output_file in regression_test.output_files:
                 file_node = etree.SubElement(
                     compare, 'file',
                     ignore='true' if output_file.ignore else 'false',
                     id=str(output_file.id)
                 )
+                last_commit_files = db.query(last_files.c.got).filter(and_(
+                    last_files.c.regression_test_output_id == output_file.id,
+                    last_files.c.got.isnot(None))).first()
                 correct = etree.SubElement(file_node, 'correct')
                 # Need a path that is relative to the folder we provide
                 # inside the CI environment.
-                correct.text = output_file.filename_correct
+                if last_commit_files is None:
+                    correct.text = output_file.filename_correct
+                else:
+                    correct.text = output_file.create_correct_filename(
+                        last_commit_files[0])
                 expected = etree.SubElement(file_node, 'expected')
                 expected.text = output_file.filename_expected(
                     regression_test.sample.sha)
@@ -464,11 +479,11 @@ def progress_reporter(test_id, token):
                     g.github['repository'])
                 # If status is complete, remove the Kvm entry
                 if status in [TestStatus.completed, TestStatus.canceled]:
-                    u1 = GeneralData.query.filter(
+                    current_average = GeneralData.query.filter(
                         GeneralData.key == 'average_time').first()
                     average_time = 0
                     total_time = 0
-                    if u1 is None:
+                    if current_average is None:
                         finished_tests = g.db.query(
                             TestProgress.test_id).filter(
                             TestProgress.status.in_(
@@ -481,37 +496,44 @@ def progress_reporter(test_id, token):
                                 [TestStatus.preparation, TestStatus.completed,
                                  TestStatus.canceled]))
                         ).subquery()
-                        times = g.db.query(finished_tests_progress.c.test_id,
-                                           label('time', func.group_concat(
-                                            finished_tests_progress.c.timestamp
-                                            ))).group_by(
-                                            finished_tests_progress.c.test_id
-                                            ).all()
+                        times = g.db.query(
+                            finished_tests_progress.c.test_id,
+                            label(
+                                'time',
+                                func.group_concat(
+                                    finished_tests_progress.c.timestamp
+                                )
+                            )
+                        ).group_by(finished_tests_progress.c.test_id).all()
                         for p in times:
-                            k = p.time.split(',')
-                            leng = len(k)
-                            pr1 = datetime.strptime(k[0], '%Y-%m-%d %H:%M:%S')
-                            pr2 = datetime.strptime(
-                                k[leng - 1], '%Y-%m-%d %H:%M:%S')
-                            sec = (pr2 - pr1).total_seconds()
-                            total_time += sec
-                        if len(finished_tests_progress) != 0:
-                            average_time = total_time // len(
-                                finished_tests_progress)
-                        newf = GeneralData('average_time', average_time)
-                        g.db.add(newf)
+                            parts = p.time.split(',')
+                            start = datetime.datetime.strptime(
+                                parts[0], '%Y-%m-%d %H:%M:%S')
+                            end = datetime.datetime.strptime(
+                                parts[-1], '%Y-%m-%d %H:%M:%S')
+                            total_time += (end - start).total_seconds()
+                        if len(times) != 0:
+                            average_time = total_time // len(times)
+                        new_avg = GeneralData('average_time', average_time)
+                        g.db.add(new_avg)
                         g.db.commit()
-                        average_time = float(newf.value)
                     else:
-                        total_number = TestResult.query.count()
+                        all_results = TestResult.query.count()
                         regression_test_count = RegressionTest.query.count()
-                        number_test = total_number / regression_test_count
-                        fl = float(u1.value) * (number_test - 1)
+                        number_test = all_results / regression_test_count
+                        updated_average = \
+                            float(current_average.value) * (number_test - 1)
                         pr = test.progress_data()
-                        last_running_test = pr['end'] - pr['start']
-                        last_running_test = last_running_test.total_seconds()
-                        fl = (fl + last_running_test) // number_test
-                        u1.value = fl
+                        end_time = pr['end']
+                        start_time = pr['start']
+                        if end_time.tzinfo is not None:
+                            end_time = end_time.replace(tzinfo=None)
+                        if start_time.tzinfo is not None:
+                            start_time = start_time.replace(tzinfo=None)
+                        last_running_test = end_time - start_time
+                        updated_average = (updated_average +
+                                           last_running_test.total_seconds())
+                        current_average.value = updated_average
                         g.db.commit()
                     kvm = Kvm.query.filter(Kvm.test_id == test_id).first()
                     if kvm is not None:

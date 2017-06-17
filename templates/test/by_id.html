@@ -29,21 +29,21 @@
                         </tr>
                         <tr>
                             <td>End time</td>
-                            <td>{{ progress.end if progress.end == '-' else progress.end|date('%Y-%m-%d %H:%M:%S (%Z)') }}</td>
+                            <td id="endtime">{{ progress.end if progress.end == '-' else progress.end|date('%Y-%m-%d %H:%M:%S (%Z)') }}</td>
                         </tr>
                     </tbody>
                 </table>
                 <ol class="col_12 progtrckr">
-                    {% for stage in progress.stages %}
+                    {% for stage in progress.stages -%}
                         {% set status = 'done' if progress.progress.step >= loop.index0 else 'todo' %}
-                        {% if progress.progress.step == loop.index0 and not loop.last %}
+                        {% if progress.progress.step == loop.index0 and not loop.last -%}
                             {% set status = 'running' %}
-                        {% endif %}
-                        {% if progress.progress.state == 'error' and progress.progress.step == loop.index0 %}
+                        {%- endif %}
+                        {% if progress.progress.state == 'error' and progress.progress.step == loop.index0 -%}
                             {% set status = status ~ ' error' %}
-                        {% endif %}
-                        <li class="progtrckr-{{ status }}">{{ stage.description }}</li>
-                    {% endfor %}
+                        {%- endif %}
+                        <li class="progtrckr-{{ status }}" id="trckr-{{ stage.description }}">{{ stage.description }}</li>
+                    {%- endfor %}
                 </ol>
                 <br class="clear" />
                 {% if test.progress|length > 0 %}
@@ -56,7 +56,7 @@
                             <th>Message</th>
                         </tr>
                         </thead>
-                        <tbody>
+                        <tbody id='progress_table'>
                             {% for entry in test.progress %}
                                 <tr>
                                     <td>{{ entry.timestamp|date('%Y-%m-%d %H:%M:%S (%Z)') }}</td>
@@ -69,7 +69,6 @@
                 {% else %}
                       <p>This test is still queued. There are {{ next }} tests queued before this one. Based on the average runtime, this test will be finished in {{ hr }} hours {{ min }} minutes.</p>     
                 {% endif %}
-                
                 {% if test.finished %}
                     {% if test.failed %}
                         <h2>An error occurred</h2>
@@ -98,27 +97,27 @@
                                             <td><a href="{{ url_for('sample.sample_by_id', sample_id=test.test.sample.id) }}">{{ test.test.sample.sha[:10] }}...</a></td>
                                             <td>{{ test.test.command }}</td>
                                             <td>{{ test.result.runtime }}</td>
-                                            <td>{{ test.result.exit_code }} {{ '' if test.result.exit_code == test.result.expected_rc else '(Expected '~test.result.expected_rc~')' }}</td>
+                                            <td>{{ test.result.exit_code }}{{ '' if test.result.exit_code == test.result.expected_rc else ' (Expected '~test.result.expected_rc~')' }}</td>
                                             <td>
-                                                {% for file in test.files %}
+                                                {% for file in test.files -%}
                                                     {% if test.result.exit_code != test.result.expected_rc %}
-                                                        {% if file.got is none %}
+                                                        {% if file.got is none -%}
                                                             Fail
                                                         {% else %}
                                                             <a href="#" class="diff_link" data-test="{{ file.test_id }}" data-regression="{{ file.regression_test_id }}" data-output="{{ file.regression_test_output_id }}">Fail</a>
-                                                        {% endif %}          
-                                                    {% elif file.got is none or test.result.exit_code != 0 %}
+                                                        {%- endif %}
+                                                    {% elif file.got is none or test.result.exit_code != 0 -%}
                                                         Pass
                                                     {% else %}
                                                         <a href="#" class="diff_link" data-test="{{ file.test_id }}" data-regression="{{ file.regression_test_id }}" data-output="{{ file.regression_test_output_id }}">Fail</a>
-                                                    {% endif %}
+                                                    {%- endif %}
                                                     {% if not loop.last %}<br />{% endif %}
                                                 {% else %}
                                                     No files expected for this test
-                                                {% endfor %}
+                                                {%- endfor %}
                                             </td>
                                         </tr>
-                                    {% endfor %}
+                                    {%- endfor %}
                                 </tbody>
                             </table>
                         {% else %}
@@ -135,7 +134,69 @@
     {{ super() }}
     <script type="text/javascript" src="{{ url_for('static', filename='js/same-blocks-highlight.js') }}"></script>
     <script type="text/javascript">
+        {% set progress = test.progress_data() %}
+        var testprogress = {{ 1 if test.progress|length > 0 else 0 }};
         $(document).ready(function(){
+            {% if not test.finished %}
+            var timer = setInterval(
+                function () {
+                    $.ajax({
+                        type: "GET",
+                        url: "{{ url_for('.get_json_data', test_id=test.id) }}",
+                        contentType: "application/json; charset=utf-8",
+                        dataType: "json",
+                        success: function (data) {
+                            var status, track, val, row, i;
+                            if (data.status === "success") {
+                                if (data.complete) {
+                                    window.location.reload();
+                                }
+                                val = data.progress_array;
+                                if (testprogress === 0 && val.length !== 0) {
+                                    window.location.reload();
+                                }
+                            {% for stage in progress.stages %}
+                                if (data.details.step >= {{ loop.index0 }}) {
+                                    status = 'done';
+                                } else {
+                                    status = 'todo';
+                                }
+                                if (data.details.step === {{ loop.index0 }}) {
+                                    {% if not loop.last -%}
+                                    status = 'running';
+                                    {%- endif %}
+                                }
+                                if (data.details.state === 'error' && data.details.step === {{ loop.index0 }}) {
+                                    status = 'error';
+                                }
+                                track = $("#trckr-{{ stage.description }}");
+                                track.removeClass("progtrckr-done progtrckr-running progtrckr-error");
+                                track.addClass("progtrckr-"+status);
+                            {% endfor %}
+                                row = "";
+                                for (i = 0; i < val.length; i++) {
+                                    row += '<tr>';
+                                    row += '<td> ' + val[i].timestamp + '</td>';
+                                    row += '<td> ' + val[i].status + ' </td>';
+                                    row += '<td> ' + val[i].message + ' </td>';
+                                    row += '</tr>'
+                                }
+                                $('#progress_table').html(row);
+                            } else{
+                                console.log(data.error);
+                                clearTimeout(timer);
+                            }
+                        },
+                        failure: function (errMsg) {
+                            console.log("Error Fetching");
+                            clearTimeout(timer);
+                        }
+                    });
+                },
+                20000
+            );
+            {% endif %}
+            
             $('.category-header').on('click', function(){
                 var id = $(this).data('category');
                 $('table[data-category="'+id+'"').toggleClass('hide');

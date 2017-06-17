@@ -1,18 +1,13 @@
 import os
 
-from flask import Blueprint, g, jsonify
-from flask import abort
-from flask import make_response
-from flask import request
-from sqlalchemy import and_
-from sqlalchemy import func
+from flask import Blueprint, g, abort, make_response, request, jsonify
+from sqlalchemy import and_, func
 from sqlalchemy.sql import label
 from decorators import template_renderer
 from mod_home.models import CCExtractorVersion
 from mod_regression.models import Category, regressionTestCategoryLinkTable, \
-    RegressionTestOutput, RegressionTest
-from mod_test.models import Fork, Test, TestProgress, TestStatus, TestResult, \
-    TestResultFile, TestType
+    RegressionTestOutput
+from mod_test.models import Test, TestProgress, TestResultFile, TestType
 from mod_home.models import GeneralData
 from mod_ci.models import Kvm
 from datetime import datetime
@@ -62,31 +57,31 @@ def get_data_for_test(test, title=None):
         populated_categories)).order_by(Category.name.asc()).all()
     hours = 0
     minutes = 0
-    running_test_before_this = ""
+    queued_tests = 0
     # evaluating estimated time if the test is still in queue
     if len(test.progress) == 0:
-        
-        kvm_test_all = g.db.query(Kvm.test_id).filter(Kvm.test_id < test.id).subquery()
-        kvm_test = g.db.query(TestProgress.test_id,label('time',func.group_concat(TestProgress.timestamp))).filter(
-                TestProgress.test_id.in_(kvm_test_all)
-                ).group_by(TestProgress.test_id).all()
-        u1 = GeneralData.query.filter(
-            GeneralData.key == 'average_time').first()
-        average_time = float(u1.value)
-        running_test_before_this = len(kvm_test)
+        queued_kvm_entries = g.db.query(Kvm.test_id).filter(
+            Kvm.test_id < test.id).subquery()
+        kvm_test = g.db.query(
+            TestProgress.test_id,
+            label('time', func.group_concat(TestProgress.timestamp))
+        ).filter(
+            TestProgress.test_id.in_(queued_kvm_entries)
+        ).group_by(TestProgress.test_id).all()
+        average_duration = float(GeneralData.query.filter(
+            GeneralData.key == 'average_time').first().value)
+        queued_tests = len(kvm_test)
         time_run = 0
         for pr_test in kvm_test:
-            k = pr_test.time.split(',')
-            leng = len(k)
-            s0 = datetime.strptime(k[0], '%Y-%m-%d %H:%M:%S')
-            s1 = datetime.strptime(k[leng-1], '%Y-%m-%d %H:%M:%S')
-            time_run_new = (s1-s0).total_seconds()
-            time_run += time_run_new
+            timestamps = pr_test.time.split(',')
+            start = datetime.strptime(timestamps[0], '%Y-%m-%d %H:%M:%S')
+            end = datetime.strptime(timestamps[-1], '%Y-%m-%d %H:%M:%S')
+            time_run += (end - start).total_seconds()
         # subtracting current running tests
-        total = average_time * running_test_before_this - time_run
+        total = (average_duration * queued_tests) - time_run
         minutes = (total % 3600) // 60
-        hours = (total) // 3600
-                      
+        hours = total // 3600
+
     results = [{
         'category': category,
         'tests': [{
@@ -143,10 +138,32 @@ def get_data_for_test(test, title=None):
         'TestType': TestType,
         'results': results,
         'title': title,
-        'next': running_test_before_this,
+        'next': queued_tests,
         'min': minutes,
         'hr': hours
     }
+
+
+@mod_test.route('/get_json_data/<test_id>')
+def get_json_data(test_id):
+    test = Test.query.filter(Test.id == test_id).first()
+    if test is None:
+        return jsonify({'status': 'failure', 'error': 'Test not found'})
+    pr_data = test.progress_data()
+    progress_array = []
+    for entry in test.progress:
+        progress_array.append({
+            'timestamp': entry.timestamp.strftime('%Y-%m-%d %H:%M:%S (%Z)'),
+            'status': entry.status.description,
+            'message': entry.message
+        })
+
+    return jsonify({
+        'status': 'success',
+        'details': pr_data["progress"],
+        'complete': test.finished,
+        'progress_array': progress_array
+    })
 
 
 @mod_test.route('/<test_id>')

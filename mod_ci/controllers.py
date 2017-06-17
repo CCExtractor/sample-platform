@@ -42,7 +42,10 @@ class Status:
 def start_ci_vm(db, repository, delay=None):
     p_lin = Process(target=kvm_processor_linux, args=(db, repository, delay))
     p_lin.start()
-    p_win = Process(target=kvm_processor_windows, args=(db, delay))
+    p_win = Process(
+        target=kvm_processor_windows,
+        args=(db, repository, delay)
+    )
     p_win.start()
 
 

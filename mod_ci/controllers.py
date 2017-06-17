@@ -524,13 +524,13 @@ def progress_reporter(test_id, token):
                         updated_average = \
                             float(current_average.value) * (number_test - 1)
                         pr = test.progress_data()
-                        endtime = pr['end']
-                        starttime = pr['start']
-                        if endtime.tzinfo is not None:
-                            endtime.replace(tzinfo=None)
-                        if starttime.tzinfo is not None:
-                            starttime.replace(tzinfo=None)
-                        last_running_test = endtime - starttime
+                        end_time = pr['end']
+                        start_time = pr['start']
+                        if end_time.tzinfo is not None:
+                            end_time = end_time.replace(tzinfo=None)
+                        if start_time.tzinfo is not None:
+                            start_time = start_time.replace(tzinfo=None)
+                        last_running_test = end_time - start_time
                         updated_average = (updated_average +
                                            last_running_test.total_seconds())
                         current_average.value = updated_average

@@ -1,6 +1,6 @@
 import os
 
-from flask import Blueprint, g, abort, make_response, request
+from flask import Blueprint, g, abort, make_response, request, jsonify
 from sqlalchemy import and_, func
 from sqlalchemy.sql import label
 from decorators import template_renderer
@@ -76,12 +76,12 @@ def get_data_for_test(test, title=None):
             timestamps = pr_test.time.split(',')
             start = datetime.strptime(timestamps[0], '%Y-%m-%d %H:%M:%S')
             end = datetime.strptime(timestamps[-1], '%Y-%m-%d %H:%M:%S')
-            time_run += (end-start).total_seconds()
+            time_run += (end - start).total_seconds()
         # subtracting current running tests
         total = (average_duration * queued_tests) - time_run
         minutes = (total % 3600) // 60
         hours = total // 3600
-                      
+
     results = [{
         'category': category,
         'tests': [{
@@ -142,6 +142,29 @@ def get_data_for_test(test, title=None):
         'min': minutes,
         'hr': hours
     }
+
+
+@mod_test.route('/get_json_data/<test_id>')
+def get_json_data(test_id):
+    test = Test.query.filter(Test.id == test_id).first()
+    if test is None:
+        return jsonify({'status': 'failure', 'error': 'Test not found'})
+    pr_data = test.progress_data()
+    progress_array = []
+    for entry in test.progress:
+        progress_array.append({'timestamp': entry.timestamp.strftime(
+            '%Y-%m-%d %H:%M:%S (%Z)'), 'status': entry.status.description,
+             'message': entry.message})
+    complete = int(0)
+    if test.finished:
+        complete = int(1)
+
+    endtime = pr_data['end']
+    if endtime != '-':
+        endtime = endtime.strptime('%Y-%m-%d %H:%M:%S (%Z)')
+    return jsonify({'status': 'success', 'details': pr_data["progress"],
+                    'complete': complete, 'end': endtime,
+                    'progress_array': progress_array})
 
 
 @mod_test.route('/<test_id>')

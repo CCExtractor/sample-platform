@@ -37,7 +37,7 @@ if EXIST Debug\ccextractorwin.exe (
     rem Run testsuite
     call :postStatus "testing" "Running tests"
     call :executeCommand cd %suiteDstDir%
-    call :executeCommand "%tester%" --entries "%testFile%" --executable "%dstDir%/windows/Debug/ccextractor" --tempfolder "%tempFolder%" --timeout 3000 --reportfolder "%reportFolder%" --resultfolder "%resultFolder%" --samplefolder "%sampleFolder%" --method Server --url "%reportURL%"
+    call :executeCommand "%tester%" --entries "%testFile%" --executable "%dstDir%\windows\Debug\ccextractorwin.exe" --tempfolder "%tempFolder%" --timeout 3000 --reportfolder "%reportFolder%" --resultfolder "%resultFolder%" --samplefolder "%sampleFolder%" --method Server --url "%reportURL%"
     call :postStatus "completed" "Ran all tests"
     rem Shut down
     shutdown -s -t 0

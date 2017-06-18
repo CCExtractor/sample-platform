@@ -152,12 +152,13 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     with app.app_context():
         full_url = url_for('ci.progress_reporter', test_id=test.id,
                            token=test.token, _external=True, _scheme="https")
-    file_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'reportURL')
+    file_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''),
+                             kvm_name + '/reportURL')
     with open(file_path, 'w') as f:
         f.write(full_url)
     # 1) Generate test files
     base_folder = os.path.join(
-        config.get('SAMPLE_REPOSITORY', ''), 'ci-tests')
+        config.get('SAMPLE_REPOSITORY', ''), kvm_name + '/ci-tests')
     categories = Category.query.order_by(Category.id.desc()).all()
     commit_hash = GeneralData.query.filter(
         GeneralData.key == 'last_commit').first().value
@@ -255,7 +256,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         return
     # Delete the test branch if it exists, and recreate
     try:
-        repo.delete_head('CI_Branch', force=True)
+        repo.delete_head('CI_Branch_' + kvm_name, force=True)
     except GitCommandError:
         log.warn('Could not delete CI_Branch head')
     # Remove possible left rebase-apply directory
@@ -268,8 +269,8 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     # If PR, merge, otherwise reset to commit
     if test.test_type == TestType.pull_request:
         # Fetch PR (stored under origin/pull/<id>/head
-        pull_info = origin.fetch('pull/{id}/head:CI_Branch'.format(
-            id=test.pr_nr))
+        pull_info = origin.fetch('pull/{id}/head:CI_Branch_{name}'.format(
+            id=test.pr_nr, name=kvm_name))
         if len(pull_info) == 0:
             log.warn('Didn\'t pull any information from remote PR!')
 
@@ -278,9 +279,10 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
                          pull_info[0].flags)
             return
         try:
-            test_branch = repo.heads['CI_Branch']
+            test_branch = repo.heads['CI_Branch_' + kvm_name]
         except IndexError:
-            log.critical('CI_Branch does not exist')
+            log.critical(
+                ('CI_Branch_{name} does not exist').format(name=kvm_name))
             return
         # Check out branch
         test_branch.checkout(True)
@@ -313,7 +315,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         #     return
         # TODO: check what happens on merge conflicts
     else:
-        test_branch = repo.create_head('CI_Branch', 'HEAD')
+        test_branch = repo.create_head('CI_Branch_' + kvm_name, 'HEAD')
         # Check out branch for test purposes
         test_branch.checkout(True)
         try:

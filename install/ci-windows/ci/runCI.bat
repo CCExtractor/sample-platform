@@ -2,19 +2,20 @@
 @echo off
 
 if NOT EXIST "variables.bat" (
-:: No variable file defined
-shutdown -s -t 0
+    :: No variable file defined
+    shutdown -s -t 0
 )
 :: Source variables
 call variables.bat
 if NOT EXIST %reportURLFile% (
-:: No report URL file defined
-shutdown -s -t 0
+    :: No report URL file defined
+    shutdown -s -t 0
 )
 if NOT EXIST %srcDir% (
-:: No source dir defined
-shutdown -s -t 0
+    :: No source dir defined
+    shutdown -s -t 0
 )
+
 SET /P reportURL=<%reportURLFile%
 SET userAgent="CCX/CI_BOT"
 SET logFile="%reportFolder%/log.html"
@@ -30,18 +31,18 @@ call :executeCommand cd windows
 call :executeCommand "C:\Program Files (x86)\MSBuild\14.0\Bin\MSBuild" ccextractor.sln
 :: check whether installation successful
 if EXIST Debug\ccextractorwin.exe (
- cd Debug
- :: Run testsuite
- call :postStatus "testing" "Running tests"
- call :executeCommand cd %suiteDstDir%
- call :executeCommand "%tester%" --entries "%testFile%" --executable "%dstDir%/windows/Debug/ccextractor" --tempfolder "%tempFolder%" --timeout 3000 --reportfolder "%reportFolder%" --resultfolder "%resultFolder%" --samplefolder "%sampleFolder%" --method Server --url "%reportURL%"
- call :postStatus "completed" "Ran all tests"
- :: Shut down
- shutdown -s -t 0
+    cd Debug
+    :: Run testsuite
+    call :postStatus "testing" "Running tests"
+    call :executeCommand cd %suiteDstDir%
+    call :executeCommand "%tester%" --entries "%testFile%" --executable "%dstDir%/windows/Debug/ccextractor" --tempfolder "%tempFolder%" --timeout 3000 --reportfolder "%reportFolder%" --resultfolder "%resultFolder%" --samplefolder "%sampleFolder%" --method Server --url "%reportURL%"
+    call :postStatus "completed" "Ran all tests"
+    :: Shut down
+    shutdown -s -t 0
 )
 else
 (
- call :haltAndCatchFire "build"
+    call :haltAndCatchFire "build"
 )
 EXIT /B %ERRORLEVEL%
 :: Functions to shorten the script
@@ -51,7 +52,8 @@ EXIT /B %ERRORLEVEL%
 %* > "%logFile%"
 SET /A status=%ERRORLEVEL%
 IF %status% NEQ 0 (
- call :haltAndCatchFire "" :: No message needed as we post before anyway
+    :: No message needed as we post before anyway
+    call :haltAndCatchFire ""
 )
 EXIT /B 0
 
@@ -62,7 +64,7 @@ EXIT /B 0
 
 :: Exit script and post abort status
 :haltAndCatchFire
-postStatus "canceled" %~1 >> "%logFile%"
+call :postStatus "canceled" %~1 >> "%logFile%"
 shutdown -s -t 0
 EXIT /B 0
 

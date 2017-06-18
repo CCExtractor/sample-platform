@@ -1,9 +1,5 @@
 @echo off
 
-echo Ensuring we are in the correct folder
-cd %~dp0
-echo We are in folder %cd%
-
 echo Checking for the existence of variables.bat
 if NOT EXIST "variables.bat" (
     rem No variable file defined
@@ -13,13 +9,13 @@ if NOT EXIST "variables.bat" (
 
 echo Loading variables.bat
 rem Source variables
-call variables.bat
-if NOT EXIST %reportURLFile% (
+call %~dp0\variables.bat
+if "%reportURLFile%"=="" (
     rem No report URL file defined
     shutdown -s -t 0
     exit
 )
-if NOT EXIST %srcDir% (
+if "%srcDir%"=="" (
     rem No source dir defined
     shutdown -s -t 0
     exit

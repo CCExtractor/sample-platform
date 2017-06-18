@@ -153,12 +153,12 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         full_url = url_for('ci.progress_reporter', test_id=test.id,
                            token=test.token, _external=True, _scheme="https")
     file_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''),
-                             kvm_name, 'reportURL')
+                             'vm_data', kvm_name, 'reportURL')
     with open(file_path, 'w') as f:
         f.write(full_url)
     # 1) Generate test files
     base_folder = os.path.join(
-        config.get('SAMPLE_REPOSITORY', ''), kvm_name, 'ci-tests')
+        config.get('SAMPLE_REPOSITORY', ''), 'vm_data', kvm_name, 'ci-tests')
     categories = Category.query.order_by(Category.id.desc()).all()
     commit_hash = GeneralData.query.filter(
         GeneralData.key == 'last_commit').first().value
@@ -230,7 +230,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     # 2) Create git repo clone and merge PR into it (if necessary)
     try:
         repo = Repo(os.path.join(
-            config.get('SAMPLE_REPOSITORY', ''), kvm_name,
+            config.get('SAMPLE_REPOSITORY', ''), 'vm_data', kvm_name,
                     'unsafe-ccextractor'))
     except InvalidGitRepositoryError:
         log.critical('Could not open CCExtractor\'s repository copy!')

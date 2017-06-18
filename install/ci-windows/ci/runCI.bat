@@ -1,31 +1,40 @@
 @echo off
 
+echo "Checking for the existence of variables.bat"
 if NOT EXIST "variables.bat" (
     rem No variable file defined
     shutdown -s -t 0
+    exit
 )
+
+echo "Loading variables.bat"
 rem Source variables
 call variables.bat
 if NOT EXIST %reportURLFile% (
     rem No report URL file defined
     shutdown -s -t 0
+    exit
 )
 if NOT EXIST %srcDir% (
     rem No source dir defined
     shutdown -s -t 0
+    exit
 )
 
 SET /P reportURL=<%reportURLFile%
 SET userAgent="CCX/CI_BOT"
 SET logFile="%reportFolder%/log.html"
 
+echo "Copy files over to local disk"
 call :postStatus "preparation" "Copy testsuite to local folder"
-call :executeCommand robocopy %suiteSrcDir% %suiteDstDir% /e
+rem robocopy returns a non-zero exit code even on success (https://ss64.com/nt/robocopy-exit.html), so we cannot use executeCommand
+call robocopy %suiteSrcDir% %suiteDstDir% /e >> "%logFile%"
 
 call :postStatus "preparation" "Copy code to local folder"
-call :executeCommand robocopy %srcDir% %dstDir% /e
+call robocopy %srcDir% %dstDir% /e >> "%logFile%"
 call :executeCommand cd %dstDir%
 
+echo "Compile CCX"
 call :postStatus "building" "Compiling CCExtractor"
 rem Go to Windows build folder
 call :executeCommand cd windows
@@ -35,18 +44,21 @@ rem check whether installation successful
 if EXIST Debug\ccextractorwin.exe (
     cd Debug
     rem Run testsuite
+    echo "Run tests"
     call :postStatus "testing" "Running tests"
     call :executeCommand cd %suiteDstDir%
     call :executeCommand "%tester%" --entries "%testFile%" --executable "%dstDir%\windows\Debug\ccextractorwin.exe" --tempfolder "%tempFolder%" --timeout 3000 --reportfolder "%reportFolder%" --resultfolder "%resultFolder%" --samplefolder "%sampleFolder%" --method Server --url "%reportURL%"
     call :postStatus "completed" "Ran all tests"
     rem Shut down
+    echo "Done running tests"
     shutdown -s -t 0
 )
 else
 (
     call :haltAndCatchFire "build"
 )
-EXIT /B %ERRORLEVEL%
+echo "End"
+EXIT %ERRORLEVEL%
 rem Functions to shorten the script
 
 rem Fail when the exit status is not equal to 0
@@ -69,5 +81,6 @@ EXIT /B 0
 rem Exit script and post abort status
 :haltAndCatchFire
 call :postStatus "canceled" %~1 >> "%logFile%"
-shutdown -s -t 0
-EXIT /B 0
+rem Shut down, but only in 5 seconds, to give the time to finish the post status
+shutdown -s -t 5
+EXIT 0

@@ -170,7 +170,7 @@
                                     status = 'error';
                                 }
                                 track = $("#trckr-{{ stage.description }}");
-                                track.removeClass("progtrckr-done progtrckr-running progtrckr-error");
+                                track.removeClass("progtrckr-done progtrckr-running progtrckr-error progtrckr-todo");
                                 track.addClass("progtrckr-"+status);
                             {% endfor %}
                                 row = "";

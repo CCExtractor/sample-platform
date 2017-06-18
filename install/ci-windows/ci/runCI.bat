@@ -51,7 +51,7 @@ rem Functions to shorten the script
 
 rem Fail when the exit status is not equal to 0
 :executeCommand
-%* > "%logFile%"
+%* >> "%logFile%"
 SET /A status=%ERRORLEVEL%
 IF %status% NEQ 0 (
     rem No message needed as we post before anyway

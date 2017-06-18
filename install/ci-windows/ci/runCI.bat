@@ -21,6 +21,9 @@ SET userAgent="CCX/CI_BOT"
 SET logFile="%reportFolder%/log.html"
 
 call :postStatus "preparation" "Copy testsuite to local folder"
+call :executeCommand robocopy %suiteSrcDir% %suiteDstDir% /e
+
+call :postStatus "preparation" "Copy code to local folder"
 call :executeCommand robocopy %srcDir% %dstDir% /e
 call :executeCommand cd %dstDir%
 

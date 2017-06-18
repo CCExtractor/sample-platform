@@ -65,23 +65,26 @@ def kvm_processor_windows(db, repository, delay):
 
 def kvm_processor(db, kvm_name, platform, repository, delay):
     from run import config, log, app
-    log.info("Running kvm_processor for {platform}".format(platform=platform))
+    log.info("[{platform}] Running kvm_processor".format(platform=platform))
     if kvm_name == "":
-        log.critical('KVM name is empty!')
+        log.critical('[{platform}] KVM name is empty!')
         return
     if delay is not None:
         import time
-        log.debug('Sleeping for {time} seconds'.format(time=delay))
+        log.debug('[{platform}] Sleeping for {time} seconds'.format(
+            platform=platform, time=delay))
         time.sleep(delay)
     # Open connection to libvirt
     conn = libvirt.open("qemu:///system")
     if conn is None:
-        log.critical("Couldn't open connection to libvirt!")
+        log.critical("[{platform}] Couldn't open connection to "
+                     "libvirt!".format(platform=platform))
         return
     try:
         vm = conn.lookupByName(kvm_name)
     except libvirt.libvirtError:
-        log.critical("Couldn't find the Linux CI machine named %s" % kvm_name)
+        log.critical("[{platform}] No VM named {name} found!".format(
+            platform=platform, name=kvm_name))
         return
     vm_info = vm.info()
     if vm_info[0] != libvirt.VIR_DOMAIN_SHUTOFF:
@@ -100,23 +103,28 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
                 # Abort process
                 if vm.destroy() == -1:
                     # Failed to shut down
-                    log.critical("Failed to shut down %s" % kvm_name)
+                    log.critical(
+                        "[{platform}] Failed to shut down {name}".format(
+                            platform=platform, name=kvm_name))
                     return
             else:
-                log.info("Current job is still running and not expired")
+                log.info("[{platform}] Current job not expired "
+                         "yet.".format(platform=platform))
                 return
         else:
-            log.warn("No currently running task, but VM is running! Hard "
-                     "reset necessary")
+            log.warn("[{platform}] No task, but VM is running! Hard reset "
+                     "necessary".format(platform=platform))
             if vm.destroy() == -1:
                 # Failed to shut down
-                log.critical("Failed to shut down %s" % kvm_name)
+                log.critical(
+                    "[{platform}] Failed to shut down {name}".format(
+                        platform=platform, name=kvm_name))
                 return
     # Check if there's no KVM status left
     status = Kvm.query.filter(Kvm.name == kvm_name).first()
     if status is not None:
-        log.warn("KVM is powered off, but test is still in there: %s" %
-                 status.test.id)
+        log.warn("[{platform}] KVM is powered off, but test {id} still "
+                 "present".format(platform=platform, id=status.test.id))
         db.delete(status)
         db.commit()
     # Get oldest test for this platform
@@ -127,24 +135,36 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         and_(Test.id.notin_(finished_tests), Test.platform == platform)
     ).order_by(Test.id.asc()).first()
     if test is None:
-        log.info('No more tests to run, returning')
+        log.info('[{platform}] No more tests to run, returning'.format(
+            platform=platform))
         return
     if test.test_type == TestType.pull_request and test.pr_nr == 0:
-        log.warn('Got an invalid test with number %s, deleting' % test.id)
+        log.warn('[{platform}] Test {id} is invalid, deleting'.format(
+            platform=platform, id=test.id)
+        )
         db.delete(test)
         db.commit()
         return
     # Reset to snapshot
     if vm.hasCurrentSnapshot() != 1:
-        log.critical("VM %s has no current snapshot set!" % kvm_name)
+        log.critical(
+            "[{platform}] VM {name} has no current snapshot set!".format(
+                platform=platform, name=kvm_name
+            )
+        )
         return
     snapshot = vm.snapshotCurrent()
     if vm.revertToSnapshot(snapshot) == -1:
-        log.critical("Failed to revert to snapshot %s for VM %s" % (
-            snapshot.getName(), kvm_name))
+        log.critical(
+            "[{platform}] Failed to revert to {snapshot} for {name}".format(
+                platform=platform,
+                snapshot=snapshot.getName(),
+                name=kvm_name
+            )
+        )
         return
-    log.info('Reverted to snapshot %s for VM %s' % (
-        snapshot.getName(), kvm_name))
+    log.info("[{platform}] Reverted to {snapshot} for {name}".format(
+        platform=platform, snapshot=snapshot.getName(), name=kvm_name))
     log.debug('Starting test %s' % test.id)
     status = Kvm(kvm_name, test.id)
     # Prepare data
@@ -163,8 +183,8 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     commit_hash = GeneralData.query.filter(
         GeneralData.key == 'last_commit').first().value
     last_commit = Test.query.filter(Test.commit == commit_hash).first()
-    log.debug("We will compare against the results of test {id}".format(
-        id=last_commit.id))
+    log.debug("[{platform}] We will compare against the results of test "
+              "{id}".format(platform=platform, id=last_commit.id))
 
     # Init collection file
     multi_test = etree.Element('multitest')
@@ -233,7 +253,8 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
             config.get('SAMPLE_REPOSITORY', ''), 'vm_data', kvm_name,
                     'unsafe-ccextractor'))
     except InvalidGitRepositoryError:
-        log.critical('Could not open CCExtractor\'s repository copy!')
+        log.critical("[{platform}] Could not open CCExtractor's repository "
+                     "copy!".format(platform=platform))
         return
     # Return to master
     repo.heads.master.checkout(True)
@@ -241,43 +262,51 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     try:
         origin = repo.remote('origin')
     except ValueError:
-        log.critical('Origin remote doesn\'t exist!')
+        log.critical('[{platform}] Origin remote doesn\'t exist!')
         return
     fetch_info = origin.fetch()
     if len(fetch_info) == 0:
-        log.warn('No info fetched from remote!')
+        log.warn('[{platform}] No info fetched from remote!')
     # Pull code (finally)
     pull_info = origin.pull()
     if len(pull_info) == 0:
-        log.warn('Didn\'t pull any information from remote!')
+        log.warn("[{platform}] Didn't pull any information from "
+                 "remote!".format(platform=platform))
 
     if pull_info[0].flags > 128:
-        log.critical('Didn\'t pull any information from remote: %s!' %
-                     pull_info[0].flags)
+        log.critical(
+            "[{platform}] Didn't pull any information from remote: "
+            "{flags}!".format(platform=platform, flags=pull_info[0].flags)
+        )
         return
     # Delete the test branch if it exists, and recreate
     try:
         repo.delete_head('CI_Branch', force=True)
     except GitCommandError:
-        log.warn('Could not delete CI_Branch head')
+        log.warn("[{platform}] Could not delete CI_Branch head".format(
+            platform=platform))
     # Remove possible left rebase-apply directory
     try:
         shutil.rmtree(os.path.join(
             config.get('SAMPLE_REPOSITORY', ''), 'unsafe-ccextractor',
             '.git', 'rebase-apply'))
     except OSError:
-        log.warn('Could not delete rebase-apply')
+        log.warn("[{platform}] Could not delete rebase-apply".format(
+            platform=platform))
     # If PR, merge, otherwise reset to commit
     if test.test_type == TestType.pull_request:
         # Fetch PR (stored under origin/pull/<id>/head
         pull_info = origin.fetch('pull/{id}/head:CI_Branch'.format(
             id=test.pr_nr))
         if len(pull_info) == 0:
-            log.warn('Didn\'t pull any information from remote PR!')
+            log.warn("[{platform}] Didn't pull any information from remote "
+                     "PR!".format(platform=platform))
 
         if pull_info[0].flags > 128:
-            log.critical('Didn\'t pull any information from remote PR: %s!' %
-                         pull_info[0].flags)
+            log.critical(
+                "[{platform}] Didn't pull any information from remote PR: "
+                "{flags}!".format(platform=platform, flags=pull_info[0].flags)
+            )
             return
         try:
             test_branch = repo.heads['CI_Branch']
@@ -321,8 +350,9 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         try:
             repo.head.reset(test.commit, working_tree=True)
         except GitCommandError:
-            log.warn('Git commit %s (test %s) does not exist!' % (
-                test.commit, test.id))
+            log.warn("[{platform}] Commit {hash} for test {id} does not "
+                     "exist!".format(platform=platform, hash=test.commit,
+                                     id=test.id))
             return
     # Power on machine
     try:
@@ -330,9 +360,11 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         db.add(status)
         db.commit()
     except libvirt.libvirtError:
-        log.critical("Failed to launch VM %s" % kvm_name)
+        log.critical("[{platform}] Failed to launch VM {name}".format(
+            platform=platform, name=kvm_name))
     except IntegrityError:
-        log.warn("Duplicate entry for %s" % test.id)
+        log.warn("[{platform}] Duplicate entry for {id}".format(
+            platform=platform, id=test.id))
 
 
 def queue_test(db, repository, gh_commit, commit, test_type, branch="master",

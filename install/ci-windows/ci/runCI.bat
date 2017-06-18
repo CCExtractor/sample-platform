@@ -51,9 +51,11 @@ rem Functions to shorten the script
 
 rem Fail when the exit status is not equal to 0
 :executeCommand
+echo %* >> "%logFile%"
 %* >> "%logFile%"
 SET /A status=%ERRORLEVEL%
 IF %status% NEQ 0 (
+    echo Command exited with %status% >> "%logFile%"
     rem No message needed as we post before anyway
     call :haltAndCatchFire ""
 )
@@ -69,4 +71,3 @@ rem Exit script and post abort status
 call :postStatus "canceled" %~1 >> "%logFile%"
 shutdown -s -t 0
 EXIT /B 0
-

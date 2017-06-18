@@ -1,13 +1,17 @@
 @echo off
 
-echo "Checking for the existence of variables.bat"
+echo Ensuring we are in the correct folder
+cd %~dp0
+echo We are in folder %cd%
+
+echo Checking for the existence of variables.bat
 if NOT EXIST "variables.bat" (
     rem No variable file defined
     shutdown -s -t 0
     exit
 )
 
-echo "Loading variables.bat"
+echo Loading variables.bat
 rem Source variables
 call variables.bat
 if NOT EXIST %reportURLFile% (
@@ -25,7 +29,7 @@ SET /P reportURL=<%reportURLFile%
 SET userAgent="CCX/CI_BOT"
 SET logFile="%reportFolder%/log.html"
 
-echo "Copy files over to local disk"
+echo Copy files over to local disk
 call :postStatus "preparation" "Copy testsuite to local folder"
 rem robocopy returns a non-zero exit code even on success (https://ss64.com/nt/robocopy-exit.html), so we cannot use executeCommand
 call robocopy %suiteSrcDir% %suiteDstDir% /e >> "%logFile%"
@@ -34,7 +38,7 @@ call :postStatus "preparation" "Copy code to local folder"
 call robocopy %srcDir% %dstDir% /e >> "%logFile%"
 call :executeCommand cd %dstDir%
 
-echo "Compile CCX"
+echo Compile CCX
 call :postStatus "building" "Compiling CCExtractor"
 rem Go to Windows build folder
 call :executeCommand cd windows
@@ -44,20 +48,20 @@ rem check whether installation successful
 if EXIST Debug\ccextractorwin.exe (
     cd Debug
     rem Run testsuite
-    echo "Run tests"
+    echo Run tests
     call :postStatus "testing" "Running tests"
     call :executeCommand cd %suiteDstDir%
     call :executeCommand "%tester%" --entries "%testFile%" --executable "%dstDir%\windows\Debug\ccextractorwin.exe" --tempfolder "%tempFolder%" --timeout 3000 --reportfolder "%reportFolder%" --resultfolder "%resultFolder%" --samplefolder "%sampleFolder%" --method Server --url "%reportURL%"
     call :postStatus "completed" "Ran all tests"
     rem Shut down
-    echo "Done running tests"
+    echo Done running tests
     shutdown -s -t 0
 )
 else
 (
     call :haltAndCatchFire "build"
 )
-echo "End"
+echo End
 EXIT %ERRORLEVEL%
 rem Functions to shorten the script
 

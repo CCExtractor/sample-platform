@@ -194,9 +194,9 @@ echo "yes" > /etc/pure-ftpd/conf/CallUploadScript
 Also `/etc/default/pure-ftpd-common` needs some modification:
 
 ```
-UPLOADSCRIPT=/path/to/cron/upload.sh
-UPLOADUID=1234 # User that owns the upload.sh script
-UPLOADGID=1234 # Group that owns the upload.sh script
+UPLOADSCRIPT=/path/to/cron/progress_ftp_upload.py
+UPLOADUID=2015 # User that owns the upload.sh script
+UPLOADGID=2015 # Group that owns the upload.sh script
 ```
 
 When necessary, an appropriate value in the Umask file 
@@ -211,7 +211,10 @@ need to be started. This can be done using the next command (assuming 1000 is
 the `gid` and `uid` of the user which was specified earlier):
 
 ```
-sudo pure-uploadscript -u 1000 -g 1000 -B -r /home/path/to/src/cron/upload.sh
+sudo pure-uploadscript -u 2015 -g 2015 -B -r /home/path/to/src/cron/progress_ftp_upload.py
+sudo chown 2015:2015 /home/path/to/src/cron/progress_ftp_upload.py
+sudo chown -R 2015:2015 /repository
+
 ```
 
 To check if the upload script is running, the next command can help:

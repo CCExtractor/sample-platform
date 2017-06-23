@@ -26,8 +26,7 @@ echo "-------------------------------"
 echo ""
 echo "* Updating package list        "
 apt-get update >> "$install_log" 2>&1
-echo "* Installing nginx, python, MySQL-python, pip, kvm, libvirt and virt-manager      "
-apt-get install
+echo "* Installing nginx, python, MySQL-python, pip, kvm, libvirt and virt-manager"
 apt-get -q -y install nginx python python-dev python-mysqldb libxslt1-dev libxml2-dev python-pip qemu-kvm libvirt-bin virt-manager >> "$install_log" 2>&1
 if [ ! -f /etc/init.d/mysql* ]; then
     echo "* Installing MySQL (root password will be empty!)"

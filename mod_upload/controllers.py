@@ -20,6 +20,7 @@ mod_upload = Blueprint('upload', __name__)
 
 
 class QueuedSampleNotFoundException(Exception):
+
     def __init__(self, message):
         Exception.__init__(self)
         self.message = message
@@ -174,8 +175,48 @@ def upload():
     return {
         'form': form,
         'accept': form.accept,
-        'upload_size': (config.get('MAX_CONTENT_LENGTH', 0)/(1024*1024)),
+        'upload_size': (config.get('MAX_CONTENT_LENGTH', 0) / (1024 * 1024)),
     }
+
+
+@mod_upload.route('/ftpupload/', methods=['GET', 'POST'])
+def upload_ftp():
+    path = request.args.get('path')
+    from run import config, log
+    temp_path = str(path)
+    hash_sha256 = hashlib.sha256()
+    log.debug('Checking hash value')
+    with open(temp_path, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_sha256.update(chunk)
+    file_hash = hash_sha256.hexdigest()
+    log.debug('Checking queued_sample exist or not with same hash ')
+    queued_sample = QueuedSample.query.filter(
+        QueuedSample.sha == file_hash).first()
+    sample = Sample.query.filter(Sample.sha == file_hash).first()
+    log.debug('Checking existence in the database')
+    if sample is not None or queued_sample is not None:
+        # Remove existing file and notice user
+        os.remove(temp_path)
+        log.debug(
+            temp_path + ' Sample with same hash already uploaded or queued')
+    else:
+        log.debug('Adding to the database ' + str(path))
+        split_arr = temp_path.split('/')
+        filename = split_arr[-1]
+        user_id = split_arr[-2]
+        filename, file_extension = os.path.splitext(filename)
+        queued_sample = QueuedSample(file_hash, file_extension,
+                                     filename, user_id)
+        final_path = os.path.join(
+            config.get('SAMPLE_REPOSITORY', ''), 'QueuedFiles',
+            queued_sample.filename)
+        # Move to queued folder
+        log.debug('Changing the path to ' + final_path)
+        os.rename(temp_path, final_path)
+        # Add to queue
+        g.db.add(queued_sample)
+        g.db.commit()
 
 
 @mod_upload.route('/<upload_id>', methods=['GET', 'POST'])

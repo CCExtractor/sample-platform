@@ -213,7 +213,6 @@ the `gid` and `uid` of the user which was specified earlier):
 ```
 sudo pure-uploadscript -u 2015 -g 2015 -B -r /home/path/to/src/cron/progress_ftp_upload.py
 sudo chown 2015:2015 /home/path/to/src/cron/progress_ftp_upload.py
-sudo chown -R 2015:2015 /repository
 
 ```
 

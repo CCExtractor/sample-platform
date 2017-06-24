@@ -179,7 +179,6 @@ def upload():
     }
 
 
-
 def upload_ftp(db, path):
     from run import config, log
     temp_path = str(path)

@@ -179,9 +179,8 @@ def upload():
     }
 
 
-@mod_upload.route('/ftpupload/', methods=['GET', 'POST'])
-def upload_ftp():
-    path = request.args.get('path')
+
+def upload_ftp(db, path):
     from run import config, log
     temp_path = str(path)
     hash_sha256 = hashlib.sha256()
@@ -215,8 +214,8 @@ def upload_ftp():
         log.debug('Changing the path to ' + final_path)
         os.rename(temp_path, final_path)
         # Add to queue
-        g.db.add(queued_sample)
-        g.db.commit()
+        db.add(queued_sample)
+        db.commit()
 
 
 @mod_upload.route('/<upload_id>', methods=['GET', 'POST'])

@@ -199,7 +199,7 @@
             
             $('.category-header').on('click', function(){
                 var id = $(this).data('category');
-                $('table[data-category="'+id+'"').toggleClass('hide');
+                $('table[data-category="'+id+'"]').toggleClass('hide');
             });
             $('#progress_button').on('click', function(){
                 var content = ($(this).val().indexOf('Show') === 0 ? 'Hide' : 'Show')+' test progress';

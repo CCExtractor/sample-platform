@@ -58,16 +58,13 @@ def get_data_for_test(test, title=None):
     hours = 0
     minutes = 0
     queued_tests = 0
-    ptest = g.db.query(TestProgress.test_id).filter(and_(
-        TestProgress.test_id == Test.id,
-        Test.platform == test.platform)).distinct().all()
     # evaluating estimated time if the test is still in queue
     if len(test.progress) == 0:
         var_average = 'average_time_' + test.platform.value
         queued_kvm = g.db.query(Kvm.test_id).filter(
             Kvm.test_id < test.id).subquery()
         queued_kvm_entries = g.db.query(Test.id).filter(and_(
-            Test.id.in_(queued_kvm),Test.platform == test.platform))
+            Test.id.in_(queued_kvm), Test.platform == test.platform))
         kvm_test = g.db.query(
             TestProgress.test_id,
             label('time', func.group_concat(TestProgress.timestamp))
@@ -84,7 +81,7 @@ def get_data_for_test(test, title=None):
             end = datetime.strptime(timestamps[-1], '%Y-%m-%d %H:%M:%S')
             time_run += (end - start).total_seconds()
         # subtracting current running tests
-        total = (average_duration * (queued_tests+1)) - time_run
+        total = (average_duration * (queued_tests + 1)) - time_run
         minutes = (total % 3600) // 60
         hours = total // 3600
 
@@ -146,8 +143,7 @@ def get_data_for_test(test, title=None):
         'title': title,
         'next': queued_tests,
         'min': minutes,
-        'hr': hours,
-        'ptest': ptest
+        'hr': hours
     }
 
 

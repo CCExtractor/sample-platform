@@ -517,15 +517,20 @@ def progress_reporter(test_id, token):
                     g.github['repository'])
                 # If status is complete, remove the Kvm entry
                 if status in [TestStatus.completed, TestStatus.canceled]:
+                    var_average = 'average_time_' + test.platform.value
                     current_average = GeneralData.query.filter(
-                        GeneralData.key == 'average_time').first()
+                        GeneralData.key == var_average).first()
                     average_time = 0
                     total_time = 0
                     if current_average is None:
+                        platform_tests = g.db.query(Test.id).filter(
+                            Test.platform == test.platform).subquery()
                         finished_tests = g.db.query(
-                            TestProgress.test_id).filter(
-                            TestProgress.status.in_(
-                                [TestStatus.canceled, TestStatus.completed])
+                            TestProgress.test_id).filter(and_(
+                                TestProgress.status.in_(
+                                    [TestStatus.canceled,
+                                     TestStatus.completed]),
+                                TestProgress.test_id.in_(platform_tests))
                         ).subquery()
                         finished_tests_progress = g.db.query(
                             TestProgress).filter(
@@ -552,7 +557,7 @@ def progress_reporter(test_id, token):
                             total_time += (end - start).total_seconds()
                         if len(times) != 0:
                             average_time = total_time // len(times)
-                        new_avg = GeneralData('average_time', average_time)
+                        new_avg = GeneralData(var_average, average_time)
                         g.db.add(new_avg)
                         g.db.commit()
                     else:
@@ -571,7 +576,7 @@ def progress_reporter(test_id, token):
                         last_running_test = end_time - start_time
                         updated_average = (updated_average +
                                            last_running_test.total_seconds())
-                        current_average.value = updated_average
+                        current_average.value = updated_average // number_test
                         g.db.commit()
                     kvm = Kvm.query.filter(Kvm.test_id == test_id).first()
                     if kvm is not None:

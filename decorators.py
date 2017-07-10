@@ -103,6 +103,7 @@ def template_renderer(template=None, status=200):
                 menu_entries.get('tests', {}),
                 menu_entries.get('regression', {}),
                 menu_entries.get('config', {}),
+                menu_entries.get('github', {}),
                 menu_entries.get('account', {}),
                 menu_entries.get('auth', {})
             ]

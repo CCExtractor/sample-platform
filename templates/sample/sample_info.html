@@ -68,6 +68,8 @@
                         <p>No media info available</p>
                     {% endif %}
                 </blockquote>
+                <h2>Github Issues</h2>
+                {% include "sample/list_issues.html" %}
                 <p class="small">Do you want to see more information displayed by default or did I forget something? Please make a request on GitHub!</p>
             </div>
             <div class="column medium-3">
@@ -83,4 +85,16 @@
         </div>
         </div>
     </div>
+{% endblock %}
+{% block scripts %}
+    {{ super() }}
+<script type="text/javascript">
+     $(document).ready(function(){
+        $('.created-date').each(function(index, obj)
+    {
+        var datetime = new Date($(this).text());
+        $(this).text(datetime.toString());
+    });
+    });
+</script>
 {% endblock %}

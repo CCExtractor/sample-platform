@@ -20,6 +20,7 @@ mod_upload = Blueprint('upload', __name__)
 
 
 class QueuedSampleNotFoundException(Exception):
+
     def __init__(self, message):
         Exception.__init__(self)
         self.message = message
@@ -75,6 +76,25 @@ def index_admin():
         'queue': QueuedSample.query.all(),
         'messages': UploadLog.query.order_by(UploadLog.id.desc()).all()
     }
+
+
+def make_github_issue(title, body=None, labels=None):
+    '''Create an issue on github.com using the given parameters.'''
+    from run import config
+    # Our url to create issues via POST
+    REPO_OWNER = config.get('GITHUB_OWNER', '')
+    REPO_NAME = config.get('GITHUB_REPOSITORY', '')
+    url = 'https://api.github.com/repos/%s/%s/issues' % (REPO_OWNER, REPO_NAME)
+    session = requests.Session()
+    session.auth = (g.user.email, g.user.github_token)
+    # Create an authenticated session to create the issue
+    # Create our issue
+    issue = {'title': title,
+             'body': body,
+             'labels': labels}
+    # Add the issue to our repository
+    r = session.post(url, json.dumps(issue))
+    return r.status_code
 
 
 @mod_upload.route('/ftp')
@@ -174,7 +194,7 @@ def upload():
     return {
         'form': form,
         'accept': form.accept,
-        'upload_size': (config.get('MAX_CONTENT_LENGTH', 0)/(1024*1024)),
+        'upload_size': (config.get('MAX_CONTENT_LENGTH', 0) / (1024 * 1024)),
     }
 
 
@@ -222,6 +242,36 @@ def process_id(upload_id):
                     g.db.rollback()
                 # Move file
                 if db_committed:
+                    with open("issues.md", "r") as f:
+                        data = f.read()
+                    split_arr = data.split('**')
+                    content = split_arr[3] + split_arr[4] + \
+                        split_arr[5] + split_arr[6]
+                    if form.report.data == 'y':
+                        necessary_details = ('**{head}** \n '
+                                             'What platform did you use? '
+                                             '{platform} \n '
+                                             'What where the used arguments? '
+                                             '{arg} \n').format(
+                            head=split_arr[7], platform=form.platform.data,
+                            arg=form.parameters.data)
+                        sample_link = ('{server_id}/sample/'
+                                       '{sample_id}').format(
+                            server_id=config.get('SERVER_NAME',
+                                                 ''), sample_id=sample.id)
+                        video_details = ('**{head}** \n [Sample Link]'
+                                         '({link}) \n {notes} \n').format(
+                            head=split_arr[9], link=sample_link,
+                            notes=form.notes.data)
+                        issue_title = ('[BUG] CCExtractor version '
+                                       '{version} {data}').format(
+                            version=form.version.data,
+                            data=form.IssueTitle.data)
+                        issue_body = content + '\n' + \
+                            necessary_details + video_details + \
+                            '**' + split_arr[11] + '**\n' + form.IssueBody.data
+                        make_github_issue(issue_title, issue_body, [
+                                          'bug', 'sample' + str(sample.id)])
                     os.rename(temp_path, final_path)
                     return redirect(
                         url_for('sample.sample_by_id', sample_id=sample.id))

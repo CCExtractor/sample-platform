@@ -1,4 +1,6 @@
 import os
+import json
+import requests
 from operator import and_
 
 from flask import Blueprint, make_response, request, redirect, url_for, g
@@ -30,9 +32,25 @@ def before_app_request():
 
 
 class SampleNotFoundException(Exception):
+
     def __init__(self, message):
         Exception.__init__(self)
         self.message = message
+
+
+def list_github_issue(label):
+    REPO_OWNER = config.get('GITHUB_OWNER', '')
+    REPO_NAME = config.get('GITHUB_REPOSITORY', '')
+    url = 'https://api.github.com/search/issues?q=+label:%s+'
+    'repo:%s+user:%s' % (
+        label, REPO_NAME, REPO_OWNER)
+    session = requests.Session()
+    if g.user is not None:
+        USERNAME = g.user.email
+        PASSWORD = g.user.github_token
+        session.auth = (USERNAME, PASSWORD)
+    r = session.get(url)
+    return r.content
 
 
 def display_sample_info(sample):
@@ -63,7 +81,7 @@ def display_sample_info(sample):
     if len(regression_tests) > 0:
         if test_commit is not None:
             sq = g.db.query(RegressionTest.id).filter(
-                        RegressionTest.sample_id == sample.id).subquery()
+                RegressionTest.sample_id == sample.id).subquery()
             exit_code = g.db.query(TestResult.exit_code).filter(and_(
                 TestResult.exit_code != TestResult.expected_rc,
                 and_(
@@ -106,7 +124,7 @@ def display_sample_info(sample):
     else:
         status = 'Not present in regression tests'
         status_release = 'Not present in regression tests'
-
+    issues = list_github_issue('sample' + str(sample.id))
     return {
         'sample': sample,
         'media': media_info,
@@ -115,7 +133,8 @@ def display_sample_info(sample):
         'latest_commit': status,
         'latest_commit_test': test_commit,
         'latest_release': status_release,
-        'latest_release_test': test_release
+        'latest_release_test': test_release,
+        'issues': json.loads(issues)['items']
     }
 
 

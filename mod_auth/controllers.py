@@ -120,7 +120,8 @@ def send_reset_email(usr):
 def github_redirect():
     from run import config
     github_clientid = config.get('GITHUB_CLIENT_ID', '')
-    return redirect(('https://github.com/login/oauth/authorize?client_id={client_id}&scope=public_repo').format(
+    return redirect(('https://github.com/login/oauth/authorize?'
+                     'client_id={client_id}&scope=public_repo').format(
         client_id=github_clientid))
 
 
@@ -143,7 +144,6 @@ def github_callback():
         if 'access_token' in response:
             user = User.query.filter(User.id == g.user.id).first()
             user.github_token = response['access_token']
-            #session['access_token'] = response['access_token']
             g.db.commit()
         else:
             g.log.error('github didn\'t return an access token')

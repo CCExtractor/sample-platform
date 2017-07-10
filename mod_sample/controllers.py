@@ -39,6 +39,7 @@ class SampleNotFoundException(Exception):
 
 
 def list_github_issue(label):
+    from run import config
     REPO_OWNER = config.get('GITHUB_OWNER', '')
     REPO_NAME = config.get('GITHUB_REPOSITORY', '')
     url = 'https://api.github.com/search/issues?q=+label:%s+'

@@ -86,15 +86,3 @@
         </div>
     </div>
 {% endblock %}
-{% block scripts %}
-    {{ super() }}
-<script type="text/javascript">
-     $(document).ready(function(){
-        $('.created-date').each(function(index, obj)
-    {
-        var datetime = new Date($(this).text());
-        $(this).text(datetime.toString());
-    });
-    });
-</script>
-{% endblock %}

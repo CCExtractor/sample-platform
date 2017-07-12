@@ -1,10 +1,11 @@
-{% if issues|length > 0 %} 
+{% if issues == 'ERROR' %}
+    <p>Error Fetching Data from Github. Try Again Later.</p>
+{% elif issues|length > 0 %} 
     <div id="no-more-tables">
-        <table class="col-md-12 table-bordered table-striped table-condensed cf">
+        <table class="col-md-12 sortable table-bordered table-striped table-condensed cf">
             <thead class="cf">
                 <tr>
-                    <th class="numeric">id</th>
-                    <th class="numeric">Title</th>
+                    <th class="numeric">Issue</th>
                     <th class="numeric">Created By</th>
                     <th class="numeric">Created At</th>
                     <th class="numeric">Status</th>
@@ -13,10 +14,9 @@
             <tbody>
                 {% for issue in issues %}
                     <tr>
-                       <td data-title="id"><a href="{{ issue['html_url'] }}">{{ issue['number'] }}</a></td>
-                       <td data-title="Title">{{ issue['title'] }}</td>
+                       <td data-title="Issue"><a href="{{ issue['html_url'] }}">{{ issue['title'] }} #{{ issue['number'] }}</a></td>
                        <td data-title="Created By"><a href="{{ issue['user']['html_url'] }}"> {{ issue['user']['login'] }}</a></td>
-                       <td data-title="Created At" class="created-date">{{ issue['created_at'] }}</td>
+                       <td data-title="Created At" class="created-date">{{ issue['created_at']|strptime('%Y-%m-%d %H:%M:%S (UTC)') }}</td>
                        <td data-title="Status">{{ issue['state']}}</td>
                     </tr>
                 {% endfor %}

@@ -46,12 +46,11 @@ def list_github_issue(label):
     'repo:%s+user:%s' % (
         label, REPO_NAME, REPO_OWNER)
     session = requests.Session()
-    if g.user is not None:
-        USERNAME = g.user.email
-        PASSWORD = g.user.github_token
-        session.auth = (USERNAME, PASSWORD)
     r = session.get(url)
-    return r.content
+    if r.status_code == 200:
+        return r.content
+    else:
+        return 'ERROR'
 
 
 def display_sample_info(sample):
@@ -125,7 +124,11 @@ def display_sample_info(sample):
     else:
         status = 'Not present in regression tests'
         status_release = 'Not present in regression tests'
-    issues = list_github_issue('sample' + str(sample.id))
+    load_issues = list_github_issue('sample' + str(sample.id))
+    if load_issues is not None:
+        issues = json.loads(load_issues)['items']
+    else:
+        issues = load_issues
     return {
         'sample': sample,
         'media': media_info,
@@ -135,7 +138,7 @@ def display_sample_info(sample):
         'latest_commit_test': test_commit,
         'latest_release': status_release,
         'latest_release_test': test_release,
-        'issues': json.loads(issues)['items']
+        'issues': issues
     }
 
 

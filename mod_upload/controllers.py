@@ -242,34 +242,41 @@ def process_id(upload_id):
                     g.db.rollback()
                 # Move file
                 if db_committed:
-                    with open("issues.md", "r") as f:
-                        data = f.read()
                     split_arr = data.split('**')
                     content = split_arr[3] + split_arr[4] + \
                         split_arr[5] + split_arr[6]
                     if form.report.data == 'y':
-                        necessary_details = ('**{head}** \n '
-                                             'What platform did you use? '
-                                             '{platform} \n '
-                                             'What where the used arguments? '
-                                             '{arg} \n').format(
-                            head=split_arr[7], platform=form.platform.data,
-                            arg=form.parameters.data)
-                        sample_link = ('{server_id}/sample/'
-                                       '{sample_id}').format(
-                            server_id=config.get('SERVER_NAME',
-                                                 ''), sample_id=sample.id)
-                        video_details = ('**{head}** \n [Sample Link]'
+                        with open("issues.md", "r") as f:
+                            data = f.read()
+                        data = data.replace('[ ] I', '[X] I')
+                        data = data.replace(
+                            '[X] I have never', '[ ] I have never')
+                        data = data.replace(
+                            '[X] I have used CCExtractor',
+                            '[ ] I have used CCExtractor')
+                        data = data.replace(
+                            '[X] I absolutely', '[ ] I absolutely')
+                        data = data.replace('`-autoprogram`',
+                                            ('`{param}` \nCCExtractor version'
+                                                ' {version}').format(
+                                                param=form.parameters.data,
+                                                version=form.version.data))
+                        platform = form.platform.data.title()
+                        data = data.replace(
+                            '[ ] ' + platform, '[X] ' + platform)
+                        videohead = '**Video links**'
+                        bodyhead = ('{issue content here,'
+                        ' replace this line with your issue content}')
+                        sample_link = url_for('sample.sample_by_id',
+                                              sample_id=sample.id, _external=True)
+                        video_details = ('{head} \n [Sample Link]'
                                          '({link}) \n {notes} \n').format(
-                            head=split_arr[9], link=sample_link,
+                            head=videohead, link=sample_link,
                             notes=form.notes.data)
-                        issue_title = ('[BUG] CCExtractor version '
-                                       '{version} {data}').format(
-                            version=form.version.data,
+                        data = data.replace(videohead, video_details)
+                        data = data.replace(bodyhead, form.IssueBody.data)
+                        issue_title = ('[BUG] {data}').format(
                             data=form.IssueTitle.data)
-                        issue_body = content + '\n' + \
-                            necessary_details + video_details + \
-                            '**' + split_arr[11] + '**\n' + form.IssueBody.data
                         make_github_issue(issue_title, issue_body, [
                                           'bug', 'sample' + str(sample.id)])
                     os.rename(temp_path, final_path)

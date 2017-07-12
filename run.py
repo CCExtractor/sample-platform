@@ -8,6 +8,7 @@ from werkzeug.routing import BaseConverter
 
 from config_parser import parse_config
 from database import create_session
+from datetime import datetime
 from decorators import template_renderer
 from log_configuration import LogConfiguration
 from mailer import Mailer
@@ -91,6 +92,12 @@ def date_time_format(value, fmt='%Y-%m-%d %H:%M:%S'):
 
 app.jinja_env.filters['date'] = date_time_format
 
+def date_time_format2(date, fmt='%Y-%m-%d %H:%M:%S'):
+    format = '%Y-%m-%dT%H:%M:%SZ'
+    obj = datetime.strptime(date, format)
+    return date_time_format(obj, fmt)
+
+app.jinja_env.filters['strptime'] = date_time_format2
 
 # Allow regexes in routes
 class RegexConverter(BaseConverter):

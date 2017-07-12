@@ -4,19 +4,19 @@ CCExtractor version (using the --version parameter preferably) : **X.X**
 
 **In raising this issue, I confirm the following (please check boxes, eg [X]):**
 
-- [X] I have read and understood the [contributors guide](https://github.com/CCExtractor/ccextractor/blob/master/.github/CONTRIBUTING.md).
-- [X] I have checked that the bug-fix I am reporting can be replicated, or that the feature I am suggesting isn't already present.
-- [X] I have checked that the issue I'm posting isn't already reported.
-- [X] I have checked that the issue I'm porting isn't already solved and no duplicates exist in [closed issues](https://github.com/CCExtractor/ccextractor/issues?q=is%3Aissue+is%3Aclosed) and in [opened issues](https://github.com/CCExtractor/ccextractor/issues)
-- [X] I have checked the pull requests tab for existing solutions/implementations to my issue/suggestion.
-- [X] I have used the latest available version of CCExtractor to verify this issue exists.
+- [ ] I have read and understood the [contributors guide](https://github.com/CCExtractor/ccextractor/blob/master/.github/CONTRIBUTING.md).
+- [ ] I have checked that the bug-fix I am reporting can be replicated, or that the feature I am suggesting isn't already present.
+- [ ] I have checked that the issue I'm posting isn't already reported.
+- [ ] I have checked that the issue I'm porting isn't already solved and no duplicates exist in [closed issues](https://github.com/CCExtractor/ccextractor/issues?q=is%3Aissue+is%3Aclosed) and in [opened issues](https://github.com/CCExtractor/ccextractor/issues)
+- [ ] I have checked the pull requests tab for existing solutions/implementations to my issue/suggestion.
+- [ ] I have used the latest available version of CCExtractor to verify this issue exists.
 
 **My familiarity with the project is as follows (check one, eg [X]):**
 
 - [ ] I have never used CCExtractor.
 - [ ] I have used CCExtractor just a couple of times.
 - [ ] I absolutely love CCExtractor, but have not contributed previously.
-- [X] I am an active contributor to CCExtractor.
+- [ ] I am an active contributor to CCExtractor.
 
 **Necessary information**
 - Is this a regression (did it work before)? [ ] NO | [ ] YES - *please specify the last known working version*

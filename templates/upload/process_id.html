@@ -52,11 +52,12 @@
                             {{ macros.render_field(form.report) }}
                         </div>
                         <div id="reportgithub">
-                        <div class="medium-12 columns">
-                            {{ macros.render_field(form.IssueTitle) }}
-                        </div>
-                        <div class="medium-12 columns">
-                            {{ macros.render_field(form.IssueBody) }}
+                            <div class="medium-12 columns">
+                                {{ macros.render_field(form.IssueTitle) }}
+                            </div>
+                            <div class="medium-12 columns">
+                                {{ macros.render_field(form.IssueBody) }}
+                            </div>
                         </div>
                         <div class="medium-12 columns">
                             {{ macros.render_field(form.submit) }}
@@ -91,7 +92,7 @@
                 $('#report').change(function() {
                         report();
                  });
+                report();
         });
-        report();
         </script>
 {% endblock %}

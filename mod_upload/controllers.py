@@ -237,7 +237,7 @@ def process_id(upload_id):
                     g.db.delete(queued_sample)
                     g.db.commit()
                     db_committed = True
-                except:
+                except Exception:
                     traceback.print_exc()
                     g.db.rollback()
                 # Move file

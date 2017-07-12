@@ -101,6 +101,7 @@ def date_time_format2(date, fmt='%Y-%m-%d %H:%M:%S'):
     obj = datetime.strptime(date, format)
     return date_time_format(obj, fmt)
 
+
 app.jinja_env.filters['strptime'] = date_time_format2
 
 

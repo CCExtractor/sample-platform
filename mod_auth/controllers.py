@@ -118,8 +118,8 @@ def github_redirect():
         return None
     else:
         return ('https://github.com/login/oauth/authorize?'
-                     'client_id={client_id}&scope=public_repo').format(
-        client_id=github_clientid)
+                'client_id={client_id}&scope=public_repo').format(
+            client_id=github_clientid)
 
 
 @mod_auth.route('/github_callback', methods=['GET', 'POST'])

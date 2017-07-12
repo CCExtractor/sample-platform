@@ -266,9 +266,11 @@ def process_id(upload_id):
                             '[ ] ' + platform, '[X] ' + platform)
                         videohead = '**Video links**'
                         bodyhead = ('{issue content here,'
-                        ' replace this line with your issue content}')
+                                    ' replace this line with'
+                                    ' your issue content}')
                         sample_link = url_for('sample.sample_by_id',
-                                              sample_id=sample.id, _external=True)
+                                              sample_id=sample.id,
+                                              _external=True)
                         video_details = ('{head} \n [Sample Link]'
                                          '({link}) \n {notes} \n').format(
                             head=videohead, link=sample_link,

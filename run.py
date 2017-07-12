@@ -72,6 +72,7 @@ def install_secret_keys(application, secret_session='secret_key',
     if do_exit:
         sys.exit(1)
 
+
 install_secret_keys(app)
 
 
@@ -82,6 +83,7 @@ def sub_menu_open(menu_entries, active_route):
             return True
     return False
 
+
 app.jinja_env.globals.update(sub_menu_open=sub_menu_open)
 app.jinja_env.add_extension('jinja2.ext.loopcontrols')
 
@@ -90,7 +92,9 @@ app.jinja_env.add_extension('jinja2.ext.loopcontrols')
 def date_time_format(value, fmt='%Y-%m-%d %H:%M:%S'):
     return value.strftime(fmt)
 
+
 app.jinja_env.filters['date'] = date_time_format
+
 
 def date_time_format2(date, fmt='%Y-%m-%d %H:%M:%S'):
     format = '%Y-%m-%dT%H:%M:%SZ'
@@ -99,8 +103,10 @@ def date_time_format2(date, fmt='%Y-%m-%d %H:%M:%S'):
 
 app.jinja_env.filters['strptime'] = date_time_format2
 
+
 # Allow regexes in routes
 class RegexConverter(BaseConverter):
+
     def __init__(self, url_map, *items):
         super(RegexConverter, self).__init__(url_map)
         self.regex = items[0]
@@ -160,6 +166,7 @@ def teardown(exception):
     db = g.get('db', None)
     if db is not None:
         db.remove()
+
 
 # Register blueprints
 app.register_blueprint(mod_auth, url_prefix='/account')  # Needs to be first

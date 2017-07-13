@@ -243,8 +243,20 @@ def process_id(upload_id):
                 # Move file
                 if db_committed:
                     if form.report.data == 'y':
-                        with open("issues.md", "r") as f:
-                            data = f.read()
+                        data = ""
+                        try:
+                            kvm_name = config.get('KVM_LINUX_NAME', '')
+                            repo = Repo(os.path.join(
+                                config.get('SAMPLE_REPOSITORY', ''),
+                                        'vm_data', kvm_name,
+                                        'unsafe-ccextractor'))
+                            heads = repo.heads
+                            data = repo.git.show('{branch}:{file}'.format(
+                                branch=master,
+                                file='.github/ISSUE_TEMPLATE.md'))
+                        except InvalidGitRepositoryError:
+                            log.critical(" Could not open CCExtractor's"
+                                         " repository ")
                         data = data.replace('[ ] I', '[X] I')
                         data = data.replace(
                             '[X] I have never', '[ ] I have never')

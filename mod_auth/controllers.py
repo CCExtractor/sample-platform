@@ -26,7 +26,6 @@ def before_app_request():
         'route': 'auth.login' if g.user is None else 'auth.logout'
     }
     if g.user is not None:
-        github_token = g.user.github_token
         g.menu_entries['account'] = {
             'title': 'Manage account',
             'icon': 'user',
@@ -114,6 +113,7 @@ def send_reset_email(usr):
 def github_redirect():
     from run import config
     github_clientid = config.get('GITHUB_CLIENT_ID', '')
+    github_token = g.user.github_token
     if github_token is not None:
         return None
     else:

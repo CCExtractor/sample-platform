@@ -43,8 +43,8 @@ def list_github_issue(label):
     REPO_OWNER = config.get('GITHUB_OWNER', '')
     REPO_NAME = config.get('GITHUB_REPOSITORY', '')
     url = 'https://api.github.com/search/issues?q=+label:%s+'
-    'repo:%s+user:%s' % (
-        label, REPO_NAME, REPO_OWNER)
+    'repo:%s/%s' % (
+        label, REPO_OWNER, REPO_NAME)
     session = requests.Session()
     r = session.get(url)
     if r.status_code == 200:

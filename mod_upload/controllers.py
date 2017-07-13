@@ -242,9 +242,6 @@ def process_id(upload_id):
                     g.db.rollback()
                 # Move file
                 if db_committed:
-                    split_arr = data.split('**')
-                    content = split_arr[3] + split_arr[4] + \
-                        split_arr[5] + split_arr[6]
                     if form.report.data == 'y':
                         with open("issues.md", "r") as f:
                             data = f.read()

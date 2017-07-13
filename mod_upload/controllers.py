@@ -8,6 +8,7 @@ from flask import Blueprint, g, make_response, render_template, request, \
 from werkzeug.utils import secure_filename
 
 from decorators import template_renderer, get_menu_entries
+from git import Repo, InvalidGitRepositoryError, GitCommandError
 from mod_auth.controllers import login_required, check_access_rights
 from mod_auth.models import Role
 from mod_home.models import CCExtractorVersion

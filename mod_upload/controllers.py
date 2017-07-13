@@ -253,7 +253,7 @@ def process_id(upload_id):
                                         'unsafe-ccextractor'))
                             heads = repo.heads
                             data = repo.git.show('{branch}:{file}'.format(
-                                branch=master,
+                                branch=heads.master,
                                 file='.github/ISSUE_TEMPLATE.md'))
                         except InvalidGitRepositoryError:
                             log.critical(" Could not open CCExtractor's"

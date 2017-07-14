@@ -631,8 +631,14 @@ def progress_reporter(test_id, token):
                     message = progress.message
 
                 gh_commit = repository.statuses(test.commit)
-                gh_commit.post(state=state, description=message,
-                               context=context, target_url=target_url)
+                try:
+                    gh_commit.post(
+                        state=state, description=message, context=context,
+                        target_url=target_url
+                    )
+                except ApiError as a:
+                    log.error('Got an exception while posting to GitHub! '
+                              'Message: {message}'.format(message=a.message))
             elif request.form['type'] == 'equality':
                 log.debug('Equality for {t}/{rt}/{rto}'.format(
                     t=test_id, rt=request.form['test_id'], rto=request.form[

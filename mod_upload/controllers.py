@@ -15,7 +15,6 @@ from mod_sample.models import Sample, ForbiddenExtension
 from mod_upload.forms import UploadForm, DeleteQueuedSampleForm, \
     FinishQueuedSampleForm
 from models import Upload, QueuedSample, UploadLog, FTPCredentials, Platform
-from run import log, config
 
 mod_upload = Blueprint('upload', __name__)
 
@@ -333,6 +332,7 @@ def add_sample_to_queue(file_hash, temp_path, user_id, db):
     :return: Nothing
     :rtype: void
     """
+    from run import config
     filename, file_extension = os.path.splitext(temp_path)
     queued_sample = QueuedSample(file_hash, file_extension,
                                  filename, user_id)
@@ -347,6 +347,7 @@ def add_sample_to_queue(file_hash, temp_path, user_id, db):
 
 
 def upload_ftp(db, path):
+    from run import log, config
     temp_path = str(path)
     path_parts = temp_path.split(os.path.sep)
     # We assume /home/{uid}/ as specified in the model

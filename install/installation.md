@@ -167,11 +167,11 @@ MYSQLDatabase   pureftpd
 # user info (we need to show the password on the site after all).
 MYSQLCrypt      plaintext
 # Queries
-MYSQLGetPW      SELECT Password FROM ftpd WHERE User="\L" AND status="1" AND (ipaccess = "*" OR ipaccess LIKE "\R")
-MYSQLGetUID     SELECT Uid FROM ftpd WHERE User="\L" AND status="1" AND (ipaccess = "*" OR ipaccess LIKE "\R")
-MYSQLGetGID     SELECT Gid FROM ftpd WHERE User="\L" AND status="1" AND (ipaccess = "*" OR ipaccess LIKE "\R")
-MYSQLGetDir     SELECT Dir FROM ftpd WHERE User="\L" AND status="1" AND (ipaccess = "*" OR ipaccess LIKE "\R")
-MySQLGetQTAFS   SELECT QuotaFiles FROM ftpd WHERE User="\L" AND status="1" AND (ipaccess = "*" OR ipaccess LIKE "\R")
+MYSQLGetPW      SELECT password FROM ftpd WHERE user_name="\L" AND status="1" AND (ip_access = "*" OR ip_access LIKE "\R")
+MYSQLGetUID     SELECT uid FROM ftpd WHERE user_name="\L" AND status="1" AND (ip_access = "*" OR ip_access LIKE "\R")
+MYSQLGetGID     SELECT gid FROM ftpd WHERE user_name="\L" AND status="1" AND (ip_access = "*" OR ip_access LIKE "\R")
+MYSQLGetDir     SELECT dir FROM ftpd WHERE user_name="\L" AND status="1" AND (ip_access = "*" OR ip_access LIKE "\R")
+MySQLGetQTAFS   SELECT quota_files FROM ftpd WHERE user_name="\L" AND status="1" AND (ip_access = "*" OR ip_access LIKE "\R")
 # Override queries for UID & GID
 MYSQLDefaultUID 2015 # Set the UID of the ftpuser here
 MYSQLDefaultGID 2015 # Set the GID of the ftpgroup here

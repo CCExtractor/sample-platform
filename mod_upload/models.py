@@ -99,6 +99,8 @@ class FTPCredentials(Base):
     dir = Column(String(128), nullable=False)
     ip_access = Column(String(16), nullable=False)
     quota_files = Column(Integer, nullable=False)
+    uid = Column(Integer, nullable=False, default=2015)
+    gid = Column(Integer, nullable=False, default=2015)
 
     def __init__(self, user_id, user_name=None, status=FTPActive.enabled,
                  password=None, home_directory=None, ip_access="*",

@@ -9,12 +9,13 @@ from werkzeug.utils import secure_filename
 
 from decorators import template_renderer, get_menu_entries
 from mod_auth.controllers import login_required, check_access_rights
-from mod_auth.models import Role
+from mod_auth.models import Role, User
 from mod_home.models import CCExtractorVersion
-from mod_sample.models import Sample
+from mod_sample.models import Sample, ForbiddenExtension
 from mod_upload.forms import UploadForm, DeleteQueuedSampleForm, \
     FinishQueuedSampleForm
 from models import Upload, QueuedSample, UploadLog, FTPCredentials, Platform
+from run import log, config
 
 mod_upload = Blueprint('upload', __name__)
 
@@ -143,33 +144,14 @@ def upload():
             # Save to temporary location
             uploaded_file.save(temp_path)
             # Get hash and check if it's already been submitted
-            hash_sha256 = hashlib.sha256()
-            with open(temp_path, "rb") as f:
-                for chunk in iter(lambda: f.read(4096), b""):
-                    hash_sha256.update(chunk)
-            file_hash = hash_sha256.hexdigest()
-
-            queued_sample = QueuedSample.query.filter(
-                QueuedSample.sha == file_hash).first()
-            sample = Sample.query.filter(Sample.sha == file_hash).first()
-
-            if sample is not None or queued_sample is not None:
+            file_hash = create_hash_for_sample(temp_path)
+            if sample_already_uploaded(file_hash):
                 # Remove existing file and notice user
                 os.remove(temp_path)
                 form.errors['file'] = [
                     'Sample with same hash already uploaded or queued']
             else:
-                filename, file_extension = os.path.splitext(filename)
-                queued_sample = QueuedSample(file_hash, file_extension,
-                                             filename, g.user.id)
-                final_path = os.path.join(
-                    config.get('SAMPLE_REPOSITORY', ''), 'QueuedFiles',
-                    queued_sample.filename)
-                # Move to queued folder
-                os.rename(temp_path, final_path)
-                # Add to queue
-                g.db.add(queued_sample)
-                g.db.commit()
+                add_sample_to_queue(file_hash, temp_path, g.user.id, g.db)
                 # Redirect
                 return redirect(url_for('.index'))
     return {
@@ -177,44 +159,6 @@ def upload():
         'accept': form.accept,
         'upload_size': (config.get('MAX_CONTENT_LENGTH', 0) / (1024 * 1024)),
     }
-
-
-def upload_ftp(db, path):
-    from run import config, log
-    temp_path = str(path)
-    hash_sha256 = hashlib.sha256()
-    log.debug('Checking hash value')
-    with open(temp_path, "rb") as f:
-        for chunk in iter(lambda: f.read(4096), b""):
-            hash_sha256.update(chunk)
-    file_hash = hash_sha256.hexdigest()
-    log.debug('Checking queued_sample exist or not with same hash ')
-    queued_sample = QueuedSample.query.filter(
-        QueuedSample.sha == file_hash).first()
-    sample = Sample.query.filter(Sample.sha == file_hash).first()
-    log.debug('Checking existence in the database')
-    if sample is not None or queued_sample is not None:
-        # Remove existing file and notice user
-        os.remove(temp_path)
-        log.debug(
-            temp_path + ' Sample with same hash already uploaded or queued')
-    else:
-        log.debug('Adding to the database ' + str(path))
-        split_arr = temp_path.split('/')
-        filename = split_arr[-1]
-        user_id = split_arr[-2]
-        filename, file_extension = os.path.splitext(filename)
-        queued_sample = QueuedSample(file_hash, file_extension,
-                                     filename, user_id)
-        final_path = os.path.join(
-            config.get('SAMPLE_REPOSITORY', ''), 'QueuedFiles',
-            queued_sample.filename)
-        # Move to queued folder
-        log.debug('Changing the path to ' + final_path)
-        os.rename(temp_path, final_path)
-        # Add to queue
-        db.add(queued_sample)
-        db.commit()
 
 
 @mod_upload.route('/<upload_id>', methods=['GET', 'POST'])
@@ -342,3 +286,107 @@ def delete_id(upload_id):
 
     # Raise error
     raise QueuedSampleNotFoundException()
+
+
+def create_hash_for_sample(file_path):
+    """
+    Creates the has for given file
+    :param file_path: The path to the file that needs to be hashed.
+    :type file_path: str
+    :return: A hash for the given file.
+    :rtype: str
+    """
+    hash_sha256 = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_sha256.update(chunk)
+    return hash_sha256.hexdigest()
+
+
+def sample_already_uploaded(file_hash):
+    """
+    Checks if a given file hash is already present in the database.
+    :param file_hash: The file hash that needs to be checked.
+    :type file_hash: str
+    :return: True if the file is already in the database as a sample or
+    queued file.
+    :rtype: bool
+    """
+    queued_sample = QueuedSample.query.filter(
+        QueuedSample.sha == file_hash).first()
+    sample = Sample.query.filter(Sample.sha == file_hash).first()
+
+    return sample is not None or queued_sample is not None
+
+
+def add_sample_to_queue(file_hash, temp_path, user_id, db):
+    """
+    Adds a sample to the queue.
+    :param file_hash: The hash of the file
+    :type file_hash: str
+    :param temp_path: The current location of the file
+    :type temp_path: str
+    :param user_id: The user ID
+    :type user_id: int
+    :param db: The database connection
+    :type db: sqlalchemy.orm.scoped_session
+    :return: Nothing
+    :rtype: void
+    """
+    filename, file_extension = os.path.splitext(temp_path)
+    queued_sample = QueuedSample(file_hash, file_extension,
+                                 filename, user_id)
+    final_path = os.path.join(
+        config.get('SAMPLE_REPOSITORY', ''), 'QueuedFiles',
+        queued_sample.filename)
+    # Move to queued folder
+    os.rename(temp_path, final_path)
+    # Add to queue
+    db.add(queued_sample)
+    db.commit()
+
+
+def upload_ftp(db, path):
+    temp_path = str(path)
+    path_parts = temp_path.split(os.path.sep)
+    # We assume /home/{uid}/ as specified in the model
+    user_id = path_parts[1]
+    user = User.query.filter(User.id == user_id).first()
+    filename, file_extension = os.path.splitext(path)
+    # FIRST, check extension. We can't limit extensions on FTP as we can on
+    # the web interface.
+    forbidden = ForbiddenExtension.query.filter(
+        ForbiddenExtension.extension == file_extension[1:]).first()
+    if forbidden is not None:
+        log.error(
+            'User {name} tried to upload a file with a forbidden extension '
+            '({extension})!'.format(name=user.name,
+                                    extension=file_extension[1:])
+        )
+        os.remove(temp_path)
+        return
+    log.debug('Moving file to temporary folder and changing permissions...')
+    # Move the file to a temporary location
+    filename = secure_filename(
+        temp_path.replace('/home/' + user_id + '/', ''))
+    intermediate_path = os.path.join(
+        config.get('SAMPLE_REPOSITORY', ''), 'TempFiles', filename)
+    # Save to temporary location
+    os.rename(temp_path, intermediate_path)
+    # Ensure we have matching users
+    os.chown(
+        intermediate_path,
+        config.get('SAMPLE_REPOSITORY_UID', -1),
+        config.get('SAMPLE_REPOSITORY_GID', -1)
+    )
+    os.chmod(intermediate_path, 644)
+
+    log.debug('Checking hash value for {path}'.format(path=intermediate_path))
+    file_hash = create_hash_for_sample(intermediate_path)
+    if sample_already_uploaded(file_hash):
+        # Remove existing file
+        log.debug('Sample already exists: {path}'.format(
+            path=intermediate_path))
+        os.remove(intermediate_path)
+    else:
+        add_sample_to_queue(file_hash, intermediate_path, user.id, db)

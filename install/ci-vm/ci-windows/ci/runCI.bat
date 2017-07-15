@@ -81,8 +81,9 @@ EXIT /B 0
 
 rem Exit script and post abort status
 :haltAndCatchFire
-echo Halt and catch fire (reason: %~1)
-call :postStatus "canceled" %~1 >> "%logFile%"
+echo "Halt and catch fire (reason: %~1)"
+call :postStatus "canceled" "%~1" >> "%logFile%"
+timeout 5
 echo Post log
 curl -s -A "%userAgent%" --form "type=logupload" --form "file=@%logFile%" -w "\n" "%reportURL%"
 rem Shut down, but only in 10 seconds, to give the time to finish the post status

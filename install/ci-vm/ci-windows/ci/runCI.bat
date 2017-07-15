@@ -76,13 +76,14 @@ EXIT /B 0
 
 rem Post status to the server
 :postStatus
+echo "Posting status %~1 (message: %~2) to the server"
 curl -s -A "%userAgent%" --data "type=progress&status=%~1&message=%~2" -w "\n" "%reportURL%" >> "%logFile%"
 EXIT /B 0
 
 rem Exit script and post abort status
 :haltAndCatchFire
 echo "Halt and catch fire (reason: %~1)"
-call :postStatus "canceled" "%~1" >> "%logFile%"
+call :postStatus "canceled" "%~1"
 timeout 5
 echo Post log
 curl -s -A "%userAgent%" --form "type=logupload" --form "file=@%logFile%" -w "\n" "%reportURL%"

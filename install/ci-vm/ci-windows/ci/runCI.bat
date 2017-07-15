@@ -49,8 +49,9 @@ if EXIST Debug\ccextractorwin.exe (
     call :executeCommand cd %suiteDstDir%
     call :executeCommand "%tester%" --entries "%testFile%" --executable "%dstDir%\windows\Debug\ccextractorwin.exe" --tempfolder "%tempFolder%" --timeout 3000 --reportfolder "%reportFolder%" --resultfolder "%resultFolder%" --samplefolder "%sampleFolder%" --method Server --url "%reportURL%"
     call :postStatus "completed" "Ran all tests"
-    rem Shut down
     echo Done running tests
+    rem Shut down
+    timeout 5
     shutdown -s -t 0
 )
 else
@@ -80,7 +81,11 @@ EXIT /B 0
 
 rem Exit script and post abort status
 :haltAndCatchFire
+echo Halt and catch fire (reason: %~1)
 call :postStatus "canceled" %~1 >> "%logFile%"
-rem Shut down, but only in 5 seconds, to give the time to finish the post status
-shutdown -s -t 5
+echo Post log
+curl -s -A "%userAgent%" --form "type=logupload" --form "file=@%logFile%" -w "\n" "%reportURL%"
+rem Shut down, but only in 10 seconds, to give the time to finish the post status
+timeout 10
+shutdown -s -t 0
 EXIT 0

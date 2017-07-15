@@ -356,6 +356,8 @@ def upload_ftp(db, path):
     filename, file_extension = os.path.splitext(path)
     # FIRST, check extension. We can't limit extensions on FTP as we can on
     # the web interface.
+    log.debug('Checking if {path} has a forbidden extension'.format(
+        path=temp_path))
     forbidden = ForbiddenExtension.query.filter(
         ForbiddenExtension.extension == file_extension[1:]).first()
     if forbidden is not None:
@@ -373,6 +375,8 @@ def upload_ftp(db, path):
     intermediate_path = os.path.join(
         config.get('SAMPLE_REPOSITORY', ''), 'TempFiles', filename)
     # Save to temporary location
+    log.debug('Moving {old} to {new}'.format(old=temp_path,
+                                             new=intermediate_path))
     os.rename(temp_path, intermediate_path)
     # Ensure we have matching users
     os.chown(

@@ -3,6 +3,7 @@ import hashlib
 import os
 import traceback
 
+import shutil
 from flask import Blueprint, g, make_response, render_template, request, \
     redirect, url_for
 from werkzeug.utils import secure_filename
@@ -351,7 +352,7 @@ def upload_ftp(db, path):
     temp_path = str(path)
     path_parts = temp_path.split(os.path.sep)
     # We assume /home/{uid}/ as specified in the model
-    user_id = path_parts[1]
+    user_id = path_parts[2]
     user = User.query.filter(User.id == user_id).first()
     filename, file_extension = os.path.splitext(path)
     # FIRST, check extension. We can't limit extensions on FTP as we can on
@@ -375,16 +376,10 @@ def upload_ftp(db, path):
     intermediate_path = os.path.join(
         config.get('SAMPLE_REPOSITORY', ''), 'TempFiles', filename)
     # Save to temporary location
-    log.debug('Moving {old} to {new}'.format(old=temp_path,
-                                             new=intermediate_path))
-    os.rename(temp_path, intermediate_path)
-    # Ensure we have matching users
-    os.chown(
-        intermediate_path,
-        config.get('SAMPLE_REPOSITORY_UID', -1),
-        config.get('SAMPLE_REPOSITORY_GID', -1)
-    )
-    os.chmod(intermediate_path, 644)
+    log.debug('Copy {old} to {new}'.format(old=temp_path,
+                                           new=intermediate_path))
+    shutil.copy(temp_path, intermediate_path)
+    os.remove(temp_path)
 
     log.debug('Checking hash value for {path}'.format(path=intermediate_path))
     file_hash = create_hash_for_sample(intermediate_path)

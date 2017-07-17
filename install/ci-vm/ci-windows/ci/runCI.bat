@@ -53,6 +53,7 @@ if EXIST Debug\ccextractorwin.exe (
     rem Shut down
     timeout 5
     shutdown -s -t 0
+    exit
 )
 else
 (

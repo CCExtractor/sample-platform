@@ -20,6 +20,10 @@
                             {% endif %}
                         </tr>
                         <tr>
+                            <td>Platform</td>
+                            <td>{{ test.platform.description }}</td>
+                        </tr>
+                        <tr>
                             <td>Repository</td>
                             <td><a href="{{ test.fork.github_url }}" target="_blank">{{ test.fork.github_name }}</a></td>
                         </tr>

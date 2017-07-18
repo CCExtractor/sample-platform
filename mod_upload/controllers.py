@@ -255,35 +255,46 @@ def process_id(upload_id):
                         except InvalidGitRepositoryError:
                             log.critical(" Could not open CCExtractor's"
                                          " repository ")
-                        data = data.replace('[ ] I', '[X] I')
+                        version = CCExtractorVersion.query.filter(
+                            CCExtractorVersion.id == form.version.data
+                        ).first()
+                        data = data.replace('**X.X**', version.version)
                         data = data.replace(
-                            '[X] I have never', '[ ] I have never')
+                            '[ ] I have read', '[X] I have read')
                         data = data.replace(
-                            '[X] I have used CCExtractor',
-                            '[ ] I have used CCExtractor')
+                            '[ ] I have checked', '[X] I have checked')
                         data = data.replace(
-                            '[X] I absolutely', '[ ] I absolutely')
-                        data = data.replace('`-autoprogram`',
-                                            ('`{param}` \nCCExtractor version'
-                                                ' {version}').format(
-                                                param=form.parameters.data,
-                                                version=form.version.data))
+                            '[ ] I have used', '[X] I have used')
+                        data = data.replace(
+                            '[ ] I am an active contributor to CCExtractor.',
+                            '[X] I used the platform to submit this issue!'
+                        )
+                        data = data.replace(
+                            '`-autoprogram`',
+                            '`{param}`'.format(
+                                param=form.parameters.data,
+                                version=form.version.data
+                            )
+                        )
                         platform = form.platform.data.title()
                         data = data.replace(
                             '[ ] ' + platform, '[X] ' + platform)
-                        videohead = '**Video links**'
-                        bodyhead = ('{issue content here,'
-                                    ' replace this line with'
-                                    ' your issue content}')
-                        sample_link = url_for('sample.sample_by_id',
-                                              sample_id=sample.id,
-                                              _external=True)
-                        video_details = ('{head} \n [Sample Link]'
-                                         '({link}) \n {notes} \n').format(
-                            head=videohead, link=sample_link,
-                            notes=form.notes.data)
-                        data = data.replace(videohead, video_details)
-                        data = data.replace(bodyhead, form.IssueBody.data)
+                        # Remove everything starting from the video links
+                        data = data[:data.find('**Video links**')]
+                        # Append our own content here
+                        sample_link = url_for(
+                            'sample.sample_by_id',
+                            sample_id=sample.id,
+                            _external=True
+                        )
+                        data += '**Sample**\n\n[Sample {id}]({link}) was ' \
+                                'uploaded on the sample ' \
+                                'platform.\n'.format(id=sample.id,
+                                                     link=sample_link)
+                        data += '**Extra information**\n\n*Notes:*\n' \
+                                '{notes}\n*Description:*\n' \
+                                '{desc}'.format(notes=form.notes.data,
+                                                desc=form.IssueBody.data)
                         issue_title = '[BUG] {data}'.format(
                             data=form.IssueTitle.data)
                         make_github_issue(issue_title, data, [

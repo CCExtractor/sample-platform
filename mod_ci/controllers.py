@@ -184,6 +184,13 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         GeneralData.key == 'last_commit').first().value
     last_commit = Test.query.filter(and_(Test.commit == commit_hash,
                                          Test.platform == platform)).first()
+    if last_commit.id == test.id:
+        commit_hash = GeneralData.query.filter(
+            GeneralData.key == 'previous_commit').first().value
+        last_commit = Test.query.filter(and_(Test.commit == commit_hash,
+                                             Test.platform == platform
+                                             )).first()
+
     log.debug("[{platform}] We will compare against the results of test "
               "{id}".format(platform=platform, id=last_commit.id))
 
@@ -433,13 +440,21 @@ def start_ci():
         if event == "push":  # If it's a push, run the tests
             commit = payload['after']
             gh_commit = repository.statuses(commit)
-            queue_test(g.db, repository, gh_commit, commit, TestType.commit)
             # Update the db to the new last commit
             ref = repository.git().refs('heads/master').get()
             last_commit = GeneralData.query.filter(GeneralData.key ==
                                                    'last_commit').first()
+            previous_commit = GeneralData.query.filter(GeneralData.key ==
+                                                       'previous_commit'
+                                                       ).first()
+            if previous_commit is None:
+                prev_commit = GeneralData('previous_commit', last_commit.value)
+                g.db.add(prev_commit)
+            else:
+                previous_commit.value = last_commit.value
             last_commit.value = ref['object']['sha']
             g.db.commit()
+            queue_test(g.db, repository, gh_commit, commit, TestType.commit)
 
         elif event == "pull_request":  # If it's a PR, run the tests
             if payload['action'] == 'opened':

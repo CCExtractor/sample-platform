@@ -55,18 +55,20 @@ def list_github_issue(label):
 
 
 def display_sample_info(sample):
+    dummy_sample = Sample('dummy', '', '')
     try:
         media_info_fetcher = MediaInfoFetcher(sample)
     except InvalidMediaInfoError:
         # Try to regenerate the file
         try:
             media_info_fetcher = MediaInfoFetcher.generate_media_xml(sample)
-        except InvalidMediaInfoError as i:
-            media_info_fetcher = MediaInfoFetcher(Sample('dummy', '', ''))
+        except InvalidMediaInfoError:
+            media_info_fetcher = MediaInfoFetcher(dummy_sample)
     try:
         media_info = media_info_fetcher.get_media_info()
-    except InvalidMediaInfoError as i:
-        raise SampleNotFoundException(i.message)
+    except InvalidMediaInfoError:
+        media_info_fetcher = MediaInfoFetcher(dummy_sample)
+        media_info = media_info_fetcher.get_media_info()
 
     latest_commit = GeneralData.query.filter(
         GeneralData.key == 'last_commit').first().value

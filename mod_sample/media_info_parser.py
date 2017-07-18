@@ -83,7 +83,6 @@ class MediaInfoFetcher:
             else:
                 raise InvalidMediaInfoError('No tracks present in XML')
         except KeyError:
-            traceback.print_exc()
             raise InvalidMediaInfoError('No File element present in XML')
 
     def _process_track(self, track):

@@ -441,8 +441,8 @@ def start_ci():
                                                        'previous_commit'
                                                        ).first()
             if previous_commit is None:
-                new_avg = GeneralData('previous_commit', last_commit.value)
-                g.db.add(new_avg)
+                prev_commit = GeneralData('previous_commit', last_commit.value)
+                g.db.add(prev_commit)
             else:
                 previous_commit.value = last_commit.value
             last_commit.value = ref['object']['sha']

@@ -181,9 +181,15 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         config.get('SAMPLE_REPOSITORY', ''), 'vm_data', kvm_name, 'ci-tests')
     categories = Category.query.order_by(Category.id.desc()).all()
     commit_hash = GeneralData.query.filter(
-        GeneralData.key == 'previous_commit').first().value
+        GeneralData.key == 'last_commit').first().value
     last_commit = Test.query.filter(and_(Test.commit == commit_hash,
                                          Test.platform == platform)).first()
+    if last_commit.id == test.id:
+        commit_hash = GeneralData.query.filter(
+            GeneralData.key == 'previous_commit').first().value
+        last_commit = Test.query.filter(and_(Test.commit == commit_hash,
+                                             Test.platform == platform)).first()
+
     log.debug("[{platform}] We will compare against the results of test "
               "{id}".format(platform=platform, id=last_commit.id))
 

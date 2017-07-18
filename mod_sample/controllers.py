@@ -40,13 +40,14 @@ class SampleNotFoundException(Exception):
 
 def list_github_issue(label):
     from run import config
-    REPO_OWNER = config.get('GITHUB_OWNER', '')
-    REPO_NAME = config.get('GITHUB_REPOSITORY', '')
-    url = 'https://api.github.com/search/issues?q=+label:%s+'
-    'repo:%s/%s' % (
-        label, REPO_OWNER, REPO_NAME)
+    url = 'https://api.github.com/search/issues'
+    query = '?q=+label:{label}+repo:{org}/{repo}'.format(
+        label=label,
+        org=config.get('GITHUB_OWNER', ''),
+        repo=config.get('GITHUB_REPOSITORY', '')
+    )
     session = requests.Session()
-    r = session.get(url)
+    r = session.get(url+query)
     if r.status_code == 200:
         return r.content
     else:

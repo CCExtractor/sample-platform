@@ -434,12 +434,6 @@ def start_ci():
             commit = payload['after']
             gh_commit = repository.statuses(commit)
             queue_test(g.db, repository, gh_commit, commit, TestType.commit)
-            # Update the db to the new last commit
-            ref = repository.git().refs('heads/master').get()
-            last_commit = GeneralData.query.filter(GeneralData.key ==
-                                                   'last_commit').first()
-            last_commit.value = ref['object']['sha']
-            g.db.commit()
 
         elif event == "pull_request":  # If it's a PR, run the tests
             if payload['action'] == 'opened':
@@ -583,6 +577,13 @@ def progress_reporter(test_id, token):
                     if kvm is not None:
                         g.db.delete(kvm)
                         g.db.commit()
+                    # Update the db to the new last commit
+                    ref = repository.git().refs('heads/master').get()
+                    last_commit = GeneralData.query.filter(GeneralData.key ==
+                                                           'last_commit'
+                                                           ).first()
+                    last_commit.value = ref['object']['sha']
+                    g.db.commit()
                     # Start next test if necessary
                     start_ci_vm(g.db, repository, 60)
                 # Post status update

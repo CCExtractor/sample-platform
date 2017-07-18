@@ -188,7 +188,8 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         commit_hash = GeneralData.query.filter(
             GeneralData.key == 'previous_commit').first().value
         last_commit = Test.query.filter(and_(Test.commit == commit_hash,
-                                             Test.platform == platform)).first()
+                                             Test.platform == platform
+                                             )).first()
 
     log.debug("[{platform}] We will compare against the results of test "
               "{id}".format(platform=platform, id=last_commit.id))

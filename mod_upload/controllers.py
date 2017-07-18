@@ -1,9 +1,12 @@
 import base64
 import hashlib
+import json
 import os
 import traceback
 
 import shutil
+import requests
+
 from flask import Blueprint, g, make_response, render_template, request, \
     redirect, url_for
 from werkzeug.utils import secure_filename
@@ -81,12 +84,24 @@ def index_admin():
 
 
 def make_github_issue(title, body=None, labels=None):
-    '''Create an issue on github.com using the given parameters.'''
+    """
+    Create an issue on github.com using the given parameters.
+
+    :param title: The issue title
+    :type title: str
+    :param body: The content in the body
+    :type body: str
+    :param labels: The labels to add to the issue
+    :type labels: list[str]
+    :return: void
+    :rtype: void
+    """
     from run import config
     # Our url to create issues via POST
-    REPO_OWNER = config.get('GITHUB_OWNER', '')
-    REPO_NAME = config.get('GITHUB_REPOSITORY', '')
-    url = 'https://api.github.com/repos/%s/%s/issues' % (REPO_OWNER, REPO_NAME)
+    url = 'https://api.github.com/repos/{org}/{repo}/issues'.format(
+        org=config.get('GITHUB_OWNER', ''),
+        repo=config.get('GITHUB_REPOSITORY', '')
+    )
     session = requests.Session()
     session.auth = (g.user.email, g.user.github_token)
     # Create an authenticated session to create the issue
@@ -185,7 +200,7 @@ def upload():
 @login_required
 @template_renderer()
 def process_id(upload_id):
-    from run import config
+    from run import config, log
     # Fetch upload id
     queued_sample = QueuedSample.query.filter(QueuedSample.id ==
                                               upload_id).first()
@@ -269,9 +284,9 @@ def process_id(upload_id):
                             notes=form.notes.data)
                         data = data.replace(videohead, video_details)
                         data = data.replace(bodyhead, form.IssueBody.data)
-                        issue_title = ('[BUG] {data}').format(
+                        issue_title = '[BUG] {data}'.format(
                             data=form.IssueTitle.data)
-                        make_github_issue(issue_title, issue_body, [
+                        make_github_issue(issue_title, data, [
                                           'bug', 'sample' + str(sample.id)])
                     os.rename(temp_path, final_path)
                     return redirect(

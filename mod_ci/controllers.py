@@ -438,7 +438,8 @@ def start_ci():
             last_commit = GeneralData.query.filter(GeneralData.key ==
                                                    'last_commit').first()
             previous_commit = GeneralData.query.filter(GeneralData.key ==
-                                                       'previous_commit').first()
+                                                       'previous_commit'
+                                                       ).first()
             if previous_commit is None:
                 new_avg = GeneralData('previous_commit', last_commit.value)
                 g.db.add(new_avg)

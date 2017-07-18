@@ -9,6 +9,7 @@ from flask import Blueprint, g, make_response, render_template, request, \
 from werkzeug.utils import secure_filename
 
 from decorators import template_renderer, get_menu_entries
+from git import Repo, InvalidGitRepositoryError, GitCommandError
 from mod_auth.controllers import login_required, check_access_rights
 from mod_auth.models import Role, User
 from mod_home.models import CCExtractorVersion
@@ -77,6 +78,25 @@ def index_admin():
         'queue': QueuedSample.query.all(),
         'messages': UploadLog.query.order_by(UploadLog.id.desc()).all()
     }
+
+
+def make_github_issue(title, body=None, labels=None):
+    '''Create an issue on github.com using the given parameters.'''
+    from run import config
+    # Our url to create issues via POST
+    REPO_OWNER = config.get('GITHUB_OWNER', '')
+    REPO_NAME = config.get('GITHUB_REPOSITORY', '')
+    url = 'https://api.github.com/repos/%s/%s/issues' % (REPO_OWNER, REPO_NAME)
+    session = requests.Session()
+    session.auth = (g.user.email, g.user.github_token)
+    # Create an authenticated session to create the issue
+    # Create our issue
+    issue = {'title': title,
+             'body': body,
+             'labels': labels}
+    # Add the issue to our repository
+    r = session.post(url, json.dumps(issue))
+    return r.status_code
 
 
 @mod_upload.route('/ftp')
@@ -200,11 +220,59 @@ def process_id(upload_id):
                     g.db.delete(queued_sample)
                     g.db.commit()
                     db_committed = True
-                except:
+                except Exception:
                     traceback.print_exc()
                     g.db.rollback()
                 # Move file
                 if db_committed:
+                    if form.report.data == 'y':
+                        data = ""
+                        try:
+                            kvm_name = config.get('KVM_LINUX_NAME', '')
+                            repo = Repo(os.path.join(
+                                config.get('SAMPLE_REPOSITORY', ''),
+                                        'vm_data', kvm_name,
+                                        'unsafe-ccextractor'))
+                            heads = repo.heads
+                            data = repo.git.show('{branch}:{file}'.format(
+                                branch=heads.master,
+                                file='.github/ISSUE_TEMPLATE.md'))
+                        except InvalidGitRepositoryError:
+                            log.critical(" Could not open CCExtractor's"
+                                         " repository ")
+                        data = data.replace('[ ] I', '[X] I')
+                        data = data.replace(
+                            '[X] I have never', '[ ] I have never')
+                        data = data.replace(
+                            '[X] I have used CCExtractor',
+                            '[ ] I have used CCExtractor')
+                        data = data.replace(
+                            '[X] I absolutely', '[ ] I absolutely')
+                        data = data.replace('`-autoprogram`',
+                                            ('`{param}` \nCCExtractor version'
+                                                ' {version}').format(
+                                                param=form.parameters.data,
+                                                version=form.version.data))
+                        platform = form.platform.data.title()
+                        data = data.replace(
+                            '[ ] ' + platform, '[X] ' + platform)
+                        videohead = '**Video links**'
+                        bodyhead = ('{issue content here,'
+                                    ' replace this line with'
+                                    ' your issue content}')
+                        sample_link = url_for('sample.sample_by_id',
+                                              sample_id=sample.id,
+                                              _external=True)
+                        video_details = ('{head} \n [Sample Link]'
+                                         '({link}) \n {notes} \n').format(
+                            head=videohead, link=sample_link,
+                            notes=form.notes.data)
+                        data = data.replace(videohead, video_details)
+                        data = data.replace(bodyhead, form.IssueBody.data)
+                        issue_title = ('[BUG] {data}').format(
+                            data=form.IssueTitle.data)
+                        make_github_issue(issue_title, issue_body, [
+                                          'bug', 'sample' + str(sample.id)])
                     os.rename(temp_path, final_path)
                     return redirect(
                         url_for('sample.sample_by_id', sample_id=sample.id))

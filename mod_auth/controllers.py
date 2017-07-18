@@ -1,6 +1,7 @@
 from functools import wraps
 import hmac
 import time
+import requests
 
 from flask import Blueprint, g, request, flash, session, redirect, url_for, \
     abort
@@ -73,7 +74,7 @@ def check_access_rights(roles=None, parent_route=None):
             elif route.startswith("."):
                 # Relative to current blueprint, so we'll need to adjust
                 route = request.endpoint[:request.endpoint.rindex('.')] + \
-                        route
+                    route
             if g.user.role in roles:
                 return f(*args, **kwargs)
             # Return page not allowed
@@ -106,6 +107,45 @@ def send_reset_email(usr):
     }):
         flash('Could not send an email. Please get in touch',
               'error-message')
+
+
+@mod_auth.route('/github_redirect', methods=['GET', 'POST'])
+def github_redirect():
+    from run import config
+    github_clientid = config.get('GITHUB_CLIENT_ID', '')
+    github_token = g.user.github_token
+    if github_token is not None:
+        return None
+    else:
+        return ('https://github.com/login/oauth/authorize?'
+                'client_id={client_id}&scope=public_repo').format(
+            client_id=github_clientid)
+
+
+@mod_auth.route('/github_callback', methods=['GET', 'POST'])
+@template_renderer()
+def github_callback():
+    from run import config
+    if 'code' in request.args:
+        url = 'https://github.com/login/oauth/access_token'
+        payload = {
+            'client_id': config.get('GITHUB_CLIENT_ID', ''),
+            'client_secret': config.get('GITHUB_CLIENT_SECRET', ''),
+            'code': request.args['code']
+        }
+        headers = {'Accept': 'application/json'}
+        r = requests.post(url, params=payload, headers=headers)
+        response = r.json()
+        # get access_token from response and store in session
+        if 'access_token' in response:
+            user = User.query.filter(User.id == g.user.id).first()
+            user.github_token = response['access_token']
+            g.db.commit()
+        else:
+            g.log.error('github didn\'t return an access token')
+        # send authenticated user where they're supposed to go
+        return redirect(url_for('auth.manage'))
+    return '', 404
 
 
 @mod_auth.route('/login', methods=['GET', 'POST'])
@@ -349,8 +389,10 @@ def manage():
                 "text": message
             })
         flash('Settings saved')
+    github_url = github_redirect()
     return {
-        'form': form
+        'form': form,
+        'url': github_url
     }
 
 

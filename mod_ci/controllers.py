@@ -181,7 +181,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         config.get('SAMPLE_REPOSITORY', ''), 'vm_data', kvm_name, 'ci-tests')
     categories = Category.query.order_by(Category.id.desc()).all()
     commit_hash = GeneralData.query.filter(
-        GeneralData.key == 'last_commit').first().value
+        GeneralData.key == 'previous_commit').first().value
     last_commit = Test.query.filter(and_(Test.commit == commit_hash,
                                          Test.platform == platform)).first()
     log.debug("[{platform}] We will compare against the results of test "
@@ -433,7 +433,21 @@ def start_ci():
         if event == "push":  # If it's a push, run the tests
             commit = payload['after']
             gh_commit = repository.statuses(commit)
+            # Update the db to the new last commit
+            ref = repository.git().refs('heads/master').get()
+            last_commit = GeneralData.query.filter(GeneralData.key ==
+                                                   'last_commit').first()
+            previous_commit = GeneralData.query.filter(GeneralData.key ==
+                                                   'previous_commit').first()
+            if previous_commit is None:
+                new_avg = GeneralData('previous_commit', last_commit.value)
+                g.db.add(new_avg)
+            else:
+                previous_commit.value = last_commit.value
+            last_commit.value = ref['object']['sha']
+            g.db.commit()
             queue_test(g.db, repository, gh_commit, commit, TestType.commit)
+            
 
         elif event == "pull_request":  # If it's a PR, run the tests
             if payload['action'] == 'opened':
@@ -577,13 +591,6 @@ def progress_reporter(test_id, token):
                     if kvm is not None:
                         g.db.delete(kvm)
                         g.db.commit()
-                    # Update the db to the new last commit
-                    ref = repository.git().refs('heads/master').get()
-                    last_commit = GeneralData.query.filter(GeneralData.key ==
-                                                           'last_commit'
-                                                           ).first()
-                    last_commit.value = ref['object']['sha']
-                    g.db.commit()
                     # Start next test if necessary
                     start_ci_vm(g.db, repository, 60)
                 # Post status update

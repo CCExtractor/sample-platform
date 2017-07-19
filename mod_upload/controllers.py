@@ -304,7 +304,7 @@ def process_id(upload_id):
                                           'bug', 'sample' + str(sample.id)])
                         if issue_upload != 'ERROR':
                             issue_id = json.loads(issue_upload)['number']
-                            issue = Issue(sample_id, issue_id)
+                            issue = Issue(sample.id, issue_id)
                             g.db.add(issue)
                             g.db.commit()
                     os.rename(temp_path, final_path)

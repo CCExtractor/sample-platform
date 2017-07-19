@@ -74,3 +74,18 @@ class ForbiddenExtension(Base):
 
     def __repr__(self):
         return '<Forbidden extension %r>' % self.extension
+
+
+class Issue(Base):
+    __tablename__ = 'sample_issue'
+    __table_args__ = {'mysql_engine': 'InnoDB'}
+
+    id = Column(Integer, primary_key=True)
+    sample_id = Column(Integer, ForeignKey('sample.id', onupdate="CASCADE",
+                                           ondelete="CASCADE"))
+    sample = relationship('Sample', uselist=False)
+    issue_id = Column(Integer, nullable=False)
+
+    def __init__(self, sample_id, issue_id):
+        self.sample_id = sample_id
+        self.issue_id = issue_id

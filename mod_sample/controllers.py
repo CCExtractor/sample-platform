@@ -15,7 +15,7 @@ from mod_sample.forms import EditSampleForm, DeleteSampleForm, \
 from mod_sample.media_info_parser import MediaInfoFetcher, \
     InvalidMediaInfoError
 
-from mod_sample.models import Sample, ExtraFile, ForbiddenExtension
+from mod_sample.models import Sample, ExtraFile, ForbiddenExtension, Issue
 from mod_test.models import Test, TestResult, TestResultFile
 from mod_upload.models import Platform
 
@@ -38,18 +38,25 @@ class SampleNotFoundException(Exception):
         self.message = message
 
 
-def list_github_issue(label):
+def list_github_issue(sample_id):
     from run import config
     url = 'https://api.github.com/search/issues'
-    query = '?q=+label:{label}+repo:{org}/{repo}'.format(
-        label=label,
+    query = '?q=+repo:{org}/{repo}'.format(
         org=config.get('GITHUB_OWNER', ''),
         repo=config.get('GITHUB_REPOSITORY', '')
     )
     session = requests.Session()
-    r = session.get(url+query)
+    r = session.get(url + query)
     if r.status_code == 200:
-        return r.content
+        issues = json.loads(r.content)['items']
+        issues_arr = []
+        for issue in issues:
+            db_issue = Issue.query.filter(and_(
+                Issue.issue_id == issue['number'],
+                Issue.sample_id == sample_id)).first()
+            if db_issue is not None:
+                issues_arr.append(issue)
+        return issues_arr
     else:
         return 'ERROR'
 
@@ -127,11 +134,7 @@ def display_sample_info(sample):
     else:
         status = 'Not present in regression tests'
         status_release = 'Not present in regression tests'
-    load_issues = list_github_issue('sample' + str(sample.id))
-    if load_issues is not None:
-        issues = json.loads(load_issues)['items']
-    else:
-        issues = load_issues
+    issues = list_github_issue(sample.id)
     return {
         'sample': sample,
         'media': media_info,

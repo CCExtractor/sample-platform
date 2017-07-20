@@ -23,6 +23,7 @@ from mod_deploy.controllers import request_from_github, is_valid_signature
 from mod_home.models import GeneralData
 from mod_regression.models import Category, RegressionTestOutput, \
     RegressionTest
+from mod_sample.models import Issue
 from mod_test.models import TestType, Test, TestStatus, TestProgress, Fork, \
     TestPlatform, TestResultFile, TestResult
 
@@ -506,6 +507,14 @@ def start_ci():
                 # Run tests again
                 queue_test(g.db, repository, gh_commit, commit,
                            TestType.pull_request)
+        elif event == "issues":
+            issue_data = payload['issue']
+            issue_id = issue['number']
+            issue = Issue.query.filter(Issue.issue_id == issue_id).first()
+            if issue is not None:
+                issue.title = issue_data['title']
+                issue.status = issue_data['state']
+                g.db.commit()
         else:
             # Unknown type
             g.log.warning('CI unrecognized event: %s' % event)

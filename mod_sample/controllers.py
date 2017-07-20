@@ -150,11 +150,6 @@ def sample_by_id(sample_id):
     raise SampleNotFoundException('Sample with id %s not found.' % sample_id)
 
 
-@mod_sample.route('/update_issue')
-def update_issue():
-    return None
-
-
 @mod_sample.route('/<regex("[A-Za-z0-9]+"):sample_hash>')
 @template_renderer('sample/sample_info.html')
 def sample_by_hash(sample_hash):

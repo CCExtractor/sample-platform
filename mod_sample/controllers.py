@@ -38,29 +38,6 @@ class SampleNotFoundException(Exception):
         self.message = message
 
 
-def list_github_issue(sample_id):
-    from run import config
-    url = 'https://api.github.com/search/issues'
-    query = '?q=+repo:{org}/{repo}'.format(
-        org=config.get('GITHUB_OWNER', ''),
-        repo=config.get('GITHUB_REPOSITORY', '')
-    )
-    session = requests.Session()
-    r = session.get(url + query)
-    if r.status_code == 200:
-        issues = json.loads(r.content)['items']
-        issues_arr = []
-        for issue in issues:
-            db_issue = Issue.query.filter(and_(
-                Issue.issue_id == issue['number'],
-                Issue.sample_id == sample_id)).first()
-            if db_issue is not None:
-                issues_arr.append(issue)
-        return issues_arr
-    else:
-        return 'ERROR'
-
-
 def display_sample_info(sample):
     dummy_sample = Sample('dummy', '', '')
     try:
@@ -134,7 +111,7 @@ def display_sample_info(sample):
     else:
         status = 'Not present in regression tests'
         status_release = 'Not present in regression tests'
-    issues = list_github_issue(sample.id)
+    issues = Issue.query.filter(Issue.sample_id == sample.id).all()
     return {
         'sample': sample,
         'media': media_info,
@@ -171,6 +148,11 @@ def sample_by_id(sample_id):
     if sample is not None:
         return display_sample_info(sample)
     raise SampleNotFoundException('Sample with id %s not found.' % sample_id)
+
+
+@mod_sample.route('/update_issue')
+def update_issue():
+    return None
 
 
 @mod_sample.route('/<regex("[A-Za-z0-9]+"):sample_hash>')

@@ -301,10 +301,17 @@ def process_id(upload_id):
                         issue_title = '[BUG] {data}'.format(
                             data=form.IssueTitle.data)
                         issue_upload = make_github_issue(issue_title, data, [
-                                          'bug', 'sample' + str(sample.id)])
+                            'bug', 'sample' + str(sample.id)])
                         if issue_upload != 'ERROR':
-                            issue_id = json.loads(issue_upload)['number']
-                            issue = Issue(sample.id, issue_id)
+                            issue_data = json.loads(issue_upload)
+                            issue_id = issue_data['number']
+                            issue_title = issue_data['title']
+                            issue_user = issue_data['user']['login']
+                            issue_date = issue_data['created_at']
+                            issue_status = issue_data['state']
+                            issue = Issue(sample.id, issue_id, issue_date,
+                                          issue_title, issue_user, issue_status
+                                          )
                             g.db.add(issue)
                             g.db.commit()
                     os.rename(temp_path, final_path)

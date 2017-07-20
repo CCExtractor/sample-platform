@@ -14,10 +14,10 @@
             <tbody>
                 {% for issue in issues %}
                     <tr>
-                       <td data-title="Issue"><a href="{{ issue['html_url'] }}">{{ issue['title'] }} #{{ issue['number'] }}</a></td>
-                       <td data-title="Created By"><a href="{{ issue['user']['html_url'] }}"> {{ issue['user']['login'] }}</a></td>
-                       <td data-title="Created At" class="created-date">{{ issue['created_at']|strptime('%Y-%m-%d %H:%M:%S (UTC)') }}</td>
-                       <td data-title="Status">{{ issue['state']}}</td>
+                       <td data-title="Issue"><a href="{{ issue.issue_id | issue_link }}">{{ issue.title }} #{{ issue.issue_id }}</a></td>
+                       <td data-title="Created By"><a href="https://www.github.com/{{ issue.user }}"> {{ issue.user }}</a></td>
+                       <td data-title="Created At" class="created-date">{{ issue.created_at|date('%Y-%m-%d %H:%M:%S (UTC)') }}</td>
+                       <td data-title="Status">{{ issue.status}}</td>
                     </tr>
                 {% endfor %}
             </tbody>

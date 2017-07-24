@@ -16,7 +16,7 @@ from git import Repo, InvalidGitRepositoryError, GitCommandError
 from mod_auth.controllers import login_required, check_access_rights
 from mod_auth.models import Role, User
 from mod_home.models import CCExtractorVersion
-from mod_sample.models import Sample, ForbiddenExtension
+from mod_sample.models import Sample, ForbiddenExtension, Issue
 from mod_upload.forms import UploadForm, DeleteQueuedSampleForm, \
     FinishQueuedSampleForm
 from models import Upload, QueuedSample, UploadLog, FTPCredentials, Platform
@@ -111,7 +111,10 @@ def make_github_issue(title, body=None, labels=None):
              'labels': labels}
     # Add the issue to our repository
     r = session.post(url, json.dumps(issue))
-    return r.status_code
+    if r.status_code == 201:
+        return r.content
+    else:
+        return 'ERROR'
 
 
 @mod_upload.route('/ftp')
@@ -297,8 +300,20 @@ def process_id(upload_id):
                                                 desc=form.IssueBody.data)
                         issue_title = '[BUG] {data}'.format(
                             data=form.IssueTitle.data)
-                        make_github_issue(issue_title, data, [
-                                          'bug', 'sample' + str(sample.id)])
+                        issue_upload = make_github_issue(issue_title, data, [
+                            'bug', 'sample' + str(sample.id)])
+                        if issue_upload != 'ERROR':
+                            issue_data = json.loads(issue_upload)
+                            issue_id = issue_data['number']
+                            issue_title = issue_data['title']
+                            issue_user = issue_data['user']['login']
+                            issue_date = issue_data['created_at']
+                            issue_status = issue_data['state']
+                            issue = Issue(sample.id, issue_id, issue_date,
+                                          issue_title, issue_user, issue_status
+                                          )
+                            g.db.add(issue)
+                            g.db.commit()
                     os.rename(temp_path, final_path)
                     return redirect(
                         url_for('sample.sample_by_id', sample_id=sample.id))

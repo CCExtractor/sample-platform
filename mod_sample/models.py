@@ -1,7 +1,8 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 
-from database import Base
+from database import Base, DeclEnum
+from datetime import datetime
 
 
 class Sample(Base):
@@ -74,3 +75,26 @@ class ForbiddenExtension(Base):
 
     def __repr__(self):
         return '<Forbidden extension %r>' % self.extension
+
+
+class Issue(Base):
+    __tablename__ = 'sample_issue'
+    __table_args__ = {'mysql_engine': 'InnoDB'}
+
+    id = Column(Integer, primary_key=True)
+    sample_id = Column(Integer, ForeignKey('sample.id', onupdate="CASCADE",
+                                           ondelete="CASCADE"))
+    sample = relationship('Sample', uselist=False)
+    issue_id = Column(Integer, nullable=False)
+    title = Column(Text(), nullable=False)
+    user = Column(Text(), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+    status = Column(Text(), nullable=False)
+
+    def __init__(self, sample_id, issue_id, date, title, user, status):
+        self.sample_id = sample_id
+        self.issue_id = issue_id
+        self.created_at = datetime.strptime(date, '%Y-%m-%dT%H:%M:%SZ')
+        self.title = title
+        self.user = user
+        self.status = status

@@ -96,16 +96,19 @@ def date_time_format(value, fmt='%Y-%m-%d %H:%M:%S'):
 app.jinja_env.filters['date'] = date_time_format
 
 
-def date_time_format2(date, fmt='%Y-%m-%d %H:%M:%S'):
-    format = '%Y-%m-%dT%H:%M:%SZ'
-    obj = datetime.strptime(date, format)
-    return date_time_format(obj, fmt)
+def get_github_issue_link(issue_id):
+    return 'https://www.github.com/{org}/{repo}/issues/{id}'.format(
+        org=config.get('GITHUB_OWNER', ''),
+        repo=config.get('GITHUB_REPOSITORY', ''),
+        id=issue_id
+    )
 
 
-app.jinja_env.filters['strptime'] = date_time_format2
-
+app.jinja_env.filters['issue_link'] = get_github_issue_link
 
 # Allow regexes in routes
+
+
 class RegexConverter(BaseConverter):
 
     def __init__(self, url_map, *items):

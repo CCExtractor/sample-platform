@@ -186,7 +186,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
                                          Test.platform == platform)).first()
     if last_commit.id == test.id:
         commit_hash = GeneralData.query.filter(
-            GeneralData.key == 'previous_commit').first().value
+            GeneralData.key == 'previous_to_last_commit').first().value
         last_commit = Test.query.filter(and_(Test.commit == commit_hash,
                                              Test.platform == platform
                                              )).first()
@@ -444,14 +444,14 @@ def start_ci():
             ref = repository.git().refs('heads/master').get()
             last_commit = GeneralData.query.filter(GeneralData.key ==
                                                    'last_commit').first()
-            previous_commit = GeneralData.query.filter(GeneralData.key ==
-                                                       'previous_commit'
-                                                       ).first()
-            if previous_commit is None:
-                prev_commit = GeneralData('previous_commit', last_commit.value)
+            previous_to_last_commit = GeneralData.query.filter(
+                GeneralData.key == 'previous_to_last_commit').first()
+            if previous_to_last_commit is None:
+                prev_commit = GeneralData(
+                    'previous_to_last_commit', last_commit.value)
                 g.db.add(prev_commit)
             else:
-                previous_commit.value = last_commit.value
+                previous_to_last_commit.value = last_commit.value
             last_commit.value = ref['object']['sha']
             g.db.commit()
             queue_test(g.db, repository, gh_commit, commit, TestType.commit)

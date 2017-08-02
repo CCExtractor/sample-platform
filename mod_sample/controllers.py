@@ -42,17 +42,14 @@ def display_sample_info(sample):
     dummy_sample = Sample('dummy', '', '')
     try:
         media_info_fetcher = MediaInfoFetcher(sample)
+        media_info = media_info_fetcher.get_media_info()
     except InvalidMediaInfoError:
         # Try to regenerate the file
         try:
             media_info_fetcher = MediaInfoFetcher.generate_media_xml(sample)
+            media_info = media_info_fetcher.get_media_info()
         except InvalidMediaInfoError:
-            media_info_fetcher = MediaInfoFetcher(dummy_sample)
-    try:
-        media_info = media_info_fetcher.get_media_info()
-    except InvalidMediaInfoError:
-        media_info_fetcher = MediaInfoFetcher(dummy_sample)
-        media_info = media_info_fetcher.get_media_info()
+            media_info = None
 
     latest_commit = GeneralData.query.filter(
         GeneralData.key == 'last_commit').first().value

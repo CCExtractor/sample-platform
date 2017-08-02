@@ -59,15 +59,17 @@
                 <p>Repository: {{ latest_commit }}</p>
                 <p>Last release: {{ latest_release }}</p>
                 <p><a href="{{ url_for("regression.by_sample", sample_id=sample.id) }}">See in which regression tests this sample has been used</a></p>
-                <h2>Media info</h2>
-                <p class="small">Full media info can be downloaded using the link at the right -->.</p>
-                <blockquote class="small">
-                    {% if media and media|length > 0 %}
-                        {{ macros.render_media_info(media) }}
-                    {% else %}
-                        <p>No media info available</p>
-                    {% endif %}
-                </blockquote>
+                {% if media %}
+                    <h2>Media info</h2>
+                    <p class="small">Full media info can be downloaded using the link at the right -->.</p>
+                    <blockquote class="small">
+                        {% if media and media|length > 0 %}
+                            {{ macros.render_media_info(media) }}
+                        {% else %}
+                            <p>No media info available</p>
+                        {% endif %}
+                    </blockquote>
+                {% endif %}
                 <h2>Github Issues</h2>
                 {% include "sample/list_issues.html" %}
                 <p class="small">Do you want to see more information displayed by default or did I forget something? Please make a request on GitHub!</p>
@@ -76,7 +78,9 @@
             <h5>Actions</h5>
             <ul class="no-bullet">
                 <li><i class="fa fa-li fa-download"></i> <a href="{{ url_for(".download_sample", sample_id=sample.id) }}">Download sample</a></li>
-                <li><i class="fa fa-li fa-file-code-o"></i> <a href="{{ url_for(".download_sample_media_info", sample_id=sample.id) }}">Download media info xml</a></li>
+                {% if media %}
+                    <li><i class="fa fa-li fa-file-code-o"></i> <a href="{{ url_for(".download_sample_media_info", sample_id=sample.id) }}">Download media info xml</a></li>
+                {% endif %}
                 {% if user.is_admin %}
                     <li><i class="fa fa-li fa-edit"></i> <a href="{{ url_for(".edit_sample", sample_id=sample.id) }}">Edit sample</a></li>
                     <li><i class="fa fa-li fa-remove"></i> <a href="{{ url_for(".delete_sample", sample_id=sample.id) }}">Delete sample</a></li>

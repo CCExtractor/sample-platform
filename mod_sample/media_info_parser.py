@@ -24,7 +24,11 @@ class MediaInfoFetcher:
             sample.sha + '.xml')
         if os.path.isfile(media_info_path):
             with open(media_info_path) as fd:
-                doc = xmltodict.parse(fd.read())
+                try:
+                    doc = xmltodict.parse(fd.read())
+                except Exception:
+                    raise InvalidMediaInfoError(
+                        'No Mediainfo root element present')
                 if 'Mediainfo' in doc:
                     self.media_info = doc['Mediainfo']
                     self.video_tracks = []

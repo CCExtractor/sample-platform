@@ -311,9 +311,10 @@ def process_id(upload_id):
                             issue_user = issue_data['user']['login']
                             issue_date = issue_data['created_at']
                             issue_status = issue_data['state']
-                            issue = Issue(sample.id, issue_id, issue_date,
-                                          issue_title, issue_user, issue_status
-                                          )
+                            issue = Issue(
+                                sample.id, issue_id, issue_date,
+                                issue_title, issue_user, issue_status
+                            )
                             g.db.add(issue)
                             g.db.commit()
                     os.rename(temp_path, final_path)

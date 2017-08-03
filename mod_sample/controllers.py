@@ -39,7 +39,6 @@ class SampleNotFoundException(Exception):
 
 
 def display_sample_info(sample):
-    dummy_sample = Sample('dummy', '', '')
     try:
         media_info_fetcher = MediaInfoFetcher(sample)
         media_info = media_info_fetcher.get_media_info()

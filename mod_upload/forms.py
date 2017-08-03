@@ -1,4 +1,6 @@
 import os
+import magic
+import mimetypes
 
 from flask_wtf import Form
 from wtforms import FileField, SubmitField, TextAreaField, SelectField
@@ -22,9 +24,19 @@ class UploadForm(Form):
         # File cannot end with a forbidden extension
         filename, file_extension = os.path.splitext(field.data.filename)
         if len(file_extension) > 0:
-            forbidden = ForbiddenExtension.query.filter(
+            forbidden_ext = ForbiddenExtension.query.filter(
                 ForbiddenExtension.extension == file_extension[1:]).first()
-            if forbidden is not None:
+            if forbidden_ext is not None:
+                raise ValidationError('Extension not allowed')
+        mimedata = field.data
+        mimetype = magic.from_buffer(field.data.read(1024), mime=True)
+        # File Pointer returns to beginning
+        field.data.seek(0, 0)
+        extension = mimetypes.guess_extension(mimetype)
+        if extension is not None:
+            forbidden_real = ForbiddenExtension.query.filter(
+                ForbiddenExtension.extension == extension[1:]).first()
+            if forbidden_real is not None:
                 raise ValidationError('Extension not allowed')
 
 

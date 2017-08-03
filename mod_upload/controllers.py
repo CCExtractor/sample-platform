@@ -3,6 +3,8 @@ import hashlib
 import json
 import os
 import traceback
+import magic
+import mimetypes
 
 import shutil
 import requests
@@ -478,6 +480,20 @@ def upload_ftp(db, path):
         )
         os.remove(temp_path)
         return
+    mimetype = magic.from_file(temp_path, mime=True)
+    extension = mimetypes.guess_extension(mimetype)
+    if extension is not None:
+        forbidden_real = ForbiddenExtension.query.filter(
+            ForbiddenExtension.extension == extension[1:]).first()
+        if forbidden_real is not None:
+            log.error(
+                'User {name} tried to upload a file with a forbidden '
+                'extension ({extension})!'.format(name=user.name,
+                                                  extension=extension[1:])
+            )
+            os.remove(temp_path)
+            return
+
     log.debug('Moving file to temporary folder and changing permissions...')
     # Move the file to a temporary location
     filename = secure_filename(

@@ -51,49 +51,48 @@ function executeCommand {
 }
 # Check whether cmake is a success or not
 function cmakeCheck {
-	executeCommand mkdir build
-	executeCommand cd build
-	executeCommand cmake ../src/
-	executeCommand make
+	mkdir build
+	cd build
+	cmake ../src/ >> "${logFile}" 2>&1
+	make >> "${logFile}" 2>&1
 	if [ -x "ccextractor" ]; then
-		postStatus "cmake building" "Successful build"
+		postStatus "building" "Successful build using cmake"
 	else
-		postStatus "cmake building" "Failed to build"
+		postStatus "building" "Failed to build using cmake"
 	fi
-	executeCommand cd ..
-	executeCommand rm -rf build
+	cd ..
+	rm -rf build
 }
 # Check whether builddebug is a success or not
 function builddebugCheck {
-	executeCommand cd linux
+	cd linux
 	./builddebug >> "${logFile}" 2>&1
 	if [ -x "ccextractor" ]; then
-		postStatus "builddebug building" "Successful build"
-		executeCommand rm ccextractor
+		postStatus "building" "Successful build using builddebug"
+		rm ccextractor
 	else
-		postStatus "builddebug building" "Failed to build"
+		postStatus "building" "Failed to build using builddebug"
 	fi
-	./cleanup
-	executeCommand cd ..
+	cd ..
 }
 # Check whether autoconf is a success or not
 function autoconfCheck {
-	executeCommand cd linux
+	cd linux
 	./autogen.sh >> "${logFile}" 2>&1
 	if [ -x "configure" ]; then
 		./configure >> "${logFile}" 2>&1
-		executeCommand make
+		make >> "${logFile}" 2>&1
 		if [ -x "ccextractor" ]; then
-			postStatus "autoconf building" "Successful build"
-			executeCommand rm ccextractor
+			postStatus "building" "Successful build using autoconf"
+			rm ccextractor
 		else
-			postStatus "autoconf building" "Failed to build"
+			postStatus "building" "Failed to build using autoconf"
 		fi
 	else
-		postStatus "autoconf building" "Failed to build"
+		postStatus "building" "Failed to build using autoconf"
 	fi
-	./cleanup
-	executeCommand cd ..
+	./cleanup >> "${logFile}" 2>&1
+	cd ..
 }
 
 postStatus "preparation" "Copy testsuite to local folder"
@@ -103,13 +102,13 @@ postStatus "preparation" "Copy code to local folder"
 executeCommand cp -r ${srcDir}/* ${dstDir}
 executeCommand cd ${dstDir}
 
-postStatus "cmake building" "Compiling CCExtractor using cmake"
+postStatus "building" "Compiling CCExtractor using cmake"
 cmakeCheck
 
-postStatus "builddebug building" "Compiling CCExtractor using builddebug"
+postStatus "building" "Compiling CCExtractor using builddebug"
 builddebugCheck
 
-postStatus "autoconf building" "Compiling CCExtractor using autoconf"
+postStatus "building" "Compiling CCExtractor using autoconf"
 autoconfCheck
 
 postStatus "building" "Compiling CCExtractor"

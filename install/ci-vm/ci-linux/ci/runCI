@@ -56,9 +56,9 @@ function cmakeCheck {
 	executeCommand cmake ../src/
 	executeCommand make
 	if [ -x "ccextractor" ]; then
-		postStatus "cmake building" "successful build using cmake"
+		postStatus "cmake building" "Successful build"
 	else
-		postStatus "cmake building" "Failed to build using cmake"
+		postStatus "cmake building" "Failed to build"
 	fi
 	executeCommand cd ..
 	executeCommand rm -rf build
@@ -68,10 +68,10 @@ function builddebugCheck {
 	executeCommand cd linux
 	./builddebug >> "${logFile}" 2>&1
 	if [ -x "ccextractor" ]; then
-		postStatus "builddebug building" "successful build using builddebug"
+		postStatus "builddebug building" "Successful build"
 		executeCommand rm ccextractor
 	else
-		postStatus "builddebug building" "Failed to build using builddebug"
+		postStatus "builddebug building" "Failed to build"
 	fi
 	./cleanup
 	executeCommand cd ..
@@ -84,13 +84,13 @@ function autoconfCheck {
 		./configure >> "${logFile}" 2>&1
 		executeCommand make
 		if [ -x "ccextractor" ]; then
-			postStatus "autoconf building" "successful build using autoconf"
+			postStatus "autoconf building" "Successful build"
 			executeCommand rm ccextractor
 		else
-			postStatus "autoconf building" "Failed to build using autoconf"
+			postStatus "autoconf building" "Failed to build"
 		fi
 	else
-		postStatus "autoconf building" "Failed to build using autoconf"
+		postStatus "autoconf building" "Failed to build"
 	fi
 	./cleanup
 	executeCommand cd ..

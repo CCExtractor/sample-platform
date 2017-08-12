@@ -59,6 +59,7 @@ function cmakeCheck {
 		postStatus "cmake building" "successful build using cmake"
 	else
 		postStatus "cmake building" "Failed to build using cmake"
+	fi
 	executeCommand cd ..
 	executeCommand rm -rf build
 }
@@ -71,24 +72,28 @@ function builddebugCheck {
 		executeCommand rm ccextractor
 	else
 		postStatus "builddebug building" "Failed to build using builddebug"
-	executeCommand cd ..
+	fi
 	./cleanup
+	executeCommand cd ..
 }
 # Check whether autoconf is a success or not
 function autoconfCheck {
 	executeCommand cd linux
 	./autogen.sh >> "${logFile}" 2>&1
-	if [-x "configure"]; then
+	if [ -x "configure" ]; then
 		./configure >> "${logFile}" 2>&1
+		executeCommand make
 		if [ -x "ccextractor" ]; then
 			postStatus "autoconf building" "successful build using autoconf"
 			executeCommand rm ccextractor
 		else
 			postStatus "autoconf building" "Failed to build using autoconf"
+		fi
 	else
 		postStatus "autoconf building" "Failed to build using autoconf"
-	executeCommand cd ..
+	fi
 	./cleanup
+	executeCommand cd ..
 }
 
 postStatus "preparation" "Copy testsuite to local folder"

@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# Bootstrap script that will get the runCI from the repository, provided the
+# VM is not in maintenance mode
+
+DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+
+if [ ! -f "$DIR/variables" ]; then
+    # No variable file defined
+    sudo shutdown -h now
+fi
+
+# Source variables
+. "$DIR/variables"
+
+maintenance=$(curl ${maintenanceURL})
+
+if [ "${maintenance}" == "True" ]; then
+    # In debug mode
+    exit;
+fi
+
+wget "${runCIURL}"
+chmod a+x runCI
+./runCI

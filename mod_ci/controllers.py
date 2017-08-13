@@ -509,8 +509,8 @@ def start_ci():
                            TestType.pull_request)
         elif event == "issues":
             issue_data = payload['issue']
-            issue_id = issue['number']
-            issue = Issue.query.filter(Issue.issue_id == issue_id).first()
+            issue = Issue.query.filter(
+                Issue.issue_id == issue_data['number']).first()
             if issue is not None:
                 issue.title = issue_data['title']
                 issue.status = issue_data['state']
@@ -750,3 +750,9 @@ def progress_reporter(test_id, token):
                 g.db.commit()
             return "OK"
     return "FAIL"
+
+
+@mod_ci.route('/maintenance-mode/<platform>')
+def in_maintenance_mode(platform):
+    # TODO: fetch status from DB if #85 is implemented
+    return "False"

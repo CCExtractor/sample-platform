@@ -26,8 +26,8 @@ echo "-------------------------------"
 echo ""
 echo "* Updating package list        "
 apt-get update >> "$install_log" 2>&1
-echo "* Installing nginx, python, pip, kvm, libvirt and virt-manager"
-apt-get -q -y install nginx python python-dev libxslt1-dev libxml2-dev python-pip qemu-kvm libvirt-bin virt-manager mediainfo >> "$install_log" 2>&1
+echo "* Installing nginx, python, pip, kvm, libvirt, virt-manager, cmake and autoconf"
+apt-get -q -y install nginx python python-dev libxslt1-dev libxml2-dev python-pip qemu-kvm libvirt-bin virt-manager mediainfo cmake autoconf>> "$install_log" 2>&1
 if [ ! -f /etc/init.d/mysql* ]; then
     echo "* Installing MySQL (root password will be empty!)"
     DEBIAN_FRONTEND=noninteractive apt-get install -y mysql-server >> "$install_log" 2>&1

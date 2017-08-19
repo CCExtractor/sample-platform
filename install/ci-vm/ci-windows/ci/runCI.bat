@@ -46,7 +46,8 @@ cmake --build . --config Debug --target ccextractor
 if EXIST Debug\ccextractor.exe (
 	call :postStatus "building" "Successful build using cmake"
 )
-else (
+else
+(
 	call :postStatus "building" "Failed to build using cmake"
 )
 cd ..

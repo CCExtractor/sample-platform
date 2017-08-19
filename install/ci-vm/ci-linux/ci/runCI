@@ -28,18 +28,26 @@ fi
 reportURL=$(cat ${reportURLFile})
 userAgent="CCX/CI_BOT"
 logFile="${reportFolder}/log.html"
-# Functions to shorten the script
+
+# Functions for re-use in various stages of the test progress
 
 # Post status to the server
 function postStatus {
     curl -s -A "${userAgent}" --data "type=progress&status=$1&message=$2" -w "\n" "${reportURL}" >> "${logFile}"
 }
+
+# Send the log file to the server so it can be used
+function sendLogFile {
+    curl -s -A "${userAgent}" --form "type=logupload" --form "file=@${logFile}" -w "\n" "${reportURL}"
+}
+
 # Exit script and post abort status
 function haltAndCatchFire {
 	postStatus "canceled" $1 >> "${logFile}"
-	curl -s -A "${userAgent}" --form "type=logupload" --form "file=@${logFile}" -w "\n" "${reportURL}" #field type field to send a file
+	sendLogFile
 	sudo shutdown -h now
 }
+
 # Fail when the exit status is not equal to 0
 function executeCommand {
 	#echo "$@"
@@ -49,6 +57,7 @@ function executeCommand {
 		haltAndCatchFire "" # No message needed as we post before anyway
 	fi
 }
+
 # Check whether cmake is a success or not
 function cmakeCheck {
 	mkdir build
@@ -63,6 +72,7 @@ function cmakeCheck {
 	cd ..
 	rm -rf build
 }
+
 # Check whether builddebug is a success or not
 function builddebugCheck {
 	cd linux
@@ -75,6 +85,7 @@ function builddebugCheck {
 	fi
 	cd ..
 }
+
 # Check whether autoconf is a success or not
 function autoconfCheck {
 	cd linux
@@ -94,6 +105,9 @@ function autoconfCheck {
 	./cleanup >> "${logFile}" 2>&1
 	cd ..
 }
+
+# Truncate log in case there was anything left from a previous session
+echo "" > "${logFile}"
 
 postStatus "preparation" "Copy testsuite to local folder"
 executeCommand cp -r ${suiteSrcDir}/* ${suiteDstDir}
@@ -124,6 +138,7 @@ if [ -x "ccextractor" ]; then
 	executeCommand cd ${suiteDstDir}
 	executeCommand ${tester} --entries "${testFile}" --executable "${dstDir}/linux/ccextractor" --tempfolder "${tempFolder}" --timeout 3000 --reportfolder "${reportFolder}" --resultfolder "${resultFolder}" --samplefolder "${sampleFolder}" --method Server --url "${reportURL}"
 	postStatus "completed" "Ran all tests"
+	sendLogFile
 	# Shut down
 	sudo shutdown -h now
 else

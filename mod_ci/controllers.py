@@ -560,6 +560,8 @@ def progress_reporter(test_id, token):
                     g.github['repository'])
                 # If status is complete, remove the Kvm entry
                 if status in [TestStatus.completed, TestStatus.canceled]:
+                    log.debug("Test {id} has been {status}".format(
+                        id=test_id, status=status))
                     var_average = 'average_time_' + test.platform.value
                     current_average = GeneralData.query.filter(
                         GeneralData.key == var_average).first()
@@ -623,6 +625,7 @@ def progress_reporter(test_id, token):
                         g.db.commit()
                     kvm = Kvm.query.filter(Kvm.test_id == test_id).first()
                     if kvm is not None:
+                        log.debug("Removing KVM entry")
                         g.db.delete(kvm)
                         g.db.commit()
                     # Start next test if necessary
@@ -682,6 +685,7 @@ def progress_reporter(test_id, token):
                 except ApiError as a:
                     log.error('Got an exception while posting to GitHub! '
                               'Message: {message}'.format(message=a.message))
+
             elif request.form['type'] == 'equality':
                 log.debug('Equality for {t}/{rt}/{rto}'.format(
                     t=test_id, rt=request.form['test_id'], rto=request.form[
@@ -700,6 +704,8 @@ def progress_reporter(test_id, token):
                     g.db.commit()
 
             elif request.form['type'] == 'logupload':
+                log.debug(
+                    "Received log file for test {id}".format(id=test_id))
                 # File upload, process
                 if 'file' in request.files:
                     uploaded_file = request.files['file']
@@ -718,6 +724,7 @@ def progress_reporter(test_id, token):
                     )
 
                     os.rename(temp_path, final_path)
+                    log.debug("Stored log file")
 
             elif request.form['type'] == 'upload':
                 log.debug('Upload for {t}/{rt}/{rto}'.format(
@@ -754,10 +761,10 @@ def progress_reporter(test_id, token):
                         'test_id'], rto.id, rto.correct, file_hash)
                     g.db.add(result_file)
                     g.db.commit()
+
             elif request.form['type'] == 'finish':
                 log.debug('Finish for {t}/{rt}'.format(
                     t=test_id, rt=request.form['test_id']))
-                # Test was done
                 regression_test = RegressionTest.query.filter(
                     RegressionTest.id == request.form['test_id']).first()
                 result = TestResult(
@@ -765,7 +772,11 @@ def progress_reporter(test_id, token):
                     request.form['exitCode'], regression_test.expected_rc
                 )
                 g.db.add(result)
-                g.db.commit()
+                try:
+                    g.db.commit()
+                except IntegrityError as e:
+                    log.error('Could not save the results: {msg}'.format(
+                        msg=e.message))
             return "OK"
     return "FAIL"
 

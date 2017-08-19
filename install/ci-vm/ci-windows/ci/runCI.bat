@@ -34,6 +34,25 @@ call :postStatus "preparation" "Copy code to local folder"
 call robocopy %srcDir% %dstDir% /e >> "%logFile%"
 call :executeCommand cd %dstDir%
 
+echo Compile CCX using cmake
+call :postStatus "building" "Compiling CCExtractor using cmake"
+rem making a build folder
+mkdir build
+cd build
+rem Compiling using cmake from src source to build repo
+cmake ../src
+rem Building CCExtractor
+cmake --build . --config Debug --target ccextractor
+if EXIST Debug\ccextractor.exe (
+	call :postStatus "building" "Successful build using cmake"
+)
+else
+(
+	call :postStatus "building" "Failed to build using cmake"
+)
+cd ..
+rmdir /Q/S build
+
 echo Compile CCX
 call :postStatus "building" "Compiling CCExtractor"
 rem Go to Windows build folder

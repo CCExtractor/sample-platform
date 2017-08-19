@@ -6,7 +6,7 @@ import sys
 
 import datetime
 
-from flask import Blueprint, request, abort, g, url_for
+from flask import Blueprint, request, abort, g, url_for, jsonify
 from git import Repo, InvalidGitRepositoryError, GitCommandError
 from github import GitHub, ApiError
 from multiprocessing import Process
@@ -18,11 +18,13 @@ from sqlalchemy.sql.functions import count
 from werkzeug.utils import secure_filename
 from pymysql.err import IntegrityError
 
-from mod_ci.models import Kvm
+from decorators import template_renderer, get_menu_entries
+from mod_ci.models import Kvm, MaintenanceMode
 from mod_deploy.controllers import request_from_github, is_valid_signature
 from mod_home.models import GeneralData
 from mod_regression.models import Category, RegressionTestOutput, \
     RegressionTest
+from mod_auth.models import Role, User
 from mod_sample.models import Issue
 from mod_test.models import TestType, Test, TestStatus, TestProgress, Fork, \
     TestPlatform, TestResultFile, TestResult
@@ -38,6 +40,22 @@ class Status:
     SUCCESS = "success"
     ERROR = "error"
     FAILURE = "failure"
+
+
+@mod_ci.before_app_request
+def before_app_request():
+    config_entries = get_menu_entries(
+        g.user, 'Platform mgmt', 'cog', [], '', [
+            {'title': 'Maintenance', 'icon': 'wrench', 'route':
+                'ci.show_maintenance', 'access': [Role.admin]}
+        ]
+    )
+    g.menu_entries['config'] = config_entries
+    if 'config' in g.menu_entries and 'entries' in config_entries:
+        g.menu_entries['config']['entries'] = \
+            config_entries['entries'] + g.menu_entries['config']['entries']
+    else:
+        g.menu_entries['config'] = config_entries
 
 
 def start_ci_vm(db, repository, delay=None):
@@ -752,7 +770,48 @@ def progress_reporter(test_id, token):
     return "FAIL"
 
 
+@mod_ci.route('/show_maintenance')
+@template_renderer('auth/maintenance.html', 404)
+def show_maintenance():
+    modes = MaintenanceMode.query.all()
+    return {
+        'modes': modes
+    }
+
+
+@mod_ci.route('/toggle_maintenance/<platform>/<status>')
+def toggle_maintenance(platform, status):
+    db_mode = MaintenanceMode.query.filter(MaintenanceMode.platform ==
+                                           platform).first()
+    if db_mode is None:
+        status = 'failed'
+        message = 'Platform Not found'
+    elif db_mode.mode == 'False' and status == 'True':
+        db_mode.mode = 'True'
+        g.db.commit()
+        status = 'success'
+        message = platform + ' platform is in maintenance mode'
+    elif db_mode.mode == 'True' and status == 'False':
+        db_mode.mode = 'False'
+        g.db.commit()
+        status = 'success'
+        message = platform + ' platform is in active mode'
+    else:
+        status = 'failed'
+        message = 'No Change'
+    return jsonify({
+        'status': status,
+        'message': message
+    })
+
+
 @mod_ci.route('/maintenance-mode/<platform>')
 def in_maintenance_mode(platform):
-    # TODO: fetch status from DB if #85 is implemented
-    return "False"
+    db_mode = MaintenanceMode.query.filter(MaintenanceMode.platform ==
+                                           platform).first()
+    if mode is None:
+        db_mode = MaintenanceMode(
+            platform, 'False')
+        g.db.add(db_mode)
+    mode_value = db_mode.mode
+    return mode_value

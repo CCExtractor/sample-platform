@@ -747,7 +747,11 @@ def progress_reporter(test_id, token):
                     request.form['exitCode'], regression_test.expected_rc
                 )
                 g.db.add(result)
-                g.db.commit()
+                try:
+                    g.db.commit()
+                except IntegrityError as e:
+                    log.error('Could not save the results: {msg}'.format(
+                        msg=e.message))
             return "OK"
     return "FAIL"
 

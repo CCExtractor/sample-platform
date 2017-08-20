@@ -19,6 +19,7 @@ from werkzeug.utils import secure_filename
 from pymysql.err import IntegrityError
 
 from decorators import template_renderer, get_menu_entries
+from mod_auth.controllers import login_required, check_access_rights
 from mod_ci.models import Kvm, MaintenanceMode
 from mod_deploy.controllers import request_from_github, is_valid_signature
 from mod_home.models import GeneralData

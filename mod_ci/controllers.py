@@ -837,4 +837,4 @@ def in_maintenance_mode(platform):
         g.db.add(status)
         g.db.commit()
 
-    return status.disabled
+    return "True" if status.disabled else "False"

@@ -62,7 +62,7 @@ def get_data_for_test(test, title=None):
     if len(test.progress) == 0:
         var_average = 'average_time_' + test.platform.value
         queued_kvm = g.db.query(Kvm.test_id).filter(
-            Kvm.test_id < test.id).subquery()
+            Kvm.test_id > test.id).subquery()
         queued_kvm_entries = g.db.query(Test.id).filter(and_(
             Test.id.in_(queued_kvm), Test.platform == test.platform))
         kvm_test = g.db.query(

@@ -95,7 +95,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         time.sleep(delay)
     maintenance_mode = MaintenanceMode.query.filter(MaintenanceMode.platform ==
                                                     platform).first()
-    if maintenance_mode is None or maintenance_mode.mode == 'True':
+    if maintenance_mode is not None and maintenance_mode.mode == 'True':
         return
 
     # Open connection to libvirt
@@ -827,10 +827,8 @@ def in_maintenance_mode(platform):
     platforms = TestPlatform.values()
     if platform not in platforms:
         return 'ERROR'
-    elif platform == 'linux':
-        platformenum = TestPlatform.linux
-    elif platform == 'windows':
-        platformenum = TestPlatform.windows
+    else:
+        platformenum = TestPlatform.from_string(platform)
     db_mode = MaintenanceMode.query.filter(MaintenanceMode.platform ==
                                            platformenum).first()
     if db_mode is None:

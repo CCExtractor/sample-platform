@@ -95,13 +95,6 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         time.sleep(delay)
     maintenance_mode = in_maintenance_mode(platform)
     if maintenance_mode is 'True':
-        import time
-        log.debug('[Maintenance Mode] [{platform}] Sleeping for'
-                  ' {time} seconds'.format(
-                      platform=platform, time=delay))
-        # sleep for 2 minutes
-        time.sleep(120)
-        kvm_processor(db, kvm_name, platform, repository, delay)
         return
 
     # Open connection to libvirt
@@ -797,9 +790,8 @@ def progress_reporter(test_id, token):
 @check_access_rights([Role.admin])
 @template_renderer('ci/maintenance.html', 404)
 def show_maintenance():
-    modes = MaintenanceMode.query.all()
     return {
-        'modes': modes
+        'modes': MaintenanceMode.query.all()
     }
 
 
@@ -812,16 +804,14 @@ def toggle_maintenance(platform, status):
     if db_mode is None:
         status = 'failed'
         message = 'Platform Not found'
-    elif status == 'True':
-        db_mode.mode = 'True'
+    elif status in ['True', 'False']:
+        db_mode.mode = status
         g.db.commit()
         status = 'success'
-        message = platform + ' platform is in maintenance mode'
-    elif status == 'False':
-        db_mode.mode = 'False'
-        g.db.commit()
-        status = 'success'
-        message = platform + ' platform is in active mode'
+        if status == 'True':
+            message = platform + ' platform is in maintenance mode'
+        else:
+            message = platform + ' platform is in active mode'
     else:
         status = 'failed'
         message = 'No Change'
@@ -833,7 +823,7 @@ def toggle_maintenance(platform, status):
 
 @mod_ci.route('/maintenance-mode/<platform>')
 def in_maintenance_mode(platform):
-    platforms = TestPlatform.list_all()
+    platforms = TestPlatform.values()
     if platform not in platforms:
         return 'ERROR'
     db_mode = MaintenanceMode.query.filter(MaintenanceMode.platform ==

@@ -25,7 +25,7 @@ from mod_deploy.controllers import request_from_github, is_valid_signature
 from mod_home.models import GeneralData
 from mod_regression.models import Category, RegressionTestOutput, \
     RegressionTest
-from mod_auth.models import Role, User
+from mod_auth.models import Role
 from mod_sample.models import Issue
 from mod_test.models import TestType, Test, TestStatus, TestProgress, Fork, \
     TestPlatform, TestResultFile, TestResult
@@ -93,9 +93,9 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         log.debug('[{platform}] Sleeping for {time} seconds'.format(
             platform=platform, time=delay))
         time.sleep(delay)
-    maintenance_mode = MaintenanceMode.query.filter(MaintenanceMode.platform ==
-                                                    platform).first()
-    if maintenance_mode is not None and maintenance_mode.mode == 'True':
+    maintenance_mode = MaintenanceMode.query.filter(
+        MaintenanceMode.platform == platform).first()
+    if maintenance_mode is not None and maintenance_mode.disabled:
         return
 
     # Open connection to libvirt
@@ -792,7 +792,7 @@ def progress_reporter(test_id, token):
 @template_renderer('ci/maintenance.html', 404)
 def show_maintenance():
     return {
-        'modes': MaintenanceMode.query.all()
+        'platforms': MaintenanceMode.query.all()
     }
 
 
@@ -800,41 +800,41 @@ def show_maintenance():
 @login_required
 @check_access_rights([Role.admin])
 def toggle_maintenance(platform, status):
-    db_mode = MaintenanceMode.query.filter(MaintenanceMode.platform ==
-                                           platform).first()
-    if db_mode is None:
-        status = 'failed'
-        message = 'Platform Not found'
-    elif status in ['True', 'False']:
-        db_mode.mode = status
-        g.db.commit()
-        status = 'success'
-        if status == 'True':
-            message = platform + ' platform is in maintenance mode'
-        else:
-            message = platform + ' platform is in active mode'
-    else:
-        status = 'failed'
-        message = 'No Change'
+    result = 'failed'
+    message = 'Platform Not found'
+    try:
+        platform = TestPlatform.from_string(platform)
+        db_mode = MaintenanceMode.query.filter(MaintenanceMode.platform ==
+                                               platform).first()
+        if db_mode is not None:
+            db_mode.disabled = status == 'True'
+            g.db.commit()
+            result = 'success'
+            message = '{platform} in maintenance? {status}'.format(
+                platform=platform.description,
+                status=("Yes" if db_mode.disabled else 'No')
+            )
+    except ValueError:
+        pass
+
     return jsonify({
-        'status': status,
+        'status': result,
         'message': message
     })
 
 
 @mod_ci.route('/maintenance-mode/<platform>')
 def in_maintenance_mode(platform):
-    platforms = TestPlatform.values()
-    if platform not in platforms:
+    try:
+        platform = TestPlatform.from_string(platform)
+    except ValueError:
         return 'ERROR'
-    else:
-        platformenum = TestPlatform.from_string(platform)
-    db_mode = MaintenanceMode.query.filter(MaintenanceMode.platform ==
-                                           platformenum).first()
-    if db_mode is None:
-        db_mode = MaintenanceMode(
-            platformenum, 'False')
-        g.db.add(db_mode)
+
+    status = MaintenanceMode.query.filter(
+        MaintenanceMode.platform == platform).first()
+    if status is None:
+        status = MaintenanceMode(platform, False)
+        g.db.add(status)
         g.db.commit()
-    mode_value = db_mode.mode
-    return mode_value
+
+    return status.disabled

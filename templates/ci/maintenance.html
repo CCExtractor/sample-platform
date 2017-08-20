@@ -4,47 +4,40 @@
 {% block menu %}{% include 'menu.html' %}{% endblock %}
 {% block body %}
 	{{ super() }}
-
-
-	<h1>Maintenance Mode</h1>
-		{% for mode in modes %}
-			<h3> {{ mode.platform }} </h3>
-
+    <br />
+    <div class="row">
+	    <h1>Maintenance Mode</h1>
+		{% for platform_status in platforms %}
+			<h3>{{ platform_status.platform.description }}</h3>
 			<div class="switch">
-				{% if mode.mode == 'False' %}
-					<input id="{{mode.platform}}" value="{{mode.platform}}" class="toggle toggle-round" type="checkbox">
-				{% else %}
-					<input id="{{mode.platform}}" class="toggle toggle-round" type="checkbox" checked="checked">
-				{% endif %}
-				<label for="{{mode.platform}}"></label>
+                <input id="{{platform_status.platform}}" class="toggle toggle-round" type="checkbox"{% if platform_status.disabled %}checked="checked"{% endif %}>
+				<label for="{{platform_status.platform}}"></label>
 			</div>
 		{% endfor %}
+    </div>
 {% endblock %}
 {% block scripts %}
 	{{ super() }}
 	<script type="text/javascript">
-		$('input:checkbox').change(
-			function(){
-				var platform = $(this).attr('id');
-				var status = 'False';
-				if ($(this).is(':checked')) {
-					status = 'True';
-				}
-				var url = "{{ url_for('ci.toggle_maintenance', platform='_0_', status='_1_') }}";
-				url = url.replace('_0_', platform).replace('_1_', status);
-				$.ajax({
-					type: "GET",
-					url: url,
-					contentType: "application/json; charset=utf-8",
-					dataType: "json",
-					success: function (data) {
-						alert(data.message);
-					},
-					failure: function (errMsg) {
-						console.log("Error Fetching");
-					}
-				});
-			});
+		$('input:checkbox').on('change', function () {
+		    var platform, status, url;
 
+            platform = $(this).attr('id');
+            status = $(this).is(':checked') ? 'True' : 'False';
+            url = "{{ url_for('ci.toggle_maintenance', platform='_0_', status='_1_') }}";
+            url = url.replace('_0_', platform).replace('_1_', status);
+
+            $.ajax({
+                type: "GET",
+                url: url,
+                dataType: "json",
+                success: function (data) {
+                    console.log(data.message);
+                },
+                failure: function (errMsg) {
+                    console.log("Error Fetching");
+                }
+            });
+        });
 	</script>
 {% endblock %}

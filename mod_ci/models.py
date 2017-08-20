@@ -1,5 +1,5 @@
 import datetime
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import relationship
 
 from database import Base
@@ -27,12 +27,16 @@ class Kvm(Base):
 
 
 class MaintenanceMode(Base):
-    __tablename__ = 'maintenancemode'
+    __tablename__ = 'maintenance_mode'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
     platform = Column(TestPlatform.db_type(), nullable=False)
-    mode = Column(String(64), nullable=False)
+    disabled = Column(Boolean, nullable=False, default=False)
 
     def __init__(self, platform, mode):
         self.platform = platform
-        self.mode = mode
+        self.disabled = mode
+
+    def __repr__(self):
+        return '<Platform {platform}, maintenance {status}>'.format(
+            platform=self.platform.description, status=self.disabled)

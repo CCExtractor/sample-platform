@@ -92,6 +92,17 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         log.debug('[{platform}] Sleeping for {time} seconds'.format(
             platform=platform, time=delay))
         time.sleep(delay)
+    maintenance_mode = in_maintenance_mode(platform)
+    if maintenance_mode is True:
+        import time
+        log.debug('[Maintenance Mode] [{platform}] Sleeping for'
+                  ' {time} seconds'.format(
+                      platform=platform, time=delay))
+        # sleep for 2 minutes
+        time.sleep(120)
+        kvm_processor(db, kvm_name, platform, repository, delay)
+        return
+
     # Open connection to libvirt
     conn = libvirt.open("qemu:///system")
     if conn is None:

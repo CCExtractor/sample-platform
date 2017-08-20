@@ -103,7 +103,7 @@ class Test(Base):
             return self.progress[-1].status in [
                 TestStatus.completed, TestStatus.canceled]
         return False
-    
+
     @property
     def failed(self):
         if len(self.progress) > 0:
@@ -181,7 +181,7 @@ class TestProgress(Base):
 
     def __repr__(self):
         return '<TestStatus %r: %r>' % self.test_id, self.status
-    
+
     @orm.reconstructor
     def may_the_timezone_be_with_it(self):
         self.timestamp = pytz.utc.localize(self.timestamp, is_dst=None)

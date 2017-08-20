@@ -3,7 +3,7 @@ from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 
 from database import Base
-from mod_test.models import Test
+from mod_test.models import Test, TestPlatform
 
 
 class Kvm(Base):
@@ -24,3 +24,15 @@ class Kvm(Base):
 
     def __repr__(self):
         return '<KVM test running: %r>' % self.test_id
+
+
+class MaintenanceMode(Base):
+    __tablename__ = 'maintenancemode'
+    __table_args__ = {'mysql_engine': 'InnoDB'}
+    id = Column(Integer, primary_key=True)
+    platform = Column(TestPlatform.db_type(), nullable=False)
+    mode = Column(String(64), nullable=False)
+
+    def __init__(self, platform, mode):
+        self.platform = platform
+        self.mode = mode

@@ -6,7 +6,7 @@ import sys
 
 import datetime
 
-from flask import Blueprint, request, abort, g, url_for
+from flask import Blueprint, request, abort, g, url_for, jsonify
 from git import Repo, InvalidGitRepositoryError, GitCommandError
 from github import GitHub, ApiError
 from multiprocessing import Process
@@ -18,11 +18,14 @@ from sqlalchemy.sql.functions import count
 from werkzeug.utils import secure_filename
 from pymysql.err import IntegrityError
 
-from mod_ci.models import Kvm
+from decorators import template_renderer, get_menu_entries
+from mod_auth.controllers import login_required, check_access_rights
+from mod_ci.models import Kvm, MaintenanceMode
 from mod_deploy.controllers import request_from_github, is_valid_signature
 from mod_home.models import GeneralData
 from mod_regression.models import Category, RegressionTestOutput, \
     RegressionTest
+from mod_auth.models import Role, User
 from mod_sample.models import Issue
 from mod_test.models import TestType, Test, TestStatus, TestProgress, Fork, \
     TestPlatform, TestResultFile, TestResult
@@ -38,6 +41,21 @@ class Status:
     SUCCESS = "success"
     ERROR = "error"
     FAILURE = "failure"
+
+
+@mod_ci.before_app_request
+def before_app_request():
+    config_entries = get_menu_entries(
+        g.user, 'Platform mgmt', 'cog', [], '', [
+            {'title': 'Maintenance', 'icon': 'wrench', 'route':
+                'ci.show_maintenance', 'access': [Role.admin]}
+        ]
+    )
+    if 'config' in g.menu_entries and 'entries' in config_entries:
+        g.menu_entries['config']['entries'] = \
+            config_entries['entries'] + g.menu_entries['config']['entries']
+    else:
+        g.menu_entries['config'] = config_entries
 
 
 def start_ci_vm(db, repository, delay=None):
@@ -75,6 +93,11 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         log.debug('[{platform}] Sleeping for {time} seconds'.format(
             platform=platform, time=delay))
         time.sleep(delay)
+    maintenance_mode = MaintenanceMode.query.filter(MaintenanceMode.platform ==
+                                                    platform).first()
+    if maintenance_mode is not None and maintenance_mode.mode == 'True':
+        return
+
     # Open connection to libvirt
     conn = libvirt.open("qemu:///system")
     if conn is None:
@@ -763,7 +786,55 @@ def progress_reporter(test_id, token):
     return "FAIL"
 
 
+@mod_ci.route('/show_maintenance')
+@login_required
+@check_access_rights([Role.admin])
+@template_renderer('ci/maintenance.html', 404)
+def show_maintenance():
+    return {
+        'modes': MaintenanceMode.query.all()
+    }
+
+
+@mod_ci.route('/toggle_maintenance/<platform>/<status>')
+@login_required
+@check_access_rights([Role.admin])
+def toggle_maintenance(platform, status):
+    db_mode = MaintenanceMode.query.filter(MaintenanceMode.platform ==
+                                           platform).first()
+    if db_mode is None:
+        status = 'failed'
+        message = 'Platform Not found'
+    elif status in ['True', 'False']:
+        db_mode.mode = status
+        g.db.commit()
+        status = 'success'
+        if status == 'True':
+            message = platform + ' platform is in maintenance mode'
+        else:
+            message = platform + ' platform is in active mode'
+    else:
+        status = 'failed'
+        message = 'No Change'
+    return jsonify({
+        'status': status,
+        'message': message
+    })
+
+
 @mod_ci.route('/maintenance-mode/<platform>')
 def in_maintenance_mode(platform):
-    # TODO: fetch status from DB if #85 is implemented
-    return "False"
+    platforms = TestPlatform.values()
+    if platform not in platforms:
+        return 'ERROR'
+    else:
+        platformenum = TestPlatform.from_string(platform)
+    db_mode = MaintenanceMode.query.filter(MaintenanceMode.platform ==
+                                           platformenum).first()
+    if db_mode is None:
+        db_mode = MaintenanceMode(
+            platformenum, 'False')
+        g.db.add(db_mode)
+        g.db.commit()
+    mode_value = db_mode.mode
+    return mode_value

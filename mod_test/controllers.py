@@ -64,16 +64,19 @@ def get_data_for_test(test, title=None):
         queued_kvm = g.db.query(Kvm.test_id).filter(
             Kvm.test_id < test.id).subquery()
         queued_kvm_entries = g.db.query(Test.id).filter(and_(
-            Test.id.in_(queued_kvm), Test.platform == test.platform))
+            Test.id.in_(queued_kvm),
+            Test.platform == test.platform)).subquery()
         kvm_test = g.db.query(
             TestProgress.test_id,
             label('time', func.group_concat(TestProgress.timestamp))
         ).filter(
             TestProgress.test_id.in_(queued_kvm_entries)
         ).group_by(TestProgress.test_id).all()
+        number_kvm_test = g.db.query(Test.id).filter(and_(
+            Test.id.in_(queued_kvm), Test.platform == test.platform)).count()
         average_duration = float(GeneralData.query.filter(
             GeneralData.key == var_average).first().value)
-        queued_tests = len(kvm_test)
+        queued_tests = number_kvm_test
         time_run = 0
         for pr_test in kvm_test:
             timestamps = pr_test.time.split(',')

@@ -95,7 +95,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         time.sleep(delay)
     maintenance_mode = MaintenanceMode.query.filter(MaintenanceMode.platform ==
                                                     platform).first()
-    if maintenance_mode is None:
+    if maintenance_mode is None or maintenance_mode.mode == 'True':
         return
 
     # Open connection to libvirt

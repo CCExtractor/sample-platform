@@ -50,7 +50,6 @@ def before_app_request():
                 'ci.show_maintenance', 'access': [Role.admin]}
         ]
     )
-    g.menu_entries['config'] = config_entries
     if 'config' in g.menu_entries and 'entries' in config_entries:
         g.menu_entries['config']['entries'] = \
             config_entries['entries'] + g.menu_entries['config']['entries']

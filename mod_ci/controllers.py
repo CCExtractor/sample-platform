@@ -94,7 +94,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
             platform=platform, time=delay))
         time.sleep(delay)
     maintenance_mode = in_maintenance_mode(platform)
-    if maintenance_mode is True:
+    if maintenance_mode is 'True':
         import time
         log.debug('[Maintenance Mode] [{platform}] Sleeping for'
                   ' {time} seconds'.format(

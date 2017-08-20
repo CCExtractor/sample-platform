@@ -782,6 +782,8 @@ def progress_reporter(test_id, token):
 
 
 @mod_ci.route('/show_maintenance')
+@login_required
+@check_access_rights([Role.admin])
 @template_renderer('auth/maintenance.html', 404)
 def show_maintenance():
     modes = MaintenanceMode.query.all()
@@ -791,18 +793,20 @@ def show_maintenance():
 
 
 @mod_ci.route('/toggle_maintenance/<platform>/<status>')
+@login_required
+@check_access_rights([Role.admin])
 def toggle_maintenance(platform, status):
     db_mode = MaintenanceMode.query.filter(MaintenanceMode.platform ==
                                            platform).first()
     if db_mode is None:
         status = 'failed'
         message = 'Platform Not found'
-    elif db_mode.mode == 'False' and status == 'True':
+    elif status == 'True':
         db_mode.mode = 'True'
         g.db.commit()
         status = 'success'
         message = platform + ' platform is in maintenance mode'
-    elif db_mode.mode == 'True' and status == 'False':
+    elif status == 'False':
         db_mode.mode = 'False'
         g.db.commit()
         status = 'success'
@@ -818,9 +822,12 @@ def toggle_maintenance(platform, status):
 
 @mod_ci.route('/maintenance-mode/<platform>')
 def in_maintenance_mode(platform):
+    platforms = TestPlatform.list_all()
+    if platform not in platforms:
+        return 'ERROR'
     db_mode = MaintenanceMode.query.filter(MaintenanceMode.platform ==
                                            platform).first()
-    if mode is None:
+    if db_mode is None:
         db_mode = MaintenanceMode(
             platform, 'False')
         g.db.add(db_mode)

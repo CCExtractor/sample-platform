@@ -16,6 +16,10 @@ class TestPlatform(DeclEnum):
     linux = "linux", "Linux"
     windows = "windows", "Windows"
 
+    @staticmethod
+    def list_all():
+        return [TestPlatform.linux, TestPlatform.windows]
+
 
 class TestType(DeclEnum):
     commit = "commit", "Commit"

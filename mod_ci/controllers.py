@@ -204,16 +204,11 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     base_folder = os.path.join(
         config.get('SAMPLE_REPOSITORY', ''), 'vm_data', kvm_name, 'ci-tests')
     categories = Category.query.order_by(Category.id.desc()).all()
+    commit_name = 'fetch_commit' + platform.value
     commit_hash = GeneralData.query.filter(
-        GeneralData.key == 'last_commit').first().value
+        GeneralData.key == commit_name).first().value
     last_commit = Test.query.filter(and_(Test.commit == commit_hash,
                                          Test.platform == platform)).first()
-    if last_commit.id == test.id:
-        commit_hash = GeneralData.query.filter(
-            GeneralData.key == 'previous_to_last_commit').first().value
-        last_commit = Test.query.filter(and_(Test.commit == commit_hash,
-                                             Test.platform == platform
-                                             )).first()
 
     log.debug("[{platform}] We will compare against the results of test "
               "{id}".format(platform=platform, id=last_commit.id))
@@ -468,14 +463,14 @@ def start_ci():
             ref = repository.git().refs('heads/master').get()
             last_commit = GeneralData.query.filter(GeneralData.key ==
                                                    'last_commit').first()
-            previous_to_last_commit = GeneralData.query.filter(
-                GeneralData.key == 'previous_to_last_commit').first()
-            if previous_to_last_commit is None:
-                prev_commit = GeneralData(
-                    'previous_to_last_commit', last_commit.value)
-                g.db.add(prev_commit)
-            else:
-                previous_to_last_commit.value = last_commit.value
+            for platform in TestPlatform.values():
+                commit_name = 'fetch_commit_' + platform
+                fetch_commit = GeneralData.query.filter(
+                    GeneralData.key == commit_name).first()
+                if fetch_commit is None:
+                    prev_commit = GeneralData(
+                        commit_name, last_commit.value)
+                    g.db.add(prev_commit)
             last_commit.value = ref['object']['sha']
             g.db.commit()
             queue_test(g.db, repository, gh_commit, commit, TestType.commit)
@@ -563,6 +558,18 @@ def progress_reporter(test_id, token):
                 gh = GitHub(access_token=g.github['bot_token'])
                 repository = gh.repos(g.github['repository_owner'])(
                     g.github['repository'])
+                # Store the test commit for testing in case of commit
+                if status == TestStatus.completed:
+                    commit_name = 'fetch_commit_' + test.platform.value
+                    commit = GeneralData.query.filter(
+                        GeneralData.key == commit_name).first()
+                    fetch_commit = Test.query.filter(and_(
+                        Test.commit == commit.value,
+                        Test.platform == test.platform)).first()
+                    if test.test_type == TestType.commit and \
+                            test.id > fetch_commit.id:
+                        fetch_commit.value = test.commit
+                        g.db.commit()
                 # If status is complete, remove the Kvm entry
                 if status in [TestStatus.completed, TestStatus.canceled]:
                     log.debug("Test {id} has been {status}".format(

@@ -824,5 +824,6 @@ def in_maintenance_mode(platform):
         db_mode = MaintenanceMode(
             platform, 'False')
         g.db.add(db_mode)
+        g.db.commit()
     mode_value = db_mode.mode
     return mode_value

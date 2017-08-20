@@ -10,8 +10,8 @@
 		{% for platform_status in platforms %}
 			<h3>{{ platform_status.platform.description }}</h3>
 			<div class="switch">
-                <input id="{{platform_status.platform}}" class="toggle toggle-round" type="checkbox"{% if platform_status.disabled %}checked="checked"{% endif %}>
-				<label for="{{platform_status.platform}}"></label>
+                <input id="{{platform_status.platform.value}}" class="toggle toggle-round" type="checkbox"{% if platform_status.disabled %}checked="checked"{% endif %}>
+				<label for="{{platform_status.platform.value}}"></label>
 			</div>
 		{% endfor %}
     </div>

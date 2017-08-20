@@ -789,7 +789,7 @@ def progress_reporter(test_id, token):
 @mod_ci.route('/show_maintenance')
 @login_required
 @check_access_rights([Role.admin])
-@template_renderer('ci/maintenance.html', 404)
+@template_renderer('ci/maintenance.html')
 def show_maintenance():
     return {
         'platforms': MaintenanceMode.query.all()

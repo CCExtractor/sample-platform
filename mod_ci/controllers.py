@@ -204,7 +204,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     base_folder = os.path.join(
         config.get('SAMPLE_REPOSITORY', ''), 'vm_data', kvm_name, 'ci-tests')
     categories = Category.query.order_by(Category.id.desc()).all()
-    commit_name = 'fetch_commit' + platform.value
+    commit_name = 'fetch_commit_' + platform.value
     commit_hash = GeneralData.query.filter(
         GeneralData.key == commit_name).first().value
     last_commit = Test.query.filter(and_(Test.commit == commit_hash,

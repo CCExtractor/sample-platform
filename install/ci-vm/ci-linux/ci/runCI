@@ -33,12 +33,15 @@ logFile="${reportFolder}/log.html"
 
 # Post status to the server
 function postStatus {
+    echo "Posting ${1} - ${2} to the server:" >> "${logFile}"
     curl -s -A "${userAgent}" --data "type=progress&status=$1&message=$2" -w "\n" "${reportURL}" >> "${logFile}"
 }
 
 # Send the log file to the server so it can be used
 function sendLogFile {
+    echo "Sending log to the server:" >> "${logFile}"
     curl -s -A "${userAgent}" --form "type=logupload" --form "file=@${logFile}" -w "\n" "${reportURL}"
+    sleep 5
 }
 
 # Exit script and post abort status

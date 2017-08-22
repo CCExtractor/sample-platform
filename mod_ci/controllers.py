@@ -58,14 +58,24 @@ def before_app_request():
         g.menu_entries['config'] = config_entries
 
 
-def start_ci_vm(db, repository, delay=None):
-    p_lin = Process(target=kvm_processor_linux, args=(db, repository, delay))
-    p_lin.start()
-    p_win = Process(
-        target=kvm_processor_windows,
-        args=(db, repository, delay)
-    )
-    p_win.start()
+def start_all_platforms(db, repository, delay=None):
+    args = (db, repository, delay)
+    start_ci_process_for_platform(TestPlatform.linux, args)
+    start_ci_process_for_platform(TestPlatform.windows, args)
+
+
+def start_ci_process_for_platform(platform, args):
+    from run import log
+    if platform == TestPlatform.linux:
+        target = kvm_processor_linux
+    elif platform == TestPlatform.windows:
+        target = kvm_processor_windows
+    else:
+        log.error("Unsupported CI platform: {platform}".format(
+            platform=platform.description))
+        return
+    process = Process(target=target, args=args)
+    process.start()
 
 
 def kvm_processor_linux(db, repository, delay):
@@ -417,6 +427,10 @@ def queue_test(db, repository, gh_commit, commit, test_type, branch="master",
             context="CI - %s" % linux.platform.value,
             target_url=url_for(
                 'test.by_id', test_id=linux.id, _external=True))
+    except ApiError as a:
+        log.critical('Could not post to GitHub! Response: %s' % a.response)
+
+    try:
         gh_commit.post(
             state=Status.PENDING, description="Tests queued",
             context="CI - %s" % windows.platform.value,
@@ -424,9 +438,9 @@ def queue_test(db, repository, gh_commit, commit, test_type, branch="master",
                 'test.by_id', test_id=windows.id, _external=True))
     except ApiError as a:
         log.critical('Could not post to GitHub! Response: %s' % a.response)
-        return
-    # Kick off KVM process
-    start_ci_vm(db, repository)
+
+    # We wait for the cron to kick off the CI VM's
+    log.debug("Created tests, waiting for cron...")
 
 
 @mod_ci.route('/start-ci', methods=['GET', 'POST'])
@@ -640,8 +654,11 @@ def progress_reporter(test_id, token):
                         log.debug("Removing KVM entry")
                         g.db.delete(kvm)
                         g.db.commit()
-                    # Start next test if necessary
-                    start_ci_vm(g.db, repository, 60)
+                    # Start next test if necessary, on the same platform
+                    start_ci_process_for_platform(
+                        platform=test.platform,
+                        args=(g.db, repository, 60)
+                    )
                 # Post status update
                 state = Status.PENDING
                 message = 'Tests queued'

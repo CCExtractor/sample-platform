@@ -582,7 +582,7 @@ def progress_reporter(test_id, token):
                         Test.platform == test.platform)).first()
                     if test.test_type == TestType.commit and \
                             test.id > fetch_commit.id:
-                        fetch_commit.value = test.commit
+                        commit.value = test.commit
                         g.db.commit()
                 # If status is complete, remove the Kvm entry
                 if status in [TestStatus.completed, TestStatus.canceled]:

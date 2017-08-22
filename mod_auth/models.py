@@ -1,3 +1,11 @@
+"""
+mod_auth Models
+===================
+In this module, we are trying to maintain all database models used
+for authentication.
+List of models corresponding to mysql tables: ['User' => 'user']
+"""
+
 import string
 
 from passlib.apps import custom_app_context as pwd_context

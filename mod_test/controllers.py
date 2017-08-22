@@ -197,7 +197,6 @@ def get_json_data(test_id):
 @mod_test.route('/<test_id>')
 @template_renderer()
 def by_id(test_id):
-    # fetch test data based on id
     test = Test.query.filter(Test.id == test_id).first()
     if test is None:
         raise TestNotFoundException(

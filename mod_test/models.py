@@ -129,8 +129,9 @@ class Test(Base):
         Representation function
         Represent a Test Model by its 'id' Field.
 
-        :return id: Returns the 'id' field of the Test model
-        :rtype id: str
+        :return obj(id): Returns the object containing
+         'id' field of the Test model
+        :rtype obj(id): str
         """
         return '<TestEntry %r>' % self.id
 
@@ -215,7 +216,7 @@ class Test(Base):
         Creates a random token of default length 64
 
         :param length: If parameter is passed, length will be the parameter.
-        16 by default
+        64 by default
         :type length: int
         :return : Randomly generated tokken
         :rtype : str
@@ -267,9 +268,9 @@ class TestProgress(Base):
         Representation function
         Represent a TestProgress Model by its 'id' and 'status' Field.
 
-        :return id,status: Returns the 'id' and 'status' field of the
-         Test model
-        :rtype id,status: str
+        :return obj(id,status): Returns the object containing 
+        'id' and 'status' field of the Test model
+        :rtype obj(id,status): str
         """
         return '<TestStatus %r: %r>' % self.test_id, self.status
 
@@ -328,10 +329,11 @@ class TestResult(Base):
         Represent a TestResult Model by its 'test_id','expected_rc',
          'regression_test_id' and 'status' Field.
 
-        :return id,exit_code,regression_test_id,expected_rc,runtime:
-            Returns the 'id' , 'exit_code', 'regression_test_id',
-             'expected_rc', 'runtime' field of the TestResult model
-        :rtype id,exit_code,regression_test_id,expected_rc,runtime: str
+        :return obj(id,exit_code,regression_test_id,expected_rc,runtime):
+            Returns the object containing the 'id' , 'exit_code',
+             'regression_test_id', 'expected_rc', 'runtime' field of
+              the TestResult model
+        :rtype obj(id,exit_code,regression_test_id,expected_rc,runtime): str
         """
         return '<TestResult {tid},{rid}: {code} (expected {expected} in ' \
                '{time} ms>'.format(tid=self.test_id,
@@ -398,12 +400,12 @@ class TestResultFile(Base):
         Represent a TestResultFile Model by its 'test_id',
          'regression_test_id', 'regression_test_output_id' and 'got' Field.
 
-        :return id,exit_code,regression_test_id,regression_test_output_id, got:
-            Returns the 'id' , 'regression_test_id',
+        :return obj(id,exit_code,regression_test_id,regression_test_output_id,
+         got): Returns the object containing the 'id' , 'regression_test_id',
              'regression_test_output_id', 'got' field of the TestResultFile
               model
-        :rtype id,exit_code,regression_test_id,regression_test_output_id,
-         got: str
+        :rtype obj(id,exit_code,regression_test_id,regression_test_output_id,
+         got): str
         """
         return '<TestResultFile {tid},{rid},{oid}: {equal}>'.format(
             tid=self.test_id, rid=self.regression_test_id,

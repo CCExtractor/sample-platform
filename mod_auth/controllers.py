@@ -400,7 +400,6 @@ def manage():
         g.user = user
         g.db.commit()
         if old_email is not None:
-            # send email for emailid change
             template = app.jinja_env.get_or_select_template(
                 'email/email_changed.txt')
             message = template.render(name=user.name, email=user.email)
@@ -410,7 +409,6 @@ def manage():
                 "text": message
             })
         if password:
-            # send email for password change
             template = app.jinja_env.get_or_select_template(
                 'email/password_changed.txt')
             message = template.render(name=user.name)

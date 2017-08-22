@@ -30,7 +30,7 @@ class Kvm(Base):
 
         :param name: The value of the 'name' field of Kvm model
         :type name: str
-        :param test_id: The value of the 'role' field of Kvm model
+        :param test_id: The value of the 'test_id' field of Kvm model
         :type test_id: int
         :param timestamp: The value of the 'timestamp' field of TestProgress
          model (None by default)
@@ -77,11 +77,11 @@ class MaintenanceMode(Base):
     def __repr__(self):
         """
         Representation function
-        Represent a MaintenanceMode Model by its platform Field.
+        Represent a MaintenanceMode Model by its platform and status Field.
 
-        :return platform, status: Returns the 'platform' and 'status'
-         field of the MaintenanceMode model
-        :rtype platform, status: str
+        :return obj(platform, status): Returns the object using 'platform'
+         and 'status' field of the MaintenanceMode model
+        :rtype obj(platform, status): str
         """
         return '<Platform {platform}, maintenance {status}>'.format(
             platform=self.platform.description, status=self.disabled)

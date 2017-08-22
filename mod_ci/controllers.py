@@ -89,9 +89,6 @@ def start_ci_process_for_platform(platform, args):
 
 
 def kvm_processor_linux(db, repository, delay):
-    """
-    Function that control linux vm
-    """
     from run import config
     kvm_name = config.get('KVM_LINUX_NAME', '')
     return kvm_processor(
@@ -99,9 +96,6 @@ def kvm_processor_linux(db, repository, delay):
 
 
 def kvm_processor_windows(db, repository, delay):
-    """
-    Function that control windows vm
-    """
     from run import config
     kvm_name = config.get('KVM_WINDOWS_NAME', '')
     return kvm_processor(
@@ -853,9 +847,6 @@ def progress_reporter(test_id, token):
 @check_access_rights([Role.admin])
 @template_renderer('ci/maintenance.html')
 def show_maintenance():
-    """
-    Fetch Maitenance Mode of all platform
-    """
     return {
         'platforms': MaintenanceMode.query.all()
     }
@@ -865,10 +856,6 @@ def show_maintenance():
 @login_required
 @check_access_rights([Role.admin])
 def toggle_maintenance(platform, status):
-    """
-    Enable/Disable the maintenace mode of the platform on the
-     basis of status
-    """
     result = 'failed'
     message = 'Platform Not found'
     try:
@@ -894,9 +881,6 @@ def toggle_maintenance(platform, status):
 
 @mod_ci.route('/maintenance-mode/<platform>')
 def in_maintenance_mode(platform):
-    """
-    Check whether platform is in maintenance mode or not
-    """
     try:
         platform = TestPlatform.from_string(platform)
     except ValueError:

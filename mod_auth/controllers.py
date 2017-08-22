@@ -143,8 +143,10 @@ def github_callback():
     """
     from run import config
     if 'code' in request.args:
-        # request access_token to the github in place of payload
-        # payload contains client id, secret and temporary github code
+        """
+        request access_token to the github in place of payload
+        payload contains client id, secret and temporary github code
+        """
         url = 'https://github.com/login/oauth/access_token'
         payload = {
             'client_id': config.get('GITHUB_CLIENT_ID', ''),
@@ -169,9 +171,11 @@ def github_callback():
 @mod_auth.route('/login', methods=['GET', 'POST'])
 @template_renderer()
 def login():
-    # route for handling the login page
+    """
+    route for handling the login page
+    """
     form = LoginForm(request.form)
-    # fetching redirect_loaction from the request
+    # fetching redirect_location from the request
     redirect_location = request.args.get('next', '')
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data).first()
@@ -258,7 +262,9 @@ def complete_reset(uid, expires, mac):
 @mod_auth.route('/signup', methods=['GET', 'POST'])
 @template_renderer()
 def signup():
-    # route for handling the signup page
+    """
+    route for handling the signup page
+    """
     from run import app
     form = SignupForm(request.form)
     if form.validate_on_submit():
@@ -374,7 +380,9 @@ def logout():
 @login_required
 @template_renderer()
 def manage():
-    # Function to edit or access account details
+    """
+    Function to edit or access account details
+    """
     from run import app
     form = AccountForm(request.form, g.user)
     if form.validate_on_submit():

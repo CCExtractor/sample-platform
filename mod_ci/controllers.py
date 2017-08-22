@@ -1,3 +1,10 @@
+"""
+mod_ci Controllers
+===================
+In this module, we are trying to maintain all functionality related
+running virtual machines, starting and tracking tests.
+"""
+
 import hashlib
 import json
 import os
@@ -45,6 +52,9 @@ class Status:
 
 @mod_ci.before_app_request
 def before_app_request():
+    """
+    Function tht organize menu content such as Platform mgmt 
+    """
     config_entries = get_menu_entries(
         g.user, 'Platform mgmt', 'cog', [], '', [
             {'title': 'Maintenance', 'icon': 'wrench', 'route':
@@ -59,6 +69,9 @@ def before_app_request():
 
 
 def start_ci_vm(db, repository, delay=None):
+    """
+    Function that creates seperated thread for various vm
+    """
     p_lin = Process(target=kvm_processor_linux, args=(db, repository, delay))
     p_lin.start()
     p_win = Process(
@@ -69,6 +82,9 @@ def start_ci_vm(db, repository, delay=None):
 
 
 def kvm_processor_linux(db, repository, delay):
+    """
+    Function that control linux vm
+    """
     from run import config
     kvm_name = config.get('KVM_LINUX_NAME', '')
     return kvm_processor(
@@ -76,6 +92,9 @@ def kvm_processor_linux(db, repository, delay):
 
 
 def kvm_processor_windows(db, repository, delay):
+    """
+    Function that control windows vm
+    """
     from run import config
     kvm_name = config.get('KVM_WINDOWS_NAME', '')
     return kvm_processor(
@@ -83,6 +102,13 @@ def kvm_processor_windows(db, repository, delay):
 
 
 def kvm_processor(db, kvm_name, platform, repository, delay):
+    """
+    Checks whether there is no already running same kvm.
+    Checks whether machine is in maintenance mode or not
+    Launch kvm if not used by any other test
+    Creates testing xml files to test the change in main repo.
+    Creates clone with seperate branch and merge pr into it.
+    """
     from run import config, log, app
     log.info("[{platform}] Running kvm_processor".format(platform=platform))
     if kvm_name == "":
@@ -396,6 +422,10 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
 
 def queue_test(db, repository, gh_commit, commit, test_type, branch="master",
                pr_nr=0):
+    """
+    Function to store test details into Test model seperately for
+     various vm. Post status to the github
+    """
     from run import log
     fork = Fork.query.filter(Fork.github.like(
         "%/CCExtractor/ccextractor.git")).first()
@@ -432,6 +462,13 @@ def queue_test(db, repository, gh_commit, commit, test_type, branch="master",
 @mod_ci.route('/start-ci', methods=['GET', 'POST'])
 @request_from_github()
 def start_ci():
+    """
+    Function that track the event occuring at the repository
+    Events that are tracked:
+    Push: Run the tests and update last commit
+    Pull Request: If it is a pr, run the tests
+    Issues: Update the status of recoded issues
+    """
     if request.method != 'POST':
         return 'OK'
     else:
@@ -542,6 +579,10 @@ def start_ci():
 
 @mod_ci.route('/progress-reporter/<test_id>/<token>', methods=['POST'])
 def progress_reporter(test_id, token):
+    """
+    Track down and store the progress of the test and store the result file if
+     completed. Update the status on Github.
+    """
     from run import config, log
     # Verify token
     test = Test.query.filter(Test.id == test_id).first()
@@ -798,6 +839,9 @@ def progress_reporter(test_id, token):
 @check_access_rights([Role.admin])
 @template_renderer('ci/maintenance.html')
 def show_maintenance():
+    """
+    Fetch Maitenance Mode of all platform
+    """
     return {
         'platforms': MaintenanceMode.query.all()
     }
@@ -807,6 +851,10 @@ def show_maintenance():
 @login_required
 @check_access_rights([Role.admin])
 def toggle_maintenance(platform, status):
+    """
+    Enable/Disable the maintenace mode of the platform on the
+     basis of status 
+    """
     result = 'failed'
     message = 'Platform Not found'
     try:
@@ -832,6 +880,9 @@ def toggle_maintenance(platform, status):
 
 @mod_ci.route('/maintenance-mode/<platform>')
 def in_maintenance_mode(platform):
+    """
+    Check whether platform is in maintenance mode or not
+    """
     try:
         platform = TestPlatform.from_string(platform)
     except ValueError:

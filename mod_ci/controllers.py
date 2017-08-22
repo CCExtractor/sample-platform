@@ -417,11 +417,11 @@ def queue_test(db, repository, gh_commit, commit, test_type, branch="master",
             context="CI - %s" % linux.platform.value,
             target_url=url_for(
                 'test.by_id', test_id=linux.id, _external=True))
-        # gh_commit.post(
-        #     state=Status.PENDING, description="Tests queued",
-        #     context="CI - %s" % windows.platform.value,
-        #     target_url=url_for(
-        #         'test.by_id', test_id=windows.id, _external=True))
+        gh_commit.post(
+            state=Status.PENDING, description="Tests queued",
+            context="CI - %s" % windows.platform.value,
+            target_url=url_for(
+                'test.by_id', test_id=windows.id, _external=True))
     except ApiError as a:
         log.critical('Could not post to GitHub! Response: %s' % a.response)
         return

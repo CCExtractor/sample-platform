@@ -47,9 +47,9 @@ class Kvm(Base):
         Representation function
         Represent a Kvm Model by its 'test_id' Field.
 
-        :return test_id: Returns the 'test_id' field of the
-         Kvm model
-        :rtype test_id: int
+        :return str(test_id): Returns the string containing
+         'test_id' field of the Kvm model
+        :rtype str(test_id): int
         """
         return '<KVM test running: %r>' % self.test_id
 
@@ -79,9 +79,9 @@ class MaintenanceMode(Base):
         Representation function
         Represent a MaintenanceMode Model by its platform and status Field.
 
-        :return obj(platform, status): Returns the object using 'platform'
-         and 'status' field of the MaintenanceMode model
-        :rtype obj(platform, status): str
+        :return str(platform, status): Returns the string containing
+         'platform' and 'status' field of the MaintenanceMode model
+        :rtype str(platform, status): str
         """
         return '<Platform {platform}, maintenance {status}>'.format(
             platform=self.platform.description, status=self.disabled)

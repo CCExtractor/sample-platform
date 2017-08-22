@@ -129,9 +129,9 @@ class Test(Base):
         Representation function
         Represent a Test Model by its 'id' Field.
 
-        :return obj(id): Returns the object containing
+        :return str(id): Returns the string containing
          'id' field of the Test model
-        :rtype obj(id): str
+        :rtype str(id): str
         """
         return '<TestEntry %r>' % self.id
 
@@ -268,9 +268,9 @@ class TestProgress(Base):
         Representation function
         Represent a TestProgress Model by its 'id' and 'status' Field.
 
-        :return obj(id,status): Returns the object containing 
+        :return str(id,status): Returns the string containing 
         'id' and 'status' field of the Test model
-        :rtype obj(id,status): str
+        :rtype str(id,status): str
         """
         return '<TestStatus %r: %r>' % self.test_id, self.status
 
@@ -329,11 +329,11 @@ class TestResult(Base):
         Represent a TestResult Model by its 'test_id','expected_rc',
          'regression_test_id' and 'status' Field.
 
-        :return obj(id,exit_code,regression_test_id,expected_rc,runtime):
-            Returns the object containing the 'id' , 'exit_code',
+        :return str(id,exit_code,regression_test_id,expected_rc,runtime):
+            Returns the string containing the 'id' , 'exit_code',
              'regression_test_id', 'expected_rc', 'runtime' field of
               the TestResult model
-        :rtype obj(id,exit_code,regression_test_id,expected_rc,runtime): str
+        :rtype str(id,exit_code,regression_test_id,expected_rc,runtime): str
         """
         return '<TestResult {tid},{rid}: {code} (expected {expected} in ' \
                '{time} ms>'.format(tid=self.test_id,
@@ -400,11 +400,11 @@ class TestResultFile(Base):
         Represent a TestResultFile Model by its 'test_id',
          'regression_test_id', 'regression_test_output_id' and 'got' Field.
 
-        :return obj(id,exit_code,regression_test_id,regression_test_output_id,
-         got): Returns the object containing the 'id' , 'regression_test_id',
+        :return str(id,exit_code,regression_test_id,regression_test_output_id,
+         got): Returns the string containing the 'id' , 'regression_test_id',
              'regression_test_output_id', 'got' field of the TestResultFile
               model
-        :rtype obj(id,exit_code,regression_test_id,regression_test_output_id,
+        :rtype str(id,exit_code,regression_test_id,regression_test_output_id,
          got): str
         """
         return '<TestResultFile {tid},{rid},{oid}: {equal}>'.format(

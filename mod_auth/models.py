@@ -55,9 +55,9 @@ class User(Base):
         Representation function
         Represent a User Model by its 'name' Field.
 
-        :return obj(name): Returns the object contatining 'name' field
+        :return str(name): Returns the string containing 'name' field
          of the User model
-        :rtype obj(name): str
+        :rtype str(name): str
         """
         return '<User %r>' % self.name
 

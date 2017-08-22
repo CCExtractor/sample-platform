@@ -1,3 +1,9 @@
+"""
+mod_home Controllers
+===================
+In this module, we are trying to maintain all functionalities
+running on homepage.
+"""
 from flask import Blueprint, g
 from github import GitHub
 

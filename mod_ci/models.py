@@ -49,7 +49,7 @@ class Kvm(Base):
 
         :return str(test_id): Returns the string containing
          'test_id' field of the Kvm model
-        :rtype str(test_id): int
+        :rtype str(test_id): str
         """
         return '<KVM test running: %r>' % self.test_id
 

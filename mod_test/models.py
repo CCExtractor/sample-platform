@@ -268,7 +268,7 @@ class TestProgress(Base):
         Representation function
         Represent a TestProgress Model by its 'id' and 'status' Field.
 
-        :return str(id,status): Returns the string containing 
+        :return str(id,status): Returns the string containing
         'id' and 'status' field of the Test model
         :rtype str(id,status): str
         """

@@ -1,3 +1,10 @@
+"""
+mod_sample Controllers
+===================
+In this module, we are trying to fetch sample inforation,
+uploading, editing, deleting sample.
+"""
+
 import os
 import json
 import requests
@@ -39,6 +46,7 @@ class SampleNotFoundException(Exception):
 
 
 def display_sample_info(sample):
+    # Fetching the media info
     try:
         media_info_fetcher = MediaInfoFetcher(sample)
         media_info = media_info_fetcher.get_media_info()
@@ -48,6 +56,7 @@ def display_sample_info(sample):
             media_info_fetcher = MediaInfoFetcher.generate_media_xml(sample)
             media_info = media_info_fetcher.get_media_info()
         except InvalidMediaInfoError:
+            # incase no media info present in the sample
             media_info = None
 
     latest_commit = GeneralData.query.filter(

@@ -1,3 +1,9 @@
+"""
+mod_sample Models
+===================
+In this module, we are trying to maintain database regarding various
+sample, ExtraFile, ForbiddenExtension, Issue
+"""
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 
@@ -17,15 +23,39 @@ class Sample(Base):
     upload = relationship('Upload', uselist=False, back_populates='sample')
 
     def __init__(self, sha, extension, original_name):
+        """
+        Parametrized constructor for the Sample model
+
+        :param sha: The value of the 'sha' field of
+         Sample model
+        :type sha: str
+        :param extension: The value of the 'extension' field
+         of Sample model
+        :type extension: str
+        :param original_name: The value of the 'original_name' field
+         of Sample model
+        :type original_name: str
+        """
         self.sha = sha
         self.extension = extension
         self.original_name = original_name
 
     def __repr__(self):
+        """
+        Representation function
+        Represent a Sample Model by its 'sha' Field.
+
+        :return str(sha): Returns the string containing
+         'sha' field of the Category model
+        :rtype str(sha): str
+        """
         return '<Sample %r>' % self.sha
 
     @property
     def filename(self):
+        """
+        Return the full filename of the sample
+        """
         extension = ("." + self.extension) if len(self.extension) > 0 else ""
         return "{sha}{extension}".format(sha=self.sha, extension=extension)
 
@@ -43,15 +73,46 @@ class ExtraFile(Base):
     extension = Column(String(64), nullable=False)
 
     def __init__(self, sample_id, extension, original_name):
+        """
+        Parametrized constructor for the ExtraFile model
+
+        :param sample_id: The value of the 'sha' field of
+         ExtraFile model
+        :type sample_id: int
+        :param extension: The value of the 'extension' field
+         of ExtraFile model
+        :type extension: str
+        :param original_name: The value of the 'original_name' field
+         of ExtraFile model
+        :type original_name: str
+        """
         self.sample_id = sample_id
         self.extension = extension
         self.original_name = original_name
 
     def __repr__(self):
+        """
+        Representation function
+        Represent a ExtraFile Model by its 'sample_id' Field.
+
+        :return str(sample_id): Returns the string containing
+         'sha' field of the ExtraFile model
+        :rtype str(sample_id): str
+        """
         return '<Sample extra for %r>' % self.sample_id
 
     @property
     def short_name(self, length=5):
+        """
+        Function to return short name
+
+        :param length: The value of the 'length' field of
+         ExtraFile model (5 by default)
+        :type sample_id: int
+        :return : Return short name in form of
+         [sha[length]]_[id][extension]
+        :rtype: str
+        """
         return "{short}_{id}.{extension}".format(
             short=self.sample.sha[:length], id=self.id,
             extension=self.extension
@@ -59,6 +120,13 @@ class ExtraFile(Base):
 
     @property
     def filename(self):
+        """
+        Function to return filename
+
+        :return : Return short name in form of
+         [sha]_[id][extension]
+        :rtype: str
+        """
         extension = ("." + self.extension) if len(self.extension) > 0 else ""
         return "{sha}_{id}{extension}".format(
             sha=self.sample.sha, id=self.id,  extension=extension
@@ -71,9 +139,24 @@ class ForbiddenExtension(Base):
     extension = Column(String(32), primary_key=True)
 
     def __init__(self, extension):
+        """
+        Parametrized constructor for the ForbiddenExtension model
+
+        :param extension: The value of the 'extension' field
+         of ForbiddenExtension model
+        :type extension: str
+        """
         self.extension = extension
 
     def __repr__(self):
+        """
+        Representation function
+        Represent a ForbiddenExtension Model by its 'extension' Field.
+
+        :return str(extension): Returns the string containing
+         'extension' field of the ForbiddenExtension model
+        :rtype str(extension): str
+        """
         return '<Forbidden extension %r>' % self.extension
 
 
@@ -92,6 +175,28 @@ class Issue(Base):
     status = Column(Text(), nullable=False)
 
     def __init__(self, sample_id, issue_id, date, title, user, status):
+        """
+        Parametrized constructor for the Issue model
+
+        :param sample_id: The value of the 'sample_id' field
+         of Issue model
+        :type sample_id: int
+        :param issue_id: The value of the 'issue_id' field
+         of Issue model
+        :type issue_id: int
+        :param date: The value of the 'created_at' field
+         of Issue model
+        :type date: datetime
+        :param title: The value of the 'title' field
+         of Issue model
+        :type title: str
+        :param user: The value of the 'user' field
+         of Issue model
+        :type user: str
+        :param status: The value of the 'status' field
+         of Issue model
+        :type status: str
+        """
         self.sample_id = sample_id
         self.issue_id = issue_id
         self.created_at = datetime.strptime(date, '%Y-%m-%dT%H:%M:%SZ')

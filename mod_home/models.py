@@ -4,6 +4,8 @@ mod_home Models
 In this module, we are trying to maintain database regarding general
 information such as version, released date, commit about main
 repository(CCextractor) and other general data.
+List of models corresponding to mysql tables: ['CCExtractorVersion' =>
+ 'ccextractor_version','GeneralData' => 'general_data']
 """
 from sqlalchemy import Column, Integer, String, Text, Date
 

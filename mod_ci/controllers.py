@@ -1,3 +1,10 @@
+"""
+mod_ci Controllers
+===================
+In this module, we are trying to maintain all functionality related
+running virtual machines, starting and tracking tests.
+"""
+
 import hashlib
 import json
 import os
@@ -45,6 +52,9 @@ class Status:
 
 @mod_ci.before_app_request
 def before_app_request():
+    """
+    Function that organize menu content such as Platform management
+    """
     config_entries = get_menu_entries(
         g.user, 'Platform mgmt', 'cog', [], '', [
             {'title': 'Maintenance', 'icon': 'wrench', 'route':
@@ -93,6 +103,13 @@ def kvm_processor_windows(db, repository, delay):
 
 
 def kvm_processor(db, kvm_name, platform, repository, delay):
+    """
+    Checks whether there is no already running same kvm.
+    Checks whether machine is in maintenance mode or not
+    Launch kvm if not used by any other test
+    Creates testing xml files to test the change in main repo.
+    Creates clone with seperate branch and merge pr into it.
+    """
     from run import config, log, app
     log.info("[{platform}] Running kvm_processor".format(platform=platform))
     if kvm_name == "":
@@ -406,6 +423,10 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
 
 def queue_test(db, repository, gh_commit, commit, test_type, branch="master",
                pr_nr=0):
+    """
+    Function to store test details into Test model seperately for
+     various vm. Post status to the github
+    """
     from run import log
     fork = Fork.query.filter(Fork.github.like(
         "%/CCExtractor/ccextractor.git")).first()
@@ -446,6 +467,13 @@ def queue_test(db, repository, gh_commit, commit, test_type, branch="master",
 @mod_ci.route('/start-ci', methods=['GET', 'POST'])
 @request_from_github()
 def start_ci():
+    """
+    Function that track the event occuring at the repository
+    Events that are tracked:
+    Push: Run the tests and update last commit
+    Pull Request: If it is a pr, run the tests
+    Issues: Update the status of recoded issues
+    """
     if request.method != 'POST':
         return 'OK'
     else:
@@ -556,6 +584,10 @@ def start_ci():
 
 @mod_ci.route('/progress-reporter/<test_id>/<token>', methods=['POST'])
 def progress_reporter(test_id, token):
+    """
+    Track down and store the progress of the test and store the result file if
+     completed. Update the status on Github.
+    """
     from run import config, log
     # Verify token
     test = Test.query.filter(Test.id == test_id).first()

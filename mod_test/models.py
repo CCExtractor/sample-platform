@@ -1,3 +1,13 @@
+"""
+mod_test Models
+===================
+In this module, we are trying to maintain all models used
+for storing Test information, progress and report.
+List of models corresponding to mysql tables: ['Fork' => 'fork',
+ 'TestProgress' => 'test_progress', 'TestResult' => 'test_result',
+ 'TestResultFile' => 'test_result_file']
+"""
+
 import datetime
 import pytz
 import os
@@ -83,6 +93,26 @@ class Test(Base):
 
     def __init__(self, platform, test_type, fork_id, branch, commit,
                  pr_nr=0, token=None):
+        """
+        Parametrized constructor for the Test model
+
+        :param platform: The value of the 'platform' field of Test model
+        :type platform: TestPlatform
+        :param test_type: The value of the 'test_type' field of Test model
+        :type test_type: TestType
+        :param fork_id: The value of the 'fork_id' field of Test model
+        :type fork_id: int
+        :param branch: The value of the 'branch' field of Test model
+        :type branch: str
+        :param commit: The value of the 'commit' field of Test model
+        :type commit: str
+        :param pr_nr: The value of the 'pr_nr' field of Test model (0 by
+        default)
+        :type pr_nr: int
+        :param token: The value of the 'token' field of Test model (None by
+        default)
+        :type token: str
+        """
         self.platform = platform
         self.test_type = test_type
         self.fork_id = fork_id
@@ -95,10 +125,24 @@ class Test(Base):
         self.token = token
 
     def __repr__(self):
+        """
+        Representation function
+        Represent a Test Model by its 'id' Field.
+
+        :return str(id): Returns the string containing
+         'id' field of the Test model
+        :rtype str(id): str
+        """
         return '<TestEntry %r>' % self.id
 
     @property
     def finished(self):
+        """
+        Verifies if a Test is finished
+
+        :return : Checks if Test is completed or cancelled
+        :rtype: boolean
+        """
         if len(self.progress) > 0:
             return self.progress[-1].status in [
                 TestStatus.completed, TestStatus.canceled]
@@ -106,12 +150,24 @@ class Test(Base):
 
     @property
     def failed(self):
+        """
+        Verifies if a Test is failed
+
+        :return : Checks if Test is cancelled
+        :rtype: boolean
+        """
         if len(self.progress) > 0:
             return self.progress[-1].status == TestStatus.canceled
         return False
 
     @property
     def github_link(self):
+        """
+        Generate github link to view the pr or commit
+
+        :return : url
+        :rtype: str
+        """
         if self.test_type == TestType.commit:
             test_type = 'commit'
             test_id = self.commit
@@ -123,6 +179,12 @@ class Test(Base):
             base=self.fork.github_url, test_type=test_type, test_id=test_id)
 
     def progress_data(self):
+        """
+        Generate progress report for the Test Model
+
+        :return : progress, stages, start and end time of Test Model
+        :rtype: dict
+        """
         result = {
             'progress': {
                 'state': 'error',
@@ -150,6 +212,15 @@ class Test(Base):
 
     @staticmethod
     def create_token(length=64):
+        """
+        Creates a random token of default length 64
+
+        :param length: If parameter is passed, length will be the parameter.
+        64 by default
+        :type length: int
+        :return : Randomly generated tokken
+        :rtype : str
+        """
         chars = string.ascii_letters + string.digits
         import os
         return ''.join(chars[ord(os.urandom(1)) % len(chars)] for i in
@@ -168,6 +239,19 @@ class TestProgress(Base):
     message = Column(Text(), nullable=False)
 
     def __init__(self, test_id, status, message, timestamp=None):
+        """
+        Parametrized constructor for the TestProgress model
+
+        :param test_id: The value of the 'test_id' field of TestProgress model
+        :type test_id: int
+        :param status: The value of the 'status' field of TestProgress model
+        :type status: TestStatus
+        :param message: The value of the 'message' field of TestProgress model
+        :type message: str
+        :param timestamp: The value of the 'timestamp' field of TestProgress
+         model (None by default)
+        :type timestamp: datetime
+        """
         self.test_id = test_id
         self.status = status
         tz = get_localzone()
@@ -180,10 +264,21 @@ class TestProgress(Base):
         self.message = message
 
     def __repr__(self):
+        """
+        Representation function
+        Represent a TestProgress Model by its 'id' and 'status' Field.
+
+        :return str(id,status): Returns the string containing
+        'id' and 'status' field of the Test model
+        :rtype str(id,status): str
+        """
         return '<TestStatus %r: %r>' % self.test_id, self.status
 
     @orm.reconstructor
     def may_the_timezone_be_with_it(self):
+        """
+        Localize the timestamp to utc
+        """
         self.timestamp = pytz.utc.localize(self.timestamp, is_dst=None)
 
 
@@ -205,6 +300,23 @@ class TestResult(Base):
 
     def __init__(self, test_id, regression_test_id, runtime, exit_code,
                  expected_rc):
+        """
+        Parametrized constructor for the TestResult model
+
+        :param test_id: The value of the 'test_id' field of TestResult model
+        :type test_id: int
+        :param regression_test_id: The value of the 'regression_test_id'
+         field of TestResult model
+        :type regression_test_id: int
+        :param runtime: The value of the 'runtime' field of TestResult model
+        :type runtime: int
+        :param exit_code: The value of the 'exit_code' field of TestResult
+         model
+        :type exit_code: int
+        :param expected_rc: The value of the 'expected_rc' field of
+         TestResult model
+        :type expected_rc: int
+        """
         self.test_id = test_id
         self.regression_test_id = regression_test_id
         self.runtime = runtime
@@ -212,6 +324,17 @@ class TestResult(Base):
         self.expected_rc = expected_rc
 
     def __repr__(self):
+        """
+        Representation function
+        Represent a TestResult Model by its 'test_id','expected_rc',
+         'regression_test_id' and 'status' Field.
+
+        :return str(id,exit_code,regression_test_id,expected_rc,runtime):
+            Returns the string containing the 'id' , 'exit_code',
+             'regression_test_id', 'expected_rc', 'runtime' field of
+              the TestResult model
+        :rtype str(id,exit_code,regression_test_id,expected_rc,runtime): str
+        """
         return '<TestResult {tid},{rid}: {code} (expected {expected} in ' \
                '{time} ms>'.format(tid=self.test_id,
                                    rid=self.regression_test_id,
@@ -247,6 +370,24 @@ class TestResultFile(Base):
 
     def __init__(self, test_id, regression_test_id,
                  regression_test_output_id, expected, got=None):
+        """
+        Parametrized constructor for the TestResultFile model
+
+        :param test_id: The value of the 'test_id' field of TestResultFile
+         model
+        :type test_id: int
+        :param regression_test_id: The value of the 'regression_test_id' field
+         of TestResultFile model
+        :type regression_test_id: int
+        :param regression_test_output_id: The value of the
+         'regression_test_output_id' field of TestResultFile model
+        :type regression_test_id: int
+        :param expected: The value of the 'expected' field of TestResultFile
+         model
+        :type expected: str
+        :param got: The value of the 'got' field of TestResultFile model
+        :type got: str
+        """
         self.test_id = test_id
         self.regression_test_id = regression_test_id
         self.regression_test_output_id = regression_test_output_id
@@ -254,6 +395,18 @@ class TestResultFile(Base):
         self.got = got
 
     def __repr__(self):
+        """
+        Representation function
+        Represent a TestResultFile Model by its 'test_id',
+         'regression_test_id', 'regression_test_output_id' and 'got' Field.
+
+        :return str(id,exit_code,regression_test_id,regression_test_output_id,
+         got): Returns the string containing the 'id' , 'regression_test_id',
+             'regression_test_output_id', 'got' field of the TestResultFile
+              model
+        :rtype str(id,exit_code,regression_test_id,regression_test_output_id,
+         got): str
+        """
         return '<TestResultFile {tid},{rid},{oid}: {equal}>'.format(
             tid=self.test_id, rid=self.regression_test_id,
             oid=self.regression_test_output_id,
@@ -261,6 +414,11 @@ class TestResultFile(Base):
         )
 
     def generate_html_diff(self, base_path):
+        """
+        Generate diff between correct and test regresstion_test_output
+        return: html_diff from mod_test.nicediff
+        rtype: str(html)
+        """
         file_ok = os.path.join(
             base_path,
             self.expected + self.regression_test_output.correct_extension)

@@ -1,3 +1,11 @@
+"""
+mod_auth Models
+===================
+In this module, we are trying to maintain all database models used
+for authentication.
+List of models corresponding to mysql tables: ['User' => 'user']
+"""
+
 import string
 
 from passlib.apps import custom_app_context as pwd_context
@@ -47,8 +55,9 @@ class User(Base):
         Representation function
         Represent a User Model by its 'name' Field.
 
-        :return name: Returns the 'name' field of the User model
-        :rtype name: str
+        :return str(name): Returns the string containing 'name' field
+         of the User model
+        :rtype str(name): str
         """
         return '<User %r>' % self.name
 

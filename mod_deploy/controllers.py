@@ -1,3 +1,9 @@
+"""
+mod_deploy Controllers
+===================
+In this module, we are trying to maintain github hooks based
+on automatic deploy.
+"""
 import hashlib
 import hmac
 import json

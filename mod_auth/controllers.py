@@ -1,3 +1,11 @@
+"""
+mod_auth Controller
+===================
+In this module, we are trying to maintain all authentication functions,
+including adding,editing,verifying and accessing account details,adding
+github profile.
+"""
+
 from functools import wraps
 import hmac
 import time
@@ -111,6 +119,10 @@ def send_reset_email(usr):
 
 @mod_auth.route('/github_redirect', methods=['GET', 'POST'])
 def github_redirect():
+    """
+    Generate Redirect url to the Github page to take user permisssion
+    only when there is no github token stored for that user session.
+    """
     from run import config
     github_clientid = config.get('GITHUB_CLIENT_ID', '')
     github_token = g.user.github_token
@@ -125,8 +137,16 @@ def github_redirect():
 @mod_auth.route('/github_callback', methods=['GET', 'POST'])
 @template_renderer()
 def github_callback():
+    """
+    Callback function to access the token and
+    store it in database to for further functionalities.
+    """
     from run import config
     if 'code' in request.args:
+        """
+        request access_token to the github in place of payload
+        payload contains client id, secret and temporary github code
+        """
         url = 'https://github.com/login/oauth/access_token'
         payload = {
             'client_id': config.get('GITHUB_CLIENT_ID', ''),
@@ -151,11 +171,15 @@ def github_callback():
 @mod_auth.route('/login', methods=['GET', 'POST'])
 @template_renderer()
 def login():
+    """
+    route for handling the login page
+    """
     form = LoginForm(request.form)
+    # fetching redirect_location from the request
     redirect_location = request.args.get('next', '')
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data).first()
-
+        # saving session and redirecting on valid password
         if user and user.is_password_valid(form.password.data):
             session['user_id'] = user.id
             if len(redirect_location) == 0:
@@ -238,6 +262,9 @@ def complete_reset(uid, expires, mac):
 @mod_auth.route('/signup', methods=['GET', 'POST'])
 @template_renderer()
 def signup():
+    """
+    route for handling the signup page
+    """
     from run import app
     form = SignupForm(request.form)
     if form.validate_on_submit():
@@ -353,6 +380,9 @@ def logout():
 @login_required
 @template_renderer()
 def manage():
+    """
+    Function to edit or access account details
+    """
     from run import app
     form = AccountForm(request.form, g.user)
     if form.validate_on_submit():

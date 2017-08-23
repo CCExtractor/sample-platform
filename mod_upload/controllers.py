@@ -1,3 +1,10 @@
+"""
+mod_upload Controllers
+===================
+In this module, we are trying to add functionality regarding upload
+and finalizing of samples through html or ftp. Reporting issues along
+with submitting sample
+"""
 import base64
 import hashlib
 import json

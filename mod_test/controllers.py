@@ -1,3 +1,10 @@
+"""
+mod_test Controller
+===================
+In this module, we are trying to find all tests, their progress and details
+of individual test.
+"""
+
 import os
 
 from flask import Blueprint, g, abort, make_response, request, jsonify
@@ -58,7 +65,13 @@ def get_data_for_test(test, title=None):
     hours = 0
     minutes = 0
     queued_tests = 0
-    # evaluating estimated time if the test is still in queue
+    """
+        evaluating estimated time if the test is still in queue
+        estimated time = (number of tests already in queue + 1) *
+                          (average time of that platform)
+                          - (time already spend by those tests)
+        calculates time in minutes and hours
+    """
     if len(test.progress) == 0:
         var_average = 'average_time_' + test.platform.value
         queued_kvm = g.db.query(Kvm.test_id).filter(
@@ -152,6 +165,15 @@ def get_data_for_test(test, title=None):
 
 @mod_test.route('/get_json_data/<test_id>')
 def get_json_data(test_id):
+    """
+        return the test progress status used for ajax call
+        :return: {status, details, complete, progress_array}
+        :rtype: json
+        :status: {failure, success}
+        :details: progress details of the test
+        :complete: {True, False}
+        :progress_array: collection of [timestamp, status, messsage]
+    """
     test = Test.query.filter(Test.id == test_id).first()
     if test is None:
         return jsonify({'status': 'failure', 'error': 'Test not found'})

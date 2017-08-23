@@ -1,3 +1,9 @@
+"""
+mod_regression Controllers
+===================
+In this module, we are trying to create, update, edit, delete and
+other various operations on regression tests.
+"""
 from flask import Blueprint, g
 from flask import abort
 
@@ -48,12 +54,12 @@ def test_view(regression_id):
     # Show a single regression test
     test = RegressionTest.query.filter(
         RegressionTest.id == regression_id).first()
-    
+
     if test is None:
         abort(404)
-    
+
     return {
-        'test': test   
+        'test': test
     }
 
 

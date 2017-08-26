@@ -139,7 +139,7 @@ if [ -x "ccextractor" ]; then
 	# Run testSuite
 	postStatus "testing" "Running tests"
 	executeCommand cd ${suiteDstDir}
-	executeCommand ${tester} --entries "${testFile}" --executable "${dstDir}/linux/ccextractor" --tempfolder "${tempFolder}" --timeout 3000 --reportfolder "${reportFolder}" --resultfolder "${resultFolder}" --samplefolder "${sampleFolder}" --method Server --url "${reportURL}"
+	executeCommand ${tester} -v --entries "${testFile}" --executable "${dstDir}/linux/ccextractor" --tempfolder "${tempFolder}" --timeout 3000 --reportfolder "${reportFolder}" --resultfolder "${resultFolder}" --samplefolder "${sampleFolder}" --method Server --url "${reportURL}"
 	postStatus "completed" "Ran all tests"
 	sendLogFile
 	# Shut down

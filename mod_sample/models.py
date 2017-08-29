@@ -2,7 +2,7 @@
 mod_sample Models
 ===================
 In this module, we are trying to maintain database regarding various
-sample, ExtraFile, ForbiddenExtension, Issue
+sample, ExtraFile, ForbiddenExtension, ForbiddenMimeType, Issue
 """
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
@@ -158,6 +158,33 @@ class ForbiddenExtension(Base):
         :rtype str(extension): str
         """
         return '<Forbidden extension %r>' % self.extension
+
+
+class ForbiddenMimeType(Base):
+    __tablename__ = 'mimetype_forbidden'
+    __table_args__ = {'mysql_engine': 'InnoDB'}
+    mimetype = Column(String(64), primary_key=True)
+
+    def __init__(self, mimetype):
+        """
+        Parametrized constructor for the ForbiddenMimeType model
+
+        :param mimetype: The value of the 'mimetype' field
+         of ForbiddenMimeType model
+        :type mimetype: str
+        """
+        self.mimetype = mimetype
+
+    def __repr__(self):
+        """
+        Representation function
+        Represent a ForbiddenMimeType Model by its 'mimetype' Field.
+
+        :return str(mimetype): Returns the string containing
+         'mimetype' field of the ForbiddenMimeType model
+        :rtype str(mimetype): str
+        """
+        return '<Forbidden MimeType %r>' % self.mimetype
 
 
 class Issue(Base):

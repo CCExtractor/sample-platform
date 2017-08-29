@@ -25,7 +25,8 @@ from git import Repo, InvalidGitRepositoryError, GitCommandError
 from mod_auth.controllers import login_required, check_access_rights
 from mod_auth.models import Role, User
 from mod_home.models import CCExtractorVersion
-from mod_sample.models import Sample, ForbiddenExtension, Issue
+from mod_sample.models import Sample, ForbiddenExtension, ForbiddenMimeType, \
+    Issue
 from mod_upload.forms import UploadForm, DeleteQueuedSampleForm, \
     FinishQueuedSampleForm
 from models import Upload, QueuedSample, UploadLog, FTPCredentials, Platform
@@ -489,6 +490,18 @@ def upload_ftp(db, path):
         os.remove(temp_path)
         return
     mimetype = magic.from_file(temp_path, mime=True)
+    # Check for permitted mimetype
+    forbidden_mime = ForbiddenMimeType.query.filter(
+        ForbiddenMimeType.mimetype == mimetype).first()
+    if forbidden_mime is not None:
+        log.error(
+            'User {name} tried to upload a file with a forbidden '
+            'mimetype ({mimetype})!'.format(name=user.name,
+                                            mimetype=mimetype)
+        )
+        os.remove(temp_path)
+        return
+    # Check for permitted extension
     extension = mimetypes.guess_extension(mimetype)
     if extension is not None:
         forbidden_real = ForbiddenExtension.query.filter(

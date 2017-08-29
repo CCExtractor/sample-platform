@@ -7,7 +7,7 @@ from wtforms import FileField, SubmitField, TextAreaField, SelectField
 from wtforms.validators import DataRequired, ValidationError
 
 from mod_home.models import CCExtractorVersion
-from mod_sample.models import ForbiddenExtension
+from mod_sample.models import ForbiddenExtension, ForbiddenMimeType
 from mod_upload.models import Platform
 
 
@@ -32,6 +32,11 @@ class UploadForm(Form):
         mimetype = magic.from_buffer(field.data.read(1024), mime=True)
         # File Pointer returns to beginning
         field.data.seek(0, 0)
+        # Check for permitted mimetype
+        forbidden_mime = ForbiddenMimeType.query.filter(
+            ForbiddenMimeType.mimetype == mimetype).first()
+        if forbidden_mime is not None:
+            raise ValidationError('File MimeType not allowed')
         extension = mimetypes.guess_extension(mimetype)
         if extension is not None:
             forbidden_real = ForbiddenExtension.query.filter(

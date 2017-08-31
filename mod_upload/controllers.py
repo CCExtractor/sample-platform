@@ -17,7 +17,7 @@ import shutil
 import requests
 
 from flask import Blueprint, g, make_response, render_template, request, \
-    redirect, url_for
+    redirect, url_for, flash
 from werkzeug.utils import secure_filename
 
 from decorators import template_renderer, get_menu_entries
@@ -325,6 +325,10 @@ def process_id(upload_id):
                             )
                             g.db.add(issue)
                             g.db.commit()
+                        else:
+                            flash('Could not submit an issue on GitHub '
+                                  '(did you revoke permissions for the platform?).'
+                                  ' Please submit it manually.')
                     os.rename(temp_path, final_path)
                     return redirect(
                         url_for('sample.sample_by_id', sample_id=sample.id))

@@ -117,6 +117,26 @@ def send_reset_email(usr):
               'error-message')
 
 
+@mod_auth.route('/github_token_validity', methods=['GET', 'POST'])
+def github_token_validity(token):
+    """
+    Check token validity
+    Set token to null if not valid
+    """
+    from run import config
+    github_clientid = config.get('GITHUB_CLIENT_ID', '')
+    github_clientsecret = config.get('GITHUB_CLIENT_SECRET', '')
+    url = 'https://api.github.com/applications/%s/tokens/%s' % (
+        github_clientid, token)
+    session = requests.Session()
+    session.auth = (github_clientid, github_clientsecret)
+    response = session.get(url)
+    if response.status_code == 200:
+        return True
+    else:
+        return False
+
+
 @mod_auth.route('/github_redirect', methods=['GET', 'POST'])
 def github_redirect():
     """
@@ -127,11 +147,15 @@ def github_redirect():
     github_clientid = config.get('GITHUB_CLIENT_ID', '')
     github_token = g.user.github_token
     if github_token is not None:
-        return None
-    else:
-        return ('https://github.com/login/oauth/authorize?'
-                'client_id={client_id}&scope=public_repo').format(
-            client_id=github_clientid)
+        validity = github_token_validity(github_token)
+        if validity is False:
+            g.user.github_token = None
+            g.db.commit()
+        else:
+            return None
+    return ('https://github.com/login/oauth/authorize?'
+            'client_id={client_id}&scope=public_repo').format(
+        client_id=github_clientid)
 
 
 @mod_auth.route('/github_callback', methods=['GET', 'POST'])

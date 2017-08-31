@@ -72,16 +72,20 @@
     {{ super() }}
 
     <script type="text/javascript">
+        var IssueBody = $('#IssueBody').val();
+        var IssueTitle = $('#IssueTitle').val();
         function report()
         {
             if($('#report').val()=='y')
             {
                 $('#reportgithub').show();
-                $('#IssueBody').val('');
-                $('#IssueTitle').val('');
+                $('#IssueBody').val(IssueBody);
+                $('#IssueTitle').val(IssueTitle);
             }
             else
             {
+                IssueBody = $('#IssueBody').val();
+                IssueTitle = $('#IssueTitle').val();
                 $('#reportgithub').hide();
                 $('#IssueBody').val('no-issue');
                 $('#IssueTitle').val('no-title');

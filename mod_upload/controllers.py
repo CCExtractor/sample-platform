@@ -327,8 +327,8 @@ def process_id(upload_id):
                             g.db.commit()
                         else:
                             flash('Could not submit an issue on GitHub '
-                                  '(did you revoke permissions for the platform?).'
-                                  ' Please submit it manually.')
+                                  '(did you revoke permissions for the'
+                                  ' platform?). Please submit it manually.')
                     os.rename(temp_path, final_path)
                     return redirect(
                         url_for('sample.sample_by_id', sample_id=sample.id))

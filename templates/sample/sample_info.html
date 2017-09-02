@@ -7,6 +7,19 @@
     <div class="row">
         <div class="row">
             <div class="column medium-9">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        <div class="row">
+                            <div class="callout alert">
+                                <ul class="flashes">
+                                    {% for category, message in messages %}
+                                    <li class="{{ category }}">{{ message }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endwith %}
                 <h1>Sample information</h1>
                 <h2>Basic details</h2>
                 <blockquote class="small">

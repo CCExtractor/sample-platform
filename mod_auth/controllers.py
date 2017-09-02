@@ -117,11 +117,15 @@ def send_reset_email(usr):
               'error-message')
 
 
-@mod_auth.route('/github_token_validity', methods=['GET', 'POST'])
 def github_token_validity(token):
     """
-    Check token validity
-    Set token to null if not valid
+    Check token validity by calling Github V3 APIs
+    :param token: The value of 'github_token' stored in the user
+        model
+    :type token: str
+    return bool: Returns True/False based on the validity of the
+        token.
+    rtype: bool
     """
     from run import config
     github_clientid = config.get('GITHUB_CLIENT_ID', '')

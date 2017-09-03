@@ -123,9 +123,8 @@ def github_token_validity(token):
     :param token: The value of 'github_token' stored in the user
         model
     :type token: str
-    return bool: Returns True/False based on the validity of the
-        token.
-    rtype: bool
+    :return True/False: Returns whether token is valid or not
+    :rtype: bool
     """
     from run import config
     github_clientid = config.get('GITHUB_CLIENT_ID', '')

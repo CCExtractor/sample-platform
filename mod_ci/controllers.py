@@ -596,8 +596,20 @@ def progress_reporter(test_id, token):
             if request.form['type'] == 'progress':
                 # Progress, log
                 status = TestStatus.from_string(request.form['status'])
+                # Check whether test is not running previous status again
+                istatus = TestStatus.progress_step(status)
+                message = request.form['message']
+                if len(test.progress) != 0:
+                    laststatus = TestStatus.progress_step(
+                        test.progress[-1].status)
+                    if laststatus in [TestStatus.completed,
+                                      TestStatus.canceled]:
+                        return "FAIL"
+                    if laststatus > istatus:
+                        status = TestStatus.canceled
+                        message = "Duplicate Entries"
                 progress = TestProgress(
-                    test.id, status, request.form['message'])
+                    test.id, status, message)
                 g.db.add(progress)
                 g.db.commit()
 

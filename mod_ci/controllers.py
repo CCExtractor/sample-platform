@@ -598,14 +598,22 @@ def progress_reporter(test_id, token):
                 status = TestStatus.from_string(request.form['status'])
                 # Check whether test is not running previous status again
                 istatus = TestStatus.progress_step(status)
+                message = request.form['message']
                 if len(test.progress) != 0:
                     laststatus = TestStatus.progress_step(
                         test.progress[-1].status)
                     if laststatus > istatus:
                         status = TestStatus.canceled
-
+                        message = "Duplicate Entries"
+                        platform = test.platform
+                        if platform == TestPlatform.linux:
+                            kvm_name = config.get('KVM_LINUX_NAME', '')
+                            shut_down_vm(kvm_name)
+                        elif platform == TestPlatform.windows:
+                            kvm_name = config.get('KVM_WINDOWS_NAME', '')
+                            shut_down_vm(kvm_name)
                 progress = TestProgress(
-                    test.id, status, request.form['message'])
+                    test.id, status, message)
                 g.db.add(progress)
                 g.db.commit()
 
@@ -848,6 +856,34 @@ def progress_reporter(test_id, token):
                         msg=e.message))
             return "OK"
     return "FAIL"
+
+
+def shut_down_vm(kvm_name):
+    """
+    Turn off the virtual machine of specified kvm
+    """
+    # Open connection to libvirt
+    conn = libvirt.open("qemu:///system")
+    if conn is None:
+        log.critical("Couldn't open connection to "
+                     "libvirt!")
+        return
+    try:
+        vm = conn.lookupByName(kvm_name)
+    except libvirt.libvirtError:
+        log.critical("No VM named {name} found!".format(
+            name=kvm_name))
+        return
+    if vm_info[0] != libvirt.VIR_DOMAIN_SHUTOFF:
+        if vm.destroy() == -1:
+            # Failed to shut down
+            log.critical(
+                "Failed to shut down {name}".format(
+                    name=kvm_name))
+        else:
+            log.debug("{name} is successfully shut"
+                      " down".format(name=kvm_name))
+    return
 
 
 @mod_ci.route('/show_maintenance')

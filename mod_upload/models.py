@@ -105,8 +105,8 @@ class QueuedSample(Base):
         :param original_name: The value of the 'original_name' field of
          QueuedSample model
         :type original_name: str
-        :param user_id: The value of the 'user_id' field of QueuedSample model(
-        empty by default)
+        :param user_id: The value of the 'user_id' field of QueuedSample
+        model (empty by default)
         :type user_id: int
         """
         self.sha = sha

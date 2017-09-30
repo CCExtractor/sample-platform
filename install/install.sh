@@ -3,7 +3,7 @@
 # Installer for the CCExtractor sample platform
 #
 # More information can be found on:
-# https://github.com/canihavesomecoffee/sample-platform
+# https://github.com/CCExtractor/sample-platform
 #
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 root_dir=$( cd "${dir}"/../ && pwd)

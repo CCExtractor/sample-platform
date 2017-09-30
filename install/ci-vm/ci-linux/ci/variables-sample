@@ -6,7 +6,7 @@
 # The URL to check if the VM is in maintenance
 maintenanceURL="http://foo.bar/maintenance/linux"
 # The URL with the runCI blob
-runCIURL="https://raw.githubusercontent.com/canihavesomecoffee/sample-platform/master/install/ci-vm/ci-linux/ci/runCI"
+runCIURL="https://raw.githubusercontent.com/CCExtractor/sample-platform/master/install/ci-vm/ci-linux/ci/runCI"
 # File that contains the URL to report to
 reportURLFile="/path/to/token/file"
 # Directory that contains the sources of the version to test

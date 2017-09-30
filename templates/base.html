@@ -58,7 +58,7 @@
                     {% block body %}{% endblock %}
                     {% block footer %}
                     <footer class="row">
-                        &copy; {{ currentYear }} {{ applicationName }} &bull; <a href="{{ url_for('home.about') }}">About</a> &bull; Built with commit <a target="_blank" href="https://github.com/canihavesomecoffee/sample-platform/commit/{{ build_commit }}">{{ build_commit|truncate(10, end='') }}</a>
+                        &copy; {{ currentYear }} {{ applicationName }} &bull; <a href="{{ url_for('home.about') }}">About</a> &bull; Built with commit <a target="_blank" href="https://github.com/CCExtractor/sample-platform/commit/{{ build_commit }}">{{ build_commit|truncate(10, end='') }}</a>
                     </footer>
                     {% endblock %}
                 </div>

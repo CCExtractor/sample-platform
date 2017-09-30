@@ -2,7 +2,7 @@ Please prefix your pull request with one of the following: **[FEATURE]** **[FIX]
 
 **In raising this pull request, I confirm the following (please check boxes):**
 
-- [ ] I have read and understood the [contributors guide](https://github.com/canihavesomecoffee/sample-platform/blob/master/.github/CONTRIBUTING.md).
+- [ ] I have read and understood the [contributors guide](https://github.com/CCExtractor/sample-platform/blob/master/.github/CONTRIBUTING.md).
 - [ ] I have checked that another pull request for this purpose does not exist.
 - [ ] I have considered, and confirmed that this submission will be valuable to others.
 - [ ] I accept that this submission may not be used, and the pull request closed at the will of the maintainer.

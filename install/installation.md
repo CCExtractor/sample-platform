@@ -16,10 +16,10 @@ functionality. To install the VM's for KVM, see
 ### Linux
 
 Clone the latest sample-platform repository from 
-https://github.com/canihavesomecoffee/sample-platform.
+https://github.com/CCExtractor/sample-platform.
 
 ```
-git clone https://github.com/canihavesomecoffee/sample-platform.git
+git clone https://github.com/CCExtractor/sample-platform.git
 ```
 
 The `sample-repository` directory needs to be accessible by `www-data`. The

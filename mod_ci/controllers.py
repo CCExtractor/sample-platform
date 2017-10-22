@@ -498,26 +498,35 @@ def start_ci():
         repository = gh.repos(g.github['repository_owner'])(
             g.github['repository'])
 
-        if event == "push":  # If it's a push, run the tests
-            commit = payload['after']
-            gh_commit = repository.statuses(commit)
-            # Update the db to the new last commit
-            ref = repository.git().refs('heads/master').get()
-            last_commit = GeneralData.query.filter(GeneralData.key ==
-                                                   'last_commit').first()
-            for platform in TestPlatform.values():
-                commit_name = 'fetch_commit_' + platform
-                fetch_commit = GeneralData.query.filter(
-                    GeneralData.key == commit_name).first()
-                if fetch_commit is None:
-                    prev_commit = GeneralData(
-                        commit_name, last_commit.value)
-                    g.db.add(prev_commit)
-            last_commit.value = ref['object']['sha']
-            g.db.commit()
-            queue_test(g.db, repository, gh_commit, commit, TestType.commit)
+        if event == "push":
+            # If it's a push, and the 'after' hash is available, then it's
+            # a commit, so run the tests
+            if 'after' in payload:
+                commit = payload['after']
+                gh_commit = repository.statuses(commit)
+                # Update the db to the new last commit
+                ref = repository.git().refs('heads/master').get()
+                last_commit = GeneralData.query.filter(GeneralData.key ==
+                                                       'last_commit').first()
+                for platform in TestPlatform.values():
+                    commit_name = 'fetch_commit_' + platform
+                    fetch_commit = GeneralData.query.filter(
+                        GeneralData.key == commit_name).first()
+                    if fetch_commit is None:
+                        prev_commit = GeneralData(
+                            commit_name, last_commit.value)
+                        g.db.add(prev_commit)
+                last_commit.value = ref['object']['sha']
+                g.db.commit()
+                queue_test(
+                    g.db, repository, gh_commit, commit, TestType.commit)
+            else:
+                g.log.warning('Unknown push type! Dumping payload for '
+                              'analysis')
+                g.log.debug(payload)
 
-        elif event == "pull_request":  # If it's a PR, run the tests
+        elif event == "pull_request":
+            # If it's a PR, run the tests
             if payload['action'] == 'opened':
                 try:
                     commit = payload['pull_request']['head']['sha']

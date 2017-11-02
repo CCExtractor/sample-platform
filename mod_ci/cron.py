@@ -18,6 +18,6 @@ def cron():
     gh = GitHub(access_token=config['GITHUB_TOKEN'])
     repository = gh.repos(config['GITHUB_OWNER'])(config['GITHUB_REPOSITORY'])
 
-    start_all_platforms(db, repository)
+    start_platform(db, repository)
 
 cron()

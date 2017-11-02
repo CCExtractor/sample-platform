@@ -68,34 +68,15 @@ def before_app_request():
         g.menu_entries['config'] = config_entries
 
 
-def check_running_kvm():
-    """
-    Function that checks whether any kvm is running or not
-    """
-    from run import config
-    conn = libvirt.open("qemu:///system")
-    list_kvm = [config.get('KVM_LINUX_NAME', ''),
-                config.get('KVM_WINDOWS_NAME', '')]
-    for kvm_name in list_kvm:
-        vm = conn.lookupByName(kvm_name)
-        vm_info = vm.info()
-        if vm_info[0] != libvirt.VIR_DOMAIN_SHUTOFF:
-            return true
-    return false
-
-
-def start_all_platforms(db, repository, delay=None):
-    args = (db, repository, delay)
-    kvm_processor(db, kvm_name, TestPlatform.linux, repository, delay)
-    start_ci_process_for_platform(TestPlatform.linux, args)
-    start_ci_process_for_platform(TestPlatform.windows, args)
-
-
-def start_ci_process_for_platform(platform, args):
+def start_platform(db, repository, delay=None):
     from run import log
-    if platform == TestPlatform.linux:
+    args = (db, repository, delay)
+    fstatus = Kvm.query.first()
+    win_kvm_name = config.get('KVM_LINUX_NAME', '')
+    linux_kvm_name = config.get('KVM_WINDOWS_NAME', '')
+    if fstatus.name is linux_kvm_name:
         kvm_processor_linux(args)
-    elif platform == TestPlatform.windows:
+    else if fstatus.name is win_kvm_name:
         kvm_processor_windows(args)
     else:
         log.error("Unsupported CI platform: {platform}".format(
@@ -186,12 +167,6 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
                     "[{platform}] Failed to shut down {name}".format(
                         platform=platform, name=kvm_name))
                 return
-    kvm_running = check_running_kvm()
-    if kvm_running:
-        return
-    fstatus = Kvm.query.first()
-    if fstatus.name is not kvm_name:
-        return
     # Check if there's no KVM status left
     status = Kvm.query.filter(Kvm.name == kvm_name).first()
     if status is not None:
@@ -720,9 +695,8 @@ def progress_reporter(test_id, token):
                         g.db.delete(kvm)
                         g.db.commit()
                     # Start next test if necessary, on the same platform
-                    start_ci_process_for_platform(
-                        platform=test.platform,
-                        args=(g.db, repository, 60)
+                    start_platform(
+                        g.db, repository, 60
                     )
                 # Post status update
                 state = Status.PENDING

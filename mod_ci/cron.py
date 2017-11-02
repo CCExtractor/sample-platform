@@ -20,4 +20,5 @@ def cron():
 
     start_platform(db, repository)
 
+
 cron()

@@ -80,7 +80,7 @@ def start_platform(db, repository, delay=None):
         kvm_processor_windows(args)
     else:
         log.error("Unsupported CI platform: {platform}".format(
-            platform=platform.description))
+            platform=kvm_name))
         return
 
 
@@ -695,9 +695,7 @@ def progress_reporter(test_id, token):
                         g.db.delete(kvm)
                         g.db.commit()
                     # Start next test if necessary, on the same platform
-                    start_platform(
-                        g.db, repository, 60
-                    )
+                    start_platform(g.db, repository, 60)
                 # Post status update
                 state = Status.PENDING
                 message = 'Tests queued'

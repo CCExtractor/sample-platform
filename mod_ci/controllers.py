@@ -16,7 +16,6 @@ import datetime
 from flask import Blueprint, request, abort, g, url_for, jsonify
 from git import Repo, InvalidGitRepositoryError, GitCommandError
 from github import GitHub, ApiError
-from multiprocessing import Process
 from lxml import etree
 from sqlalchemy import and_
 from sqlalchemy import func

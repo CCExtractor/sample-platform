@@ -75,7 +75,6 @@ def start_platform(db, repository, delay=None):
         it start a new test.
     """
     from run import log
-    args = (db, repository, delay)
     finished_tests = db.query(TestProgress.test_id).filter(
         TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
     ).subquery()
@@ -83,14 +82,12 @@ def start_platform(db, repository, delay=None):
         and_(Test.id.notin_(finished_tests))
     ).order_by(Test.id.asc()).first()
     if test is None:
-        start_new_test(args)
+        start_new_test(db, repository, delay)
         return
-    else if test.platform is TestPlatform.Windows:
-        return kvm_processor(
-            db, kvm_name, TestPlatform.windows, repository, delay)
-    else if test.platform is TestPlatform.linux:
-        return kvm_processor(
-            db, kvm_name, TestPlatform.linux, repository, delay)
+    elif test.platform is TestPlatform.Windows:
+        kvm_processor_windows(db, repository, delay)
+    elif test.platform is TestPlatform.linux:
+        kvm_processor_linux(db, repository, delay)
     else:
         log.error("Unsupported CI platform: {platform}".format(
             platform=test.platform))
@@ -103,18 +100,28 @@ def start_new_test(db, repository, delay):
     """
     from run import log
     kvm_test = Kvm.query.first()
-    win_kvm_name = config.get('KVM_LINUX_NAME', '')
-    linux_kvm_name = config.get('KVM_WINDOWS_NAME', '')
     if kvm_test.name is linux_kvm_name:
-        return kvm_processor(
-            db, kvm_name, TestPlatform.linux, repository, delay)
-    else if kvm_test.name is win_kvm_name:
-        return kvm_processor(
-            db, kvm_name, TestPlatform.windows, repository, delay)
+        kvm_processor_linux(db, repository, delay)
+    elif kvm_test.name is win_kvm_name:
+        kvm_processor_windows(db, repository, delay)
     else:
         log.error("Unsupported kvm: {kvm}".format(
             kvm=kvm_test.name))
         return
+
+
+def kvm_processor_linux(db, repository, delay):
+    from run import config
+    kvm_name = config.get('KVM_LINUX_NAME', '')
+    return kvm_processor(
+        db, kvm_name, TestPlatform.linux, repository, delay)
+
+
+def kvm_processor_windows(db, repository, delay):
+    from run import config
+    kvm_name = config.get('KVM_WINDOWS_NAME', '')
+    return kvm_processor(
+        db, kvm_name, TestPlatform.windows, repository, delay)
 
 
 def kvm_processor(db, kvm_name, platform, repository, delay):

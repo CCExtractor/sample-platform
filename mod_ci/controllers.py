@@ -69,33 +69,52 @@ def before_app_request():
 
 
 def start_platform(db, repository, delay=None):
+    """
+        Function to check whether there is already running test for
+        which it check the kvm progress and if no running test then
+        it start a new test.
+    """
     from run import log
     args = (db, repository, delay)
-    fstatus = Kvm.query.first()
-    win_kvm_name = config.get('KVM_LINUX_NAME', '')
-    linux_kvm_name = config.get('KVM_WINDOWS_NAME', '')
-    if fstatus.name is linux_kvm_name:
-        kvm_processor_linux(args)
-    else if fstatus.name is win_kvm_name:
-        kvm_processor_windows(args)
+    finished_tests = db.query(TestProgress.test_id).filter(
+        TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
+    ).subquery()
+    test = Test.query.filter(
+        and_(Test.id.notin_(finished_tests))
+    ).order_by(Test.id.asc()).first()
+    if test is None:
+        start_new_test(args)
+        return
+    else if test.platform is TestPlatform.Windows:
+        return kvm_processor(
+            db, kvm_name, TestPlatform.windows, repository, delay)
+    else if test.platform is TestPlatform.linux:
+        return kvm_processor(
+            db, kvm_name, TestPlatform.linux, repository, delay)
     else:
         log.error("Unsupported CI platform: {platform}".format(
-            platform=kvm_name))
+            platform=test.platform))
         return
 
 
-def kvm_processor_linux(db, repository, delay):
-    from run import config
-    kvm_name = config.get('KVM_LINUX_NAME', '')
-    return kvm_processor(
-        db, kvm_name, TestPlatform.linux, repository, delay)
-
-
-def kvm_processor_windows(db, repository, delay):
-    from run import config
-    kvm_name = config.get('KVM_WINDOWS_NAME', '')
-    return kvm_processor(
-        db, kvm_name, TestPlatform.windows, repository, delay)
+def start_new_test(db, repository, delay):
+    """
+        Function to start a new test based on kvm table.
+    """
+    from run import log
+    kvm_test = Kvm.query.first()
+    win_kvm_name = config.get('KVM_LINUX_NAME', '')
+    linux_kvm_name = config.get('KVM_WINDOWS_NAME', '')
+    if kvm_test.name is linux_kvm_name:
+        return kvm_processor(
+            db, kvm_name, TestPlatform.linux, repository, delay)
+    else if kvm_test.name is win_kvm_name:
+        return kvm_processor(
+            db, kvm_name, TestPlatform.windows, repository, delay)
+    else:
+        log.error("Unsupported kvm: {kvm}".format(
+            kvm=kvm_test.name))
+        return
 
 
 def kvm_processor(db, kvm_name, platform, repository, delay):

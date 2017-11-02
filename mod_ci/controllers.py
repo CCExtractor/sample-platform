@@ -16,7 +16,6 @@ import datetime
 from flask import Blueprint, request, abort, g, url_for, jsonify
 from git import Repo, InvalidGitRepositoryError, GitCommandError
 from github import GitHub, ApiError
-from multiprocessing import Process
 from lxml import etree
 from sqlalchemy import and_
 from sqlalchemy import func
@@ -68,24 +67,48 @@ def before_app_request():
         g.menu_entries['config'] = config_entries
 
 
-def start_all_platforms(db, repository, delay=None):
-    args = (db, repository, delay)
-    start_ci_process_for_platform(TestPlatform.linux, args)
-    start_ci_process_for_platform(TestPlatform.windows, args)
-
-
-def start_ci_process_for_platform(platform, args):
+def start_platform(db, repository, delay=None):
+    """
+        Function to check whether there is already running test for
+        which it check the kvm progress and if no running test then
+        it start a new test.
+    """
     from run import log
-    if platform == TestPlatform.linux:
-        target = kvm_processor_linux
-    elif platform == TestPlatform.windows:
-        target = kvm_processor_windows
+    finished_tests = db.query(TestProgress.test_id).filter(
+        TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
+    ).subquery()
+    test = Test.query.filter(
+        and_(Test.id.notin_(finished_tests))
+    ).order_by(Test.id.asc()).first()
+    if test is None:
+        start_new_test(db, repository, delay)
+        return
+    elif test.platform is TestPlatform.Windows:
+        kvm_processor_windows(db, repository, delay)
+    elif test.platform is TestPlatform.linux:
+        kvm_processor_linux(db, repository, delay)
     else:
         log.error("Unsupported CI platform: {platform}".format(
-            platform=platform.description))
+            platform=test.platform))
         return
-    process = Process(target=target, args=args)
-    process.start()
+
+
+def start_new_test(db, repository, delay):
+    """
+        Function to start a new test based on kvm table.
+    """
+    from run import log, config
+    linux_kvm_name = config.get('KVM_LINUX_NAME', '')
+    win_kvm_name = config.get('KVM_WINDOWS_NAME', '')
+    kvm_test = Kvm.query.first()
+    if kvm_test.name is linux_kvm_name:
+        kvm_processor_linux(db, repository, delay)
+    elif kvm_test.name is win_kvm_name:
+        kvm_processor_windows(db, repository, delay)
+    else:
+        log.error("Unsupported kvm: {kvm}".format(
+            kvm=kvm_test.name))
+        return
 
 
 def kvm_processor_linux(db, repository, delay):
@@ -708,10 +731,7 @@ def progress_reporter(test_id, token):
                         g.db.delete(kvm)
                         g.db.commit()
                     # Start next test if necessary, on the same platform
-                    start_ci_process_for_platform(
-                        platform=test.platform,
-                        args=(g.db, repository, 60)
-                    )
+                    start_platform(g.db, repository, 60)
                 # Post status update
                 state = Status.PENDING
                 message = 'Tests queued'

@@ -98,7 +98,9 @@ def start_new_test(db, repository, delay):
     """
         Function to start a new test based on kvm table.
     """
-    from run import log
+    from run import log, config
+    linux_kvm_name = config.get('KVM_LINUX_NAME', '')
+    win_kvm_name = config.get('KVM_WINDOWS_NAME', '')
     kvm_test = Kvm.query.first()
     if kvm_test.name is linux_kvm_name:
         kvm_processor_linux(db, repository, delay)

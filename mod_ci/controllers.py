@@ -73,6 +73,23 @@ def start_platform(db, repository, delay=None):
         which it check the kvm progress and if no running test then
         it start a new test.
     """
+    from run import log, config
+    linux_kvm_name = config.get('KVM_LINUX_NAME', '')
+    win_kvm_name = config.get('KVM_WINDOWS_NAME', '')
+    kvm_test = Kvm.query.first()
+    if kvm_test is None:
+        start_new_test(db, repository, delay)
+    elif kvm_test.name is linux_kvm_name:
+        kvm_processor_linux(db, repository, delay)
+    elif kvm_test.name is win_kvm_name:
+        kvm_processor_windows(db, repository, delay)
+    return
+
+
+def start_new_test(db, repository, delay):
+    """
+        Function to start a new test based on kvm table.
+    """
     from run import log
     finished_tests = db.query(TestProgress.test_id).filter(
         TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
@@ -81,7 +98,6 @@ def start_platform(db, repository, delay=None):
         and_(Test.id.notin_(finished_tests))
     ).order_by(Test.id.asc()).first()
     if test is None:
-        start_new_test(db, repository, delay)
         return
     elif test.platform is TestPlatform.Windows:
         kvm_processor_windows(db, repository, delay)
@@ -90,25 +106,7 @@ def start_platform(db, repository, delay=None):
     else:
         log.error("Unsupported CI platform: {platform}".format(
             platform=test.platform))
-        return
-
-
-def start_new_test(db, repository, delay):
-    """
-        Function to start a new test based on kvm table.
-    """
-    from run import log, config
-    linux_kvm_name = config.get('KVM_LINUX_NAME', '')
-    win_kvm_name = config.get('KVM_WINDOWS_NAME', '')
-    kvm_test = Kvm.query.first()
-    if kvm_test.name is linux_kvm_name:
-        kvm_processor_linux(db, repository, delay)
-    elif kvm_test.name is win_kvm_name:
-        kvm_processor_windows(db, repository, delay)
-    else:
-        log.error("Unsupported kvm: {kvm}".format(
-            kvm=kvm_test.name))
-        return
+    return
 
 
 def kvm_processor_linux(db, repository, delay):

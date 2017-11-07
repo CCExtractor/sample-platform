@@ -99,7 +99,7 @@ def start_new_test(db, repository, delay):
     ).order_by(Test.id.asc()).first()
     if test is None:
         return
-    elif test.platform is TestPlatform.Windows:
+    elif test.platform is TestPlatform.windows:
         kvm_processor_windows(db, repository, delay)
     elif test.platform is TestPlatform.linux:
         kvm_processor_linux(db, repository, delay)

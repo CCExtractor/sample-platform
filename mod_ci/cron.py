@@ -7,7 +7,7 @@ sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 
 def cron():
-    from mod_ci.controllers import start_all_platforms
+    from mod_ci.controllers import start_platform
     from run import config, log
     from database import create_session
     from github import GitHub

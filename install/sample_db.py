@@ -56,4 +56,5 @@ def run():
     db.add(gen_data)
     db.commit()
 
+
 run()

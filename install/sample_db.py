@@ -11,6 +11,8 @@ def run():
     from mod_regression.models import Category, RegressionTest, InputType, \
         OutputType
     from mod_sample.models import Sample
+    from mod_upload.models import Upload
+    from mod_auth.models import User
     from database import create_session
 
     db = create_session(sys.argv[1])
@@ -53,5 +55,6 @@ def run():
         'last_commit', '71dffd6eb30c1f4b5cf800307de845072ce33262')
     db.add(gen_data)
     db.commit()
+
 
 run()

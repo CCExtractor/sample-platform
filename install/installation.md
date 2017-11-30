@@ -43,8 +43,9 @@ Please read the below troubleshooting notes in case of any error or doubt.
 ### Windows
 
 * Install cygwin (http://cygwin.com/install.html). When cygwin asks which
- packages to install, select Python, MySql, virt-manager and openssh.
-* Start a terminal session once installation is complete.
+ packages to install, select Python, MySql, virt-manager and openssh. If you 
+ already have cygwin installed, you must run its setup file to install the new packages. Make sure the dropdown menu is set to Full, so you can all packages. To select one, click skip and it will change to the version number of the package. Use the end of [this](https://www.davidbaumgold.com/tutorials/set-up-python-windows/) tutorial for help on getting cygwin to recognize python. 
+* Start a terminal session once installation is complete. 
 * Install Nginx (see http://nginx.org/en/docs/windows.html)
 * Install XMing XServer and setup Putty for ssh connections.
 * Virt-manager can call ssh to make the connection to KVM Server and should be 

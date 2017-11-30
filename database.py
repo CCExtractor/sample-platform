@@ -13,6 +13,7 @@ class DeclarativeABCMeta(DeclarativeMeta, ABCMeta):
     """
     pass
 
+
 Base = declarative_base(metaclass=DeclarativeMeta)
 Base.query = None
 db_engine = None

@@ -17,13 +17,14 @@ functionality. To install the VM's for KVM, see
 
 Clone the latest sample-platform repository from 
 https://github.com/CCExtractor/sample-platform.
-
-```
-git clone https://github.com/CCExtractor/sample-platform.git
-```
-
+Note that root (or sudo) is required for both installation and running the program.
 The `sample-repository` directory needs to be accessible by `www-data`. The
 recommended directory is thus `/var/www/`.
+
+```
+cd /var/www/
+sudo git clone https://github.com/CCExtractor/sample-platform.git
+```
 
 Next, navigate to the `install` folder and run `install.sh` with root 
 permissions.
@@ -55,7 +56,6 @@ to complete the platform's installation.
 
 ### Troubleshooting
 
-* Both installation and running the platform requires root (or sudo).
 * The configuration of the sample platform assumes that no other application
 already runs on port 80. A default installation of nginx leaves a `default` 
 config file behind, so it's advised to delete that and stop other 

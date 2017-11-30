@@ -9,7 +9,7 @@ from sqlalchemy.sql.sqltypes import SchemaType, Enum, TypeDecorator
 
 class DeclarativeABCMeta(DeclarativeMeta, ABCMeta):
     """
-    Empty class to create a mixin between DeclarativeMeta and ABCMeta
+    Empty class to create a mix in between DeclarativeMeta and ABCMeta
     """
     pass
 
@@ -21,7 +21,7 @@ db_engine = None
 def create_session(db_string, drop_tables=False):
     """
     Creates a new DB session using the scoped_session that SQLAlchemy
-    provices.
+    provides.
 
     :param db_string: The connection string.
     :type db_string: str

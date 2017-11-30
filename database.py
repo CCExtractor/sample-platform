@@ -9,7 +9,7 @@ from sqlalchemy.sql.sqltypes import SchemaType, Enum, TypeDecorator
 
 class DeclarativeABCMeta(DeclarativeMeta, ABCMeta):
     """
-    Empty class to create a mix in between DeclarativeMeta and ABCMeta
+    Empty class to create a mixin between DeclarativeMeta and ABCMeta
     """
     pass
 

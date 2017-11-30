@@ -13,6 +13,7 @@ class DeclarativeABCMeta(DeclarativeMeta, ABCMeta):
     """
     pass
 
+
 Base = declarative_base(metaclass=DeclarativeMeta)
 Base.query = None
 db_engine = None
@@ -21,7 +22,7 @@ db_engine = None
 def create_session(db_string, drop_tables=False):
     """
     Creates a new DB session using the scoped_session that SQLAlchemy
-    provices.
+    provides.
 
     :param db_string: The connection string.
     :type db_string: str

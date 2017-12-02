@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import os
 import sys
 import traceback
@@ -8,7 +10,6 @@ from werkzeug.routing import BaseConverter
 
 from config_parser import parse_config
 from database import create_session
-from datetime import datetime
 from decorators import template_renderer
 from log_configuration import LogConfiguration
 from mailer import Mailer
@@ -54,19 +55,19 @@ def install_secret_keys(application, secret_session='secret_key',
         application.config['SECRET_KEY'] = open(session_file, 'rb').read()
     except IOError:
         traceback.print_exc()
-        print 'Error: No secret key. Create it with:'
+        print('Error: No secret key. Create it with:')
         if not os.path.isdir(os.path.dirname(session_file)):
-            print 'mkdir -p', os.path.dirname(session_file)
-        print 'head -c 24 /dev/urandom >', session_file
+            print('mkdir -p', os.path.dirname(session_file))
+        print('head -c 24 /dev/urandom >', session_file)
         do_exit = True
 
     try:
         application.config['CSRF_SESSION_KEY'] = open(csrf_file, 'rb').read()
     except IOError:
-        print 'Error: No secret CSRF key. Create it with:'
+        print('Error: No secret CSRF key. Create it with:')
         if not os.path.isdir(os.path.dirname(csrf_file)):
-            print 'mkdir -p', os.path.dirname(csrf_file)
-        print 'head -c 24 /dev/urandom >', csrf_file
+            print('mkdir -p', os.path.dirname(csrf_file))
+        print('head -c 24 /dev/urandom >', csrf_file)
         do_exit = True
 
     if do_exit:

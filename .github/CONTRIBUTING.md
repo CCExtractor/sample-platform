@@ -33,6 +33,7 @@ Before submitting a pull request:
 
 - Please make sure you conform to the [PEP-8 coding guidelines](https://www.python.org/dev/peps/pep-0008/) for code
 - For docstrings, please adhere to [PEP-257](https://www.python.org/dev/peps/pep-0257/)
+- For typing, please adhere to [PEP-484](https://www.python.org/dev/peps/pep-0484/)
 
 A code checker for PEP-8 has been enabled. It is recommended to check your code before making a PR, and it's likewise recommended to use an IDE to check your code ([PyCharm](https://www.jetbrains.com/pycharm/) offers a free community edition, and has student licenses as well!)
 

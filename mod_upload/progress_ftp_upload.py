@@ -11,6 +11,7 @@ def process(database, file_to_process):
     log.debug("Calling the FTP upload method from the controller!")
     upload_ftp(database, file_to_process)
 
+
 if __name__ == '__main__':
     from database import create_session
     from run import config, log

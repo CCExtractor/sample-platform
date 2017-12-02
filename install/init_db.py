@@ -29,4 +29,5 @@ def run():
     db.commit()
     print("Admin user created with name: %s" % user.name)
 
+
 run()

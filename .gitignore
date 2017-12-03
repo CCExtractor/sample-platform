@@ -33,3 +33,7 @@ gunicorn.pid
 
 # OS Generated Files
 .DS_Store
+
+# Coverage data
+coverage_report/
+.coverage

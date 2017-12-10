@@ -1,0 +1,13 @@
+language: python
+python:
+  - 3.4
+  - 3.5
+  - 3.6
+  - nightly
+install:
+  - pip install codecov
+  - pip install nose-cov
+script:
+  - nosetests --with-cov --cov-config .coveragerc
+after_success:
+  - codecov

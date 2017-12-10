@@ -33,4 +33,6 @@ class TestMailer(unittest.TestCase):
             expected_data = data.copy()
             expected_data['from'] = mailer.sender
 
-            mock_post.assert_called_once_with("%s/messages" % mailer.api_url, auth=mailer.auth, data=expected_data)
+            mock_post.assert_called_once_with("%s/messages" % mailer.api_url,
+                                              auth=mailer.auth,
+                                              data=expected_data)

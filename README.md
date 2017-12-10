@@ -1,6 +1,6 @@
 # CCExtractor Sample Platform
 
-[![Build Status](https://travis-ci.org/CCExtractor/sample-platform.svg?branch=master)](https://travis-ci.org/CCExtractor/sample-platform)
+[![Build Status](https://travis-ci.org/CCExtractor/sample-platform.svg?branch=master)](https://travis-ci.org/CCExtractor/sample-platform) [![codecov](https://codecov.io/gh/CCExtractor/sample-platform/branch/master/graph/badge.svg)](https://codecov.io/gh/CCExtractor/sample-platform)
 
 This repository contains the code for a platform that manages a test suite 
 bot, sample upload and more. This platform allows for a unified place to 

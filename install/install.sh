@@ -24,7 +24,7 @@ echo "-------------------------------"
 echo "|   Installing dependencies   |"
 echo "-------------------------------"
 echo ""
-echo "* Updating package list        "
+echo "* Updating package list"
 apt-get update >> "$install_log" 2>&1
 echo "* Installing nginx, python, pip, kvm, libvirt and virt-manager"
 apt-get -q -y install nginx python python-dev libxslt1-dev libxml2-dev python-pip qemu-kvm libvirt-bin virt-manager mediainfo >> "$install_log" 2>&1
@@ -32,10 +32,10 @@ if [ ! -f /etc/init.d/mysql* ]; then
     echo "* Installing MySQL (root password will be empty!)"
     DEBIAN_FRONTEND=noninteractive apt-get install -y mysql-server >> "$install_log" 2>&1
 fi
-echo "* Update setuptools            "
-pip install --upgrade setuptools >> "$install_log" 2>&1
+echo "* Update pip, setuptools and wheel"
+python -m pip install --upgrade pip setuptools wheel >> "$install_log" 2>&1
 echo "* Installing pip dependencies"
-pip install sqlalchemy flask passlib pymysql python-magic flask-wtf gunicorn githubpy requests pyIsEmail ipaddress GitPython xmltodict lxml pytz tzlocal >> "$install_log" 2>&1
+pip install -r "${root_dir}/requirements.txt" >> "$install_log" 2>&1
 echo ""
 echo "-------------------------------"
 echo "|        Configuration        |"

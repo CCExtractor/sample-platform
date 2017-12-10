@@ -1,0 +1,16 @@
+sqlalchemy
+flask
+passlib
+pymysql
+python-magic
+flask-wtf
+gunicorn
+githubpy
+requests
+pyIsEmail
+ipaddress
+GitPython
+xmltodict
+lxml
+pytz
+tzlocal

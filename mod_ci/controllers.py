@@ -442,11 +442,10 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
             platform=platform, id=test.id))
 
 
-def queue_test(db, repository, gh_commit, commit, test_type, branch="master",
-               pr_nr=0):
+def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     """
-    Function to store test details into Test model seperately for
-     various vm. Post status to the github
+    Function to store test details into Test model separately for various
+    vm. Post status to GitHub
     """
     from run import log
     fork = Fork.query.filter(Fork.github.like(
@@ -463,23 +462,21 @@ def queue_test(db, repository, gh_commit, commit, test_type, branch="master",
     db.add(windows)
     db.commit()
     # Update statuses on GitHub
-    try:
-        gh_commit.post(
-            state=Status.PENDING, description="Tests queued",
-            context="CI - %s" % linux.platform.value,
-            target_url=url_for(
-                'test.by_id', test_id=linux.id, _external=True))
-    except ApiError as a:
-        log.critical('Could not post to GitHub! Response: %s' % a.response)
-
-    try:
-        gh_commit.post(
-            state=Status.PENDING, description="Tests queued",
-            context="CI - %s" % windows.platform.value,
-            target_url=url_for(
-                'test.by_id', test_id=windows.id, _external=True))
-    except ApiError as a:
-        log.critical('Could not post to GitHub! Response: %s' % a.response)
+    if gh_commit is not None:
+        test_ids = [linux.id, windows.id]
+        ci_names = [linux.platform.value, windows.platform.value]
+        for idx in range(len(ci_names)):
+            try:
+                gh_commit.post(
+                    state=Status.PENDING, description="Tests queued",
+                    context="CI - {name}".format(name=ci_names[idx]),
+                    target_url=url_for(
+                        'test.by_id', test_id=test_ids[idx], _external=True))
+            except ApiError as a:
+                log.critical(
+                    'Could not post to GitHub! Response: {res}'.format(
+                        res=a.response)
+                )
 
     # We wait for the cron to kick off the CI VM's
     log.debug("Created tests, waiting for cron...")
@@ -539,8 +536,7 @@ def start_ci():
                         g.db.add(prev_commit)
                 last_commit.value = ref['object']['sha']
                 g.db.commit()
-                queue_test(
-                    g.db, repository, gh_commit, commit, TestType.commit)
+                queue_test(g.db, gh_commit, commit, TestType.commit)
             else:
                 g.log.warning('Unknown push type! Dumping payload for '
                               'analysis')
@@ -548,35 +544,28 @@ def start_ci():
 
         elif event == "pull_request":
             # If it's a PR, run the tests
+            commit = ''
+            gh_commit = None
             if payload['action'] == 'opened':
                 try:
                     commit = payload['pull_request']['head']['sha']
+                    gh_commit = repository.statuses(commit)
                 except KeyError:
                     g.log.critical(
                         "Didn't find a SHA value for a newly opened PR!")
                     g.log.debug(payload)
-                    commit = ''
             elif payload['action'] == 'closed':
                 g.log.debug('PR was closed, no after hash available')
-                commit = ''
-            else:
-                try:
-                    commit = payload['after']
-                except KeyError:
-                    g.log.critical("Didn't find the after SHA for the "
-                                   "updated commit!")
-                    g.log.debug(payload)
-                    commit = ''
+
             pr_nr = payload['pull_request']['number']
-            gh_commit = repository.statuses(commit)
             if payload['action'] == 'opened':
                 # Run initial tests
-                queue_test(g.db, repository, gh_commit, commit,
-                           TestType.pull_request, pr_nr=pr_nr)
+                queue_test(g.db, gh_commit, commit, TestType.pull_request,
+                           pr_nr=pr_nr)
             elif payload['action'] == 'synchronize':
                 # Run/queue a new test set
-                queue_test(g.db, repository, gh_commit, commit,
-                           TestType.pull_request, pr_nr=pr_nr)
+                queue_test(g.db, gh_commit, commit, TestType.pull_request,
+                           pr_nr=pr_nr)
             elif payload['action'] == 'closed':
                 # Cancel running queue
                 tests = Test.query.filter(Test.pr_nr == pr_nr).all()
@@ -595,7 +584,7 @@ def start_ci():
                             'test.by_id', test_id=test.id, _external=True))
             elif payload['action'] == 'reopened':
                 # Run tests again
-                queue_test(g.db, repository, gh_commit, commit,
+                queue_test(g.db, gh_commit, commit,
                            TestType.pull_request, pr_nr=pr_nr)
         elif event == "issues":
             issue_data = payload['issue']
@@ -728,8 +717,6 @@ def progress_reporter(test_id, token):
                         log.debug("Removing KVM entry")
                         g.db.delete(kvm)
                         g.db.commit()
-                    # Start next test if necessary, on the same platform
-                    start_platform(g.db, repository, 60)
                 # Post status update
                 state = Status.PENDING
                 message = 'Tests queued'
@@ -785,6 +772,10 @@ def progress_reporter(test_id, token):
                 except ApiError as a:
                     log.error('Got an exception while posting to GitHub! '
                               'Message: {message}'.format(message=a.message))
+
+                if status in [TestStatus.completed, TestStatus.canceled]:
+                    # Start next test if necessary, on the same platform
+                    start_platform(g.db, repository, 60)
 
             elif request.form['type'] == 'equality':
                 log.debug('Equality for {t}/{rt}/{rto}'.format(

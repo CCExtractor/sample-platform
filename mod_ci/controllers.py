@@ -545,7 +545,7 @@ def start_ci():
         elif event == "pull_request":
             # If it's a PR, run the tests
             commit = ''
-            gh_commit = ''
+            gh_commit = None
             if payload['action'] in ['opened', 'synchronize']:
                 try:
                     commit = payload['pull_request']['head']['sha']

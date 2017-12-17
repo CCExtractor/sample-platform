@@ -545,7 +545,8 @@ def start_ci():
         elif event == "pull_request":
             # If it's a PR, run the tests
             commit = ''
-            if payload['action'] == 'opened' or payload['action'] == 'synchronize':
+            gh_commit = ''
+            if payload['action'] in ['opened', 'synchronize']:
                 try:
                     commit = payload['pull_request']['head']['sha']
                     gh_commit = repository.statuses(commit)

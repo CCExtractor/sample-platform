@@ -96,7 +96,7 @@ def date_time_format(value, fmt='%Y-%m-%d %H:%M:%S'):
 
 app.jinja_env.filters['date'] = date_time_format
 
-
+# Fetch GitHub issue link
 def get_github_issue_link(issue_id):
     return 'https://www.github.com/{org}/{repo}/issues/{id}'.format(
         org=config.get('GITHUB_OWNER', ''),

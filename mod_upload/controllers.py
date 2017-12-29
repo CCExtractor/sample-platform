@@ -308,6 +308,7 @@ def process_id(upload_id):
                                 '{notes}\n*Description:*\n' \
                                 '{desc}'.format(notes=form.notes.data,
                                                 desc=form.IssueBody.data)
+                        # Make the issue on GitHub issue tracker
                         issue_title = '[BUG] {data}'.format(
                             data=form.IssueTitle.data)
                         issue_upload = make_github_issue(issue_title, data, [

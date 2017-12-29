@@ -61,7 +61,7 @@ def request_from_github(abort_code=418):
         return decorated_function
     return decorator
 
-
+# Check github deploy signature key (valid or not)
 def is_valid_signature(x_hub_signature, data, private_key):
     hash_algorithm, github_signature = x_hub_signature.split('=', 1)
     algorithm = hashlib.__dict__.get(hash_algorithm)

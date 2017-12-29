@@ -119,7 +119,7 @@ class RegexConverter(BaseConverter):
 
 app.url_map.converters['regex'] = RegexConverter
 
-
+# Show error
 @app.errorhandler(404)
 @template_renderer('404.html', 404)
 def not_found(error):

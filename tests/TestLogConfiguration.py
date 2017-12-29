@@ -40,7 +40,7 @@ class TestLogConfiguration(unittest.TestCase):
                         ])
                         mock_join.assert_called_once_with(folder, 'logs',
                                                           '%s.log' % filename)
-
+                        # Checking that LogConfiguration is equal to mock that have been set above
                         self.assertEqual(log_config._consoleLogger, mock_sh())
                         self.assertEqual(log_config.console_logger, mock_sh())
                         self.assertEqual(log_config._fileLogger, mock_fh())

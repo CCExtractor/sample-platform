@@ -12,7 +12,7 @@ from sqlalchemy import and_, func
 from sqlalchemy.sql import label
 from decorators import template_renderer
 from mod_home.models import CCExtractorVersion
-from mod_regression.models import Category, regressionTestCategoryLinkTable, \
+from mod_regression.models import Category, regressionTestLinkTable, \
     RegressionTestOutput
 from mod_test.models import Test, TestProgress, TestResultFile, TestType
 from mod_home.models import GeneralData
@@ -59,7 +59,7 @@ def get_data_for_test(test, title=None):
         title = 'test {id}'.format(id=test.id)
 
     populated_categories = g.db.query(
-        regressionTestCategoryLinkTable.c.category_id).subquery()
+        regressionTestLinkTable.c.category_id).subquery()
     categories = Category.query.filter(Category.id.in_(
         populated_categories)).order_by(Category.name.asc()).all()
     hours = 0

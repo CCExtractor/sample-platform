@@ -14,12 +14,11 @@ from sqlalchemy.orm import relationship
 
 from database import Base, DeclEnum
 
-regressionTestCategoryLinkTable = Table(
-    'regression_test_category', Base.metadata,
-    Column('regression_id', Integer, ForeignKey(
-        'regression_test.id', onupdate='CASCADE', ondelete='RESTRICT')),
-    Column('category_id', Integer, ForeignKey(
-        'category.id', onupdate='CASCADE', ondelete='RESTRICT'))
+regressionTestLinkTable = Table(
+    'regression_test_category',
+    Base.metadata,
+    Column('regression_id', Integer, ForeignKey('regression_test.id', onupdate='CASCADE', ondelete='RESTRICT')),
+    Column('category_id', Integer, ForeignKey('category.id', onupdate='CASCADE', ondelete='RESTRICT'))
 )
 
 
@@ -29,9 +28,7 @@ class Category(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(64), unique=True)
     description = Column(Text(), nullable=False)
-    regression_tests = relationship(
-        'RegressionTest', secondary=regressionTestCategoryLinkTable,
-        back_populates='categories')
+    regression_tests = relationship('RegressionTest', secondary=regressionTestLinkTable, back_populates='categories')
 
     def __init__(self, name, description):
         """
@@ -52,11 +49,10 @@ class Category(Base):
         Representation function
         Represent a Category Model by its 'name' Field.
 
-        :return str(name): Returns the string containing
-         'name' field of the Category model
-        :rtype str(name): str
+        :return: Returns the string containing 'name' field of the Category model
+        :rtype: str
         """
-        return '<Category %r>' % self.name
+        return '<Category {name}>'.format(name=self.name)
 
 
 class InputType(DeclEnum):
@@ -79,41 +75,30 @@ class RegressionTest(Base):
     __tablename__ = 'regression_test'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
-    sample_id = Column(Integer, ForeignKey('sample.id', onupdate='CASCADE',
-                                           ondelete='CASCADE'))
+    sample_id = Column(Integer, ForeignKey('sample.id', onupdate='CASCADE', ondelete='CASCADE'))
     sample = relationship('Sample', uselist=False, back_populates='tests')
     command = Column(Text(), nullable=False)
     input_type = Column(InputType.db_type())
     output_type = Column(OutputType.db_type())
-    categories = relationship(
-        'Category', secondary=regressionTestCategoryLinkTable,
-        back_populates='regression_tests')
-    output_files = relationship('RegressionTestOutput',
-                                back_populates='regression_test')
+    categories = relationship('Category', secondary=regressionTestLinkTable, back_populates='regression_tests')
+    output_files = relationship('RegressionTestOutput', back_populates='regression_test')
     expected_rc = Column(Integer)
 
-    def __init__(self, sample_id, command, input_type, output_type,
-                 category_id, expected_rc):
+    def __init__(self, sample_id, command, input_type, output_type, category_id, expected_rc):
         """
         Parametrized constructor for the RegressionTest model
 
-        :param sample_id: The value of the 'name' field of
-         RegressionTest model
+        :param sample_id: The value of the 'name' field of RegressionTest model
         :type sample_id: str
-        :param command: The value of the 'command' field
-         of RegressionTest model
+        :param command: The value of the 'command' field of RegressionTest model
         :type command: str
-        :param input_type: The value of the 'input_type' field
-         of RegressionTest model
+        :param input_type: The value of the 'input_type' field of RegressionTest model
         :type input_type: InputType
-        :param output_type: The value of the 'output_type' field
-         of RegressionTest model
+        :param output_type: The value of the 'output_type' field of RegressionTest model
         :type output_type: OutputType
-        :param category_id: The value of the 'category_id' field
-         of RegressionTest model
+        :param category_id: The value of the 'category_id' field of RegressionTest model
         :type category_id: int
-        :param expected_rc: The value of the 'expected_rc' field
-         of RegressionTest model
+        :param expected_rc: The value of the 'expected_rc' field of RegressionTest model
         :type expected_rc: int
 
         """
@@ -129,45 +114,37 @@ class RegressionTest(Base):
         Representation function
         Represent a RegressionTest Model by its 'id' Field.
 
-        :return str(id): Returns the string containing
-         'id' field of the RegressionTest model
-        :rtype str(id): str
+        :return: Returns the string containing 'id' field of the RegressionTest model
+        :rtype: str
         """
-        return '<RegressionTest %r>' % self.id
+
+        return '<RegressionTest {id}>'.format(id=self.id)
 
 
 class RegressionTestOutput(Base):
     __tablename__ = 'regression_test_output'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
-    regression_id = Column(Integer, ForeignKey(
-        'regression_test.id', onupdate='CASCADE', ondelete='RESTRICT'))
-    regression_test = relationship('RegressionTest',
-                                   back_populates='output_files')
+    regression_id = Column(Integer, ForeignKey('regression_test.id', onupdate='CASCADE', ondelete='RESTRICT'))
+    regression_test = relationship('RegressionTest', back_populates='output_files')
     correct = Column(Text())
     correct_extension = Column(String(64), nullable=False)  # contains the .
     expected_filename = Column(Text())
     ignore = Column(Boolean(), default=False)
 
-    def __init__(self, regression_id, correct, correct_extension,
-                 expected_filename, ignore=False):
+    def __init__(self, regression_id, correct, correct_extension, expected_filename, ignore=False):
         """
         Parametrized constructor for the RegressionTestOutput model
 
-        :param regression_id: The value of the 'regression_id' field of
-         RegressionTestOutput model
+        :param regression_id: The value of the 'regression_id' field of RegressionTestOutput model
         :type regression_id: int
-        :param correct: The value of the 'correct' field
-         of RegressionTestOutput model
+        :param correct: The value of the 'correct' field of RegressionTestOutput model
         :type correct: str
-        :param correct_extension: The value of the 'correct_extension' field
-         of RegressionTestOutput model
+        :param correct_extension: The value of the 'correct_extension' field of RegressionTestOutput model
         :type correct_extension: str
-        :param expected_filename: The value of the 'expected_filename'
-         field of RegressionTestOutput model
+        :param expected_filename: The value of the 'expected_filename' field of RegressionTestOutput model
         :type expected_filename: str
-        :param ignore: The value of the 'ignore' field
-         of RegressionTestOutput model (False by default)
+        :param ignore: The value of the 'ignore' field of RegressionTestOutput model (False by default)
         :type ignore: bool
         """
         self.sample_id = regression_id
@@ -181,18 +158,17 @@ class RegressionTestOutput(Base):
         Representation function
         Represent a RegressionTestOutput Model by its 'id' Field.
 
-        :return str(id): Returns the string containing
-         'id' field of the RegressionTestOutput model
-        :rtype str(id): str
+        :return: Returns the string containing 'id' field of the RegressionTestOutput model.
+        :rtype: str
         """
-        return '<RegressionTestOutput %r>' % self.id
+        return '<RegressionTestOutput {id}>'.format(id=self.id)
 
     @property
     def filename_correct(self):
         """
         Return the filename of a particular regression output
 
-        :return : String containing name and particular extension
+        :return: String containing name and particular extension
         :rtype: str
         """
         return self.create_correct_filename(self.correct)
@@ -203,14 +179,10 @@ class RegressionTestOutput(Base):
 
         :param sample_hash: sample_hash of RegressionTestOutput
         :type name: str
-        :return : String containing name, expected filename,
-         particular extension
+        :return: String containing name, expected filename, particular extension
         :rtype: str
         """
-        return "{sha}{extra}{extension}".format(
-            sha=sample_hash, extra=self.expected_filename,
-            extension=self.correct_extension)
+        return "{sha}{extra}{ext}".format(sha=sample_hash, extra=self.expected_filename, ext=self.correct_extension)
 
     def create_correct_filename(self, name):
-        return "{name}{extension}".format(
-            name=name, extension=self.correct_extension)
+        return "{name}{ext}".format(name=name, ext=self.correct_extension)

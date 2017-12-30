@@ -7,8 +7,7 @@ from os import path
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 if len(sys.argv) != 5:
-    print('Invalid number of arguments. Expected 5 arguments, got %s' %
-          len(sys.argv))
+    print('Invalid number of arguments. Expected 5 arguments, got %s' % len(sys.argv))
     exit()
 
 

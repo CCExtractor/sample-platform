@@ -87,8 +87,7 @@ class User(Base):
         """
         chars = string.ascii_letters + string.digits + '!@#$%^&*()'
         import os
-        return ''.join(chars[ord(os.urandom(1)) % len(chars)] for i in
-                       range(length))
+        return ''.join(chars[ord(os.urandom(1)) % len(chars)] for i in range(length))
 
     def is_password_valid(self, password):
         """

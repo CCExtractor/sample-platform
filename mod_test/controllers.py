@@ -55,40 +55,43 @@ def index():
 
 
 def get_data_for_test(test, title=None):
+    """
+    Retrieves the data for a single test, with an optional title.
+
+    :param test: The test to retrieve the data for.
+    :type test: Test
+    :param title: The title to use in the result. If empty, it's set to 'test {id}'
+    :type title: str
+    :return: A dictionary with the appropriate values.
+    :rtype: dict
+    """
     if title is None:
         title = 'test {id}'.format(id=test.id)
 
-    populated_categories = g.db.query(
-        regressionTestLinkTable.c.category_id).subquery()
-    categories = Category.query.filter(Category.id.in_(
-        populated_categories)).order_by(Category.name.asc()).all()
+    populated_categories = g.db.query(regressionTestLinkTable.c.category_id).subquery()
+    categories = Category.query.filter(Category.id.in_(populated_categories)).order_by(Category.name.asc()).all()
     hours = 0
     minutes = 0
     queued_tests = 0
     """
-        evaluating estimated time if the test is still in queue
-        estimated time = (number of tests already in queue + 1) *
-                          (average time of that platform)
-                          - (time already spend by those tests)
-        calculates time in minutes and hours
+    evaluating estimated time if the test is still in queue
+    estimated time = (number of tests already in queue + 1) * (average time of that platform) 
+                      - (time already spend by those tests)
+    calculates time in minutes and hours
     """
     if len(test.progress) == 0:
         var_average = 'average_time_' + test.platform.value
-        queued_kvm = g.db.query(Kvm.test_id).filter(
-            Kvm.test_id < test.id).subquery()
-        queued_kvm_entries = g.db.query(Test.id).filter(and_(
-            Test.id.in_(queued_kvm),
-            Test.platform == test.platform)).subquery()
-        kvm_test = g.db.query(
-            TestProgress.test_id,
-            label('time', func.group_concat(TestProgress.timestamp))
-        ).filter(
+        queued_kvm = g.db.query(Kvm.test_id).filter(Kvm.test_id < test.id).subquery()
+        queued_kvm_entries = g.db.query(Test.id).filter(
+            and_(Test.id.in_(queued_kvm), Test.platform == test.platform)
+        ).subquery()
+        kvm_test = g.db.query(TestProgress.test_id, label('time', func.group_concat(TestProgress.timestamp))).filter(
             TestProgress.test_id.in_(queued_kvm_entries)
         ).group_by(TestProgress.test_id).all()
-        number_kvm_test = g.db.query(Test.id).filter(and_(
-            Test.id.in_(queued_kvm), Test.platform == test.platform)).count()
-        average_duration = float(GeneralData.query.filter(
-            GeneralData.key == var_average).first().value)
+        number_kvm_test = g.db.query(Test.id).filter(
+            and_(Test.id.in_(queued_kvm), Test.platform == test.platform)
+        ).count()
+        average_duration = float(GeneralData.query.filter(GeneralData.key == var_average).first().value)
         queued_tests = number_kvm_test
         time_run = 0
         for pr_test in kvm_test:
@@ -105,17 +108,14 @@ def get_data_for_test(test, title=None):
         'category': category,
         'tests': [{
             'test': rt,
-            'result': next((r for r in test.results if
-                            r.regression_test_id ==
-                            rt.id), None),
-            'files': TestResultFile.query.filter(and_(
-                TestResultFile.test_id == test.id,
-                TestResultFile.regression_test_id ==
-                rt.id)).all()
+            'result': next((r for r in test.results if r.regression_test_id == rt.id), None),
+            'files': TestResultFile.query.filter(
+                and_(TestResultFile.test_id == test.id, TestResultFile.regression_test_id == rt.id)
+            ).all()
         } for rt in category.regression_tests]
     } for category in categories]
-    # Run through the categories to see if they should be marked as failed or
-    # passed. A category failed if one or more tests in said category failed.
+    # Run through the categories to see if they should be marked as failed or passed. A category failed if one or more
+    # tests in said category failed.
     for category in results:
         error = False
         for category_test in category['tests']:
@@ -133,11 +133,9 @@ def get_data_for_test(test, title=None):
                         test_error = True
                         break
             else:
-                # We need to check if the regression test had any file that
-                #  shouldn't have been ignored.
+                # We need to check if the regression test had any file that shouldn't have been ignored.
                 outputs = RegressionTestOutput.query.filter(and_(
-                    RegressionTestOutput.regression_id ==
-                    category_test['test'].id,
+                    RegressionTestOutput.regression_id == category_test['test'].id,
                     RegressionTestOutput.ignore is False
                 )).all()
                 got = None
@@ -166,17 +164,17 @@ def get_data_for_test(test, title=None):
 @mod_test.route('/get_json_data/<test_id>')
 def get_json_data(test_id):
     """
-        return the test progress status used for ajax call
-        :return: {status, details, complete, progress_array}
-        :rtype: json
-        :status: {failure, success}
-        :details: progress details of the test
-        :complete: {True, False}
-        :progress_array: collection of [timestamp, status, messsage]
+    Retrieves the status of a test id and returns it in JSON format.
+
+    :param test_id: The id of the test to retrieve data for.
+    :type test_id: int
+    :return: A JSON structure that holds the data about this test.
+    :rtype: Any
     """
     test = Test.query.filter(Test.id == test_id).first()
     if test is None:
         return jsonify({'status': 'failure', 'error': 'Test not found'})
+
     pr_data = test.progress_data()
     progress_array = []
     for entry in test.progress:
@@ -199,8 +197,8 @@ def get_json_data(test_id):
 def by_id(test_id):
     test = Test.query.filter(Test.id == test_id).first()
     if test is None:
-        raise TestNotFoundException(
-            'Test with id {id} does not exist'.format(id=test_id))
+        raise TestNotFoundException('Test with id {id} does not exist'.format(id=test_id))
+
     return get_data_for_test(test)
 
 
@@ -208,19 +206,19 @@ def by_id(test_id):
 @template_renderer('test/by_id.html')
 def ccextractor_version(ccx_version):
     # Look up the hash, find a test for it and redirect
-    version = CCExtractorVersion.query.filter(
-        CCExtractorVersion.version == ccx_version).first()
+    version = CCExtractorVersion.query.filter(CCExtractorVersion.version == ccx_version).first()
+
     if version is not None:
         test = Test.query.filter(Test.commit == version.commit).first()
+
         if test is None:
             raise TestNotFoundException(
-                'There are no tests available for CCExtractor version '
-                '{version}'.format(version=version.version))
-        return get_data_for_test(
-            test, 'CCExtractor {version}'.format(version=version.version))
-    raise TestNotFoundException(
-        'There is no CCExtractor version known as {version}'.format(
-            version=ccx_version))
+                'There are no tests available for CCExtractor version {version}'.format(version=version.version)
+            )
+
+        return get_data_for_test(test, 'CCExtractor {version}'.format(version=version.version))
+
+    raise TestNotFoundException('There is no CCExtractor version known as {version}'.format(version=ccx_version))
 
 
 @mod_test.route('/commit/<commit_hash>')
@@ -228,12 +226,11 @@ def ccextractor_version(ccx_version):
 def by_commit(commit_hash):
     # Look up the hash, find a test for it and redirect
     test = Test.query.filter(Test.commit == commit_hash).first()
+
     if test is None:
-        raise TestNotFoundException(
-            'There is no test available for commit {commit}'.format(
-                commit=commit_hash))
-    return get_data_for_test(
-        test, 'commit {commit}'.format(commit=commit_hash))
+        raise TestNotFoundException('There is no test available for commit {commit}'.format(commit=commit_hash))
+
+    return get_data_for_test(test, 'commit {commit}'.format(commit=commit_hash))
 
 
 @mod_test.route('/diff/<test_id>/<regression_test_id>/<output_id>')
@@ -244,30 +241,30 @@ def generate_diff(test_id, regression_test_id, output_id):
         result = TestResultFile.query.filter(and_(
             TestResultFile.test_id == test_id,
             TestResultFile.regression_test_id == regression_test_id,
-            TestResultFile.regression_test_output_id == output_id)).first()
+            TestResultFile.regression_test_output_id == output_id
+        )).first()
+
         if result is not None:
-            path = os.path.join(
-                config.get('SAMPLE_REPOSITORY', ''), 'TestResults')
+            path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'TestResults')
             return result.generate_html_diff(path)
+
         abort(404)
+
     abort(403, 'generate_diff')
 
 
 def serve_file_download(file_name, content_type='application/octet-stream'):
     from run import config
 
-    file_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''),
-                             'LogFiles', file_name)
+    file_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'LogFiles', file_name)
     response = make_response()
     response.headers['Content-Description'] = 'File Transfer'
     response.headers['Cache-Control'] = 'no-cache'
     response.headers['Content-Type'] = content_type
-    response.headers['Content-Disposition'] = \
-        'attachment; filename=%s' % file_name
-    response.headers['Content-Length'] = \
-        os.path.getsize(file_path)
-    response.headers['X-Accel-Redirect'] = \
-        '/' + os.path.join('logfile-download', file_name)
+    response.headers['Content-Disposition'] = 'attachment; filename={name}'.format(name=file_name)
+    response.headers['Content-Length'] = os.path.getsize(file_path)
+    response.headers['X-Accel-Redirect'] = '/' + os.path.join('logfile-download', file_name)
+
     return response
 
 
@@ -275,14 +272,14 @@ def serve_file_download(file_name, content_type='application/octet-stream'):
 def download_build_log_file(test_id):
     from run import config
     test = Test.query.filter(Test.id == test_id).first()
+
     if test is not None:
         # Fetch logfile
-        log_file_path = os.path.join(
-            config.get('SAMPLE_REPOSITORY', ''), 'LogFiles',
-            test_id + '.txt')
+        log_file_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'LogFiles', test_id + '.txt')
+
         if os.path.isfile(log_file_path):
-            return serve_file_download(test_id + '.txt',
-                                       'text/plain')
-        raise TestNotFoundException('Build log for Test %s not found' %
-                                    test_id)
-    raise TestNotFoundException('Test with id %s not found' % test_id)
+            return serve_file_download(test_id + '.txt', 'text/plain')
+
+        raise TestNotFoundException('Build log for Test {id} not found'.format(id=test_id))
+
+    raise TestNotFoundException('Test with id {id} not found'.format(id=test_id))

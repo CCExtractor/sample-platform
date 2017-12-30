@@ -26,14 +26,11 @@ class Sample(Base):
         """
         Parametrized constructor for the Sample model
 
-        :param sha: The value of the 'sha' field of
-         Sample model
+        :param sha: The value of the 'sha' field of Sample model
         :type sha: str
-        :param extension: The value of the 'extension' field
-         of Sample model
+        :param extension: The value of the 'extension' field of Sample model
         :type extension: str
-        :param original_name: The value of the 'original_name' field
-         of Sample model
+        :param original_name: The value of the 'original_name' field of Sample model
         :type original_name: str
         """
         self.sha = sha
@@ -45,11 +42,10 @@ class Sample(Base):
         Representation function
         Represent a Sample Model by its 'sha' Field.
 
-        :return str(sha): Returns the string containing
-         'sha' field of the Category model
-        :rtype str(sha): str
+        :return: Returns the string containing 'sha' field of the Category model
+        :rtype: str
         """
-        return '<Sample %r>' % self.sha
+        return '<Sample {hash}>'.format(hash=self.sha)
 
     @property
     def filename(self):
@@ -64,10 +60,8 @@ class ExtraFile(Base):
     __tablename__ = 'sample_extra'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
-    sample_id = Column(Integer, ForeignKey('sample.id', onupdate="CASCADE",
-                                           ondelete="CASCADE"))
-    sample = relationship('Sample', uselist=False,
-                          back_populates='extra_files')
+    sample_id = Column(Integer, ForeignKey('sample.id', onupdate="CASCADE", ondelete="CASCADE"))
+    sample = relationship('Sample', uselist=False, back_populates='extra_files')
 
     original_name = Column(Text(), nullable=False)
     extension = Column(String(64), nullable=False)
@@ -76,14 +70,11 @@ class ExtraFile(Base):
         """
         Parametrized constructor for the ExtraFile model
 
-        :param sample_id: The value of the 'sha' field of
-         ExtraFile model
+        :param sample_id: The value of the 'sha' field of ExtraFile model
         :type sample_id: int
-        :param extension: The value of the 'extension' field
-         of ExtraFile model
+        :param extension: The value of the 'extension' field of ExtraFile model
         :type extension: str
-        :param original_name: The value of the 'original_name' field
-         of ExtraFile model
+        :param original_name: The value of the 'original_name' field of ExtraFile model
         :type original_name: str
         """
         self.sample_id = sample_id
@@ -95,22 +86,19 @@ class ExtraFile(Base):
         Representation function
         Represent a ExtraFile Model by its 'sample_id' Field.
 
-        :return str(sample_id): Returns the string containing
-         'sha' field of the ExtraFile model
-        :rtype str(sample_id): str
+        :return: Returns the string containing 'sha' field of the ExtraFile model
+        :rtype: str
         """
-        return '<Sample extra for %r>' % self.sample_id
+        return '<Sample extra for {id}>'.format(id=self.sample_id)
 
     @property
     def short_name(self, length=5):
         """
-        Function to return short name
+        Function to return the short name of an additional file.
 
-        :param length: The value of the 'length' field of
-         ExtraFile model (5 by default)
-        :type sample_id: int
-        :return : Return short name in form of
-         [sha[length]]_[id][extension]
+        :param length: How many characters of the hash should be retained for the short name? Defaults to 5.
+        :type length: int
+        :return: A short name consisting of the first x characters of the hash, the id and the file extension.
         :rtype: str
         """
         return "{short}_{id}.{extension}".format(
@@ -123,14 +111,11 @@ class ExtraFile(Base):
         """
         Function to return filename
 
-        :return : Return short name in form of
-         [sha]_[id][extension]
+        :return: Returns the full name of the file using the hash, id and file extension.
         :rtype: str
         """
         extension = ("." + self.extension) if len(self.extension) > 0 else ""
-        return "{sha}_{id}{extension}".format(
-            sha=self.sample.sha, id=self.id,  extension=extension
-        )
+        return "{sha}_{id}{extension}".format(sha=self.sample.sha, id=self.id,  extension=extension)
 
 
 class ForbiddenExtension(Base):
@@ -142,8 +127,7 @@ class ForbiddenExtension(Base):
         """
         Parametrized constructor for the ForbiddenExtension model
 
-        :param extension: The value of the 'extension' field
-         of ForbiddenExtension model
+        :param extension: The value of the 'extension' field of ForbiddenExtension model
         :type extension: str
         """
         self.extension = extension
@@ -153,11 +137,10 @@ class ForbiddenExtension(Base):
         Representation function
         Represent a ForbiddenExtension Model by its 'extension' Field.
 
-        :return str(extension): Returns the string containing
-         'extension' field of the ForbiddenExtension model
-        :rtype str(extension): str
+        :return: Returns the string containing 'extension' field of the ForbiddenExtension model
+        :rtype: str
         """
-        return '<Forbidden extension %r>' % self.extension
+        return '<Forbidden extension {extension}>'.format(extension=self.extension)
 
 
 class ForbiddenMimeType(Base):
@@ -169,8 +152,7 @@ class ForbiddenMimeType(Base):
         """
         Parametrized constructor for the ForbiddenMimeType model
 
-        :param mimetype: The value of the 'mimetype' field
-         of ForbiddenMimeType model
+        :param mimetype: The value of the 'mimetype' field of ForbiddenMimeType model
         :type mimetype: str
         """
         self.mimetype = mimetype
@@ -180,11 +162,10 @@ class ForbiddenMimeType(Base):
         Representation function
         Represent a ForbiddenMimeType Model by its 'mimetype' Field.
 
-        :return str(mimetype): Returns the string containing
-         'mimetype' field of the ForbiddenMimeType model
-        :rtype str(mimetype): str
+        :return: Returns the string containing 'mimetype' field of the ForbiddenMimeType model
+        :rtype: str
         """
-        return '<Forbidden MimeType %r>' % self.mimetype
+        return '<Forbidden MimeType {mime}>'.format(mime=self.mimetype)
 
 
 class Issue(Base):
@@ -205,23 +186,17 @@ class Issue(Base):
         """
         Parametrized constructor for the Issue model
 
-        :param sample_id: The value of the 'sample_id' field
-         of Issue model
+        :param sample_id: The value of the 'sample_id' field of Issue model
         :type sample_id: int
-        :param issue_id: The value of the 'issue_id' field
-         of Issue model
+        :param issue_id: The value of the 'issue_id' field of Issue model
         :type issue_id: int
-        :param date: The value of the 'created_at' field
-         of Issue model
+        :param date: The value of the 'created_at' field of Issue model
         :type date: datetime
-        :param title: The value of the 'title' field
-         of Issue model
+        :param title: The value of the 'title' field of Issue model
         :type title: str
-        :param user: The value of the 'user' field
-         of Issue model
+        :param user: The value of the 'user' field of Issue model
         :type user: str
-        :param status: The value of the 'status' field
-         of Issue model
+        :param status: The value of the 'status' field of Issue model
         :type status: str
         """
         self.sample_id = sample_id

@@ -16,6 +16,7 @@ import datetime
 from flask import Blueprint, request, abort, g, url_for, jsonify
 from git import Repo, InvalidGitRepositoryError, GitCommandError
 from github import GitHub, ApiError
+from multiprocessing import Process
 from lxml import etree
 from sqlalchemy import and_
 from sqlalchemy import func
@@ -546,7 +547,7 @@ def start_ci():
             # If it's a PR, run the tests
             commit = ''
             gh_commit = None
-            if payload['action'] == 'opened':
+            if payload['action'] in ['opened', 'synchronize']:
                 try:
                     commit = payload['pull_request']['head']['sha']
                     gh_commit = repository.statuses(commit)
@@ -775,7 +776,8 @@ def progress_reporter(test_id, token):
 
                 if status in [TestStatus.completed, TestStatus.canceled]:
                     # Start next test if necessary, on the same platform
-                    start_platform(g.db, repository, 60)
+                    process = Process(target=start_platform, args=(g.db, repository, 60))
+                    process.start()
 
             elif request.form['type'] == 'equality':
                 log.debug('Equality for {t}/{rt}/{rto}'.format(

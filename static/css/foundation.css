@@ -3733,11 +3733,27 @@ a.thumbnail {
     margin-left: 0; }
 
 .column, .columns {
-  -ms-flex: 1 1 0px;
-      flex: 1 1 0px;
-  padding-right: 0.9375rem;
-  padding-left: 0.9375rem;
-  min-width: 0; }
+  width: 100%;
+  float: left;
+  padding-left: 0.625rem;
+  padding-right: 0.625rem; }
+  @media screen and (min-width: 40em) {
+    .column, .columns {
+      padding-left: 0.9375rem;
+      padding-right: 0.9375rem; } }
+  .column:last-child:not(:first-child), .columns:last-child:not(:first-child) {
+    float: right; }
+  .column.end:last-child:last-child, .end.columns:last-child:last-child {
+    float: left; }
+
+.column.row.row, .row.row.columns {
+  float: none; }
+  .row .column.row.row, .row .row.row.columns {
+    padding-left: 0;
+    padding-right: 0;
+    margin-left: 0;
+    margin-right: 0; }
+
 
 .column.row.row, .row.row.columns {
   float: none;

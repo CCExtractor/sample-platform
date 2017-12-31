@@ -237,7 +237,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         return
     log.info("[{platform}] Reverted to {snapshot} for {name}".format(
         platform=platform, snapshot=snapshot.getName(), name=kvm_name))
-    log.debug('Starting test %s' % test.id)
+    log.debug('Starting test {id}'.format(id=test.id))
     status = Kvm(kvm_name, test.id)
     # Prepare data
     # 0) Write url to file
@@ -518,13 +518,13 @@ def start_ci():
         x_hub_signature = request.headers.get('X-Hub-Signature')
 
         if not is_valid_signature(x_hub_signature, request.data, g.github['ci_key']):
-            g.log.warning('CI signature failed: %s' % x_hub_signature)
+            g.log.warning('CI signature failed: {sig}'.format(sig=x_hub_signature))
             abort(abort_code)
 
         payload = request.get_json()
 
         if payload is None:
-            g.log.warning('CI payload is empty: %s' % payload)
+            g.log.warning('CI payload is empty: {payload}'.format(payload=payload))
             abort(abort_code)
 
         gh = GitHub(access_token=g.github['bot_token'])
@@ -586,7 +586,7 @@ def start_ci():
                     repository.statuses(test.commit).post(
                         state=Status.FAILURE,
                         description="Tests canceled",
-                        context="CI - %s" % test.platform.value,
+                        context="CI - {name}".format(name=test.platform.value),
                         target_url=url_for('test.by_id', test_id=test.id, _external=True)
                     )
             elif payload['action'] == 'reopened':
@@ -604,7 +604,7 @@ def start_ci():
 
         else:
             # Unknown type
-            g.log.warning('CI unrecognized event: %s' % event)
+            g.log.warning('CI unrecognized event: {event}'.format(event=event))
 
         return json.dumps({'msg': 'EOL'})
 
@@ -732,9 +732,8 @@ def progress_reporter(test_id, token):
 
                 # Post status update
                 state = Status.PENDING
-                message = 'Tests queued'
                 target_url = url_for('test.by_id', test_id=test.id, _external=True)
-                context = "CI - %s" % test.platform.value
+                context = "CI - {name}".format(name=test.platform.value)
 
                 if status == TestStatus.canceled:
                     state = Status.ERROR

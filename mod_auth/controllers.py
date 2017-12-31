@@ -92,7 +92,8 @@ def check_access_rights(roles=None, parent_route=None):
 def send_reset_email(usr):
     from run import app
     expires = int(time.time()) + 86400
-    mac = hmac.new(app.config.get('HMAC_KEY', ''), "%s|%s|%s" % (usr.id, expires, usr.password)).hexdigest()
+    content_to_hash = "{id}|{expiry}|{passwd}".format(id=usr.id, expiry=expires, passwd=usr.password)
+    mac = hmac.new(app.config.get('HMAC_KEY', ''), content_to_hash).hexdigest()
     template = app.jinja_env.get_or_select_template('email/recovery_link.txt')
     message = template.render(
         url=url_for('.complete_reset', uid=usr.id, expires=expires, mac=mac, _external=True),
@@ -118,7 +119,7 @@ def github_token_validity(token):
     from run import config
     github_clientid = config.get('GITHUB_CLIENT_ID', '')
     github_clientsecret = config.get('GITHUB_CLIENT_SECRET', '')
-    url = 'https://api.github.com/applications/%s/tokens/%s' % (github_clientid, token)
+    url = 'https://api.github.com/applications/{id}/tokens/{token}'.format(id=github_clientid, token=token)
     session = requests.Session()
     session.auth = (github_clientid, github_clientsecret)
     response = session.get(url)
@@ -235,7 +236,8 @@ def complete_reset(uid, expires, mac):
         user = User.query.filter_by(id=uid).first()
         if user is not None:
             # Validate HMAC
-            real_hash = hmac.new(app.config.get('HMAC_KEY', ''), "%s|%s|%s" % (uid, expires, user.password)).hexdigest()
+            content_to_hash = "{id}|{expiry}|{passwd}".format(id=uid, expiry=expires, passwd=user.password)
+            real_hash = hmac.new(app.config.get('HMAC_KEY', ''), content_to_hash).hexdigest()
             try:
                 authentic = hmac.compare_digest(real_hash, mac.encode('utf-8'))
             except AttributeError:
@@ -281,7 +283,8 @@ def signup():
             user = User.query.filter_by(email=form.email.data).first()
             if user is None:
                 expires = int(time.time()) + 86400
-                hmac_hash = hmac.new(app.config.get('HMAC_KEY', ''), "%s|%s" % (form.email.data, expires)).hexdigest()
+                content_to_hash = "{email}|{expiry}".format(email=form.email.data, expiry=expires)
+                hmac_hash = hmac.new(app.config.get('HMAC_KEY', ''), content_to_hash).hexdigest()
                 # New user
                 template = app.jinja_env.get_or_select_template('email/registration_email.txt')
                 message = template.render(url=url_for(
@@ -317,7 +320,8 @@ def complete_signup(email, expires, mac):
     now = int(time.time())
     if now <= int(expires):
         # Validate HMAC
-        real_hash = hmac.new(app.config.get('HMAC_KEY', ''), "%s|%s" % (email, expires)).hexdigest()
+        content_to_hash = "{email}|{expiry}".format(email=email, expiry=expires)
+        real_hash = hmac.new(app.config.get('HMAC_KEY', ''), content_to_hash).hexdigest()
         try:
             authentic = hmac.compare_digest(real_hash, mac.encode('utf-8'))
         except AttributeError:
@@ -493,8 +497,8 @@ def deactivate(uid):
             form = DeactivationForm(request.form)
             if form.validate_on_submit():
                 # Deactivate user
-                usr.name = "Anonymized %s" % usr.id
-                usr.email = "unknown%s@ccextractor.org" % usr.id
+                usr.name = "Anonymized {id}".format(id=usr.id)
+                usr.email = "unknown{id}@ccextractor.org".format(id=usr.id)
                 usr.password = User.create_random_password(16)
                 g.db.commit()
                 if g.user.role == Role.admin:

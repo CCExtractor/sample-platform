@@ -85,7 +85,7 @@ def deploy():
 
         x_hub_signature = request.headers.get('X-Hub-Signature')
         if not is_valid_signature(x_hub_signature, request.data, g.github['deploy_key']):
-            g.log.warning('Deploy signature failed: %s' % x_hub_signature)
+            g.log.warning('Deploy signature failed: {sig}'.format(sig=x_hub_signature))
             abort(abort_code)
 
         payload = request.get_json()

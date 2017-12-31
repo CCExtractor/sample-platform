@@ -123,7 +123,7 @@ def not_found(error):
 @app.errorhandler(500)
 @template_renderer('500.html', 500)
 def internal_error(error):
-    log.debug('500 error: %s' % error)
+    log.debug('500 error: {err}'.format(err=error))
     log.debug('Stacktrace:')
     log.debug(traceback.format_exc())
     return

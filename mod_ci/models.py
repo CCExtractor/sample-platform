@@ -50,7 +50,7 @@ class Kvm(Base):
          'test_id' field of the Kvm model
         :rtype str(test_id): str
         """
-        return '<KVM test running: %r>' % self.test_id
+        return '<KVM test running: {id}>'.format(id=self.test_id)
 
 
 class MaintenanceMode(Base):

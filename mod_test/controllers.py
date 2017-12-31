@@ -75,7 +75,7 @@ def get_data_for_test(test, title=None):
     queued_tests = 0
     """
     evaluating estimated time if the test is still in queue
-    estimated time = (number of tests already in queue + 1) * (average time of that platform) 
+    estimated time = (number of tests already in queue + 1) * (average time of that platform)
                       - (time already spend by those tests)
     calculates time in minutes and hours
     """

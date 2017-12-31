@@ -23,7 +23,6 @@
 {% endmacro %}
 
 <div class="off-canvas position-left reveal-for-large" id="application-menu" data-off-canvas data-position="left">
-    <div class="row column">
         <ul class="vertical accordion-menu menu" data-accordion-menu>
             {%- for entry in menu -%}
                 {%- if entry|length > 0 -%}
@@ -31,5 +30,4 @@
                 {%- endif -%}
             {%- endfor -%}
         </ul>
-    </div>
 </div>

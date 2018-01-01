@@ -16,14 +16,15 @@ from mod_test.models import Test, TestPlatform
 
 
 class BlockedUsers(Base):
-    __tablename__ = 'BlockedUsers'
+    __tablename__ = 'blocked_users'
+    __table_args__ = {'mysql_engine': 'InnoDB'}
     # userID refers to the ID from https://api.github.com/users/your_username
     userID = Column(Integer, primary_key=True)
     comment = Column(String)
 
     def __repr__(self):
-        return "<BlockedUsers(userID='{id}', comment='{info}')>".format(
-            id=self.userID, info=self.comment)
+        return "<BlockedUsers(userID='{id}', comment='{comment}')>".format(
+            id=self.userID, comment=self.comment)
 
 
 class Kvm(Base):

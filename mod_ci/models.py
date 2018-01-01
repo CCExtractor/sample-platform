@@ -22,8 +22,8 @@ class BlockedUsers(Base):
     comment = Column(String)
 
     def __repr__(self):
-        return "<BlockedUsers(userID='{TheirID}', comment='{Info}')>".format(
-            TheirID=self.userID, Info=self.comment)
+        return "<BlockedUsers(userID='{id}', comment='{info}')>".format(
+            id=self.userID, info=self.comment)
 
 
 class Kvm(Base):

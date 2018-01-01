@@ -8,7 +8,7 @@ List of models corresponding to mysql tables: ['Kvm' => 'kvm',
 """
 
 import datetime
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Booleana
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import relationship
 
 from database import Base
@@ -94,6 +94,6 @@ class blackisted_users(Base):
     # name refers to the name property from GitHub's api.
     name = Column(String(64))
 
-    def __repr__(self):
+    def __repr__(self,name,username,user_id):
         return "<blacklisted_users(user_id='{}',name='{}',username="{}")>".format(
-            self.user_id, self.name, self.username)
+            user_id, name, username)

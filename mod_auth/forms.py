@@ -29,12 +29,13 @@ def valid_password(form, field):
     :param field: The data value for the 'password' inserted by User
     :type field : PasswordField
     """
-    if len(field.data) == 0:
+    pass_size = len(field.data)
+    if pass_size == 0:
         raise ValidationError('new password cannot be empty')
-    if len(field.data) < 10 or len(field.data) > 500:
-        raise ValidationError('Password needs to be between 10 and 500 '
-                              'characters long (you entered %s characters'
-                              % len(field.data))
+    if pass_size < 10 or pass_size > 500:
+        raise ValidationError(
+            'Password needs to be between 10 and 500 characters long (you entered {char})'.format(char=pass_size)
+        )
 
 
 def email_not_in_use(has_user_field=False):
@@ -51,6 +52,7 @@ def email_not_in_use(has_user_field=False):
         user = User.query.filter(User.email == field.data).first()
         if user is not None and user.id != user_id and len(field.data) > 0:
             raise ValidationError('This address is already in use')
+
     return _email_not_in_use
 
 
@@ -76,8 +78,7 @@ class LoginForm(Form):
         DataRequired(message='Email address is not filled in'),
         Email(message='Entered value is not a valid email address')
     ])
-    password = PasswordField('Password', [
-        DataRequired(message='Password cannot be empty.')])
+    password = PasswordField('Password', [DataRequired(message='Password cannot be empty.')])
     submit = SubmitField('Login')
 
 
@@ -103,8 +104,7 @@ class RoleChangeForm(Form):
     """
     Changing the Role
     """
-    role = SelectField('Select a role', [DataRequired(
-        message='Role is not filled in.')], coerce=str)
+    role = SelectField('Select a role', [DataRequired(message='Role is not filled in.')], coerce=str)
     submit = SubmitField('Change role')
 
 
@@ -112,12 +112,9 @@ class CompleteSignupForm(Form):
     """
     The Complete Sign up form for new users.
     """
-    name = StringField('Name', [DataRequired(
-        message='Name is not filled in.')])
-    password = PasswordField('Password', [DataRequired(
-        message='Password is not filled in.'), valid_password])
-    password_repeat = PasswordField('Repeat password', [DataRequired(
-        message='Repeated password is not filled in.')])
+    name = StringField('Name', [DataRequired(message='Name is not filled in.')])
+    password = PasswordField('Password', [DataRequired(message='Password is not filled in.'), valid_password])
+    password_repeat = PasswordField('Repeat password', [DataRequired(message='Repeated password is not filled in.')])
     submit = SubmitField('Register')
 
     @staticmethod
@@ -131,8 +128,7 @@ class CompleteSignupForm(Form):
         :type field : PasswordField
         """
         if field.data != form.password.data:
-            raise ValidationError('The password needs to match the new '
-                                  'password')
+            raise ValidationError('The password needs to match the new password')
 
 
 class AccountForm(Form):
@@ -140,17 +136,13 @@ class AccountForm(Form):
     Form for editing current Account
     """
     def __init__(self, formdata=None, obj=None, prefix='', *args, **kwargs):
-        super(AccountForm, self).__init__(formdata, obj, prefix, *args,
-                                          **kwargs)
+        super(AccountForm, self).__init__(formdata, obj, prefix, *args, **kwargs)
         self.user = obj
 
-    current_password = PasswordField('Current password', [
-        DataRequired(message='current password cannot be empty')
-    ])
+    current_password = PasswordField('Current password', [DataRequired(message='current password cannot be empty')])
     new_password = PasswordField('New password')
     new_password_repeat = PasswordField('Repeat new password')
-    name = StringField('Name', [DataRequired(
-        message='Name is not filled in.')])
+    name = StringField('Name', [DataRequired(message='Name is not filled in.')])
     email = EmailField('Email', [
         DataRequired(message='email address is not filled in'),
         Email(message='entered value is not a valid email address'),
@@ -173,8 +165,7 @@ class AccountForm(Form):
             if not form.user.is_password_valid(field.data):
                 raise ValidationError('Invalid password')
         else:
-            raise ValidationError('User instance not passed to form '
-                                  'validation')
+            raise ValidationError('User instance not passed to form validation')
 
     @staticmethod
     def validate_new_password(form, field):
@@ -207,8 +198,7 @@ class AccountForm(Form):
                 return
 
         if field.data != form.new_password.data:
-            raise ValidationError('The password needs to match the new '
-                                  'password')
+            raise ValidationError('The password needs to match the new password')
 
 
 class ResetForm(Form):
@@ -226,10 +216,8 @@ class CompleteResetForm(Form):
     """
     Resetting password after clicking on the link in the email
     """
-    password = PasswordField('Password', [DataRequired(
-        message='Password is not filled in.'), valid_password])
-    password_repeat = PasswordField('Repeat password', [DataRequired(
-        message='Repeated password is not filled in.')])
+    password = PasswordField('Password', [DataRequired(message='Password is not filled in.'), valid_password])
+    password_repeat = PasswordField('Repeat password', [DataRequired(message='Repeated password is not filled in.')])
     submit = SubmitField('Reset password')
 
     @staticmethod
@@ -243,5 +231,4 @@ class CompleteResetForm(Form):
         :type field : PasswordField
         """
         if field.data != form.password.data:
-            raise ValidationError('The password needs to match the new '
-                                  'password')
+            raise ValidationError('The password needs to match the new password')

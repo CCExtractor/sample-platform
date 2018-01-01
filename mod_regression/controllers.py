@@ -52,8 +52,7 @@ def by_sample(sample_id):
 @template_renderer()
 def test_view(regression_id):
     # Show a single regression test
-    test = RegressionTest.query.filter(
-        RegressionTest.id == regression_id).first()
+    test = RegressionTest.query.filter(RegressionTest.id == regression_id).first()
 
     if test is None:
         abort(404)

@@ -25,10 +25,8 @@ def before_app_request():
 @mod_home.route('/', methods=['GET', 'POST'])
 @template_renderer()
 def index():
-    last_commit = GeneralData.query.filter(
-        GeneralData.key == 'last_commit').first().value
-    last_release = CCExtractorVersion.query.order_by(
-            CCExtractorVersion.released.desc()).first()
+    last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first().value
+    last_release = CCExtractorVersion.query.order_by(CCExtractorVersion.released.desc()).first()
     return {
         'ccx_last_release': last_release,
         'ccx_latest_commit': last_commit

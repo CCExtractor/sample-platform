@@ -33,20 +33,15 @@ except KeyError:
     app.config['DEBUG'] = False
 
 # Init logger
-log_configuration = LogConfiguration(
-    app.root_path, 'platform', app.config['DEBUG'])
+log_configuration = LogConfiguration(app.root_path, 'platform', app.config['DEBUG'])
 log = log_configuration.create_logger("Platform")
 
 
-def install_secret_keys(application, secret_session='secret_key',
-                        secret_csrf='secret_csrf'):
-    """Configure the SECRET_KEY from a file
-    in the instance directory.
+def install_secret_keys(application, secret_session='secret_key', secret_csrf='secret_csrf'):
+    """
+    Configure the SECRET_KEY from a file in the instance directory.
 
-    If the file does not exist, print instructions
-    to create it from a shell with a random key,
-    then exit.
-
+    If the file does not exist, print instructions to create it from a shell with a random key, then exit.
     """
     do_exit = False
     session_file = os.path.join(application.root_path, secret_session)
@@ -107,8 +102,6 @@ def get_github_issue_link(issue_id):
 
 app.jinja_env.filters['issue_link'] = get_github_issue_link
 
-# Allow regexes in routes
-
 
 class RegexConverter(BaseConverter):
 
@@ -117,6 +110,7 @@ class RegexConverter(BaseConverter):
         self.regex = items[0]
 
 
+# Allow regexes in routes
 app.url_map.converters['regex'] = RegexConverter
 
 
@@ -129,7 +123,7 @@ def not_found(error):
 @app.errorhandler(500)
 @template_renderer('500.html', 500)
 def internal_error(error):
-    log.debug('500 error: %s' % error)
+    log.debug('500 error: {err}'.format(err=error))
     log.debug('Stacktrace:')
     log.debug(traceback.format_exc())
     return
@@ -140,8 +134,8 @@ def internal_error(error):
 def forbidden(error):
     user_name = 'Guest' if g.user is None else g.user.name
     user_role = 'Guest' if g.user is None else g.user.role.value
-    log.debug('%s (role: %s) tried to access %s' %
-              (user_name, user_role, error.description))
+    log.debug('{u} (role: {r}) tried to access {page}'.format(u=user_name, r=user_role, page=error.description))
+
     return {
         'user_role': user_role,
         'endpoint': error.description
@@ -152,9 +146,9 @@ def forbidden(error):
 def before_request():
     g.menu_entries = {}
     g.db = create_session(app.config['DATABASE_URI'])
-    g.mailer = Mailer(app.config.get('EMAIL_DOMAIN', ''),
-                      app.config.get('EMAIL_API_KEY', ''),
-                      'CCExtractor.org CI Platform')
+    g.mailer = Mailer(
+        app.config.get('EMAIL_DOMAIN', ''), app.config.get('EMAIL_API_KEY', ''), 'CCExtractor.org CI Platform'
+    )
     g.version = "0.1"
     g.log = log
     g.github = {
@@ -190,6 +184,7 @@ if __name__ == '__main__':
     proto = 'https'
     key = app.config.get('SSL_KEY', 'cert/key.key')
     cert = app.config.get('SSL_CERT', 'cert/cert.cert')
+
     if len(key) == 0 or len(cert) == 0:
         ssl_context = 'adhoc'
     else:
@@ -198,8 +193,7 @@ if __name__ == '__main__':
     server_name = app.config.get('0.0.0.0')
     port = app.config.get('SERVER_PORT', 443)
 
-    print('Server should be running soon on ' +
-          '{0}://{1}:{2}'.format(proto, server_name, port))
+    print('Server should be running soon on {0}://{1}:{2}'.format(proto, server_name, port))
     if server_name != '127.0.0.1':
         host = '0.0.0.0'
     app.run(host, port, app.config['DEBUG'], ssl_context=ssl_context)

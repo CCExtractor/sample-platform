@@ -3,8 +3,7 @@ from functools import wraps
 from flask import request, g, render_template
 
 
-def get_menu_entries(user, title, icon, access=None, route='',
-                     all_entries=None):
+def get_menu_entries(user, title, icon, access=None, route='', all_entries=None):
     """
     Parses a given set of entries and checks which ones the user can access.
 
@@ -65,8 +64,7 @@ def template_renderer(template=None, status=200):
     """
     Decorator to render a template.
 
-    :param template: The template if it's not equal to the name of the
-    endpoint.
+    :param template: The template if it's not equal to the name of the endpoint.
     :type template: str
     :param status: The return code
     :type status: int

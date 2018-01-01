@@ -22,8 +22,8 @@ class Mailer:
         :type sender_name: str
         """
         self.auth = ("api", api_key)
-        self.api_url = "https://api.mailgun.net/v3/%s" % domain
-        self.sender = "%s <noreply@%s>" % (sender_name, domain)
+        self.api_url = "https://api.mailgun.net/v3/{domain}".format(domain=domain)
+        self.sender = "{sender} <noreply@{domain}>".format(sender=sender_name, domain=domain)
 
     def send_simple_message(self, data):
         """
@@ -35,5 +35,4 @@ class Mailer:
         :rtype: requests.Response
         """
         data['from'] = self.sender
-        return requests.post("%s/messages" % self.api_url, auth=self.auth,
-                             data=data)
+        return requests.post("{url}/messages".format(url=self.api_url), auth=self.auth, data=data)

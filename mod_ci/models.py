@@ -87,6 +87,7 @@ class MaintenanceMode(Base):
 
 class blacklisted_users(Base):
     __tablename__ = 'blacklisted_users'
+   __table_args__ = {'mysql_engine': 'InnoDB'}
     # user_id is the user's id GitHub assigns.
     user_id = Column(Integer, primary_key=True)
     # username refers to the username of the user.

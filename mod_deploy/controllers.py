@@ -54,8 +54,7 @@ def request_from_github(abort_code=418):
                     if ip_address(request_ip) in ip_network(block):
                         break
                 else:
-                    g.log.info("Unauthorized attempt to deploy by IP %s" %
-                               request_ip)
+                    g.log.info("Unauthorized attempt to deploy by IP {ip}".format(ip=request_ip))
                     abort(abort_code)
                 return f(*args, **kwargs)
         return decorated_function
@@ -93,14 +92,13 @@ def deploy():
             return json.dumps({'msg': "Wrong event type"})
 
         x_hub_signature = request.headers.get('X-Hub-Signature')
-        if not is_valid_signature(x_hub_signature, request.data,
-                                  g.github['deploy_key']):
-            g.log.warning('Deploy signature failed: %s' % x_hub_signature)
+        if not is_valid_signature(x_hub_signature, request.data, g.github['deploy_key']):
+            g.log.warning('Deploy signature failed: {sig}'.format(sig=x_hub_signature))
             abort(abort_code)
 
         payload = request.get_json()
         if payload is None:
-            g.log.warning('Deploy payload is empty: %s' % payload)
+            g.log.warning('Deploy payload is empty: {payload}'.format(payload=payload))
             abort(abort_code)
 
         if payload['ref'] != 'refs/heads/master':
@@ -119,27 +117,23 @@ def deploy():
 
         fetch_info = origin.fetch()
         if len(fetch_info) == 0:
-            return json.dumps({'msg': 'Didn\'t fetch any information from '
-                                      'remote!'})
+            return json.dumps({'msg': "Didn't fetch any information from remote!"})
 
         # Pull code (finally)
         pull_info = origin.pull()
 
         if len(pull_info) == 0:
-            return json.dumps({'msg': 'Didn\'t pull any information from '
-                                      'remote!'})
+            return json.dumps({'msg': "Didn't pull any information from remote!"})
 
         if pull_info[0].flags > 128:
-            return json.dumps({'msg': 'Didn\'t pull any information from '
-                                      'remote!'})
+            return json.dumps({'msg': "Didn't pull any information from remote!"})
 
         commit_hash = pull_info[0].commit.hexsha
-        build_commit = 'build_commit = "%s"' % commit_hash
+        build_commit = 'build_commit = "{commit}"'.format(commit=commit_hash)
         with open('build_commit.py', 'w') as f:
             f.write(build_commit)
 
         # Reload platform service
-        g.log.info('Platform upgraded to commit %s' % commit_hash)
+        g.log.info('Platform upgraded to commit {commit}'.format(commit=commit_hash))
         subprocess.Popen(["sudo", "service", "platform", "reload"])
-        return json.dumps({'msg': 'Platform upgraded to commit %s' %
-                                  commit_hash})
+        return json.dumps({'msg': 'Platform upgraded to commit {commit}'.format(commit=commit_hash)})

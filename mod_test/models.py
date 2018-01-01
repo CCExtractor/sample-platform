@@ -63,7 +63,7 @@ class Fork(Base):
         self.github = github
 
     def __repr__(self):
-        return '<Fork %r>' % self.id
+        return '<Fork {id}>'.format(id=self.id)
 
     @property
     def github_url(self):
@@ -81,18 +81,15 @@ class Test(Base):
     platform = Column(TestPlatform.db_type(), nullable=False)
     test_type = Column(TestType.db_type(), nullable=False)
     token = Column(String(64), unique=True)
-    fork_id = Column(Integer, ForeignKey('fork.id', onupdate="CASCADE",
-                                         ondelete="RESTRICT"))
+    fork_id = Column(Integer, ForeignKey('fork.id', onupdate="CASCADE", ondelete="RESTRICT"))
     fork = relationship('Fork', uselist=False, back_populates='tests')
     branch = Column(Text(), nullable=False)
     commit = Column(String(64), nullable=False)
     pr_nr = Column(Integer(), nullable=False, default=0)
-    progress = relationship('TestProgress', back_populates='test',
-                            order_by='TestProgress.id')
+    progress = relationship('TestProgress', back_populates='test', order_by='TestProgress.id')
     results = relationship('TestResult', back_populates='test')
 
-    def __init__(self, platform, test_type, fork_id, branch, commit,
-                 pr_nr=0, token=None):
+    def __init__(self, platform, test_type, fork_id, branch, commit, pr_nr=0, token=None):
         """
         Parametrized constructor for the Test model
 
@@ -106,11 +103,9 @@ class Test(Base):
         :type branch: str
         :param commit: The value of the 'commit' field of Test model
         :type commit: str
-        :param pr_nr: The value of the 'pr_nr' field of Test model (0 by
-        default)
+        :param pr_nr: The value of the 'pr_nr' field of Test model (0 by default)
         :type pr_nr: int
-        :param token: The value of the 'token' field of Test model (None by
-        default)
+        :param token: The value of the 'token' field of Test model (None by default)
         :type token: str
         """
         self.platform = platform
@@ -129,23 +124,21 @@ class Test(Base):
         Representation function
         Represent a Test Model by its 'id' Field.
 
-        :return str(id): Returns the string containing
-         'id' field of the Test model
-        :rtype str(id): str
+        :return: Returns the string containing 'id' field of the Test model
+        :rtype: str
         """
-        return '<TestEntry %r>' % self.id
+        return '<TestEntry {id}>'.format(id=self.id)
 
     @property
     def finished(self):
         """
         Verifies if a Test is finished
 
-        :return : Checks if Test is completed or cancelled
+        :return: Checks if Test is completed or cancelled
         :rtype: boolean
         """
         if len(self.progress) > 0:
-            return self.progress[-1].status in [
-                TestStatus.completed, TestStatus.canceled]
+            return self.progress[-1].status in [TestStatus.completed, TestStatus.canceled]
         return False
 
     @property
@@ -153,7 +146,7 @@ class Test(Base):
         """
         Verifies if a Test is failed
 
-        :return : Checks if Test is cancelled
+        :return: Checks if Test is canceled
         :rtype: boolean
         """
         if len(self.progress) > 0:
@@ -165,7 +158,7 @@ class Test(Base):
         """
         Generate github link to view the pr or commit
 
-        :return : url
+        :return: url
         :rtype: str
         """
         if self.test_type == TestType.commit:
@@ -175,14 +168,13 @@ class Test(Base):
             test_type = 'pull'
             test_id = self.pr_nr
 
-        return "{base}/{test_type}/{test_id}".format(
-            base=self.fork.github_url, test_type=test_type, test_id=test_id)
+        return "{base}/{test_type}/{test_id}".format(base=self.fork.github_url, test_type=test_type, test_id=test_id)
 
     def progress_data(self):
         """
         Generate progress report for the Test Model
 
-        :return : progress, stages, start and end time of Test Model
+        :return: progress, stages, start and end time of Test Model
         :rtype: dict
         """
         result = {
@@ -194,45 +186,44 @@ class Test(Base):
             'start': '-',
             'end': '-'
         }
+
         if len(self.progress) > 0:
             result['start'] = self.progress[0].timestamp
             last_status = self.progress[-1]
-            if last_status.status in [TestStatus.completed,
-                                      TestStatus.canceled]:
+
+            if last_status.status in [TestStatus.completed, TestStatus.canceled]:
                 result['end'] = last_status.timestamp
+
             if last_status.status == TestStatus.canceled:
                 if len(self.progress) > 1:
-                    result['progress']['step'] = TestStatus.progress_step(
-                        self.progress[-2].status)
+                    result['progress']['step'] = TestStatus.progress_step(self.progress[-2].status)
+
             else:
                 result['progress']['state'] = 'ok'
-                result['progress']['step'] = TestStatus.progress_step(
-                    last_status.status)
+                result['progress']['step'] = TestStatus.progress_step(last_status.status)
+
         return result
 
     @staticmethod
     def create_token(length=64):
         """
-        Creates a random token of default length 64
+        Creates a random token for a given length (default: 64).
 
-        :param length: If parameter is passed, length will be the parameter.
-        64 by default
+        :param length: The length of the created token.
         :type length: int
-        :return : Randomly generated tokken
-        :rtype : str
+        :return: Randomly generated token
+        :rtype: str
         """
         chars = string.ascii_letters + string.digits
         import os
-        return ''.join(chars[ord(os.urandom(1)) % len(chars)] for i in
-                       range(length))
+        return ''.join(chars[ord(os.urandom(1)) % len(chars)] for i in range(length))
 
 
 class TestProgress(Base):
     __tablename__ = 'test_progress'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
-    test_id = Column(Integer, ForeignKey('test.id', onupdate="CASCADE",
-                                         ondelete="CASCADE"))
+    test_id = Column(Integer, ForeignKey('test.id', onupdate="CASCADE", ondelete="CASCADE"))
     test = relationship('Test', uselist=False, back_populates='progress')
     status = Column(TestStatus.db_type(), nullable=False)
     timestamp = Column(DateTime(timezone=True), nullable=False)
@@ -248,18 +239,20 @@ class TestProgress(Base):
         :type status: TestStatus
         :param message: The value of the 'message' field of TestProgress model
         :type message: str
-        :param timestamp: The value of the 'timestamp' field of TestProgress
-         model (None by default)
+        :param timestamp: The value of the 'timestamp' field of TestProgress model (None by default)
         :type timestamp: datetime
         """
         self.test_id = test_id
         self.status = status
         tz = get_localzone()
+
         if timestamp is None:
             timestamp = tz.localize(datetime.datetime.now(), is_dst=None)
             timestamp = timestamp.astimezone(pytz.UTC)
+
         if timestamp.tzinfo is None:
             timestamp = pytz.utc.localize(timestamp, is_dst=None)
+
         self.timestamp = timestamp
         self.message = message
 
@@ -268,11 +261,10 @@ class TestProgress(Base):
         Representation function
         Represent a TestProgress Model by its 'id' and 'status' Field.
 
-        :return str(id,status): Returns the string containing
-        'id' and 'status' field of the Test model
-        :rtype str(id,status): str
+        :return: Returns the string containing 'id' and 'status' field of the Test model
+        :rtype: str
         """
-        return '<TestStatus %r: %r>' % self.test_id, self.status
+        return '<TestStatus {id}: {status}>'.format(id=self.test_id, status=self.status)
 
     @orm.reconstructor
     def may_the_timezone_be_with_it(self):
@@ -285,36 +277,29 @@ class TestProgress(Base):
 class TestResult(Base):
     __tablename__ = 'test_result'
     __table_args__ = {'mysql_engine': 'InnoDB'}
-    test_id = Column(Integer, ForeignKey('test.id', onupdate="CASCADE",
-                                         ondelete="CASCADE"),
-                     primary_key=True)
+    test_id = Column(Integer, ForeignKey('test.id', onupdate="CASCADE", ondelete="CASCADE"), primary_key=True)
     test = relationship('Test', uselist=False, back_populates='results')
     regression_test_id = Column(
-        Integer, ForeignKey('regression_test.id', onupdate="CASCADE",
-                            ondelete="CASCADE"), primary_key=True
+        Integer, ForeignKey('regression_test.id', onupdate="CASCADE", ondelete="CASCADE"), primary_key=True
     )
     regression_test = relationship('RegressionTest', uselist=False)
     runtime = Column(Integer)  # Runtime in ms
     exit_code = Column(Integer)
     expected_rc = Column(Integer)
 
-    def __init__(self, test_id, regression_test_id, runtime, exit_code,
-                 expected_rc):
+    def __init__(self, test_id, regression_test_id, runtime, exit_code, expected_rc):
         """
         Parametrized constructor for the TestResult model
 
         :param test_id: The value of the 'test_id' field of TestResult model
         :type test_id: int
-        :param regression_test_id: The value of the 'regression_test_id'
-         field of TestResult model
+        :param regression_test_id: The value of the 'regression_test_id' field of TestResult model
         :type regression_test_id: int
         :param runtime: The value of the 'runtime' field of TestResult model
         :type runtime: int
-        :param exit_code: The value of the 'exit_code' field of TestResult
-         model
+        :param exit_code: The value of the 'exit_code' field of TestResult model
         :type exit_code: int
-        :param expected_rc: The value of the 'expected_rc' field of
-         TestResult model
+        :param expected_rc: The value of the 'expected_rc' field of TestResult model
         :type expected_rc: int
         """
         self.test_id = test_id
@@ -326,64 +311,48 @@ class TestResult(Base):
     def __repr__(self):
         """
         Representation function
-        Represent a TestResult Model by its 'test_id','expected_rc',
-         'regression_test_id' and 'status' Field.
+        Represent a TestResult Model by its 'test_id','expected_rc', 'regression_test_id' and 'status' Field.
 
-        :return str(id,exit_code,regression_test_id,expected_rc,runtime):
-            Returns the string containing the 'id' , 'exit_code',
-             'regression_test_id', 'expected_rc', 'runtime' field of
-              the TestResult model
-        :rtype str(id,exit_code,regression_test_id,expected_rc,runtime): str
+        :return: Returns the string containing the 'id' , 'exit_code', 'regression_test_id', 'expected_rc',
+        'runtime' field of the TestResult model.
+        :rtype: str
         """
-        return '<TestResult {tid},{rid}: {code} (expected {expected} in ' \
-               '{time} ms>'.format(tid=self.test_id,
-                                   rid=self.regression_test_id,
-                                   code=self.exit_code,
-                                   expected=self.expected_rc,
-                                   time=self.runtime)
+        return '<TestResult {tid},{rid}: {code} (expected {expected} in {time} ms>'.format(
+            tid=self.test_id,
+            rid=self.regression_test_id,
+            code=self.exit_code,
+            expected=self.expected_rc,
+            time=self.runtime
+        )
 
 
 class TestResultFile(Base):
     __tablename__ = 'test_result_file'
     __table_args__ = {'mysql_engine': 'InnoDB'}
-    test_id = Column(
-        Integer, ForeignKey('test.id', onupdate="CASCADE",
-                            ondelete="CASCADE"), primary_key=True
-    )
+    test_id = Column(Integer, ForeignKey('test.id', onupdate="CASCADE", ondelete="CASCADE"), primary_key=True)
     test = relationship('Test', uselist=False)
     regression_test_id = Column(
-        Integer, ForeignKey('regression_test.id', onupdate="CASCADE",
-                            ondelete="CASCADE"), primary_key=True
+        Integer, ForeignKey('regression_test.id', onupdate="CASCADE", ondelete="CASCADE"), primary_key=True
     )
     regression_test = relationship('RegressionTest', uselist=False)
     regression_test_output_id = Column(
-        Integer, ForeignKey('regression_test_output.id', onupdate="CASCADE",
-                            ondelete="CASCADE"), primary_key=True
+        Integer, ForeignKey('regression_test_output.id', onupdate="CASCADE", ondelete="CASCADE"), primary_key=True
     )
-    regression_test_output = relationship(
-        'RegressionTestOutput', uselist=False)
-    expected = Column(Text(), nullable=False)  # If the test changes in the
-    # future, we need to keep track of which sample was 'correct' at the
-    # time the test ran.
-    got = Column(Text(), nullable=True)  # If null/empty, it's equal to the
-    #  expected version
+    regression_test_output = relationship('RegressionTestOutput', uselist=False)
+    expected = Column(Text(), nullable=False)  # Keep track of which sample was 'correct' at the time the test ran.
+    got = Column(Text(), nullable=True)  # If null/empty, it's equal to the expected version
 
-    def __init__(self, test_id, regression_test_id,
-                 regression_test_output_id, expected, got=None):
+    def __init__(self, test_id, regression_test_id, regression_test_output_id, expected, got=None):
         """
         Parametrized constructor for the TestResultFile model
 
-        :param test_id: The value of the 'test_id' field of TestResultFile
-         model
+        :param test_id: The value of the 'test_id' field of TestResultFile model
         :type test_id: int
-        :param regression_test_id: The value of the 'regression_test_id' field
-         of TestResultFile model
+        :param regression_test_id: The value of the 'regression_test_id' field of TestResultFile model
         :type regression_test_id: int
-        :param regression_test_output_id: The value of the
-         'regression_test_output_id' field of TestResultFile model
+        :param regression_test_output_id: The value of the 'regression_test_output_id' field of TestResultFile model
         :type regression_test_id: int
-        :param expected: The value of the 'expected' field of TestResultFile
-         model
+        :param expected: The value of the 'expected' field of TestResultFile model
         :type expected: str
         :param got: The value of the 'got' field of TestResultFile model
         :type got: str
@@ -400,31 +369,28 @@ class TestResultFile(Base):
         Represent a TestResultFile Model by its 'test_id',
          'regression_test_id', 'regression_test_output_id' and 'got' Field.
 
-        :return str(id,exit_code,regression_test_id,regression_test_output_id,
-         got): Returns the string containing the 'id' , 'regression_test_id',
-             'regression_test_output_id', 'got' field of the TestResultFile
-              model
-        :rtype str(id,exit_code,regression_test_id,regression_test_output_id,
-         got): str
+        :return: Returns the string containing the 'id' , 'regression_test_id', 'regression_test_output_id', 'got'
+        field of the TestResultFile model
+        :rtype: str
         """
         return '<TestResultFile {tid},{rid},{oid}: {equal}>'.format(
-            tid=self.test_id, rid=self.regression_test_id,
+            tid=self.test_id,
+            rid=self.regression_test_id,
             oid=self.regression_test_output_id,
             equal="Equal" if self.got is None else "Unequal"
         )
 
     def generate_html_diff(self, base_path):
         """
-        Generate diff between correct and test regresstion_test_output
-        return: html_diff from mod_test.nicediff
-        rtype: str(html)
+        Generate diff between correct and test regression_test_output
+
+        :param base_path: The base path for the files location.
+        :type base_path: str
+        :return: An HTML formatted string.
+        :rtype: str
         """
-        file_ok = os.path.join(
-            base_path,
-            self.expected + self.regression_test_output.correct_extension)
-        file_fail = os.path.join(
-            base_path,
-            self.got + self.regression_test_output.correct_extension)
+        file_ok = os.path.join(base_path, self.expected + self.regression_test_output.correct_extension)
+        file_fail = os.path.join(base_path, self.got + self.regression_test_output.correct_extension)
         lines_ok = open(file_ok, 'U').readlines()
         lines_fail = open(file_fail, 'U').readlines()
 

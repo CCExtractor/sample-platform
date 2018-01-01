@@ -47,7 +47,7 @@ class CCExtractorVersion(Base):
          'version' field of the CCExtractorVersion model
         :rtype str(version): str
         """
-        return '<Version %r>' % self.version
+        return '<Version {v}>'.format(v=self.version)
 
 
 class GeneralData(Base):
@@ -80,4 +80,4 @@ class GeneralData(Base):
          'key' and 'version' field of the GeneralData model
         :rtype str(key,version): str
         """
-        return '<GeneralData %r: %r>' % (self.key, self.value)
+        return '<GeneralData {key}: {value}>'.format(key=self.key, value=self.value)

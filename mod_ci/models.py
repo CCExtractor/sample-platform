@@ -21,7 +21,7 @@ class BlockedUsers(Base):
     userID = Column(Integer, primary_key=True)
 
     def __repr__(self):
-        return "<BlockedUsers(userID='%s')>" % (
+        return "<BlockedUsers(userID='{}')>".format(
             self.userID)
 
 

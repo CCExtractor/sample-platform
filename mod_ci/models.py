@@ -19,7 +19,8 @@ class Kvm(Base):
     __tablename__ = 'kvm'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     name = Column(String(64), primary_key=True)
-    test_id = Column(Integer, ForeignKey(Test.id, onupdate="CASCADE", ondelete="RESTRICT"))
+    test_id = Column(Integer, ForeignKey(
+        Test.id, onupdate="CASCADE", ondelete="RESTRICT"))
     test = relationship('Test', uselist=False)
     timestamp = Column(DateTime(), nullable=False)
 
@@ -87,7 +88,7 @@ class MaintenanceMode(Base):
 
 class blacklisted_users(Base):
     __tablename__ = 'blacklisted_users'
-   __table_args__ = {'mysql_engine': 'InnoDB'}
+    __table_args__ = {'mysql_engine': 'InnoDB'}
     # user_id is the user's id GitHub assigns.
     user_id = Column(Integer, primary_key=True)
     # username refers to the username of the user.
@@ -96,5 +97,6 @@ class blacklisted_users(Base):
     name = Column(String(64))
 
     def __repr__(self):
-        return "<blacklisted_users(user_id='{id}',name='{name}',username='{username}')>".format(
-         id=self.id,name=self.name,username=self.username)
+        return "<blacklisted_users(user_id='{id}', name='{name}', username='{username}')>".format(
+            id=self.id, name=self.name, username=self.username)
+   

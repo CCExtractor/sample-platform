@@ -85,8 +85,8 @@ class MaintenanceMode(Base):
         return '<Platform {p}, maintenance {status}>'.format(p=self.platform.description, status=self.disabled)
 
 
-class blackisted_users(Base):
-    __tablename__ = 'BlockedUsers'
+class blacklisted_users(Base):
+    __tablename__ = 'blacklisted_users'
     # user_id is the user's id GitHub assigns.
     user_id = Column(Integer, primary_key=True)
     # username refers to the username of the user.
@@ -94,6 +94,5 @@ class blackisted_users(Base):
     # name refers to the name property from GitHub's api.
     name = Column(String(64))
 
-    def __repr__(self,name,username,user_id):
-        return "<blacklisted_users(user_id='{}',name='{}',username="{}")>".format(
-            user_id, name, username)
+    def __repr__(self):
+        return "<blacklisted_users(user_id=self.user_id,name=self.name,username=self.username)>"

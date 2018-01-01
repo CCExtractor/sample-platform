@@ -19,9 +19,11 @@ class BlockedUsers(Base):
     __tablename__ = 'BlockedUsers'
     # userID refers to the ID from https://api.github.com/users/your_username
     userID = Column(Integer, primary_key=True)
+    comment = Column(String)
 
     def __repr__(self):
-        return "<BlockedUsers(userID='{TheirID}')>".format(TheirID=self.userID)
+        return "<BlockedUsers(userID='{TheirID}', comment='{Info}')>".format(
+            TheirID=self.userID, Info=self.comment)
 
 
 class Kvm(Base):

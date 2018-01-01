@@ -14,7 +14,15 @@ from sqlalchemy.orm import relationship
 from database import Base
 from mod_test.models import Test, TestPlatform
 
+class BlockedUsers(Base):
+	__tablename__ = 'BlockedUsers'
+	userID = Column(String(39), primary_key=True) # Max. length of GitHub username is 39 characters
+	name = Column(String(255)) # Max. length of GitHub Name is 255 characters
 
+	def __repr__(self):
+		return "<BlockedUsers(userID='%s', name='%s')>" % (
+			self.userID, self.name)
+ 
 class Kvm(Base):
     __tablename__ = 'kvm'
     __table_args__ = {'mysql_engine': 'InnoDB'}

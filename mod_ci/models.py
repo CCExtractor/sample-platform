@@ -90,7 +90,7 @@ class blackisted_users(Base):
     user_id = Column(Integer, primary_key=True)
     # username refers to the username of the user.
     username = Column(String(41), unique=True)
-    # name refers to the name property from GitHub's api. 
+    # name refers to the name property from GitHub's api.
     name = Column(String(64))
 
     def __repr__(self):

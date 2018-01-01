@@ -97,4 +97,3 @@ class blackisted_users(Base):
     def __repr__(self):
         return "<blacklisted_users(user_id='{}',name='{}',username="{}")>".format(
             self.user_id, self.name, self.username)
-

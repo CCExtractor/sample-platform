@@ -46,7 +46,9 @@ def create_session(db_string, drop_tables=False):
 
 
 class EnumSymbol(object):
-    """Define a fixed symbol tied to a parent class."""
+    """
+    Define a fixed symbol tied to a parent class.
+    """
 
     def __init__(self, cls_, name, value, description):
         self.cls_ = cls_
@@ -55,19 +57,22 @@ class EnumSymbol(object):
         self.description = description
 
     def __reduce__(self):
-        """Allow unpickling to return the symbol linked to the DeclEnum
-        class."""
+        """
+        Allow unpickling to return the symbol linked to the DeclEnum class.
+        """
         return getattr, (self.cls_, self.name)
 
     def __iter__(self):
         return iter([self.value, self.description])
 
     def __repr__(self):
-        return "<%s>" % self.name
+        return "<{name}>".format(name=self.name)
 
 
 class EnumMeta(type):
-    """Generate new DeclEnum classes."""
+    """
+    Generate new DeclEnum classes.
+    """
 
     def __init__(cls, classname, bases, dict_):
         cls._reg = reg = cls._reg.copy()
@@ -82,7 +87,9 @@ class EnumMeta(type):
 
 
 class DeclEnum(object):
-    """Declarative enumeration."""
+    """
+    Declarative enumeration.
+    """
 
     __metaclass__ = EnumMeta
 
@@ -93,10 +100,7 @@ class DeclEnum(object):
         try:
             return cls._reg[value]
         except KeyError:
-            raise ValueError(
-                    "Invalid value for %r: %r" %
-                    (cls.__name__, value)
-                )
+            raise ValueError("Invalid value for {name}: {value}".format(name=cls.__name__, value=value))
 
     @classmethod
     def values(cls):
@@ -112,10 +116,7 @@ class DeclEnumType(SchemaType, TypeDecorator):
             self.enum = enum
             self.impl = Enum(
                 *enum.values(),
-                name="ck%s" % re.sub(
-                    '([A-Z])',
-                    lambda m: "_" + m.group(1).lower(),
-                    enum.__name__)
+                name="ck{0}".format(re.sub('([A-Z])', lambda m: "_" + m.group(1).lower(), enum.__name__))
             )
 
         def _set_table(self, table, column):

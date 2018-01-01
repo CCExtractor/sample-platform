@@ -81,7 +81,7 @@ class MaintenanceMode(Base):
         return '<Platform {p}, maintenance {status}>'.format(p=self.platform.description, status=self.disabled)
 
 
-class BlacklistedUusers(Base):
+class BlacklistedUsers(Base):
     __tablename__ = 'blacklisted_users'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     # user_id is the user's id GitHub assigns.

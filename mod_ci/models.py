@@ -15,6 +15,16 @@ from database import Base
 from mod_test.models import Test, TestPlatform
 
 
+class BlockedUsers(Base):
+    __tablename__ = 'BlockedUsers'
+    # userID refers to the ID from https://api.github.com/users/your_username
+    userID = Column(Integer, primary_key=True)
+
+    def __repr__(self):
+        return "<BlockedUsers(userID='%s')>" % (
+            self.userID)
+
+
 class Kvm(Base):
     __tablename__ = 'kvm'
     __table_args__ = {'mysql_engine': 'InnoDB'}

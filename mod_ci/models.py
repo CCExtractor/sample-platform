@@ -19,8 +19,7 @@ class Kvm(Base):
     __tablename__ = 'kvm'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     name = Column(String(64), primary_key=True)
-    test_id = Column(Integer, ForeignKey(
-        Test.id, onupdate="CASCADE", ondelete="RESTRICT"))
+    test_id = Column(Integer, ForeignKey(Test.id, onupdate="CASCADE", ondelete="RESTRICT"))
     test = relationship('Test', uselist=False)
     timestamp = Column(DateTime(), nullable=False)
 
@@ -82,7 +81,7 @@ class MaintenanceMode(Base):
         return '<Platform {p}, maintenance {status}>'.format(p=self.platform.description, status=self.disabled)
 
 
-class blacklisted_users(Base):
+class BlacklistedUusers(Base):
     __tablename__ = 'blacklisted_users'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     # user_id is the user's id GitHub assigns.

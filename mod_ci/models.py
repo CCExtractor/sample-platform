@@ -19,8 +19,7 @@ class Kvm(Base):
     __tablename__ = 'kvm'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     name = Column(String(64), primary_key=True)
-    test_id = Column(Integer, ForeignKey(Test.id, onupdate="CASCADE",
-                                         ondelete="RESTRICT"))
+    test_id = Column(Integer, ForeignKey(Test.id, onupdate="CASCADE", ondelete="RESTRICT"))
     test = relationship('Test', uselist=False)
     timestamp = Column(DateTime(), nullable=False)
 
@@ -51,7 +50,7 @@ class Kvm(Base):
          'test_id' field of the Kvm model
         :rtype str(test_id): str
         """
-        return '<KVM test running: %r>' % self.test_id
+        return '<KVM test running: {id}>'.format(id=self.test_id)
 
 
 class MaintenanceMode(Base):
@@ -83,5 +82,4 @@ class MaintenanceMode(Base):
          'platform' and 'status' field of the MaintenanceMode model
         :rtype str(platform, status): str
         """
-        return '<Platform {platform}, maintenance {status}>'.format(
-            platform=self.platform.description, status=self.disabled)
+        return '<Platform {p}, maintenance {status}>'.format(p=self.platform.description, status=self.disabled)

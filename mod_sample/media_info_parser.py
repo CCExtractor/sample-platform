@@ -1,5 +1,4 @@
 import os
-import traceback
 
 import sys
 from collections import OrderedDict
@@ -19,16 +18,13 @@ class MediaInfoFetcher:
     def __init__(self, sample):
         from run import config
         # Fetch media info
-        media_info_path = os.path.join(
-            config.get('SAMPLE_REPOSITORY', ''), 'TestFiles', 'media',
-            sample.sha + '.xml')
+        media_info_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'TestFiles', 'media', sample.sha + '.xml')
         if os.path.isfile(media_info_path):
             with open(media_info_path) as fd:
                 try:
                     doc = xmltodict.parse(fd.read())
                 except Exception:
-                    raise InvalidMediaInfoError(
-                        'No Mediainfo root element present')
+                    raise InvalidMediaInfoError('No Mediainfo root element present')
                 if 'Mediainfo' in doc:
                     self.media_info = doc['Mediainfo']
                     self.video_tracks = []
@@ -38,11 +34,9 @@ class MediaInfoFetcher:
                     self.general_track = {}
                     self.parsed = False
                 else:
-                    raise InvalidMediaInfoError(
-                        'No Mediainfo root element present')
+                    raise InvalidMediaInfoError('No Mediainfo root element present')
         else:
-            raise InvalidMediaInfoError(
-                'File {path} not found'.format(path=media_info_path))
+            raise InvalidMediaInfoError('File {path} not found'.format(path=media_info_path))
 
     def get_media_info(self, force_parse=False):
         result = [{
@@ -65,6 +59,7 @@ class MediaInfoFetcher:
             'name': 'Captions',
             'value': self.caption_tracks
         })
+
         return result
 
     def _process_tracks(self):
@@ -116,19 +111,13 @@ class MediaInfoFetcher:
         return result
 
     def _process_general(self, track):
-        self.general_track = self._process_generic(
-            track, ['Format', 'File_size', 'Duration', 'Codec_ID']
-        )
+        self.general_track = self._process_generic(track, ['Format', 'File_size', 'Duration', 'Codec_ID'])
 
     def _process_video(self, track):
-        result = self._process_generic(
-            track, ['Display_aspect_ratio', 'Writing_library', 'Duration',
-                    'Codec_ID'])
+        result = self._process_generic(track, ['Display_aspect_ratio', 'Writing_library', 'Duration', 'Codec_ID'])
         # Append non standard ones
         if 'Width' in track and 'Height' in track:
-            result['Resolution'] = '{width} x {height}'.format(
-                width=track['Width'],
-                height=track['Height'])
+            result['Resolution'] = '{width} x {height}'.format(width=track['Width'], height=track['Height'])
 
         if 'Format' in track:
             v_format = track['Format']
@@ -139,8 +128,7 @@ class MediaInfoFetcher:
         if 'Frame_rate' in track:
             v_rate = track['Frame_rate']
             if 'Frame_rate_mode' in track:
-                v_rate += ' (mode: {mode})'.format(
-                    mode=track['Frame_rate_mode'])
+                v_rate += ' (mode: {mode})'.format(mode=track['Frame_rate_mode'])
             result['Frame rate'] = v_rate
 
         if 'Scan_type' in track:
@@ -158,24 +146,20 @@ class MediaInfoFetcher:
     def _process_text(self, track):
         self.caption_tracks.append({
             'name': 'ID: {number}'.format(number=track['ID']),
-            'value': self._process_generic(
-                track, ['Format', 'Menu_ID', 'Muxing_mode'])
+            'value': self._process_generic(track, ['Format', 'Menu_ID', 'Muxing_mode'])
         })
 
     @staticmethod
     def generate_media_xml(sample):
         from run import config
         if not sys.platform.startswith("linux"):
-            raise InvalidMediaInfoError('Windows generation of MediaInfo '
-                                        'unsupported')
-        media_folder = os.path.join(
-            config.get('SAMPLE_REPOSITORY', ''), 'TestFiles')
-        media_info_path = os.path.join(
-            media_folder, 'media', sample.sha + '.xml')
+            raise InvalidMediaInfoError('Windows generation of MediaInfo unsupported')
+
+        media_folder = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'TestFiles')
+        media_info_path = os.path.join(media_folder, 'media', sample.sha + '.xml')
         output_handle = open(media_info_path, 'w')
         media_path = os.path.join(media_folder, sample.filename)
-        process = subprocess.Popen(
-            ['mediainfo', '--Output=XML', media_path], stdout=output_handle)
+        process = subprocess.Popen(['mediainfo', '--Output=XML', media_path], stdout=output_handle)
         process.wait()
         if os.path.isfile(media_info_path):
             # Load media info, and replace full pathname
@@ -186,8 +170,8 @@ class MediaInfoFetcher:
                         child.text = child.text.replace(media_folder, '')
                         break
             # Store
-            tree.write(media_info_path, encoding='utf-8',
-                       xml_declaration=True, pretty_print=True)
+            tree.write(media_info_path, encoding='utf-8', xml_declaration=True, pretty_print=True)
             # Return instance
             return MediaInfoFetcher(sample)
+
         raise InvalidMediaInfoError('Could not generate media info')

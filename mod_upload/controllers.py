@@ -16,8 +16,7 @@ import mimetypes
 import shutil
 import requests
 
-from flask import Blueprint, g, make_response, render_template, request, \
-    redirect, url_for, flash
+from flask import Blueprint, g, make_response, render_template, request,  redirect, url_for, flash
 from werkzeug.utils import secure_filename
 
 from decorators import template_renderer, get_menu_entries
@@ -25,8 +24,7 @@ from git import Repo, InvalidGitRepositoryError, GitCommandError
 from mod_auth.controllers import login_required, check_access_rights
 from mod_auth.models import Role, User
 from mod_home.models import CCExtractorVersion
-from mod_sample.models import Sample, ForbiddenExtension, ForbiddenMimeType, \
-    Issue
+from mod_sample.models import Sample, ForbiddenExtension, ForbiddenMimeType, Issue
 from mod_upload.forms import UploadForm, DeleteQueuedSampleForm, \
     FinishQueuedSampleForm
 from models import Upload, QueuedSample, UploadLog, FTPCredentials, Platform
@@ -49,14 +47,13 @@ def before_app_request():
         'route': 'upload.index'
     }
     config_entries = get_menu_entries(
-        g.user, 'Platform mgmt', 'cog', [], '', [
+        g.user, 'Platform mgmt', 'cog', all_entries=[
             {'title': 'Upload manager', 'icon': 'upload', 'route':
                 'upload.index_admin', 'access': [Role.admin]}
         ]
     )
     if 'config' in g.menu_entries and 'entries' in config_entries:
-        g.menu_entries['config']['entries'] = \
-            config_entries['entries'] + g.menu_entries['config']['entries']
+        g.menu_entries['config']['entries'] = config_entries['entries'] + g.menu_entries['config']['entries']
     else:
         g.menu_entries['config'] = config_entries
 
@@ -74,11 +71,8 @@ def not_found(error):
 @template_renderer()
 def index():
     return {
-        'queue': QueuedSample.query.filter(
-            QueuedSample.user_id == g.user.id).all(),
-        'messages': UploadLog.query.filter(
-            UploadLog.user_id == g.user.id).order_by(
-            UploadLog.id.desc()).all()
+        'queue': QueuedSample.query.filter(QueuedSample.user_id == g.user.id).all(),
+        'messages': UploadLog.query.filter(UploadLog.user_id == g.user.id).order_by(UploadLog.id.desc()).all()
     }
 
 
@@ -121,10 +115,11 @@ def make_github_issue(title, body=None, labels=None):
              'labels': labels}
     # Add the issue to our repository
     r = session.post(url, json.dumps(issue))
+
     if r.status_code == 201:
         return r.content
-    else:
-        return 'ERROR'
+
+    return 'ERROR'
 
 
 @mod_upload.route('/ftp')
@@ -132,8 +127,9 @@ def make_github_issue(title, body=None, labels=None):
 @template_renderer()
 def ftp_index():
     from run import config
-    credentials = FTPCredentials.query.filter(FTPCredentials.user_id ==
-                                              g.user.id).first()
+
+    credentials = FTPCredentials.query.filter(FTPCredentials.user_id == g.user.id).first()
+
     if credentials is None:
         credentials = FTPCredentials(g.user.id)
         g.db.add(credentials)
@@ -151,8 +147,9 @@ def ftp_index():
 @login_required
 def ftp_filezilla():
     from run import config
-    credentials = FTPCredentials.query.filter(FTPCredentials.user_id ==
-                                              g.user.id).first()
+
+    credentials = FTPCredentials.query.filter(FTPCredentials.user_id == g.user.id).first()
+
     if credentials is None:
         credentials = FTPCredentials(g.user.id)
         g.db.add(credentials)
@@ -170,8 +167,7 @@ def ftp_filezilla():
     response.headers['Content-Description'] = 'File Transfer'
     response.headers['Cache-Control'] = 'no-cache'
     response.headers['Content-Type'] = 'text/xml'
-    response.headers['Content-Disposition'] = \
-        'attachment; filename=FileZilla.xml'
+    response.headers['Content-Disposition'] = 'attachment; filename=FileZilla.xml'
 
     return response
 
@@ -187,8 +183,7 @@ def upload():
         uploaded_file = request.files[form.file.name]
         if uploaded_file:
             filename = secure_filename(uploaded_file.filename)
-            temp_path = os.path.join(
-                config.get('SAMPLE_REPOSITORY', ''), 'TempFiles', filename)
+            temp_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'TempFiles', filename)
             # Save to temporary location
             uploaded_file.save(temp_path)
             # Get hash and check if it's already been submitted
@@ -196,11 +191,9 @@ def upload():
             if sample_already_uploaded(file_hash):
                 # Remove existing file and notice user
                 os.remove(temp_path)
-                form.errors['file'] = [
-                    'Sample with same hash already uploaded or queued']
+                form.errors['file'] = ['Sample with same hash already uploaded or queued']
             else:
                 add_sample_to_queue(file_hash, temp_path, g.user.id, g.db)
-                # Redirect
                 return redirect(url_for('.index'))
     return {
         'form': form,
@@ -215,8 +208,7 @@ def upload():
 def process_id(upload_id):
     from run import config, log
     # Fetch upload id
-    queued_sample = QueuedSample.query.filter(QueuedSample.id ==
-                                              upload_id).first()
+    queued_sample = QueuedSample.query.filter(QueuedSample.id == upload_id).first()
     if queued_sample is not None:
         if queued_sample.user_id == g.user.id:
             # Allowed to process
@@ -226,23 +218,21 @@ def process_id(upload_id):
             if form.validate_on_submit():
                 # Store in DB
                 db_committed = False
-                temp_path = os.path.join(
-                    config.get('SAMPLE_REPOSITORY', ''), 'QueuedFiles',
-                    queued_sample.filename)
-                final_path = os.path.join(
-                    config.get('SAMPLE_REPOSITORY', ''), 'TestFiles',
-                    queued_sample.filename)
+                repo_folder = config.get('SAMPLE_REPOSITORY', '')
+                temp_path = os.path.join(repo_folder, 'QueuedFiles', queued_sample.filename)
+                final_path = os.path.join(repo_folder, 'TestFiles', queued_sample.filename)
                 try:
-                    extension = queued_sample.extension[1:] if len(
-                        queued_sample.extension) > 0 else ""
-                    sample = Sample(queued_sample.sha, extension,
-                                    queued_sample.original_name)
+                    extension = queued_sample.extension[1:] if len(queued_sample.extension) > 0 else ""
+                    sample = Sample(queued_sample.sha, extension, queued_sample.original_name)
                     g.db.add(sample)
                     g.db.flush([sample])
                     uploaded = Upload(
-                        g.user.id, sample.id, form.version.data,
+                        g.user.id,
+                        sample.id,
+                        form.version.data,
                         Platform.from_string(form.platform.data),
-                        form.parameters.data, form.notes.data
+                        form.parameters.data,
+                        form.notes.data
                     )
                     g.db.add(uploaded)
                     g.db.delete(queued_sample)
@@ -257,61 +247,40 @@ def process_id(upload_id):
                         data = ""
                         try:
                             kvm_name = config.get('KVM_LINUX_NAME', '')
-                            repo = Repo(os.path.join(
-                                config.get('SAMPLE_REPOSITORY', ''),
-                                        'vm_data', kvm_name,
-                                        'unsafe-ccextractor'))
-                            heads = repo.heads
+                            repo = Repo(os.path.join(repo_folder, 'vm_data', kvm_name, 'unsafe-ccextractor'))
                             data = repo.git.show('{branch}:{file}'.format(
-                                branch=heads.master,
-                                file='.github/ISSUE_TEMPLATE.md'))
+                                branch=repo.heads.master,
+                                file='.github/ISSUE_TEMPLATE.md')
+                            )
                         except InvalidGitRepositoryError:
-                            log.critical(" Could not open CCExtractor's"
-                                         " repository ")
-                        version = CCExtractorVersion.query.filter(
-                            CCExtractorVersion.id == form.version.data
-                        ).first()
+                            log.critical(" Could not open CCExtractor's repository ")
+
+                        version = CCExtractorVersion.query.filter(CCExtractorVersion.id == form.version.data).first()
                         data = data.replace('**X.X**', version.version)
-                        data = data.replace(
-                            '[ ] I have read', '[X] I have read')
-                        data = data.replace(
-                            '[ ] I have checked', '[X] I have checked')
-                        data = data.replace(
-                            '[ ] I have used', '[X] I have used')
+                        data = data.replace('[ ] I have read', '[X] I have read')
+                        data = data.replace('[ ] I have checked', '[X] I have checked')
+                        data = data.replace('[ ] I have used', '[X] I have used')
                         data = data.replace(
                             '[ ] I am an active contributor to CCExtractor.',
                             '[X] I used the platform to submit this issue!'
                         )
                         data = data.replace(
                             '`-autoprogram`',
-                            '`{param}`'.format(
-                                param=form.parameters.data,
-                                version=form.version.data
-                            )
+                            '`{param}`'.format(param=form.parameters.data, version=form.version.data)
                         )
                         platform = form.platform.data.title()
-                        data = data.replace(
-                            '[ ] ' + platform, '[X] ' + platform)
+                        data = data.replace('[ ] ' + platform, '[X] ' + platform)
                         # Remove everything starting from the video links
                         data = data[:data.find('**Video links**')]
                         # Append our own content here
-                        sample_link = url_for(
-                            'sample.sample_by_id',
-                            sample_id=sample.id,
-                            _external=True
-                        )
-                        data += '**Sample**\n\n[Sample {id}]({link}) was ' \
-                                'uploaded on the sample ' \
-                                'platform.\n'.format(id=sample.id,
-                                                     link=sample_link)
-                        data += '**Extra information**\n\n*Notes:*\n' \
-                                '{notes}\n*Description:*\n' \
-                                '{desc}'.format(notes=form.notes.data,
-                                                desc=form.IssueBody.data)
-                        issue_title = '[BUG] {data}'.format(
-                            data=form.IssueTitle.data)
-                        issue_upload = make_github_issue(issue_title, data, [
-                            'bug', 'sample' + str(sample.id)])
+                        sample_link = url_for('sample.sample_by_id', sample_id=sample.id, _external=True)
+                        data += '**Sample**\n\n[Sample {id}]({link}) was uploaded on the sample platform.\n'.format(
+                            id=sample.id, link=sample_link)
+                        data += '**Extra information**\n\n*Notes:*\n{notes}\n*Description:*\n{desc}'.format(
+                            notes=form.notes.data, desc=form.IssueBody.data)
+                        issue_title = '[BUG] {data}'.format(data=form.IssueTitle.data)
+                        issue_upload = make_github_issue(issue_title, data, ['bug', 'sample' + str(sample.id)])
+
                         if issue_upload != 'ERROR':
                             issue_data = json.loads(issue_upload)
                             issue_id = issue_data['number']
@@ -319,16 +288,13 @@ def process_id(upload_id):
                             issue_user = issue_data['user']['login']
                             issue_date = issue_data['created_at']
                             issue_status = issue_data['state']
-                            issue = Issue(
-                                sample.id, issue_id, issue_date,
-                                issue_title, issue_user, issue_status
-                            )
+                            issue = Issue(sample.id, issue_id, issue_date, issue_title, issue_user, issue_status)
                             g.db.add(issue)
                             g.db.commit()
                         else:
-                            flash('Could not submit an issue on GitHub '
-                                  '(did you revoke permissions for the'
-                                  ' platform?). Please submit it manually.')
+                            flash('Could not submit an issue on GitHub (did you revoke permissions for the  platform?).'
+                                  ' Please submit it manually.')
+
                     os.rename(temp_path, final_path)
                     return redirect(
                         url_for('sample.sample_by_id', sample_id=sample.id))
@@ -347,13 +313,12 @@ def process_id(upload_id):
 @template_renderer()
 def link_id(upload_id):
     # Fetch upload id
-    queued_sample = QueuedSample.query.filter(QueuedSample.id ==
-                                              upload_id).first()
+    queued_sample = QueuedSample.query.filter(QueuedSample.id == upload_id).first()
     if queued_sample is not None:
         if queued_sample.user_id == g.user.id:
             # Allowed to link
-            user_uploads = Upload.query.filter(
-                Upload.user_id == g.user.id).all()
+            user_uploads = Upload.query.filter(Upload.user_id == g.user.id).all()
+
             return {
                 'samples': [u.sample for u in user_uploads],
                 'queued_sample': queued_sample
@@ -367,12 +332,10 @@ def link_id(upload_id):
 @login_required
 def link_id_confirm(upload_id, sample_id):
     # Fetch upload id
-    queued_sample = QueuedSample.query.filter(QueuedSample.id ==
-                                              upload_id).first()
+    queued_sample = QueuedSample.query.filter(QueuedSample.id == upload_id).first()
     sample = Sample.query.filter(Sample.id == sample_id).first()
     if queued_sample is not None and sample is not None:
-        if queued_sample.user_id == g.user.id and sample.upload.user_id == \
-                g.user.id:
+        if queued_sample.user_id == g.user.id and sample.upload.user_id == g.user.id:
             # Allowed to link
             return redirect(url_for('.index'))
 
@@ -386,17 +349,14 @@ def link_id_confirm(upload_id, sample_id):
 def delete_id(upload_id):
     from run import config
     # Fetch upload id
-    queued_sample = QueuedSample.query.filter(QueuedSample.id ==
-                                              upload_id).first()
+    queued_sample = QueuedSample.query.filter(QueuedSample.id == upload_id).first()
     if queued_sample is not None:
         if queued_sample.user_id == g.user.id or g.user.is_admin:
             # Allowed to remove
             form = DeleteQueuedSampleForm(request.form)
             if form.validate_on_submit():
                 # Delete file, then delete from database
-                file_path = os.path.join(
-                    config.get('SAMPLE_REPOSITORY', ''), 'QueuedFiles',
-                    queued_sample.filename)
+                file_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'QueuedFiles', queued_sample.filename)
                 os.remove(file_path)
                 g.db.delete(queued_sample)
                 g.db.commit()
@@ -414,7 +374,8 @@ def delete_id(upload_id):
 
 def create_hash_for_sample(file_path):
     """
-    Creates the has for given file
+    Creates the has for given file.
+
     :param file_path: The path to the file that needs to be hashed.
     :type file_path: str
     :return: A hash for the given file.
@@ -424,20 +385,20 @@ def create_hash_for_sample(file_path):
     with open(file_path, "rb") as f:
         for chunk in iter(lambda: f.read(4096), b""):
             hash_sha256.update(chunk)
+
     return hash_sha256.hexdigest()
 
 
 def sample_already_uploaded(file_hash):
     """
     Checks if a given file hash is already present in the database.
+
     :param file_hash: The file hash that needs to be checked.
     :type file_hash: str
-    :return: True if the file is already in the database as a sample or
-    queued file.
+    :return: True if the file is already in the database as a sample or queued file.
     :rtype: bool
     """
-    queued_sample = QueuedSample.query.filter(
-        QueuedSample.sha == file_hash).first()
+    queued_sample = QueuedSample.query.filter(QueuedSample.sha == file_hash).first()
     sample = Sample.query.filter(Sample.sha == file_hash).first()
 
     return sample is not None or queued_sample is not None
@@ -479,60 +440,52 @@ def upload_ftp(db, path):
     user_id = path_parts[2]
     user = User.query.filter(User.id == user_id).first()
     filename, file_extension = os.path.splitext(path)
-    # FIRST, check extension. We can't limit extensions on FTP as we can on
-    # the web interface.
-    log.debug('Checking if {path} has a forbidden extension'.format(
-        path=temp_path))
-    forbidden = ForbiddenExtension.query.filter(
-        ForbiddenExtension.extension == file_extension[1:]).first()
+    # FIRST, check extension. We can't limit extensions on FTP as we can on the web interface.
+    log.debug('Checking if {path} has a forbidden extension'.format(path=temp_path))
+    forbidden = ForbiddenExtension.query.filter(ForbiddenExtension.extension == file_extension[1:]).first()
+
     if forbidden is not None:
-        log.error(
-            'User {name} tried to upload a file with a forbidden extension '
-            '({extension})!'.format(name=user.name,
-                                    extension=file_extension[1:])
-        )
+        log.error('User {name} tried to upload a file with a forbidden extension ({extension})!'.format(
+            name=user.name, extension=file_extension[1:]
+        ))
         os.remove(temp_path)
         return
+
     mimetype = magic.from_file(temp_path, mime=True)
     # Check for permitted mimetype
-    forbidden_mime = ForbiddenMimeType.query.filter(
-        ForbiddenMimeType.mimetype == mimetype).first()
+    forbidden_mime = ForbiddenMimeType.query.filter(ForbiddenMimeType.mimetype == mimetype).first()
+
     if forbidden_mime is not None:
-        log.error(
-            'User {name} tried to upload a file with a forbidden '
-            'mimetype ({mimetype})!'.format(name=user.name,
-                                            mimetype=mimetype)
-        )
+        log.error('User {name} tried to upload a file with a forbidden mimetype ({mimetype})!'.format(
+            name=user.name, mimetype=mimetype
+        ))
         os.remove(temp_path)
         return
+
     # Check for permitted extension
     extension = mimetypes.guess_extension(mimetype)
+
     if extension is not None:
-        forbidden_real = ForbiddenExtension.query.filter(
-            ForbiddenExtension.extension == extension[1:]).first()
+        forbidden_real = ForbiddenExtension.query.filter(ForbiddenExtension.extension == extension[1:]).first()
         if forbidden_real is not None:
-            log.error(
-                'User {name} tried to upload a file with a forbidden '
-                'extension ({extension})!'.format(name=user.name,
-                                                  extension=extension[1:])
-            )
+            log.error('User {name} tried to upload a file with a forbidden extension ({extension})!'.format(
+                name=user.name, extension=extension[1:]
+            ))
             os.remove(temp_path)
             return
 
     log.debug('Moving file to temporary folder and changing permissions...')
     # Move the file to a temporary location
-    filename = secure_filename(
-        temp_path.replace('/home/' + user_id + '/', ''))
-    intermediate_path = os.path.join(
-        config.get('SAMPLE_REPOSITORY', ''), 'TempFiles', filename)
+    filename = secure_filename(temp_path.replace('/home/' + user_id + '/', ''))
+    intermediate_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'TempFiles', filename)
     # Save to temporary location
-    log.debug('Copy {old} to {new}'.format(old=temp_path,
-                                           new=intermediate_path))
+    log.debug('Copy {old} to {new}'.format(old=temp_path, new=intermediate_path))
     shutil.copy(temp_path, intermediate_path)
     os.remove(temp_path)
 
     log.debug('Checking hash value for {path}'.format(path=intermediate_path))
     file_hash = create_hash_for_sample(intermediate_path)
+
     if sample_already_uploaded(file_hash):
         # Remove existing file
         log.debug('Sample already exists: {path}'.format(

@@ -83,8 +83,8 @@ class MaintenanceMode(Base):
         :rtype str(platform, status): str
         """
         return '<Platform {p}, maintenance {status}>'.format(p=self.platform.description, status=self.disabled)
-      
-      
+
+
 class blackisted_users(Base):
     __tablename__ = 'BlockedUsers'
     # user_id is the user's id GitHub assigns.
@@ -97,3 +97,4 @@ class blackisted_users(Base):
     def __repr__(self):
         return "<blacklisted_users(user_id='{}',name='{}',username="{}")>".format(
             self.user_id, self.name, self.username)
+

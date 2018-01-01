@@ -88,10 +88,11 @@ class blackisted_users(Base):
     __tablename__ = 'BlockedUsers'
     # user_id is the user's id GitHub assigns.
     user_id = Column(Integer, primary_key=True)
-    username = Column(String(41),unique=True) # username refers to the username of the user.
-    name = Column(String(64)) # name refers to the name property from GitHub's api. Mostly first name last name
-
+    # username refers to the username of the user.
+    username = Column(String(41), unique=True)
+    # name refers to the name property from GitHub's api. 
+    name = Column(String(64))
 
     def __repr__(self):
         return "<blacklisted_users(user_id='{}',name='{}',username="{}")>".format(
-self.user_id,self.name,self.username)
+            self.user_id, self.name, self.username)

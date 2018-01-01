@@ -95,4 +95,5 @@ class blacklisted_users(Base):
     name = Column(String(64))
 
     def __repr__(self):
-        return "<blacklisted_users(user_id=self.user_id,name=self.name,username=self.username)>"
+        return "<blacklisted_users(user_id='{id}',name='{name}',username='{username}')>".format(
+         id=self.id,name=self.name,username=self.username)

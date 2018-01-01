@@ -187,10 +187,11 @@ def serve_file_download(file_name, sub_folder='',
 @mod_sample.route('/download/<sample_id>')
 def download_sample(sample_id):
     """
-    Making sure that the sample exist (so it can be downloaded).
+    Download sample if the sample exist
 
     :param sample_id: numbers
-    :return: error
+    :raise: error
+    :return: function above
     """
     sample = Sample.query.filter(Sample.id == sample_id).first()
     if sample is not None:

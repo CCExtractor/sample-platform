@@ -43,11 +43,9 @@ rem Compiling using cmake from src source to build repo
 cmake ../src
 rem Building CCExtractor
 cmake --build . --config Debug --target ccextractor
-if EXIST Debug\ccextractor.exe (
+if EXIST "Debug\ccextractor.exe" (
 	call :postStatus "building" "Successful build using cmake"
-)
-else
-(
+) else (
 	call :postStatus "building" "Failed to build using cmake"
 )
 cd ..
@@ -60,7 +58,7 @@ call :executeCommand cd windows
 rem Build CCExtractor using the sln script
 call :executeCommand "C:\Program Files (x86)\MSBuild\14.0\Bin\MSBuild" ccextractor.sln
 rem check whether installation successful
-if EXIST Debug\ccextractorwin.exe (
+if EXIST "Debug\ccextractorwin.exe" (
     cd Debug
     rem Run testsuite
     echo Run tests
@@ -73,9 +71,7 @@ if EXIST Debug\ccextractorwin.exe (
     timeout 5
     shutdown -s -t 0
     exit
-)
-else
-(
+) else (
     call :haltAndCatchFire "build"
 )
 echo End

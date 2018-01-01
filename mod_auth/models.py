@@ -59,7 +59,7 @@ class User(Base):
          of the User model
         :rtype str(name): str
         """
-        return '<User %r>' % self.name
+        return '<User {name}>'.format(name=self.name)
 
     @staticmethod
     def generate_hash(password):
@@ -87,8 +87,7 @@ class User(Base):
         """
         chars = string.ascii_letters + string.digits + '!@#$%^&*()'
         import os
-        return ''.join(chars[ord(os.urandom(1)) % len(chars)] for i in
-                       range(length))
+        return ''.join(chars[ord(os.urandom(1)) % len(chars)] for i in range(length))
 
     def is_password_valid(self, password):
         """

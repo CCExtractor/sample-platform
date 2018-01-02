@@ -442,10 +442,11 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         log.warn("[{platform}] Duplicate entry for {id}".format(
             platform=platform, id=test.id))
 
+
 def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     """
     Function to store test details into Test model for each platform, and post the status to GitHub.
- 
+
     :param db: Database connection.
     :type db: sqlalchemy.orm.scoped_session
     :param gh_commit: The GitHub API call for the commit. Can be None
@@ -464,9 +465,7 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     from run import log
 
     fork = Fork.query.filter(Fork.github.like("%/CCExtractor/ccextractor.git")).first()
-    test_case = Test.query.filter(Test.fork_id == Fork.id).first()
-    githubapi = requests.get(
-        "https://api.github.com/repos/ccextractor/ccextractor/pulls/{pr}".format(pr=testcase.pr_nr))
+    githubapi = requests.get("https://api.github.com/repos/ccextractor/ccextractor/pulls/{pr}".format(pr=Test(pr_nr)))
     userjson = json.loads(githubapi.body)
     user = userjson['user']['id']
 
@@ -480,36 +479,38 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
             context="CI - {name}".format(name=platform_name),
             target_url=url_for('test.by_id', test_id=test_id, _external=True)
         )
-    else:
-        if test_type == TestType.pull_request:
-            branch = "pull_request"
+        return "Blocked User!"
 
-        linux_test = Test(TestPlatform.linux, test_type, fork.id, branch, commit, pr_nr)
-        db.add(linux_test)
-        windows_test = Test(TestPlatform.windows, test_type, fork.id, branch, commit, pr_nr)
-        db.add(windows_test)
-        db.commit()
 
-        # Update statuses on GitHub
-        if gh_commit is not None:
-            status_entries = {
-                linux_test.platform.value: linux_test.id,
-                windows_test.platform.value: windows_test.id
-            }
+    if test_type == TestType.pull_request:
+        branch = "pull_request"
 
-        for platform_name, test_id in status_entries.items():
-            try:
-                gh_commit.post(
-                    state=Status.PENDING,
-                    description="Tests queued",
-                    context="CI - {name}".format(name=platform_name),
-                    target_url=url_for('test.by_id', test_id=test_id, _external=True)
-                )
-            except ApiError as a:
-                log.critical('Could not post to GitHub! Response: {res}'.format(res=a.response))
+    linux_test = Test(TestPlatform.linux, test_type, fork.id, branch, commit, pr_nr)
+    db.add(linux_test)
+    windows_test = Test(TestPlatform.windows, test_type, fork.id, branch, commit, pr_nr)
+    db.add(windows_test)
+    db.commit()
 
-      # We wait for the cron to kick off the CI VM's
-      log.debug("Created tests, waiting for cron...")
+    # Update statuses on GitHub
+    if gh_commit is not None:
+        status_entries = {
+            linux_test.platform.value: linux_test.id,
+            windows_test.platform.value: windows_test.id
+        }
+
+    for platform_name, test_id in status_entries.items():
+        try:
+            gh_commit.post(
+                state=Status.PENDING,
+                description="Tests queued",
+                context="CI - {name}".format(name=platform_name),
+                target_url=url_for('test.by_id', test_id=test_id, _external=True)
+            )
+        except ApiError as a:
+            log.critical('Could not post to GitHub! Response: {res}'.format(res=a.response))
+
+    # We wait for the cron to kick off the CI VM's
+    log.debug("Created tests, waiting for cron...")
 
 
 @mod_ci.route('/start-ci', methods=['GET', 'POST'])

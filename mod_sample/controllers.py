@@ -172,13 +172,6 @@ def serve_file_download(file_name, sub_folder='', content_type='application/octe
 
 @mod_sample.route('/download/<sample_id>')
 def download_sample(sample_id):
-    """
-    Download sample if the sample exist
-
-    :param sample_id: numbers
-    :raise: error
-    :return: function above
-    """
     sample = Sample.query.filter(Sample.id == sample_id).first()
     if sample is not None:
         return serve_file_download(sample.filename)

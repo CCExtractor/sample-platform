@@ -446,6 +446,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
 def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     """
     Function to store test details into Test model for each platform, and post the status to GitHub.
+ 
     :param db: Database connection.
     :type db: sqlalchemy.orm.scoped_session
     :param gh_commit: The GitHub API call for the commit. Can be None
@@ -463,20 +464,23 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     """
     from run import log
 
-    fork = Fork.query.filter(Fork.github.like(
-        "%/CCExtractor/ccextractor.git")).first()
-    fork_id = Test.query.filter(Test.fork_id == Fork.id).first()
+    fork = Fork.query.filter(Fork.github.like("%/CCExtractor/ccextractor.git")).first()
+    test_case = Test.query.filter(Test.fork_id == Fork.id).first()
     githubapi = requests.get(
-        "https://api.github.com/repos/ccextractor/ccextractor/pulls/{}".format())
+        "https://api.github.com/repos/ccextractor/ccextractor/pulls/{pr}".format(pr=testcase.pr_nr))
     userjson = json.loads(githubapi.body)
     user = userjson['user']['id']
 
     record_from_db = BlockedUsers.query.filter_by(userID=user).first()
-    blocked = False
 
     if user == record_from_db.userID:
         log.critical("Error. User in Blacklist!")
-        blocked = True
+        gh_commit.post(
+            state=Status.ERROR,
+            description="Tests cancelled! You may be blocked.",
+            context="CI - {name}".format(name=platform_name),
+            target_url=url_for('test.by_id', test_id=test_id, _external=True)
+        )
     else:
         if test_type == TestType.pull_request:
             branch = "pull_request"
@@ -494,14 +498,6 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
                 windows_test.platform.value: windows_test.id
             }
 
-    if blocked is True:
-        gh_commit.post(
-            state=Status.ERROR,
-            description="Tests cancelled! You may be blocked.",
-            context="CI - {name}".format(name=platform_name),
-            target_url=url_for('test.by_id', test_id=test_id, _external=True)
-        )
-    else:
         for platform_name, test_id in status_entries.items():
             try:
                 gh_commit.post(

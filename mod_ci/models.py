@@ -8,7 +8,7 @@ List of models corresponding to mysql tables: ['Kvm' => 'kvm',
 """
 
 import datetime
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import relationship
 
 from database import Base
@@ -20,7 +20,7 @@ class BlockedUsers(Base):
     __table_args__ = {'mysql_engine': 'InnoDB'}
     # userID refers to the ID from https://api.github.com/users/your_username
     userID = Column(Integer, primary_key=True)
-    comment = Column(String)
+    comment = Column(Text())
 
     def __repr__(self):
         return "<BlockedUsers(userID='{id}', comment='{comment}')>".format(

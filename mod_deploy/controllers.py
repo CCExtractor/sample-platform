@@ -78,7 +78,9 @@ def is_valid_signature(x_hub_signature, data, private_key):
 @mod_deploy.route('/deploy', methods=['GET', 'POST'])
 @request_from_github()
 def deploy():
-    """Deploy the GitHub request to the test platform."""
+    """
+    Deploy the GitHub request to the test platform
+    """
     from run import app
     if request.method != 'POST':
         return 'OK'

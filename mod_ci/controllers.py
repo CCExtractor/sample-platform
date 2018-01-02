@@ -238,7 +238,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         return
     log.info("[{platform}] Reverted to {snapshot} for {name}".format(
         platform=platform, snapshot=snapshot.getName(), name=kvm_name))
-    log.debug('Starting test %s' % test.id)
+    log.debug('Starting test {id}'.format(id=test.id))
     status = Kvm(kvm_name, test.id)
     # Prepare data
     # 0) Write url to file
@@ -449,17 +449,14 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     vm. Post status to GitHub
     """
     from run import log
-    fork = Fork.query.filter(Fork.github.like(
-        "%/CCExtractor/ccextractor.git")).first()
+    fork = Fork.query.filter(Fork.github.like("%/CCExtractor/ccextractor.git")).first()
     if test_type == TestType.pull_request:
         branch = "pull_request"
     # Create Linux test entry
-    linux = Test(TestPlatform.linux, test_type, fork.id, branch, commit,
-                 pr_nr)
+    linux = Test(TestPlatform.linux, test_type, fork.id, branch, commit, pr_nr)
     db.add(linux)
     # Create Windows test entry
-    windows = Test(TestPlatform.windows, test_type, fork.id, branch,
-                   commit, pr_nr)
+    windows = Test(TestPlatform.windows, test_type, fork.id, branch, commit, pr_nr)
     db.add(windows)
     db.commit()
     # Update statuses on GitHub
@@ -475,8 +472,7 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
                         'test.by_id', test_id=test_ids[idx], _external=True))
             except ApiError as a:
                 log.critical(
-                    'Could not post to GitHub! Response: {res}'.format(
-                        res=a.response)
+                    'Could not post to GitHub! Response: {res}'.format(res=a.response)
                 )
 
     # We wait for the cron to kick off the CI VM's
@@ -505,17 +501,16 @@ def start_ci():
         x_hub_signature = request.headers.get('X-Hub-Signature')
         if not is_valid_signature(x_hub_signature, request.data,
                                   g.github['ci_key']):
-            g.log.warning('CI signature failed: %s' % x_hub_signature)
+            g.log.warning('CI signature failed: {sig}'.format(sig=x_hub_signature))
             abort(abort_code)
 
         payload = request.get_json()
         if payload is None:
-            g.log.warning('CI payload is empty: %s' % payload)
+            g.log.warning('CI payload is empty: {payload}'.format(payload=payload))
             abort(abort_code)
 
         gh = GitHub(access_token=g.github['bot_token'])
-        repository = gh.repos(g.github['repository_owner'])(
-            g.github['repository'])
+        repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
 
         if event == "push":
             # If it's a push, and the 'after' hash is available, then it's
@@ -532,19 +527,18 @@ def start_ci():
                     fetch_commit = GeneralData.query.filter(
                         GeneralData.key == commit_name).first()
                     if fetch_commit is None:
-                        prev_commit = GeneralData(
-                            commit_name, last_commit.value)
+                        prev_commit = GeneralData(commit_name, last_commit.value)
                         g.db.add(prev_commit)
                 last_commit.value = ref['object']['sha']
                 g.db.commit()
                 queue_test(g.db, gh_commit, commit, TestType.commit)
             else:
-                g.log.warning('Unknown push type! Dumping payload for '
-                              'analysis')
+                g.log.warning('Unknown push type! Dumping payload for analysis')
                 g.log.debug(payload)
 
         elif event == "pull_request":
             # If it's a PR, run the tests
+            # Checking if user blacklisted
             if BlockedUsers.query.filter(BlockedUsers.userID == payload[
                     'pull_request']['user']['id']).first():
                 log.critical("User Blacklisted")
@@ -584,24 +578,22 @@ def start_ci():
                     g.db.add(progress)
                     repository.statuses(test.commit).post(
                         state=Status.FAILURE, description="Tests canceled",
-                        context="CI - %s" % test.platform.value,
+                        context="CI - {name}".format(name=test.platform.value),
                         target_url=url_for(
                             'test.by_id', test_id=test.id, _external=True))
             elif payload['action'] == 'reopened':
                 # Run tests again
-                queue_test(g.db, gh_commit, commit,
-                           TestType.pull_request, pr_nr=pr_nr)
+                queue_test(g.db, gh_commit, commit, TestType.pull_request, pr_nr=pr_nr)
         elif event == "issues":
             issue_data = payload['issue']
-            issue = Issue.query.filter(
-                Issue.issue_id == issue_data['number']).first()
+            issue = Issue.query.filter(Issue.issue_id == issue_data['number']).first()
             if issue is not None:
                 issue.title = issue_data['title']
                 issue.status = issue_data['state']
                 g.db.commit()
         else:
             # Unknown type
-            g.log.warning('CI unrecognized event: %s' % event)
+            g.log.warning('CI unrecognized event: {event}'.format(event=event))
 
         return json.dumps({'msg': 'EOL'})
 
@@ -624,16 +616,13 @@ def progress_reporter(test_id, token):
                 istatus = TestStatus.progress_step(status)
                 message = request.form['message']
                 if len(test.progress) != 0:
-                    laststatus = TestStatus.progress_step(
-                        test.progress[-1].status)
-                    if laststatus in [TestStatus.completed,
-                                      TestStatus.canceled]:
+                    laststatus = TestStatus.progress_step(test.progress[-1].status)
+                    if laststatus in [TestStatus.completed, TestStatus.canceled]:
                         return "FAIL"
                     if laststatus > istatus:
                         status = TestStatus.canceled
                         message = "Duplicate Entries"
-                progress = TestProgress(
-                    test.id, status, message)
+                progress = TestProgress(test.id, status, message)
                 g.db.add(progress)
                 g.db.commit()
 
@@ -648,8 +637,7 @@ def progress_reporter(test_id, token):
                     fetch_commit = Test.query.filter(and_(
                         Test.commit == commit.value,
                         Test.platform == test.platform)).first()
-                    if test.test_type == TestType.commit and \
-                            test.id > fetch_commit.id:
+                    if test.test_type == TestType.commit and test.id > fetch_commit.id:
                         commit.value = test.commit
                         g.db.commit()
                 # If status is complete, remove the Kvm entry
@@ -727,7 +715,7 @@ def progress_reporter(test_id, token):
                 message = 'Tests queued'
                 target_url = url_for(
                     'test.by_id', test_id=test.id, _external=True)
-                context = "CI - %s" % test.platform.value
+                context = "CI - {name}".format(name=test.platform.value)
                 if status == TestStatus.canceled:
                     state = Status.ERROR
                     message = 'Tests aborted due to an error; please check'
@@ -760,8 +748,7 @@ def progress_reporter(test_id, token):
                                          results=results))
                     if crashes > 0 or results > 0:
                         state = Status.FAILURE
-                        message = 'Not all tests completed successfully, ' \
-                                  'please check'
+                        message = 'Not all tests completed successfully, please check'
                     else:
                         state = Status.SUCCESS
                         message = 'Tests completed'

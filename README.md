@@ -2,8 +2,7 @@
 
 [![Build Status](https://travis-ci.org/CCExtractor/sample-platform.svg?branch=master)](https://travis-ci.org/CCExtractor/sample-platform) [![codecov](https://codecov.io/gh/CCExtractor/sample-platform/branch/master/graph/badge.svg)](https://codecov.io/gh/CCExtractor/sample-platform)
 
-This repository contains the code for a platform that manages a test suite 
-bot, sample upload and more. This platform allows for a unified place to 
+This repository contains the code for a platform that manages a test suite bot, sample upload and more. This platform allows for a unified place to 
 report errors, submit samples, view existing samples and more. It was 
 originally developed during GSoC 2015 and rewritten during GSoC 2016. During
 GSoC 2017 it's being further improved.

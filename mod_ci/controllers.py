@@ -588,8 +588,8 @@ def start_ci():
                             'test.by_id', test_id=test.id, _external=True))
             elif payload['action'] == 'reopened':
                 # Run tests again
-                queue_test(g.db, gh_commit, commit,
-                           TestType.pull_request, pr_nr=pr_nr)    
+                queue_test(
+                    g.db, gh_commit, commit, TestType.pull_request, pr_nr=pr_nr)
         elif event == "issues":
             issue_data = payload['issue']
             issue = Issue.query.filter(

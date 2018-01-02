@@ -559,6 +559,7 @@ def start_ci():
             if BlockedUsers.query.filter(BlockedUsers.userID == payload[
                    'pull_request']['user']['id']).first():
                 log.critical("User Blacklisted")
+                return "ERROR: User is blacklisted"
             else:
                 commit = ''
                 gh_commit = None

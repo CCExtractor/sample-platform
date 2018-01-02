@@ -62,8 +62,7 @@ def before_app_request():
         ]
     )
     if 'config' in g.menu_entries and 'entries' in config_entries:
-        g.menu_entries['config']['entries'] = config_entries['entries'] + \
-            g.menu_entries['config']['entries']
+        g.menu_entries['config']['entries'] = config_entries['entries'] + g.menu_entries['config']['entries']
     else:
         g.menu_entries['config'] = config_entries
 
@@ -472,18 +471,18 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     user = userjson['user']['id']
 
     record_from_db = BlockedUsers.query.filter_by(userID=user).first()
+    blocked = False
 
     if user == record_from_db.userID:
         log.critical("Error. User in Blacklist!")
+        blocked = True
     else:
         if test_type == TestType.pull_request:
             branch = "pull_request"
 
-        linux_test = Test(TestPlatform.linux, test_type,
-                          fork.id, branch, commit, pr_nr)
+        linux_test = Test(TestPlatform.linux, test_type, fork.id, branch, commit, pr_nr)
         db.add(linux_test)
-        windows_test = Test(TestPlatform.windows, test_type,
-                            fork.id, branch, commit, pr_nr)
+        windows_test = Test(TestPlatform.windows, test_type, fork.id, branch, commit, pr_nr)
         db.add(windows_test)
         db.commit()
 
@@ -493,18 +492,28 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
                 linux_test.platform.value: linux_test.id,
                 windows_test.platform.value: windows_test.id
             }
-            for platform_name, test_id in status_entries.items():
-                try:
-                    gh_commit.post(
-                        state=Status.PENDING,
-                        description="Tests queued",
-                        context="CI - {name}".format(name=platform_name),
-                        target_url=url_for(
-                            'test.by_id', test_id=test_id, _external=True)
-                    )
-                except ApiError as a:
-                    log.critical(
-                        'Could not post to GitHub! Response: {res}'.format(res=a.response))
+
+    if blocked is True:
+        gh_commit.post(
+            state=Status.ERROR,
+            description="Tests cancelled! You may be blocked.",
+            context="CI - {name}".format(name=platform_name),
+            target_url=url_for(
+                        'test.by_id', test_id=test_id, _external=True)
+        )
+    else:
+        for platform_name, test_id in status_entries.items():
+            try:
+                gh_commit.post(
+                    state=Status.PENDING,
+                    description="Tests queued",
+                    context="CI - {name}".format(name=platform_name),
+                    target_url=url_for(
+                        'test.by_id', test_id=test_id, _external=True)
+                )
+            except ApiError as a:
+                log.critical(
+                    'Could not post to GitHub! Response: {res}'.format(res=a.response))
 
     # We wait for the cron to kick off the CI VM's
     log.debug("Created tests, waiting for cron...")

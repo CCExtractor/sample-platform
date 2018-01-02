@@ -213,7 +213,7 @@ def process_id(upload_id):
     :type upload_id: str
     :return: Process progress in form and queue the sample
     :rtype: str
-	"""
+    """
     from run import config, log
     # Fetch upload id
     queued_sample = QueuedSample.query.filter(QueuedSample.id == upload_id).first()

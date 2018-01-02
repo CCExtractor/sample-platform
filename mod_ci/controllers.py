@@ -500,7 +500,7 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
             description="Tests cancelled! You may be blocked.",
             context="CI - {name}".format(name=platform_name),
             target_url=url_for(
-                        'test.by_id', test_id=test_id, _external=True)
+                'test.by_id', test_id=test_id, _external=True)
         )
     else:
         for platform_name, test_id in status_entries.items():
@@ -513,8 +513,7 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
                         'test.by_id', test_id=test_id, _external=True)
                 )
             except ApiError as a:
-                log.critical(
-                    'Could not post to GitHub! Response: {res}'.format(res=a.response))
+                log.critical('Could not post to GitHub! Response: {res}'.format(res=a.response))
 
     # We wait for the cron to kick off the CI VM's
     log.debug("Created tests, waiting for cron...")

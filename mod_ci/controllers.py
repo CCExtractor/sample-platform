@@ -554,7 +554,6 @@ def start_ci():
                 g.log.debug(payload)
 
         elif event == "pull_request":
-            # If it's a PR, run the tests
             # Check if user blacklisted
             if BlockedUsers.query.filter(BlockedUsers.userID == payload[
                    'pull_request']['user']['id']).first():
@@ -566,6 +565,7 @@ def start_ci():
                     target_url=url_for('test.by_id', test_id=test_id, _external=True)
                     )
                 return 'ERROR'
+            # If it's a valid PR, run the tests
             commit = ''
             gh_commit = None
             if payload['action'] in ['opened', 'synchronize']:

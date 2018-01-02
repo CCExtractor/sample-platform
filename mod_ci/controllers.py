@@ -479,7 +479,7 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
             context="CI - {name}".format(name=platform_name),
             target_url=url_for('test.by_id', test_id=test_id, _external=True)
         )
-        return "Blocked User!"
+        return "Blocked User!"  # https://www.youtube.com/watch?v=AOHy4Ca9bkw
 
 
     if test_type == TestType.pull_request:

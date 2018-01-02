@@ -556,12 +556,12 @@ def start_ci():
         elif event == "pull_request":
             # Check if user blacklisted
             if BlockedUsers.query.filter(BlockedUsers.userID == payload[
-                   'pull_request']['user']['id']).first():
+                   'pull_request']['user']['id']).first() is not None:
                 log.critical("User Blacklisted")
                 gh_commit.post(
                     state=Status.ERROR,
                     description="CI start aborted. You may be blocked from accesing this functionality",
-                    target_url=url_for(@mod_ci.route('/'), _external=True)
+                    target_url=url_for('home.index', _external=True)
                     )
                 return 'ERROR'
             # If it's a valid PR, run the tests

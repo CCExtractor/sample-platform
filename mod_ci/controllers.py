@@ -445,8 +445,23 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
 
 def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     """
-    Function to store test details into Test model separately for various
-    vm. Post status to GitHub
+    Function to store test details into Test model separately for each platform.
+    Post status to GitHub.
+
+    :param db: Database connection.
+    :type db: sqlalchemy.orm.scoped_session
+    :param gh_commit: The GitHub API call for the commit. Can be None
+    :type gh_commit: Any
+    :param commit: The commit hash.
+    :type commit: str
+    :param test_type: The type of test
+    :type test_type: TestType
+    :param branch: Branch name
+    :type branch: str
+    :param pr_nr: Pull Request number, if applicable.
+    :type pr_nr: int
+    :return: Nothing
+    :rtype: None
     """
     from run import log
     fork = Fork.query.filter(Fork.github.like("%/CCExtractor/ccextractor.git")).first()

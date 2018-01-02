@@ -566,45 +566,43 @@ def start_ci():
                     target_url=url_for('test.by_id', test_id=test_id, _external=True)
                     )
                 return 'ERROR'
-            else:
-                commit = ''
-                gh_commit = None
-                if payload['action'] in ['opened', 'synchronize']:
-                    try:
-                        commit = payload['pull_request']['head']['sha']
-                        gh_commit = repository.statuses(commit)
-                    except KeyError:
-                        g.log.critical("Didn't find a SHA value for a newly opened PR!")
-                        g.log.debug(payload)
-                elif payload['action'] == 'closed':
-                    g.log.debug('PR was closed, no after hash available')
+            commit = ''
+            gh_commit = None
+            if payload['action'] in ['opened', 'synchronize']:
+                try:
+                    commit = payload['pull_request']['head']['sha']
+                    gh_commit = repository.statuses(commit)
+                except KeyError:
+                    g.log.critical("Didn't find a SHA value for a newly opened PR!")
+                    g.log.debug(payload)
+            elif payload['action'] == 'closed':
+                g.log.debug('PR was closed, no after hash available')
 
-                pr_nr = payload['pull_request']['number']
-                if payload['action'] == 'opened':
-                    # Run initial tests
-                    queue_test(g.db, gh_commit, commit, TestType.pull_request, pr_nr=pr_nr)
-                elif payload['action'] == 'synchronize':
-                    # Run/queue a new test set
-                    queue_test(g.db, gh_commit, commit, TestType.pull_request, pr_nr=pr_nr)
-                elif payload['action'] == 'closed':
-                    # Cancel running queue
-                    tests = Test.query.filter(Test.pr_nr == pr_nr).all()
-                    for test in tests:
-                        # Add canceled status only if the test hasn't started yet
-                        if len(test.progress) > 0:
-                            continue
-                        progress = TestProgress(test.id, TestStatus.canceled, "PR closed", datetime.datetime.now())
-                        g.db.add(progress)
-                        repository.statuses(test.commit).post(
-                            state=Status.FAILURE,
-                            description="Tests canceled",
-                            context="CI - {name}".format(name=test.platform.value),
-                            target_url=url_for('test.by_id', test_id=test.id, _external=True)
-                        )
-                elif payload['action'] == 'reopened':
-                    # Run tests again
-                    queue_test(g.db, gh_commit, commit, TestType.pull_request, pr_nr=pr_nr)
-
+            pr_nr = payload['pull_request']['number']
+            if payload['action'] == 'opened':
+                # Run initial tests
+                queue_test(g.db, gh_commit, commit, TestType.pull_request, pr_nr=pr_nr)
+            elif payload['action'] == 'synchronize':
+                # Run/queue a new test set
+                queue_test(g.db, gh_commit, commit, TestType.pull_request, pr_nr=pr_nr)
+            elif payload['action'] == 'closed':
+                # Cancel running queue
+                tests = Test.query.filter(Test.pr_nr == pr_nr).all()
+                for test in tests:
+                    # Add canceled status only if the test hasn't started yet
+                    if len(test.progress) > 0:
+                        continue
+                    progress = TestProgress(test.id, TestStatus.canceled, "PR closed", datetime.datetime.now())
+                    g.db.add(progress)
+                    repository.statuses(test.commit).post(
+                        state=Status.FAILURE,
+                        description="Tests canceled",
+                        context="CI - {name}".format(name=test.platform.value),
+                        target_url=url_for('test.by_id', test_id=test.id, _external=True)
+                    )
+            elif payload['action'] == 'reopened':
+                # Run tests again
+                queue_test(g.db, gh_commit, commit, TestType.pull_request, pr_nr=pr_nr)    
         elif event == "issues":
             issue_data = payload['issue']
             issue = Issue.query.filter(Issue.issue_id == issue_data['number']).first()

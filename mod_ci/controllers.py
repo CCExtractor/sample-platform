@@ -499,7 +499,7 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
                 except ApiError as a:
                     log.critical('Could not post to GitHub! Response: {res}'.format(res=a.response))
 
-        # We wait for the cron to kick off the CI VM's
+     # We wait for the cron to kick off the CI VM's
     log.debug("Created tests, waiting for cron...")
 
 

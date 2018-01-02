@@ -442,7 +442,6 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         log.warn("[{platform}] Duplicate entry for {id}".format(
             platform=platform, id=test.id))
 
-
 def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     """
     Function to store test details into Test model for each platform, and post the status to GitHub.
@@ -509,8 +508,8 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
             except ApiError as a:
                 log.critical('Could not post to GitHub! Response: {res}'.format(res=a.response))
 
-    # We wait for the cron to kick off the CI VM's
-    log.debug("Created tests, waiting for cron...")
+      # We wait for the cron to kick off the CI VM's
+      log.debug("Created tests, waiting for cron...")
 
 
 @mod_ci.route('/start-ci', methods=['GET', 'POST'])

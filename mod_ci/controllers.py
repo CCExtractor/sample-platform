@@ -10,7 +10,7 @@ import json
 import os
 import shutil
 import sys
-import requets
+import requests
 import datetime
 
 from flask import Blueprint, request, abort, g, url_for, jsonify
@@ -62,7 +62,8 @@ def before_app_request():
         ]
     )
     if 'config' in g.menu_entries and 'entries' in config_entries:
-        g.menu_entries['config']['entries'] = config_entries['entries'] + g.menu_entries['config']['entries']
+        g.menu_entries['config']['entries'] = config_entries['entries'] + \
+            g.menu_entries['config']['entries']
     else:
         g.menu_entries['config'] = config_entries
 
@@ -462,9 +463,11 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     """
     from run import log
 
-    fork = Fork.query.filter(Fork.github.like("%/CCExtractor/ccextractor.git")).first()
+    fork = Fork.query.filter(Fork.github.like(
+        "%/CCExtractor/ccextractor.git")).first()
     fork_id = Test.query.filter(Test.fork_id == Fork.id).first()
-    githubapi  = requests.get("https://api.github.com/repos/ccextractor/ccextractor/pulls/{}".format())
+    githubapi = requests.get(
+        "https://api.github.com/repos/ccextractor/ccextractor/pulls/{}".format())
     userjson = json.loads(githubapi.body)
     user = userjson['user']['id']
 
@@ -472,13 +475,15 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
 
     if user == record_from_db.userID:
         log.critical("Error. User in Blacklist!")
-    else: 
+    else:
         if test_type == TestType.pull_request:
-            branch = "pull_request"    
+            branch = "pull_request"
 
-        linux_test = Test(TestPlatform.linux, test_type, fork.id, branch, commit, pr_nr)
+        linux_test = Test(TestPlatform.linux, test_type,
+                          fork.id, branch, commit, pr_nr)
         db.add(linux_test)
-        windows_test = Test(TestPlatform.windows, test_type, fork.id, branch, commit, pr_nr)
+        windows_test = Test(TestPlatform.windows, test_type,
+                            fork.id, branch, commit, pr_nr)
         db.add(windows_test)
         db.commit()
 
@@ -494,10 +499,12 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
                         state=Status.PENDING,
                         description="Tests queued",
                         context="CI - {name}".format(name=platform_name),
-                        target_url=url_for('test.by_id', test_id=test_id, _external=True)
+                        target_url=url_for(
+                            'test.by_id', test_id=test_id, _external=True)
                     )
                 except ApiError as a:
-                    log.critical('Could not post to GitHub! Response: {res}'.format(res=a.response))
+                    log.critical(
+                        'Could not post to GitHub! Response: {res}'.format(res=a.response))
 
      # We wait for the cron to kick off the CI VM's
     log.debug("Created tests, waiting for cron...")
@@ -526,17 +533,20 @@ def start_ci():
         x_hub_signature = request.headers.get('X-Hub-Signature')
 
         if not is_valid_signature(x_hub_signature, request.data, g.github['ci_key']):
-            g.log.warning('CI signature failed: {sig}'.format(sig=x_hub_signature))
+            g.log.warning('CI signature failed: {sig}'.format(
+                sig=x_hub_signature))
             abort(abort_code)
 
         payload = request.get_json()
 
         if payload is None:
-            g.log.warning('CI payload is empty: {payload}'.format(payload=payload))
+            g.log.warning(
+                'CI payload is empty: {payload}'.format(payload=payload))
             abort(abort_code)
 
         gh = GitHub(access_token=g.github['bot_token'])
-        repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
+        repository = gh.repos(g.github['repository_owner'])(
+            g.github['repository'])
 
         if event == "push":
             # If it's a push, and the 'after' hash is available, then it's a commit, so run the tests
@@ -545,20 +555,24 @@ def start_ci():
                 gh_commit = repository.statuses(commit)
                 # Update the db to the new last commit
                 ref = repository.git().refs('heads/master').get()
-                last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
+                last_commit = GeneralData.query.filter(
+                    GeneralData.key == 'last_commit').first()
                 for platform in TestPlatform.values():
                     commit_name = 'fetch_commit_' + platform
-                    fetch_commit = GeneralData.query.filter(GeneralData.key == commit_name).first()
+                    fetch_commit = GeneralData.query.filter(
+                        GeneralData.key == commit_name).first()
 
                     if fetch_commit is None:
-                        prev_commit = GeneralData(commit_name, last_commit.value)
+                        prev_commit = GeneralData(
+                            commit_name, last_commit.value)
                         g.db.add(prev_commit)
 
                 last_commit.value = ref['object']['sha']
                 g.db.commit()
                 queue_test(g.db, gh_commit, commit, TestType.commit)
             else:
-                g.log.warning('Unknown push type! Dumping payload for analysis')
+                g.log.warning(
+                    'Unknown push type! Dumping payload for analysis')
                 g.log.debug(payload)
 
         elif event == "pull_request":
@@ -570,7 +584,8 @@ def start_ci():
                     commit = payload['pull_request']['head']['sha']
                     gh_commit = repository.statuses(commit)
                 except KeyError:
-                    g.log.critical("Didn't find a SHA value for a newly opened PR!")
+                    g.log.critical(
+                        "Didn't find a SHA value for a newly opened PR!")
                     g.log.debug(payload)
             elif payload['action'] == 'closed':
                 g.log.debug('PR was closed, no after hash available')
@@ -578,10 +593,12 @@ def start_ci():
             pr_nr = payload['pull_request']['number']
             if payload['action'] == 'opened':
                 # Run initial tests
-                queue_test(g.db, gh_commit, commit, TestType.pull_request, pr_nr=pr_nr)
+                queue_test(g.db, gh_commit, commit,
+                           TestType.pull_request, pr_nr=pr_nr)
             elif payload['action'] == 'synchronize':
                 # Run/queue a new test set
-                queue_test(g.db, gh_commit, commit, TestType.pull_request, pr_nr=pr_nr)
+                queue_test(g.db, gh_commit, commit,
+                           TestType.pull_request, pr_nr=pr_nr)
             elif payload['action'] == 'closed':
                 # Cancel running queue
                 tests = Test.query.filter(Test.pr_nr == pr_nr).all()
@@ -589,21 +606,25 @@ def start_ci():
                     # Add canceled status only if the test hasn't started yet
                     if len(test.progress) > 0:
                         continue
-                    progress = TestProgress(test.id, TestStatus.canceled, "PR closed", datetime.datetime.now())
+                    progress = TestProgress(
+                        test.id, TestStatus.canceled, "PR closed", datetime.datetime.now())
                     g.db.add(progress)
                     repository.statuses(test.commit).post(
                         state=Status.FAILURE,
                         description="Tests canceled",
                         context="CI - {name}".format(name=test.platform.value),
-                        target_url=url_for('test.by_id', test_id=test.id, _external=True)
+                        target_url=url_for(
+                            'test.by_id', test_id=test.id, _external=True)
                     )
             elif payload['action'] == 'reopened':
                 # Run tests again
-                queue_test(g.db, gh_commit, commit, TestType.pull_request, pr_nr=pr_nr)
+                queue_test(g.db, gh_commit, commit,
+                           TestType.pull_request, pr_nr=pr_nr)
 
         elif event == "issues":
             issue_data = payload['issue']
-            issue = Issue.query.filter(Issue.issue_id == issue_data['number']).first()
+            issue = Issue.query.filter(
+                Issue.issue_id == issue_data['number']).first()
 
             if issue is not None:
                 issue.title = issue_data['title']
@@ -643,7 +664,8 @@ def progress_reporter(test_id, token):
                 message = request.form['message']
 
                 if len(test.progress) != 0:
-                    laststatus = TestStatus.progress_step(test.progress[-1].status)
+                    laststatus = TestStatus.progress_step(
+                        test.progress[-1].status)
 
                     if laststatus in [TestStatus.completed, TestStatus.canceled]:
                         return "FAIL"
@@ -657,13 +679,16 @@ def progress_reporter(test_id, token):
                 g.db.commit()
 
                 gh = GitHub(access_token=g.github['bot_token'])
-                repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
+                repository = gh.repos(g.github['repository_owner'])(
+                    g.github['repository'])
                 # Store the test commit for testing in case of commit
                 if status == TestStatus.completed:
                     commit_name = 'fetch_commit_' + test.platform.value
-                    commit = GeneralData.query.filter(GeneralData.key == commit_name).first()
+                    commit = GeneralData.query.filter(
+                        GeneralData.key == commit_name).first()
                     fetch_commit = Test.query.filter(
-                        and_(Test.commit == commit.value, Test.platform == test.platform)
+                        and_(Test.commit == commit.value,
+                             Test.platform == test.platform)
                     ).first()
 
                     if test.test_type == TestType.commit and test.id > fetch_commit.id:
@@ -672,21 +697,26 @@ def progress_reporter(test_id, token):
 
                 # If status is complete, remove the Kvm entry
                 if status in [TestStatus.completed, TestStatus.canceled]:
-                    log.debug("Test {id} has been {status}".format(id=test_id, status=status))
+                    log.debug("Test {id} has been {status}".format(
+                        id=test_id, status=status))
                     var_average = 'average_time_' + test.platform.value
-                    current_average = GeneralData.query.filter(GeneralData.key == var_average).first()
+                    current_average = GeneralData.query.filter(
+                        GeneralData.key == var_average).first()
                     average_time = 0
                     total_time = 0
 
                     if current_average is None:
-                        platform_tests = g.db.query(Test.id).filter(Test.platform == test.platform).subquery()
+                        platform_tests = g.db.query(Test.id).filter(
+                            Test.platform == test.platform).subquery()
                         finished_tests = g.db.query(TestProgress.test_id).filter(
                             and_(
-                                TestProgress.status.in_([TestStatus.canceled, TestStatus.completed]),
+                                TestProgress.status.in_(
+                                    [TestStatus.canceled, TestStatus.completed]),
                                 TestProgress.test_id.in_(platform_tests)
                             )
                         ).subquery()
-                        in_progress_statuses = [TestStatus.preparation, TestStatus.completed, TestStatus.canceled]
+                        in_progress_statuses = [
+                            TestStatus.preparation, TestStatus.completed, TestStatus.canceled]
                         finished_tests_progress = g.db.query(TestProgress).filter(
                             and_(
                                 TestProgress.test_id.in_(finished_tests),
@@ -695,13 +725,16 @@ def progress_reporter(test_id, token):
                         ).subquery()
                         times = g.db.query(
                             finished_tests_progress.c.test_id,
-                            label('time', func.group_concat(finished_tests_progress.c.timestamp))
+                            label('time', func.group_concat(
+                                finished_tests_progress.c.timestamp))
                         ).group_by(finished_tests_progress.c.test_id).all()
 
                         for p in times:
                             parts = p.time.split(',')
-                            start = datetime.datetime.strptime(parts[0], '%Y-%m-%d %H:%M:%S')
-                            end = datetime.datetime.strptime(parts[-1], '%Y-%m-%d %H:%M:%S')
+                            start = datetime.datetime.strptime(
+                                parts[0], '%Y-%m-%d %H:%M:%S')
+                            end = datetime.datetime.strptime(
+                                parts[-1], '%Y-%m-%d %H:%M:%S')
                             total_time += (end - start).total_seconds()
 
                         if len(times) != 0:
@@ -715,7 +748,8 @@ def progress_reporter(test_id, token):
                         all_results = TestResult.query.count()
                         regression_test_count = RegressionTest.query.count()
                         number_test = all_results / regression_test_count
-                        updated_average = float(current_average.value) * (number_test - 1)
+                        updated_average = float(
+                            current_average.value) * (number_test - 1)
                         pr = test.progress_data()
                         end_time = pr['end']
                         start_time = pr['start']
@@ -740,7 +774,8 @@ def progress_reporter(test_id, token):
 
                 # Post status update
                 state = Status.PENDING
-                target_url = url_for('test.by_id', test_id=test.id, _external=True)
+                target_url = url_for(
+                    'test.by_id', test_id=test.id, _external=True)
                 context = "CI - {name}".format(name=test.platform.value)
 
                 if status == TestStatus.canceled:
@@ -764,7 +799,8 @@ def progress_reporter(test_id, token):
                     results = g.db.query(count(TestResultFile.got)).filter(
                         and_(
                             TestResultFile.test_id == test.id,
-                            TestResultFile.regression_test_id.in_(results_zero_rc),
+                            TestResultFile.regression_test_id.in_(
+                                results_zero_rc),
                             TestResultFile.got.isnot(None)
                         )
                     ).scalar()
@@ -783,26 +819,32 @@ def progress_reporter(test_id, token):
 
                 gh_commit = repository.statuses(test.commit)
                 try:
-                    gh_commit.post(state=state, description=message, context=context, target_url=target_url)
+                    gh_commit.post(state=state, description=message,
+                                   context=context, target_url=target_url)
                 except ApiError as a:
-                    log.error('Got an exception while posting to GitHub! Message: {message}'.format(message=a.message))
+                    log.error('Got an exception while posting to GitHub! Message: {message}'.format(
+                        message=a.message))
 
                 if status in [TestStatus.completed, TestStatus.canceled]:
                     # Start next test if necessary, on the same platform
-                    process = Process(target=start_platform, args=(g.db, repository, 60))
+                    process = Process(target=start_platform,
+                                      args=(g.db, repository, 60))
                     process.start()
 
             elif request.form['type'] == 'equality':
                 log.debug('Equality for {t}/{rt}/{rto}'.format(
                     t=test_id, rt=request.form['test_id'], rto=request.form['test_file_id'])
                 )
-                rto = RegressionTestOutput.query.filter(RegressionTestOutput.id == request.form['test_file_id']).first()
+                rto = RegressionTestOutput.query.filter(
+                    RegressionTestOutput.id == request.form['test_file_id']).first()
 
                 if rto is None:
                     # Equality posted on a file that's ignored presumably
-                    log.info('No rto for {test_id}: {test}'.format(test_id=test_id, test=request.form['test_id']))
+                    log.info('No rto for {test_id}: {test}'.format(
+                        test_id=test_id, test=request.form['test_id']))
                 else:
-                    result_file = TestResultFile(test.id, request.form['test_id'], rto.id, rto.correct)
+                    result_file = TestResultFile(
+                        test.id, request.form['test_id'], rto.id, rto.correct)
                     g.db.add(result_file)
                     g.db.commit()
 
@@ -815,10 +857,12 @@ def progress_reporter(test_id, token):
                     if filename is '':
                         return 'EMPTY'
 
-                    temp_path = os.path.join(repo_folder, 'TempFiles', filename)
+                    temp_path = os.path.join(
+                        repo_folder, 'TempFiles', filename)
                     # Save to temporary location
                     uploaded_file.save(temp_path)
-                    final_path = os.path.join(repo_folder, 'LogFiles', '{id}{ext}'.format(id=test.id, ext='.txt'))
+                    final_path = os.path.join(
+                        repo_folder, 'LogFiles', '{id}{ext}'.format(id=test.id, ext='.txt'))
 
                     os.rename(temp_path, final_path)
                     log.debug("Stored log file")
@@ -833,7 +877,8 @@ def progress_reporter(test_id, token):
                     filename = secure_filename(uploaded_file.filename)
                     if filename is '':
                         return 'EMPTY'
-                    temp_path = os.path.join(repo_folder, 'TempFiles', filename)
+                    temp_path = os.path.join(
+                        repo_folder, 'TempFiles', filename)
                     # Save to temporary location
                     uploaded_file.save(temp_path)
                     # Get hash and check if it's already been submitted
@@ -844,18 +889,22 @@ def progress_reporter(test_id, token):
                     file_hash = hash_sha256.hexdigest()
                     filename, file_extension = os.path.splitext(filename)
                     final_path = os.path.join(
-                        repo_folder, 'TestResults', '{hash}{ext}'.format(hash=file_hash, ext=file_extension)
+                        repo_folder, 'TestResults', '{hash}{ext}'.format(
+                            hash=file_hash, ext=file_extension)
                     )
                     os.rename(temp_path, final_path)
                     rto = RegressionTestOutput.query.filter(
                         RegressionTestOutput.id == request.form['test_file_id']).first()
-                    result_file = TestResultFile(test.id, request.form['test_id'], rto.id, rto.correct, file_hash)
+                    result_file = TestResultFile(
+                        test.id, request.form['test_id'], rto.id, rto.correct, file_hash)
                     g.db.add(result_file)
                     g.db.commit()
 
             elif request.form['type'] == 'finish':
-                log.debug('Finish for {t}/{rt}'.format(t=test_id, rt=request.form['test_id']))
-                regression_test = RegressionTest.query.filter(RegressionTest.id == request.form['test_id']).first()
+                log.debug(
+                    'Finish for {t}/{rt}'.format(t=test_id, rt=request.form['test_id']))
+                regression_test = RegressionTest.query.filter(
+                    RegressionTest.id == request.form['test_id']).first()
                 result = TestResult(
                     test.id, regression_test.id, request.form['runTime'],
                     request.form['exitCode'], regression_test.expected_rc
@@ -864,7 +913,8 @@ def progress_reporter(test_id, token):
                 try:
                     g.db.commit()
                 except IntegrityError as e:
-                    log.error('Could not save the results: {msg}'.format(msg=e.message))
+                    log.error(
+                        'Could not save the results: {msg}'.format(msg=e.message))
 
             return "OK"
 
@@ -889,7 +939,8 @@ def toggle_maintenance(platform, status):
     message = 'Platform Not found'
     try:
         platform = TestPlatform.from_string(platform)
-        db_mode = MaintenanceMode.query.filter(MaintenanceMode.platform == platform).first()
+        db_mode = MaintenanceMode.query.filter(
+            MaintenanceMode.platform == platform).first()
         if db_mode is not None:
             db_mode.disabled = status == 'True'
             g.db.commit()

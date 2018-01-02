@@ -558,6 +558,7 @@ def start_ci():
             if BlockedUsers.query.filter(BlockedUsers.userID == payload[
                    'pull_request']['user']['id']).first() is not None:
                 log.critical("User Blacklisted")
+                gh_commit = repository.statuses(commit)
                 gh_commit.post(
                     state=Status.ERROR,
                     description="CI start aborted. You may be blocked from accesing this functionality",

@@ -207,10 +207,10 @@ def upload():
 @template_renderer()
 def process_id(upload_id):
     """
-	Process the sample that is uploaded to the platform
-	
-	:param upload_id: The identity of uploaded file that will be processed
-	:type upload_id: str
+    Process the sample that is uploaded to the platform
+
+    :param upload_id: The identity of uploaded file that will be processed
+    :type upload_id: str
     :return: Process progress in form and queue the sample
     :rtype: str
 	"""

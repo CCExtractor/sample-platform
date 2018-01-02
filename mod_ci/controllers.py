@@ -561,8 +561,7 @@ def start_ci():
                 gh_commit.post(
                     state=Status.ERROR,
                     description="CI start aborted. You may be blocked from accesing this functionality",
-                    context="CI - {name}".format(name=platform_name),
-                    target_url=url_for('test.by_id', test_id=test_id, _external=True)
+                    target_url=url_for(@mod_ci.route('/'), _external=True)
                     )
                 return 'ERROR'
             # If it's a valid PR, run the tests

@@ -18,6 +18,7 @@ from mod_test.models import Test, TestProgress, TestResultFile, TestType
 from mod_home.models import GeneralData
 from mod_ci.models import Kvm
 from datetime import datetime
+import svgwrite
 mod_test = Blueprint('test', __name__)
 
 
@@ -283,3 +284,24 @@ def download_build_log_file(test_id):
         raise TestNotFoundException('Build log for Test {id} not found'.format(id=test_id))
 
     raise TestNotFoundException('Test with id {id} not found'.format(id=test_id))
+
+
+# Define a web page to be accessed
+@mod_test.route('/svg/latest/')
+def svgbadge():
+    dwg = svgwrite.Drawing('status.svg', profile='full', size=('66px','18px')) #  dimensions from circle ci
+    # Get the latest Test
+    commit = Test.filter(Test.test_type != TestType.pull_request).first()
+    # Check it's status
+    if commit.TestStatus == TestStatus.completed:
+        dwg.add(dwg.text('Passing', insert=(0, 0.2), fill='green'))
+        dwg.save()
+    elif commit.TestStatus == TestStatus.canceled:
+        dwg.add(dwg.text('Failing', insert=(0, 0.2), fill='red'))
+        dwg.save()
+    else:
+        dwg.add(dwg.text('Unknown', insert=(0, 0.2), fill='gray'))
+        dwg.save()
+    response = make_response(open("status.svg").read())
+    response.content_type = 'image/svg+xml'
+    return response

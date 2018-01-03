@@ -27,7 +27,7 @@ from pymysql.err import IntegrityError
 
 from decorators import template_renderer, get_menu_entries
 from mod_auth.controllers import login_required, check_access_rights
-from mod_ci.models import Kvm, MaintenanceMode
+from mod_ci.models import Kvm, MaintenanceMode, BlockedUsers
 from mod_deploy.controllers import request_from_github, is_valid_signature
 from mod_home.models import GeneralData
 from mod_regression.models import Category, RegressionTestOutput, \
@@ -554,7 +554,7 @@ def start_ci():
                 g.log.debug(payload)
 
         elif event == "pull_request":
-            # If it's a PR, run the tests
+            # If it's a valid PR, run the tests
             commit = ''
             gh_commit = None
             if payload['action'] in ['opened', 'synchronize']:
@@ -564,6 +564,17 @@ def start_ci():
                 except KeyError:
                     g.log.critical("Didn't find a SHA value for a newly opened PR!")
                     g.log.debug(payload)
+                # Check if user blacklisted
+                if BlockedUsers.query.filter(BlockedUsers.userID == payload[
+                    'pull_request']['user']['id']).first() is not None:
+                    log.critical("User Blacklisted")
+                    gh_commit.post(
+                        state=Status.ERROR,
+                        description="CI start aborted. You may be blocked from accessing this functionality",
+                        target_url=url_for('home.index', _external=True)
+                        )
+                    return 'ERROR'
+
             elif payload['action'] == 'closed':
                 g.log.debug('PR was closed, no after hash available')
 

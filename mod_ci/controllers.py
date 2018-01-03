@@ -484,15 +484,16 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     db.add(windows_test)
     db.commit()
 
-    if record_from_db is not None:
-        log.critical("Error. User in Blacklist!")
-        gh_commit.post(
-            state=Status.ERROR,
-            description="Tests cancelled! You may be blocked.",
-            context="CI - {name}".format(name=platform_name),
-            target_url=url_for('test.by_id', test_id=Test(test_id), _external=True)
-        )
-        return "Blocked User!"  # https://www.youtube.com/watch?v=AOHy4Ca9bkw
+    for platform_name, test_id in status_entries.items():
+        if record_from_db is not None:
+            log.critical("Error. User in Blacklist!")
+            gh_commit.post(
+                state=Status.ERROR,
+                description="Tests cancelled! You may be blocked.",
+                context="CI - {name}".format(name=platform_name),
+                target_url=url_for('test.by_id', test_id=test_id, _external=True)
+            )
+            return "Blocked User!"  # https://www.youtube.com/watch?v=AOHy4Ca9bkw
 
     # Update statuses on GitHub
     if gh_commit is not None:

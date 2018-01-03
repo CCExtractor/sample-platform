@@ -291,7 +291,7 @@ def download_build_log_file(test_id):
 def svgbadge():
     dwg = svgwrite.Drawing('status.svg', profile='full', size=('66px','18px')) #  dimensions from circle ci
     # Get the latest Test
-    commit = Test.filter(Test.test_type != TestType.pull_request).first()
+    commit = Test.query.filter(Test.test_type != TestType.pull_request).first()
     # Check it's status
     if commit.TestStatus == TestStatus.completed:
         dwg.add(dwg.text('Passing', insert=(0, 0.2), fill='green'))

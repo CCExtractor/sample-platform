@@ -62,6 +62,13 @@ def request_from_github(abort_code=418):
 
 
 def is_valid_signature(x_hub_signature, data, private_key):
+    """
+    Re-check if the GitHub hook request got valid signature.
+
+    :param x_hub_signature: Signature to check
+    :param data: Signature's data
+    :param private_key: Signature's token
+    """
     hash_algorithm, github_signature = x_hub_signature.split('=', 1)
     algorithm = hashlib.__dict__.get(hash_algorithm)
     mac = hmac.new(private_key, msg=data, digestmod=algorithm)
@@ -71,6 +78,9 @@ def is_valid_signature(x_hub_signature, data, private_key):
 @mod_deploy.route('/deploy', methods=['GET', 'POST'])
 @request_from_github()
 def deploy():
+    """
+    Deploy the GitHub request to the test platform
+    """
     from run import app
     if request.method != 'POST':
         return 'OK'

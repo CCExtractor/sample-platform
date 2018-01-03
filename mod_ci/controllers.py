@@ -497,7 +497,6 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
             linux_test.platform.value: linux_test.id,
             windows_test.platform.value: windows_test.id
         }
-
         for platform_name, test_id in status_entries.items():
             try:
                 gh_commit.post(

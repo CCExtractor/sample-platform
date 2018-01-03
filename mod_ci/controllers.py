@@ -570,7 +570,7 @@ def start_ci():
                     log.critical("User Blacklisted")
                     gh_commit.post(
                         state=Status.ERROR,
-                        description="CI start aborted. You may be blocked from accesing this functionality",
+                        description="CI start aborted. You may be blocked from accessing this functionality",
                         target_url=url_for('home.index', _external=True)
                         )
                     return 'ERROR'

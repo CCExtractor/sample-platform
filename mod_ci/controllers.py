@@ -574,7 +574,7 @@ def start_ci():
                 g.log.debug(payload)
 
         elif event == "pull_request":
-            # If it's a PR, run the tests
+            # If it's a valid PR, run the tests
             commit = ''
             gh_commit = None
             if payload['action'] in ['opened', 'synchronize']:
@@ -584,6 +584,17 @@ def start_ci():
                 except KeyError:
                     g.log.critical("Didn't find a SHA value for a newly opened PR!")
                     g.log.debug(payload)
+                # Check if user blacklisted
+                if BlockedUsers.query.filter(BlockedUsers.userID == payload[
+                    'pull_request']['user']['id']).first() is not None:
+                    log.critical("User Blacklisted")
+                    gh_commit.post(
+                        state=Status.ERROR,
+                        description="CI start aborted. You may be blocked from accessing this functionality",
+                        target_url=url_for('home.index', _external=True)
+                        )
+                    return 'ERROR'
+
             elif payload['action'] == 'closed':
                 g.log.debug('PR was closed, no after hash available')
 

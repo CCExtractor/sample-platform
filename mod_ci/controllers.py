@@ -493,13 +493,13 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
             target_url=url_for('test.by_id', test_id=Test(test_id), _external=True)
         )
         return "Blocked User!"  # https://www.youtube.com/watch?v=AOHy4Ca9bkw
-    
+
     # Update statuses on GitHub
     if gh_commit is not None:
         status_entries = {
             linux_test.platform.value: linux_test.id,
             windows_test.platform.value: windows_test.id
-        }  
+        }
         for platform_name, test_id in status_entries.items():
             try:
                 gh_commit.post(

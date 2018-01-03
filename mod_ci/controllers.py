@@ -465,22 +465,11 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     from run import log
 
     fork = Fork.query.filter(Fork.github.like("%/CCExtractor/ccextractor.git")).first()
-    githubapi = requests.get("https://api.github.com/repos/ccextractor/ccextractor/pulls/{pr}".format(pr=Test(pr_nr)))
+    githubapi = requests.get("https://api.github.com/repos/ccextractor/ccextractor/pulls/{pr}".format(pr=pr_nr))
     userjson = json.loads(githubapi.body)
     user = userjson['user']['id']
 
     record_from_db = BlockedUsers.query.filter_by(userID=user).first()
-
-    if user == record_from_db.userID:
-        log.critical("Error. User in Blacklist!")
-        gh_commit.post(
-            state=Status.ERROR,
-            description="Tests cancelled! You may be blocked.",
-            context="CI - {name}".format(name=platform_name),
-            target_url=url_for('test.by_id', test_id=test_id, _external=True)
-        )
-        return "Blocked User!"  # https://www.youtube.com/watch?v=AOHy4Ca9bkw
-
 
     if test_type == TestType.pull_request:
         branch = "pull_request"
@@ -490,6 +479,17 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     windows_test = Test(TestPlatform.windows, test_type, fork.id, branch, commit, pr_nr)
     db.add(windows_test)
     db.commit()
+
+    if user == record_from_db.userID is not None:
+        for platform_name, test_id in status_entries.items():
+            log.critical("Error. User in Blacklist!")
+            gh_commit.post(
+               state=Status.ERROR,
+               description="Tests cancelled! You may be blocked.",
+               context="CI - {name}".format(name=platform_name),
+               target_url=url_for('test.by_id', test_id=test_id, _external=True)
+               )
+            return "Blocked User!"  # https://www.youtube.com/watch?v=AOHy4Ca9bkw
 
     # Update statuses on GitHub
     if gh_commit is not None:

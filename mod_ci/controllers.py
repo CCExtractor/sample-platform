@@ -10,6 +10,7 @@ import json
 import os
 import shutil
 import sys
+import requests
 
 import datetime
 
@@ -464,15 +465,35 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     from run import log
 
     fork = Fork.query.filter(Fork.github.like("%/CCExtractor/ccextractor.git")).first()
+    github_apiurl = ""
+    userjson = ""
+    user = ""
 
     if test_type == TestType.pull_request:
         branch = "pull_request"
+        github_apiurl = "https://api.github.com/repos/ccextractor/ccextractor/pulls/{pr}".format(pr=pr_nr)
+        res_from_github = requests.get(github_apiurl)
+        userjson = json.loads(res_from_github.text)
+        user = userjson['user']['id']
+
+    record_from_db = BlockedUsers.query.filter(BlockedUsers.userID=user).first()
 
     linux_test = Test(TestPlatform.linux, test_type, fork.id, branch, commit, pr_nr)
     db.add(linux_test)
     windows_test = Test(TestPlatform.windows, test_type, fork.id, branch, commit, pr_nr)
     db.add(windows_test)
     db.commit()
+
+    for platform_name, test_id in status_entries.items():
+        if record_from_db is not None:
+            log.critical("Error. User in Blacklist!")
+            gh_commit.post(
+                state=Status.ERROR,
+                description="Tests cancelled! You may be blocked.",
+                context="CI - {name}".format(name=platform_name),
+                target_url=url_for('test.by_id', test_id=test_id, _external=True)
+            )
+            return "Blocked User!"  # https://www.youtube.com/watch?v=AOHy4Ca9bkw
 
     # Update statuses on GitHub
     if gh_commit is not None:

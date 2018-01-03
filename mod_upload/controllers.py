@@ -206,6 +206,14 @@ def upload():
 @login_required
 @template_renderer()
 def process_id(upload_id):
+    """
+    Process the sample that is uploaded to the platform
+
+    :param upload_id: The identity of uploaded file that will be processed
+    :type upload_id: str
+    :return: Process progress in form and queue the sample
+    :rtype: str
+    """
     from run import config, log
     # Fetch upload id
     queued_sample = QueuedSample.query.filter(QueuedSample.id == upload_id).first()

@@ -442,6 +442,24 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
             platform=platform, id=test.id))
 
 
+def ci_badge(state):
+    if test_type != TestType.pull_request:
+        if state == Status.SUCCESS:
+            with open('../static/badges/Test-Passed-brightgreen.svg',
+                      'r') as svg:
+                return svg.read()
+        elif state == Status.FAILURE:
+            with open('../static/badges/Test-Failed-red.svg',
+                      'r') as svg:
+                return svg.read()
+        else:
+            with open('../static/badges/Test-Canceled-lightgrey.svg',
+                      'r') as svg:
+                return svg.read()
+    else:
+        return
+
+
 def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     """
     Function to store test details into Test model for each platform, and post the status to GitHub.
@@ -510,6 +528,7 @@ def start_ci():
         return 'OK'
     else:
         abort_code = 418
+        return
 
         event = request.headers.get('X-GitHub-Event')
         if event == "ping":
@@ -738,6 +757,7 @@ def progress_reporter(test_id, token):
                 if status == TestStatus.canceled:
                     state = Status.ERROR
                     message = 'Tests aborted due to an error; please check'
+                    ci_badge(state)
 
                 elif status == TestStatus.completed:
                     # Determine if success or failure
@@ -766,10 +786,11 @@ def progress_reporter(test_id, token):
                     if crashes > 0 or results > 0:
                         state = Status.FAILURE
                         message = 'Not all tests completed successfully, please check'
+                        ci_badge(state)
                     else:
                         state = Status.SUCCESS
                         message = 'Tests completed'
-
+                        ci_badge(state)
                 else:
                     message = progress.message
 

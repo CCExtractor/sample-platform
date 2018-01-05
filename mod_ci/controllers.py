@@ -630,7 +630,7 @@ def check_status_for_badge(status):
             dwg.add(dwg.text('Failing', insert=(0, 0.2), fill='red'))
         else:
             dwg.add(dwg.text('Unknown', insert=(0, 0.2), fill='gray'))
-        dwg.save()  # Couldn't give it an external path it saved it in the local directory...     
+        dwg.save()  # Couldn't give it an external path it saved it in the local directory...
         shutil.move('status.svg', '../static/status.svg')
 
 @mod_ci.route('/progress-reporter/<test_id>/<token>', methods=['POST'])

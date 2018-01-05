@@ -10,6 +10,7 @@ import json
 import os
 import shutil
 import sys
+import svgwrite
 
 import datetime
 
@@ -777,12 +778,20 @@ def progress_reporter(test_id, token):
                     if crashes > 0 or results > 0:
                         state = Status.FAILURE
                         message = 'Not all tests completed successfully, please check'
+                        if test.test_type != test.pull_request:
+                            dwg = svgwrite.Drawing('status.svg', profile='full')
+                            dwg.add(dwg.text('Failing', insert=(0, 0.2), fill='red'))
+                            dwg.save()
+
                     else:
                         state = Status.SUCCESS
                         message = 'Tests completed'
-
+                        if test.test_type != test.pull_request:
+                            dwg = svgwrite.Drawing()
+                            dwg.add(dwg.text('Passing', insert=(0, 0.2), fill='green'))
+                            dwg.save()
                 else:
-                    message = progress.message
+                    message = progress.message:
 
                 gh_commit = repository.statuses(test.commit)
                 try:

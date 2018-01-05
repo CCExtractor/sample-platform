@@ -64,7 +64,7 @@ applications that use the port.
 **Note : Do not forget to do `service nginx reload` and 
 `service platform start` after making any changes to the nginx configuration
 or platform configuration.**
-* SSL is a required. If the platform runs on a publicly accessible server, 
+* SSL is required. If the platform runs on a publicly accessible server, 
 it's **recommended** to use a valid certificate. 
 [Let's Encrypt](https://letsencrypt.org/) offers free certificates. For local
 testing, a self-signed certificate can be enough.

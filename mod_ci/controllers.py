@@ -884,6 +884,29 @@ def show_maintenance():
     }
 
 
+@mod_ci.route('/blocked_users')
+@login_required
+@check_access_rights([Role.admin])
+@template_renderer('ci/blocked_users.html')
+def show_maintenance():
+    return {
+        'Blocked Users': BlockedUsers.query.all()
+    }
+
+
+@template_renderer()
+def add_user_to_blacklist(userID):
+    blocked_user = BlockedUsers.query.filter_by(userID=userID).first()
+    if blocked_user is not None:
+        flash('User already blocked.', 'error-message')
+        return redirect(url_for('/blocked_users'))
+    form = AddUsersToBlacklist()
+    if form.validate_on_submit():
+        blocked_user = BlockedUsers(form.userID.data)
+        g.db.add(blocked_user)
+        g.db.commit()
+
+
 @mod_ci.route('/toggle_maintenance/<platform>/<status>')
 @login_required
 @check_access_rights([Role.admin])

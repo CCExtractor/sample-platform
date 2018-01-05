@@ -283,11 +283,3 @@ def download_build_log_file(test_id):
         raise TestNotFoundException('Build log for Test {id} not found'.format(id=test_id))
 
     raise TestNotFoundException('Test with id {id} not found'.format(id=test_id))
-
-
-# Define a web page to be accessed
-@mod_test.route('/svg/latest/')
-def svgbadge():
-    response = make_response(open("../static/svg/status.svg").read())
-    response.content_type = 'image/svg+xml'
-    return response

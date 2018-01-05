@@ -621,6 +621,18 @@ def start_ci():
         return json.dumps({'msg': 'EOL'})
 
 
+def check_status_for_badge(status):
+    if test.test_type != test.pull_request:
+        dwg = svgwrite.Drawing('status.svg', profile='full')
+        if status == Status.SUCCESS:
+            dwg.add(dwg.text('Passing', insert=(0, 0.2), fill='green'))
+        elif status == Status.FAILURE:
+            dwg.add(dwg.text('Failing', insert=(0, 0.2), fill='red'))         
+        else:
+            dwg.add(dwg.text('Unknown', insert=(0, 0.2), fill='gray'))
+        dwg.save() #  Couldn't give it an external path it saved it in the local directory...                  
+        shutil.move('status.svg', '../static/status.svg')
+
 @mod_ci.route('/progress-reporter/<test_id>/<token>', methods=['POST'])
 def progress_reporter(test_id, token):
     """
@@ -778,20 +790,14 @@ def progress_reporter(test_id, token):
                     if crashes > 0 or results > 0:
                         state = Status.FAILURE
                         message = 'Not all tests completed successfully, please check'
-                        if test.test_type != test.pull_request:
-                            dwg = svgwrite.Drawing('status.svg', profile='full')
-                            dwg.add(dwg.text('Failing', insert=(0, 0.2), fill='red'))
-                            dwg.save()
+                        check_status_for_badge(state)
 
                     else:
                         state = Status.SUCCESS
                         message = 'Tests completed'
-                        if test.test_type != test.pull_request:
-                            dwg = svgwrite.Drawing()
-                            dwg.add(dwg.text('Passing', insert=(0, 0.2), fill='green'))
-                            dwg.save()
+                        check_status_for_badge(state)
                 else:
-                    message = progress.message:
+                    message = progress.message
 
                 gh_commit = repository.statuses(test.commit)
                 try:

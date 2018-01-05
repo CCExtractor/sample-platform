@@ -433,7 +433,7 @@ def users():
 def user(uid):
     from mod_upload.models import Upload
     # Only give access if the uid matches the user, or if the user is an admin
-    if g.user.id == uid or g.user.role == Role.admin:
+    if g.user.id == int(uid) or g.user.role == Role.admin:
         usr = User.query.filter_by(id=uid).first()
         if usr is not None:
             uploads = Upload.query.filter(Upload.user_id == usr.id).all()
@@ -452,7 +452,7 @@ def user(uid):
 @template_renderer()
 def reset_user(uid):
     # Only give access if the uid matches the user, or if the user is an admin
-    if g.user.id == uid or g.user.role == Role.admin:
+    if g.user.id == int(uid) or g.user.role == Role.admin:
         usr = User.query.filter_by(id=uid).first()
         if usr is not None:
             send_reset_email(usr)
@@ -491,7 +491,7 @@ def role(uid):
 @template_renderer()
 def deactivate(uid):
     # Only give access if the uid matches the user, or if the user is an admin
-    if g.user.id == uid or g.user.role == Role.admin:
+    if g.user.id == int(uid) or g.user.role == Role.admin:
         usr = User.query.filter_by(id=uid).first()
         if usr is not None:
             form = DeactivationForm(request.form)

@@ -32,12 +32,10 @@ from mod_ci.models import Kvm, MaintenanceMode, BlockedUsers
 from mod_ci.forms import AddUsersToBlacklist, RemoveUsersFromBlacklist
 from mod_deploy.controllers import request_from_github, is_valid_signature
 from mod_home.models import GeneralData
-from mod_regression.models import Category, RegressionTestOutput, \
-    RegressionTest
+from mod_regression.models import Category, RegressionTestOutput, RegressionTest
 from mod_auth.models import Role
 from mod_sample.models import Issue
-from mod_test.models import TestType, Test, TestStatus, TestProgress, Fork, \
-    TestPlatform, TestResultFile, TestResult
+from mod_test.models import TestType, Test, TestStatus, TestProgress, Fork, TestPlatform, TestResultFile, TestResult
 
 if sys.platform.startswith("linux"):
     import libvirt
@@ -71,34 +69,36 @@ def before_app_request():
 
 def start_platform(db, repository, delay=None):
     """
-        Function to check whether there is already running test for
-        which it check the kvm progress and if no running test then
-        it start a new test.
+    Function to check whether there is already running test for which it check the kvm progress and if no running test
+    then it start a new test.
     """
     from run import log, config
+
     linux_kvm_name = config.get('KVM_LINUX_NAME', '')
     win_kvm_name = config.get('KVM_WINDOWS_NAME', '')
     kvm_test = Kvm.query.first()
+
     if kvm_test is None:
         start_new_test(db, repository, delay)
     elif kvm_test.name is linux_kvm_name:
         kvm_processor_linux(db, repository, delay)
     elif kvm_test.name is win_kvm_name:
         kvm_processor_windows(db, repository, delay)
+
     return
 
 
 def start_new_test(db, repository, delay):
     """
-        Function to start a new test based on kvm table.
+    Function to start a new test based on kvm table.
     """
     from run import log
+
     finished_tests = db.query(TestProgress.test_id).filter(
         TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
     ).subquery()
-    test = Test.query.filter(
-        and_(Test.id.notin_(finished_tests))
-    ).order_by(Test.id.asc()).first()
+    test = Test.query.filter(and_(Test.id.notin_(finished_tests))).order_by(Test.id.asc()).first()
+
     if test is None:
         return
     elif test.platform is TestPlatform.windows:
@@ -106,23 +106,21 @@ def start_new_test(db, repository, delay):
     elif test.platform is TestPlatform.linux:
         kvm_processor_linux(db, repository, delay)
     else:
-        log.error("Unsupported CI platform: {platform}".format(
-            platform=test.platform))
+        log.error("Unsupported CI platform: {platform}".format(platform=test.platform))
+
     return
 
 
 def kvm_processor_linux(db, repository, delay):
     from run import config
     kvm_name = config.get('KVM_LINUX_NAME', '')
-    return kvm_processor(
-        db, kvm_name, TestPlatform.linux, repository, delay)
+    return kvm_processor(db, kvm_name, TestPlatform.linux, repository, delay)
 
 
 def kvm_processor_windows(db, repository, delay):
     from run import config
     kvm_name = config.get('KVM_WINDOWS_NAME', '')
-    return kvm_processor(
-        db, kvm_name, TestPlatform.windows, repository, delay)
+    return kvm_processor(db, kvm_name, TestPlatform.windows, repository, delay)
 
 
 def kvm_processor(db, kvm_name, platform, repository, delay):
@@ -134,73 +132,71 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     Creates clone with seperate branch and merge pr into it.
     """
     from run import config, log, app
+
     log.info("[{platform}] Running kvm_processor".format(platform=platform))
     if kvm_name == "":
         log.critical('[{platform}] KVM name is empty!')
         return
+
     if delay is not None:
         import time
-        log.debug('[{platform}] Sleeping for {time} seconds'.format(
-            platform=platform, time=delay))
+        log.debug('[{platform}] Sleeping for {time} seconds'.format(platform=platform, time=delay))
         time.sleep(delay)
-    maintenance_mode = MaintenanceMode.query.filter(
-        MaintenanceMode.platform == platform).first()
+
+    maintenance_mode = MaintenanceMode.query.filter(MaintenanceMode.platform == platform).first()
+
     if maintenance_mode is not None and maintenance_mode.disabled:
+        log.debug('[{platform}] In maintenance mode! Waiting...').format(platform=platform)
         return
 
     # Open connection to libvirt
     conn = libvirt.open("qemu:///system")
     if conn is None:
-        log.critical("[{platform}] Couldn't open connection to "
-                     "libvirt!".format(platform=platform))
+        log.critical("[{platform}] Couldn't open connection to libvirt!".format(platform=platform))
         return
+
     try:
         vm = conn.lookupByName(kvm_name)
     except libvirt.libvirtError:
-        log.critical("[{platform}] No VM named {name} found!".format(
-            platform=platform, name=kvm_name))
+        log.critical("[{platform}] No VM named {name} found!".format(platform=platform, name=kvm_name))
         return
+
     vm_info = vm.info()
     if vm_info[0] != libvirt.VIR_DOMAIN_SHUTOFF:
         # Running, check expiry (2 hours runtime max)
         status = Kvm.query.filter(Kvm.name == kvm_name).first()
         max_runtime = config.get("KVM_MAX_RUNTIME", 120)
         if status is not None:
-            if datetime.datetime.now() - status.timestamp >= \
-                    datetime.timedelta(minutes=max_runtime):
+            if datetime.datetime.now() - status.timestamp >= datetime.timedelta(minutes=max_runtime):
                 # Mark entry as aborted
-                test_progress = TestProgress(
-                    status.test.id, TestStatus.canceled, 'Runtime exceeded')
+                test_progress = TestProgress(status.test.id, TestStatus.canceled, 'Runtime exceeded')
                 db.add(test_progress)
                 db.delete(status)
                 db.commit()
+
                 # Abort process
                 if vm.destroy() == -1:
                     # Failed to shut down
-                    log.critical(
-                        "[{platform}] Failed to shut down {name}".format(
-                            platform=platform, name=kvm_name))
+                    log.critical("[{platform}] Failed to shut down {name}".format(platform=platform, name=kvm_name))
                     return
             else:
-                log.info("[{platform}] Current job not expired "
-                         "yet.".format(platform=platform))
+                log.info("[{platform}] Current job not expired yet.".format(platform=platform))
                 return
         else:
-            log.warn("[{platform}] No task, but VM is running! Hard reset "
-                     "necessary".format(platform=platform))
+            log.warn("[{platform}] No task, but VM is running! Hard reset necessary".format(platform=platform))
             if vm.destroy() == -1:
                 # Failed to shut down
-                log.critical(
-                    "[{platform}] Failed to shut down {name}".format(
-                        platform=platform, name=kvm_name))
+                log.critical("[{platform}] Failed to shut down {name}".format(platform=platform, name=kvm_name))
                 return
+
     # Check if there's no KVM status left
     status = Kvm.query.filter(Kvm.name == kvm_name).first()
     if status is not None:
-        log.warn("[{platform}] KVM is powered off, but test {id} still "
-                 "present".format(platform=platform, id=status.test.id))
+        log.warn("[{platform}] KVM is powered off, but test {id} still present".format(
+            platform=platform, id=status.test.id))
         db.delete(status)
         db.commit()
+
     # Get oldest test for this platform
     finished_tests = db.query(TestProgress.test_id).filter(
         TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
@@ -208,190 +204,169 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     test = Test.query.filter(
         and_(Test.id.notin_(finished_tests), Test.platform == platform)
     ).order_by(Test.id.asc()).first()
+
     if test is None:
-        log.info('[{platform}] No more tests to run, returning'.format(
-            platform=platform))
+        log.info('[{platform}] No more tests to run, returning'.format(platform=platform))
         return
+
     if test.test_type == TestType.pull_request and test.pr_nr == 0:
-        log.warn('[{platform}] Test {id} is invalid, deleting'.format(
-            platform=platform, id=test.id)
-        )
+        log.warn('[{platform}] Test {id} is invalid, deleting'.format(platform=platform, id=test.id))
         db.delete(test)
         db.commit()
         return
+
     # Reset to snapshot
     if vm.hasCurrentSnapshot() != 1:
-        log.critical(
-            "[{platform}] VM {name} has no current snapshot set!".format(
-                platform=platform, name=kvm_name
-            )
-        )
+        log.critical("[{platform}] VM {name} has no current snapshot set!".format(platform=platform, name=kvm_name))
         return
+
     snapshot = vm.snapshotCurrent()
     if vm.revertToSnapshot(snapshot) == -1:
-        log.critical(
-            "[{platform}] Failed to revert to {snapshot} for {name}".format(
-                platform=platform,
-                snapshot=snapshot.getName(),
-                name=kvm_name
-            )
+        log.critical("[{platform}] Failed to revert to {snapshot} for {name}".format(
+            platform=platform, snapshot=snapshot.getName(), name=kvm_name)
         )
         return
-    log.info("[{platform}] Reverted to {snapshot} for {name}".format(
-        platform=platform, snapshot=snapshot.getName(), name=kvm_name))
+
+    log.info("[{p}] Reverted to {snap} for {name}".format(p=platform, snap=snapshot.getName(), name=kvm_name))
     log.debug('Starting test {id}'.format(id=test.id))
     status = Kvm(kvm_name, test.id)
     # Prepare data
     # 0) Write url to file
     with app.app_context():
-        full_url = url_for('ci.progress_reporter', test_id=test.id,
-                           token=test.token, _external=True, _scheme="https")
-    file_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''),
-                             'vm_data', kvm_name, 'reportURL')
+        full_url = url_for('ci.progress_reporter', test_id=test.id, token=test.token, _external=True, _scheme="https")
+
+    file_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', kvm_name, 'reportURL')
+
     with open(file_path, 'w') as f:
         f.write(full_url)
+
     # 1) Generate test files
-    base_folder = os.path.join(
-        config.get('SAMPLE_REPOSITORY', ''), 'vm_data', kvm_name, 'ci-tests')
+    base_folder = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', kvm_name, 'ci-tests')
     categories = Category.query.order_by(Category.id.desc()).all()
     commit_name = 'fetch_commit_' + platform.value
-    commit_hash = GeneralData.query.filter(
-        GeneralData.key == commit_name).first().value
-    last_commit = Test.query.filter(and_(Test.commit == commit_hash,
-                                         Test.platform == platform)).first()
+    commit_hash = GeneralData.query.filter(GeneralData.key == commit_name).first().value
+    last_commit = Test.query.filter(and_(Test.commit == commit_hash, Test.platform == platform)).first()
 
-    log.debug("[{platform}] We will compare against the results of test "
-              "{id}".format(platform=platform, id=last_commit.id))
+    log.debug("[{p}] We will compare against the results of test {id}".format(p=platform, id=last_commit.id))
 
     # Init collection file
     multi_test = etree.Element('multitest')
     for category in categories:
+        # Skip categories without tests
         if len(category.regression_tests) == 0:
-            # Skip categories without tests
             continue
         # Create XML file for test
         file_name = '{name}.xml'.format(name=category.name)
         single_test = etree.Element('tests')
         for regression_test in category.regression_tests:
-            entry = etree.SubElement(
-                single_test, 'entry', id=str(regression_test.id))
+            entry = etree.SubElement(single_test, 'entry', id=str(regression_test.id))
             command = etree.SubElement(entry, 'command')
             command.text = regression_test.command
-            input_node = etree.SubElement(
-                entry, 'input', type=regression_test.input_type.value)
-            # Need a path that is relative to the folder we provide
-            # inside the CI environment.
+            input_node = etree.SubElement(entry, 'input', type=regression_test.input_type.value)
+            # Need a path that is relative to the folder we provide inside the CI environment.
             input_node.text = regression_test.sample.filename
             output_node = etree.SubElement(entry, 'output')
             output_node.text = regression_test.output_type.value
             compare = etree.SubElement(entry, 'compare')
             last_files = TestResultFile.query.filter(and_(
                 TestResultFile.test_id == last_commit.id,
-                TestResultFile.regression_test_id ==
-                regression_test.id)).subquery()
+                TestResultFile.regression_test_id == regression_test.id
+            )).subquery()
+
             for output_file in regression_test.output_files:
-                file_node = etree.SubElement(
-                    compare, 'file',
-                    ignore='true' if output_file.ignore else 'false',
-                    id=str(output_file.id)
-                )
+                ignore_file = str(output_file.ignore).lower()
+                file_node = etree.SubElement(compare, 'file', ignore=ignore_file, id=str(output_file.id))
                 last_commit_files = db.query(last_files.c.got).filter(and_(
                     last_files.c.regression_test_output_id == output_file.id,
-                    last_files.c.got.isnot(None))).first()
+                    last_files.c.got.isnot(None)
+                )).first()
                 correct = etree.SubElement(file_node, 'correct')
-                # Need a path that is relative to the folder we provide
-                # inside the CI environment.
+                # Need a path that is relative to the folder we provide inside the CI environment.
                 if last_commit_files is None:
                     correct.text = output_file.filename_correct
                 else:
-                    correct.text = output_file.create_correct_filename(
-                        last_commit_files[0])
+                    correct.text = output_file.create_correct_filename(last_commit_files[0])
+
                 expected = etree.SubElement(file_node, 'expected')
-                expected.text = output_file.filename_expected(
-                    regression_test.sample.sha)
+                expected.text = output_file.filename_expected(regression_test.sample.sha)
+
         # Save XML
         single_test.getroottree().write(
-            os.path.join(base_folder, file_name),
-            encoding='utf-8', xml_declaration=True, pretty_print=True
+            os.path.join(base_folder, file_name), encoding='utf-8', xml_declaration=True, pretty_print=True
         )
         # Append to collection file
         test_file = etree.SubElement(multi_test, 'testfile')
         location = etree.SubElement(test_file, 'location')
         location.text = file_name
+
     # Save collection file
     multi_test.getroottree().write(
-        os.path.join(base_folder, 'TestAll.xml'),
-        encoding='utf-8', xml_declaration=True, pretty_print=True
+        os.path.join(base_folder, 'TestAll.xml'), encoding='utf-8', xml_declaration=True, pretty_print=True
     )
 
     # 2) Create git repo clone and merge PR into it (if necessary)
     try:
-        repo = Repo(os.path.join(
-            config.get('SAMPLE_REPOSITORY', ''), 'vm_data', kvm_name,
-                    'unsafe-ccextractor'))
+        repo = Repo(os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', kvm_name, 'unsafe-ccextractor'))
     except InvalidGitRepositoryError:
-        log.critical("[{platform}] Could not open CCExtractor's repository "
-                     "copy!".format(platform=platform))
+        log.critical("[{platform}] Could not open CCExtractor's repository copy!".format(platform=platform))
         return
+
     # Return to master
     repo.heads.master.checkout(True)
     # Update repository from upstream
     try:
         origin = repo.remote('origin')
     except ValueError:
-        log.critical('[{platform}] Origin remote doesn\'t exist!')
+        log.critical("[{platform}] Origin remote doesn't exist!".format(platform=platform))
         return
+
     fetch_info = origin.fetch()
     if len(fetch_info) == 0:
-        log.warn('[{platform}] No info fetched from remote!')
+        log.info('[{platform}] Fetch from remote returned no new data...'.format(platform=platform))
+
     # Pull code (finally)
     pull_info = origin.pull()
     if len(pull_info) == 0:
-        log.warn("[{platform}] Didn't pull any information from "
-                 "remote!".format(platform=platform))
+        log.info("[{platform}] Pull from remote returned no new data...".format(platform=platform))
 
     if pull_info[0].flags > 128:
-        log.critical(
-            "[{platform}] Didn't pull any information from remote: "
-            "{flags}!".format(platform=platform, flags=pull_info[0].flags)
-        )
+        log.critical("[{platform}] Didn't pull any information from remote: {flags}!".format(
+                platform=platform, flags=pull_info[0].flags))
         return
+
     # Delete the test branch if it exists, and recreate
     try:
         repo.delete_head('CI_Branch', force=True)
     except GitCommandError:
-        log.warn("[{platform}] Could not delete CI_Branch head".format(
-            platform=platform))
+        log.warn("[{platform}] Could not delete CI_Branch head".format(platform=platform))
+
     # Remove possible left rebase-apply directory
     try:
-        shutil.rmtree(os.path.join(
-            config.get('SAMPLE_REPOSITORY', ''), 'unsafe-ccextractor',
-            '.git', 'rebase-apply'))
+        shutil.rmtree(os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'unsafe-ccextractor', '.git', 'rebase-apply'))
     except OSError:
-        log.warn("[{platform}] Could not delete rebase-apply".format(
-            platform=platform))
+        log.warn("[{platform}] Could not delete rebase-apply".format(platform=platform))
+
     # If PR, merge, otherwise reset to commit
     if test.test_type == TestType.pull_request:
         # Fetch PR (stored under origin/pull/<id>/head
-        pull_info = origin.fetch('pull/{id}/head:CI_Branch'.format(
-            id=test.pr_nr))
+        pull_info = origin.fetch('pull/{id}/head:CI_Branch'.format(id=test.pr_nr))
         if len(pull_info) == 0:
-            log.warn("[{platform}] Didn't pull any information from remote "
-                     "PR!".format(platform=platform))
+            log.warn("[{platform}] Didn't pull any information from remote PR!".format(platform=platform))
 
         if pull_info[0].flags > 128:
-            log.critical(
-                "[{platform}] Didn't pull any information from remote PR: "
-                "{flags}!".format(platform=platform, flags=pull_info[0].flags)
-            )
+            log.critical("[{platform}] Didn't pull any information from remote PR: {flags}!".format(
+                platform=platform, flags=pull_info[0].flags))
             return
+
         try:
             test_branch = repo.heads['CI_Branch']
         except IndexError:
             log.critical('CI_Branch does not exist')
             return
-        # Check out branch
+
         test_branch.checkout(True)
+
+        # TODO: check what happens on merge conflicts
         # Rebase on master
         # try:
         #     repo.git.rebase('master')
@@ -419,29 +394,26 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         #         context=context, target_url=target_url)
         #     # Return, so next one can be handled
         #     return
-        # TODO: check what happens on merge conflicts
+
     else:
         test_branch = repo.create_head('CI_Branch', 'HEAD')
-        # Check out branch for test purposes
         test_branch.checkout(True)
         try:
             repo.head.reset(test.commit, working_tree=True)
         except GitCommandError:
-            log.warn("[{platform}] Commit {hash} for test {id} does not "
-                     "exist!".format(platform=platform, hash=test.commit,
-                                     id=test.id))
+            log.warn("[{platform}] Commit {hash} for test {id} does not exist!".format(
+                platform=platform, hash=test.commit, id=test.id))
             return
+
     # Power on machine
     try:
         vm.create()
         db.add(status)
         db.commit()
     except libvirt.libvirtError:
-        log.critical("[{platform}] Failed to launch VM {name}".format(
-            platform=platform, name=kvm_name))
+        log.critical("[{platform}] Failed to launch VM {name}".format(platform=platform, name=kvm_name))
     except IntegrityError:
-        log.warn("[{platform}] Duplicate entry for {id}".format(
-            platform=platform, id=test.id))
+        log.warn("[{platform}] Duplicate entry for {id}".format(platform=platform, id=test.id))
 
 
 def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
@@ -476,7 +448,6 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     db.add(windows_test)
     db.commit()
 
-    # Update statuses on GitHub
     if gh_commit is not None:
         status_entries = {
             linux_test.platform.value: linux_test.id,
@@ -493,7 +464,6 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
             except ApiError as a:
                 log.critical('Could not post to GitHub! Response: {res}'.format(res=a.response))
 
-    # We wait for the cron to kick off the CI VM's
     log.debug("Created tests, waiting for cron...")
 
 
@@ -559,35 +529,30 @@ def start_ci():
             # If it's a valid PR, run the tests
             commit = ''
             gh_commit = None
-            if payload['action'] in ['opened', 'synchronize']:
+            pr_nr = payload['pull_request']['number']
+            if payload['action'] in ['opened', 'synchronize', 'reopened']:
                 try:
                     commit = payload['pull_request']['head']['sha']
                     gh_commit = repository.statuses(commit)
                 except KeyError:
                     g.log.critical("Didn't find a SHA value for a newly opened PR!")
                     g.log.debug(payload)
+
                 # Check if user blacklisted
-                if BlockedUsers.query.filter(BlockedUsers.userID == payload['pull_request'][
-                        'user']['id']).first() is not None:
-                    g.log.critical("User Blacklisted")
+                if BlockedUsers.query.filter(BlockedUsers.userID == payload[
+                    'pull_request']['user']['id']).first() is not None:
+                    log.critical("User Blacklisted")
                     gh_commit.post(
                         state=Status.ERROR,
                         description="CI start aborted. You may be blocked from accessing this functionality",
                         target_url=url_for('home.index', _external=True)
-                        )
+                    )
                     return 'ERROR'
+
+                queue_test(g.db, gh_commit, commit, TestType.pull_request, pr_nr=pr_nr)
 
             elif payload['action'] == 'closed':
                 g.log.debug('PR was closed, no after hash available')
-
-            pr_nr = payload['pull_request']['number']
-            if payload['action'] == 'opened':
-                # Run initial tests
-                queue_test(g.db, gh_commit, commit, TestType.pull_request, pr_nr=pr_nr)
-            elif payload['action'] == 'synchronize':
-                # Run/queue a new test set
-                queue_test(g.db, gh_commit, commit, TestType.pull_request, pr_nr=pr_nr)
-            elif payload['action'] == 'closed':
                 # Cancel running queue
                 tests = Test.query.filter(Test.pr_nr == pr_nr).all()
                 for test in tests:
@@ -602,9 +567,6 @@ def start_ci():
                         context="CI - {name}".format(name=test.platform.value),
                         target_url=url_for('test.by_id', test_id=test.id, _external=True)
                     )
-            elif payload['action'] == 'reopened':
-                # Run tests again
-                queue_test(g.db, gh_commit, commit, TestType.pull_request, pr_nr=pr_nr)
 
         elif event == "issues":
             issue_data = payload['issue']
@@ -634,6 +596,7 @@ def update_build_badge(status, test):
             dwg.add(dwg.text('Failing', insert=(0, 0.2), fill='red'))
         else:
             dwg.add(dwg.text('Unknown', insert=(0, 0.2), fill='gray'))
+
         dwg.save()
 
 
@@ -975,11 +938,11 @@ def in_maintenance_mode(platform):
     except ValueError:
         return 'ERROR'
 
-    status = MaintenanceMode.query.filter(
-        MaintenanceMode.platform == platform).first()
+    status = MaintenanceMode.query.filter(MaintenanceMode.platform == platform).first()
+
     if status is None:
         status = MaintenanceMode(platform, False)
         g.db.add(status)
         g.db.commit()
 
-    return "True" if status.disabled else "False"
+    return str(status.disabled)

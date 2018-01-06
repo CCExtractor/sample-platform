@@ -635,7 +635,7 @@ def update_build_badge(status, test):
         parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         availableon = os.path.join(parent_dir, 'static', 'svg',
                                    'status-{platform}.svg'.format(platform=test.platform.value))
-        svglocation = os.path.join(parent_dir, 'static', 'img', 
+        svglocation = os.path.join(parent_dir, 'static', 'img',
                                    'status', 'status-{platform}.svg'.format(platform=test.platform.value))
         if status == Status.SUCCESS:
             svglocation.format(status="SUCCESS", platform=test.platform.value)

@@ -447,24 +447,24 @@ def ci_badge(status, platform, test_type, branch="master"):
         if platform is TestPlatform.linux:
             if status == Status.SUCCESS:
                 with open('../static/badges/Linux_success.svg', 'r') as svg:
-                pass
+                    pass
             elif status == Status.FAILURE:
                 with open('../static/badges/Linux_failed.svg', 'r') as svg:
-                pass
+                    pass
             else:
                 with open('../static/badges/Linux_error.svg', 'r') as svg:
-                pass
+                    pass
 
         else:
             if status == Status.SUCCESS:
                 with open('../static/badges/Windows_success.svg', 'r') as svg:
-                pass
+                    pass
             elif status == Status.FAILURE:
                 with open('../static/badges/Windows_failed.svg', 'r') as svg:
-                pass
+                    pass
             else:
                 with open('../static/badges/Windows_error.svg', 'r') as svg:
-                pass
+                    pass
             return
     else:
         return

@@ -621,8 +621,8 @@ def start_ci():
         return json.dumps({'msg': 'EOL'})
 
 
-def check_status_for_badge(status, test):
-    if test.test_type == TestType.pull_request:
+def update_build_badge(status, test):
+    if test.test_type == TestType.commit:
         dwg = svgwrite.Drawing(
             '../static/svg/status-{platform}.svg'.format(platform=test.platform.value), profile='full')
         if status == Status.SUCCESS:
@@ -791,12 +791,12 @@ def progress_reporter(test_id, token):
                     if crashes > 0 or results > 0:
                         state = Status.FAILURE
                         message = 'Not all tests completed successfully, please check'
-                        check_status_for_badge(state, test)
 
                     else:
                         state = Status.SUCCESS
                         message = 'Tests completed'
-                        check_status_for_badge(state, test)
+
+                    update_build_badge(state, test)
 
                 else:
                     message = progress.message

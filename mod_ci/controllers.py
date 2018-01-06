@@ -443,7 +443,8 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
 
 
 def ci_badge_windows(status, platform, test_type):
-    if test.platform is TestPlatform.windows:
+    platform = test.platform
+    if platform is TestPlatform.linux:
         if test_type == TestType.commit:
             if state == Status.SUCCESS:
                 with open('../static/badges/Windows_success.svg',
@@ -464,7 +465,8 @@ def ci_badge_windows(status, platform, test_type):
 
 
 def ci_badge_linux(status, platform, test_type):
-    if test.platform is TestPlatform.linux:
+    platform = test.platform
+    if platform is TestPlatform.linux:
         if test_type == TestType.commit:
             if state == Status.SUCCESS:
                 with open('../static/badges/Linux_success.svg',

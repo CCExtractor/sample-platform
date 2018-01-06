@@ -761,8 +761,7 @@ def progress_reporter(test_id, token):
                 if status == TestStatus.canceled:
                     state = Status.ERROR
                     message = 'Tests aborted due to an error; please check'
-                    ci_badge_linux(state, TestPlatform.linux, commit, master)
-                    ci_badge_windows(state, windows, commit, master)
+                    ci_badge(state, TestPlatform.linux, TestType.commit, master)
 
                 elif status == TestStatus.completed:
                     # Determine if success or failure
@@ -791,12 +790,12 @@ def progress_reporter(test_id, token):
                     if crashes > 0 or results > 0:
                         state = Status.FAILURE
                         message = 'Not all tests completed successfully, please check'
-                        ci_badge_linux(state, test.platform, commit, master)
+                        ci_badge_linux(state, test.platform, TestType.commit, master)
 
                     else:
                         state = Status.SUCCESS
                         message = 'Tests completed'
-                        ci_badge_linux(state, test.platform, commit, master)
+                        ci_badge_linux(state, test.platform, TestType.commit, master)
 
                 else:
                     message = progress.message

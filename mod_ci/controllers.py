@@ -622,10 +622,11 @@ def start_ci():
 
 
 def update_build_badge(status, test):
-    from run import app
     if test.test_type == TestType.commit:
-        save_to = os.path.join(app.static_url_path, 'svg', 'status-{platform}.svg'.format(platform=test.platform.value))
-        dwg = svgwrite.Drawing(save_to, profile='full')
+        parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        output = os.path.join(parent_dir, 'static', 'svg', 'status-{platform}.svg'.format(platform=test.platform.value))
+        dwg = svgwrite.Drawing(output, profile='full')
+
         if status == Status.SUCCESS:
             dwg.add(dwg.text('Passing', insert=(0, 0.2), fill='green'))
         elif status == Status.FAILURE:

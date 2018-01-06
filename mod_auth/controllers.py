@@ -514,4 +514,3 @@ def deactivate(uid):
         abort(404)
     else:
         abort(403, request.endpoint)
-

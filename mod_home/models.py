@@ -81,4 +81,3 @@ class GeneralData(Base):
         :rtype str(key,version): str
         """
         return '<GeneralData {key}: {value}>'.format(key=self.key, value=self.value)
-

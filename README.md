@@ -40,4 +40,3 @@ please send an email to ccextractor@canihavesome.coffee (GPG key
 fingerprint 53FF DE55 6DFC 27C3 C688 1A49 3AFD C9BF F864 3F5B) instead of 
 using the issue tracker. This will help to prevent abuse while the issue is 
 being resolved.
-

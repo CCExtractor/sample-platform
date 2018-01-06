@@ -624,7 +624,7 @@ def start_ci():
 def update_build_badge(status, test):
     if test.test_type == TestType.commit:
         dwg = svgwrite.Drawing(
-            '../static/svg/status-{platform}.svg'.format(platform=test.platform.value), profile='full')
+            './static/svg/status-{platform}.svg'.format(platform=test.platform.value), profile='full')
         if status == Status.SUCCESS:
             dwg.add(dwg.text('Passing', insert=(0, 0.2), fill='green'))
         elif status == Status.FAILURE:

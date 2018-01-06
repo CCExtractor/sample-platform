@@ -626,13 +626,16 @@ def update_build_badge(status, test):
         parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         output = os.path.join(parent_dir, 'static', 'svg', 'status-{platform}.svg'.format(platform=test.platform.value))
         dwg = svgwrite.Drawing(output, profile='full')
-
+        
         if status == Status.SUCCESS:
-            dwg.add(dwg.text('Passing', insert=(0, 0.2), fill='green'))
+            dwg.add(dwg.rect(insert=(0,0), size=(88, 20), fill='#71b340'))
+            dwg.add(dwg.text('Passing', insert=(20, 15), fill='#FFFFFF'))
         elif status == Status.FAILURE:
-            dwg.add(dwg.text('Failing', insert=(0, 0.2), fill='red'))
+            dwg.add(dwg.rect(insert=(0,0), size=(88, 20), fill='#ff0010'))
+            dwg.add(dwg.text('Failing', insert=(20, 15), fill='#FFFFFF'))
         else:
-            dwg.add(dwg.text('Unknown', insert=(0, 0.2), fill='gray'))
+            dwg.add(dwg.rect(insert=(0,0), size=(88, 20), fill='#5d5f71'))
+            dwg.add(dwg.text('Unknown', insert=(20, 15), fill='#FFFFFF'))
         dwg.save()
 
 

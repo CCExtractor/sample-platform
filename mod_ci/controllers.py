@@ -10,7 +10,6 @@ import json
 import os
 import shutil
 import sys
-import svgwrite
 
 import datetime
 
@@ -622,18 +621,30 @@ def start_ci():
 
 
 def update_build_badge(status, test):
+    '''
+    Build status badge for current test to be displayed on sample-platform.ccextractor.org
+
+    :param status: current testing status
+    :type status: str
+    :param test: current commit that is tested
+    :type test: str
+    :return: Nothing.
+    :rtype: None
+    '''
     if test.test_type == TestType.commit:
         parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        output = os.path.join(parent_dir, 'static', 'svg', 'status-{platform}.svg'.format(platform=test.platform.value))
-        dwg = svgwrite.Drawing(output, profile='full')
-
+        availableon = os.path.join(parent_dir, 'static', 'svg', 'status-{platform}.svg'.format(platform=test.platform.value))
+        svglocation = os.path.join(parent_dir, 'static', 'img' , 'status', 'status-{platform}.svg'.format(platform=test.platform.value))
         if status == Status.SUCCESS:
-            dwg.add(dwg.text('Passing', insert=(0, 0.2), fill='green'))
+            svglocation.format(status="SUCCESS", platform=test.platform.value)
+
         elif status == Status.FAILURE:
-            dwg.add(dwg.text('Failing', insert=(0, 0.2), fill='red'))
+            svglocation.format(status="FAILURE", platform=test.platform.value)
+
         else:
-            dwg.add(dwg.text('Unknown', insert=(0, 0.2), fill='gray'))
-        dwg.save()
+            svglocation.format(status="ERROR", platform=test.platform.value)
+
+        shutil.copyfile(availableon, svglocation)
 
 
 @mod_ci.route('/progress-reporter/<test_id>/<token>', methods=['POST'])
@@ -765,6 +776,7 @@ def progress_reporter(test_id, token):
                 if status == TestStatus.canceled:
                     state = Status.ERROR
                     message = 'Tests aborted due to an error; please check'
+                    update_build_badge(state, test)
 
                 elif status == TestStatus.completed:
                     # Determine if success or failure

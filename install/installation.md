@@ -220,3 +220,4 @@ sudo chown 2015:2015 /home/path/to/src/cron/progress_ftp_upload.py
 To check if the upload script is running, the next command can help:
 `ps aux | grep pure-uploadscript`. If it still doesn't work, rebooting the 
 server might help as well.
+

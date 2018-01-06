@@ -442,6 +442,35 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
             platform=platform, id=test.id))
 
 
+def ci_badge(status, platform, test_type, branch="master"):
+    if test_type == TestType.commit:
+        if platform is TestPlatform.linux:
+            if status == Status.SUCCESS:
+                with open('../static/badges/Linux_success.svg', 'r') as svg:
+                    pass
+            elif status == Status.FAILURE:
+                with open('../static/badges/Linux_failed.svg', 'r') as svg:
+                    pass
+            else:
+                with open('../static/badges/Linux_error.svg', 'r') as svg:
+                    pass
+
+        else:
+            if status == Status.SUCCESS:
+                with open('../static/badges/Windows_success.svg', 'r') as svg:
+                    pass
+            elif status == Status.FAILURE:
+                with open('../static/badges/Windows_failed.svg', 'r') as svg:
+                    pass
+            else:
+                with open('../static/badges/Windows_error.svg', 'r') as svg:
+                    pass
+            return
+    else:
+        return
+
+
+
 def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     """
     Function to store test details into Test model for each platform, and post the status to GitHub.
@@ -749,6 +778,7 @@ def progress_reporter(test_id, token):
                 if status == TestStatus.canceled:
                     state = Status.ERROR
                     message = 'Tests aborted due to an error; please check'
+                    ci_badge(state, TestPlatform.linux, TestType.commit, master)
 
                 elif status == TestStatus.completed:
                     # Determine if success or failure
@@ -777,9 +807,12 @@ def progress_reporter(test_id, token):
                     if crashes > 0 or results > 0:
                         state = Status.FAILURE
                         message = 'Not all tests completed successfully, please check'
+                        ci_badge_linux(state, test.platform, TestType.commit, master)
+
                     else:
                         state = Status.SUCCESS
                         message = 'Tests completed'
+                        ci_badge_linux(state, test.platform, TestType.commit, master)
 
                 else:
                     message = progress.message

@@ -634,20 +634,20 @@ def update_build_badge(status, test):
     if test.test_type == TestType.commit:
         parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         availableon = os.path.join(parent_dir, 'static', 'svg',
-                                   'status-{platform}.svg'.format(platform=test.platform.value))
-        svglocation = os.path.join(parent_dir, 'static', 'img',
-                                   'status', 'status-{platform}.svg'.format(platform=test.platform.value))
+                                   '{status}-{platform}.svg'.format(platform=test.platform.value))
         if status == Status.SUCCESS:
-            svglocation.format(status="SUCCESS", platform=test.platform.value)
+            availableon.format(status, platform=test.platform.value)
 
         elif status == Status.FAILURE:
-            svglocation.format(status="FAILURE", platform=test.platform.value)
+            availableon.format(status, platform=test.platform.value)
 
         else:
-            svglocation.format(status="ERROR", platform=test.platform.value)
-
+            availableon.format(status, platform=test.platform.value)
+        svglocation = os.path.join(parent_dir, 'static', 'img',
+                                   'status', '{status}-{platform}.svg'.format(platform=test.platform.value))
         shutil.copyfile(availableon, svglocation)
-
+    else:
+        return
 
 @mod_ci.route('/progress-reporter/<test_id>/<token>', methods=['POST'])
 def progress_reporter(test_id, token):
@@ -778,7 +778,6 @@ def progress_reporter(test_id, token):
                 if status == TestStatus.canceled:
                     state = Status.ERROR
                     message = 'Tests aborted due to an error; please check'
-                    update_build_badge(state, test)
 
                 elif status == TestStatus.completed:
                     # Determine if success or failure

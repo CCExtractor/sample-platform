@@ -442,10 +442,13 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
             platform=platform, id=test.id))
 
 
-def ci_badge_windows(status, platform, test_type):
+def ci_badge_windows(status, platform, commit, test_type, test_id):
     platform = test.platform
+    test = Test.query.filter(Test.id == test_id).first()
+    commit_name = 'fetch_commit_' + test.platform.value
+    commit = GeneralData.query.filter(GeneralData.key == commit_name).first()
     if platform is TestPlatform.linux:
-        if test_type == TestType.commit:
+        if test.test_type == TestType.commit:
             if state == Status.SUCCESS:
                 with open('../static/badges/Windows_success.svg',
                           'r') as svg:
@@ -464,8 +467,11 @@ def ci_badge_windows(status, platform, test_type):
         return
 
 
-def ci_badge_linux(status, platform, test_type):
+def ci_badge_linux(status, platform, commit, test_type, test_id):
     platform = test.platform
+    test = Test.query.filter(Test.id == test_id).first()
+    commit_name = 'fetch_commit_' + test.platform.value
+    commit = GeneralData.query.filter(GeneralData.key == commit_name).first(
     if platform is TestPlatform.linux:
         if test_type == TestType.commit:
             if state == Status.SUCCESS:
@@ -554,7 +560,6 @@ def start_ci():
         return 'OK'
     else:
         abort_code = 418
-        return
 
         event = request.headers.get('X-GitHub-Event')
         if event == "ping":

@@ -451,7 +451,6 @@ def ci_badge(status, platform, test_type, branch="master"):
                 with open('../static/badges/Linux_failed.svg','r') as svg:
             else:
                 with open('../static/badges/Linux_error.svg','r') as svg:
-                    print svg.read()
         else:
             if status == Status.SUCCESS:
                 with open('../static/badges/Windows_success.svg','r') as svg:

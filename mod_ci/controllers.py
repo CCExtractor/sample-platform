@@ -15,7 +15,7 @@ import requests
 
 import datetime
 
-from flask import Blueprint, request, abort, g, url_for, jsonify, flash, redirect
+from flask import Blueprint, request, abort, g, url_for, jsonify, flash, redirect, Flask
 from git import Repo, InvalidGitRepositoryError, GitCommandError
 from github import GitHub, ApiError
 from multiprocessing import Process
@@ -44,6 +44,8 @@ if sys.platform.startswith("linux"):
     import libvirt
 
 mod_ci = Blueprint('ci', __name__)
+
+app = Flask(__name__)
 
 
 class Status:
@@ -920,8 +922,8 @@ def blocked_users():
 @check_access_rights([Role.admin])
 @template_renderer('ci/blocked_users.html')
 def username(u):
-    userID = str(u)
-    api_url = requests.get('https://api.github.com/user/' + userID)
+    user_id = str(u)
+    api_url = requests.get('https://api.github.com/user/' + user_id)
     userdata = api_url.json()
     username = userdata['login']
     return username

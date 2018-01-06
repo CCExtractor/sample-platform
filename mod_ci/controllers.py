@@ -917,10 +917,6 @@ def blocked_users():
     }
 
 
-@mod_ci.route('/blocked_users')
-@login_required
-@check_access_rights([Role.admin])
-@template_renderer('ci/blocked_users.html')
 def username(u):
     user_id = str(u)
     api_url = requests.get('https://api.github.com/user/' + user_id)
@@ -932,10 +928,6 @@ def username(u):
 app.jinja_env.globals.update(username=username)
 
 
-@mod_ci.route('/blocked_users')
-@login_required
-@check_access_rights([Role.admin])
-@template_renderer()
 def add_user_to_blacklist():
     form = AddUsersToBlacklist()
     if form.validate_on_submit():
@@ -948,10 +940,6 @@ def add_user_to_blacklist():
             g.db.commit()
 
 
-@mod_ci.route('/blocked_users')
-@login_required
-@check_access_rights([Role.admin])
-@template_renderer()
 def remove_user_from_blacklist():
     form = RemoveUsersFromBlacklist()
     if form.validate_on_submit():

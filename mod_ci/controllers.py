@@ -539,15 +539,15 @@ def start_ci():
                     g.log.debug(payload)
 
                 # Check if user blacklisted
-                if BlockedUsers.query.filter(BlockedUsers.userID == payload[
-                    'pull_request']['user']['id']).first() is not None:
-                    log.critical("User Blacklisted")
-                    gh_commit.post(
-                        state=Status.ERROR,
-                        description="CI start aborted. You may be blocked from accessing this functionality",
-                        target_url=url_for('home.index', _external=True)
-                    )
-                    return 'ERROR'
+                if BlockedUsers.query.filter(BlockedUsers.userID == payload['pull_request'][
+                        'user']['id']).first() is not None:
+                            g.log.critical("User Blacklisted")
+                            gh_commit.post(
+                                state=Status.ERROR,
+                                description="CI start aborted. You may be blocked from accessing this functionality",
+                                target_url=url_for('home.index', _external=True)
+                            )
+                            return 'ERROR'
 
                 queue_test(g.db, gh_commit, commit, TestType.pull_request, pr_nr=pr_nr)
 

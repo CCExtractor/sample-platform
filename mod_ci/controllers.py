@@ -11,11 +11,10 @@ import os
 import shutil
 import sys
 import svgwrite
-import requests
 
 import datetime
 
-from flask import Blueprint, request, abort, g, url_for, jsonify, flash, redirect, Flask
+from flask import Blueprint, request, abort, g, url_for, jsonify, flash, redirect
 from git import Repo, InvalidGitRepositoryError, GitCommandError
 from github import GitHub, ApiError
 from multiprocessing import Process
@@ -44,8 +43,6 @@ if sys.platform.startswith("linux"):
     import libvirt
 
 mod_ci = Blueprint('ci', __name__)
-
-app = Flask(__name__)
 
 
 class Status:
@@ -570,9 +567,9 @@ def start_ci():
                     g.log.critical("Didn't find a SHA value for a newly opened PR!")
                     g.log.debug(payload)
                 # Check if user blacklisted
-                if BlockedUsers.query.filter(BlockedUsers.userID == payload[
-                    'pull_request']['user']['id']).first() is not None:
-                    log.critical("User Blacklisted")
+                if BlockedUsers.query.filter(BlockedUsers.userID == payload['pull_request'][
+                        'user']['id']).first() is not None:
+                    g.log.critical("User Blacklisted")
                     gh_commit.post(
                         state=Status.ERROR,
                         description="CI start aborted. You may be blocked from accessing this functionality",
@@ -917,39 +914,32 @@ def blocked_users():
     }
 
 
-def username(u):
-    user_id = str(u)
-    api_url = requests.get('https://api.github.com/user/' + user_id)
-    userdata = api_url.json()
-    username = userdata['login']
-    return username
-
-
-app.jinja_env.globals.update(username=username)
-
-
+@mod_ci.route('/blocked_users/add', method=['POST'])
+@login_required
+@check_access_rights([Role.admin])
 def add_user_to_blacklist():
     form = AddUsersToBlacklist()
     if form.validate_on_submit():
         blocked_user = BlockedUsers(form.userID.data, form.comment.data)
         if blocked_user == BlockedUsers.query.filter_by(userID=form.userID.data).first():
             flash('User already blocked.')
-            return redirect(url_for('ci.blocked_users'))
-        else:
-            g.db.add(blocked_user)
-            g.db.commit()
+            return redirect(url_for('.blocked_users'))
+        g.db.add(blocked_user)
+        g.db.commit()
 
 
+@mod_ci.route('/blocked_users/delete',  method=['POST'])
+@login_required
+@check_access_rights([Role.admin])
 def remove_user_from_blacklist():
     form = RemoveUsersFromBlacklist()
     if form.validate_on_submit():
         blocked_user = BlockedUsers.query.filter_by(userID=form.userID.data).first()
         if blocked_user is None:
             flash('No such user in Blacklist')
-            return redirect(url_for('ci.blocked_users'))
-        else:
-            g.db.remove(blocked_user)
-            g.db.commit()
+            return redirect(url_for('.blocked_users'))
+        g.db.remove(blocked_user)
+        g.db.commit()
 
 
 @mod_ci.route('/toggle_maintenance/<platform>/<status>')

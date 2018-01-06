@@ -3,6 +3,7 @@ from __future__ import print_function
 import os
 import sys
 import traceback
+import requests
 
 from flask import Flask, g
 from werkzeug.contrib.fixers import ProxyFix
@@ -70,6 +71,17 @@ def install_secret_keys(application, secret_session='secret_key', secret_csrf='s
 
 
 install_secret_keys(app)
+
+
+def username(u):
+    user_id = str(u)
+    api_url = requests.get('https://api.github.com/user/' + user_id)
+    userdata = api_url.json()
+    username = userdata['login']
+    return username
+
+
+app.jinja_env.globals.update(username=username)
 
 
 # Expose submenu method for jinja templates

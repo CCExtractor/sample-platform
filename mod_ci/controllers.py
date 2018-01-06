@@ -887,24 +887,58 @@ def show_maintenance():
 @mod_ci.route('/blocked_users')
 @login_required
 @check_access_rights([Role.admin])
-@template_renderer('ci/blocked_users.html')
-def show_maintenance():
+@template_renderer()
+def blocked_users():
     return {
-        'Blocked Users': BlockedUsers.query.all()
+        'blocked_users': BlockedUsers.query.order_by(BlockedUsers.userID)
     }
 
 
+@mod_ci.route('/blocked_users')
+@login_required
+@check_access_rights([Role.admin])
+@template_renderer('ci/blocked_users.html')
+def username(u):
+    userID = str(u)
+    api_url = requests.get('https://api.github.com/user/' + userID)
+    userdata = api_url.json()
+    username = userdata['login']
+    return username
+
+
+app.jinja_env.globals.update(show_blocked_users=show_blocked_users)
+
+
+@mod_ci.route('/blocked_users')
+@login_required
+@check_access_rights([Role.admin])
 @template_renderer()
-def add_user_to_blacklist(userID):
-    blocked_user = BlockedUsers.query.filter_by(userID=userID).first()
-    if blocked_user is not None:
-        flash('User already blocked.', 'error-message')
-        return redirect(url_for('/blocked_users'))
+def add_user_to_blacklist():
     form = AddUsersToBlacklist()
     if form.validate_on_submit():
-        blocked_user = BlockedUsers(form.userID.data)
-        g.db.add(blocked_user)
-        g.db.commit()
+        blocked_user = BlockedUsers(form.userID.data, form.comment.data)
+        if blocked_user == BlockedUsers.query.filter_by(userID=form.userID.data).first():
+            flash('User already blocked.')
+            return redirect(url_for('ci.blocked_users'))
+        else:
+            g.db.add(blocked_user)
+            g.db.commit()
+
+
+@mod_ci.route('/blocked_users')
+@login_required
+@check_access_rights([Role.admin])
+@template_renderer()
+def remove_user_from_blacklist():
+    form = RemoveUsersFromBlacklist()
+    if form.validate_on_submit():
+        blocked_user = BlockedUsers.query.filter_by(userID=form.userID.data).first()
+        if blocked_user is None:
+            flash('No such user in Blacklist')
+            return redirect(url_for('ci.blocked_users'))
+        else:
+            g.db.remove(blocked_user)
+            g.db.commit()
 
 
 @mod_ci.route('/toggle_maintenance/<platform>/<status>')

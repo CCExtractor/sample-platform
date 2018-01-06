@@ -1,16 +1,38 @@
 {% extends "base.html" %}
 
-{% block title %}Blocked Users {{ super() }}{% endblock %}
+{% block title %}Manage Blocked Users {{ super() }}{% endblock %}
+
 {% block body %}
     {{ super() }}
-    <br />
+    <br>
     <div class="row">
-        <div class="callout warning">
-            <h5>Add User to Blacklist</h5>
-            <p>Enter the GitHub User ID of the user</p>
-        </div>
+        <h1>Manage Blocked Users</h1>
+        <p>Below you can find an overview of all blocked users on the platform and add or remove them.</p>
     </div>
-    <form method="post" name="addUsersToBlacklistForm" id="addUsersToBlacklistForm" action="{{ url_for('/blocked_users') }}">
+    <div class="row">
+        <table class="stack hover sortable" id="userTable">
+            <thead>
+                <tr>
+                    <th>GitHub User ID</th>
+                    <th>Username</th>
+                    <th>Comment</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for u in blocked_users %}
+                <tr>
+                    <td>{{ u.id }}</td>
+                    <td>{{ username(u.id) }}</td>
+                    <td>{{ u.comment }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="row">
+        <h1>Add Users</h1>
+    </div>
+    <form method="post" name="registrationForm" id="registrationForm" action="{{ url_for('.add_user_to_blacklist') }}">
         {{ form.csrf_token }}
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -26,13 +48,54 @@
             {% endif %}
         {% endwith %}
         {% if form.errors %}
-        <div>
-            {% for field, error in form.errors.items() %}
-                {% for e in error %}
-                    {{ e }}<br>
-                {% endfor %}
-            {% endfor %}
-        </div>
+            <div class="row">
+                <div class="callout alert">
+                    {% for field, error in form.errors.items() %}
+                        {% for e in error %}
+                            {{ e }}<br>
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+        <div class="row">
+            <div class="medium-12 columns">
+                {{ macros.render_field(form.userID) }}
+            </div>
+            <div class="medium-6 columns">
+                {{ macros.render_field(form.comment) }}
+            </div>
+            <div class="medium-12 columns">
+                {{ macros.render_field(form.submit) }}
+            </div>
+    <div class="row">
+        <h1>Remove Blocked Users</h1>
+    </div>
+    <form method="post" name="registrationForm" id="registrationForm" action="{{ url_for('.remove_user_from_blacklist') }}">
+        {{ form.csrf_token }}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="row">
+                    <div class="callout alert">
+                        <ul class="flashes">
+                            {% for category, message in messages %}
+                            <li class="{{ category }}">{{ message }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            {% endif %}
+        {% endwith %}
+        {% if form.errors %}
+            <div class="row">
+                <div class="callout alert">
+                    {% for field, error in form.errors.items() %}
+                        {% for e in error %}
+                            {{ e }}<br>
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+            </div>
         {% endif %}
         <div class="row">
             <div class="medium-12 columns">
@@ -41,6 +104,5 @@
             <div class="medium-12 columns">
                 {{ macros.render_field(form.submit) }}
             </div>
-        </div>
-    </form>
+
 {% endblock %}

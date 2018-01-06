@@ -29,6 +29,7 @@ from pymysql.err import IntegrityError
 from decorators import template_renderer, get_menu_entries
 from mod_auth.controllers import login_required, check_access_rights
 from mod_ci.models import Kvm, MaintenanceMode, BlockedUsers
+from mod_ci.forms import AddUsersToBlacklist, RemoveUsersFromBlacklist
 from mod_deploy.controllers import request_from_github, is_valid_signature
 from mod_home.models import GeneralData
 from mod_regression.models import Category, RegressionTestOutput, \
@@ -925,7 +926,7 @@ def username(u):
     return username
 
 
-app.jinja_env.globals.update(show_blocked_users=show_blocked_users)
+app.jinja_env.globals.update(username=username)
 
 
 @mod_ci.route('/blocked_users')

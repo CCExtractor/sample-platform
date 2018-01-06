@@ -442,50 +442,44 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
             platform=platform, id=test.id))
 
 
-def ci_badge_windows(status, platform, commit, test_type, test_id):
+def ci_badge_windows(status, platform, test_type, branch="master"):
     platform = test.platform
-    test = Test.query.filter(Test.id == test_id).first()
-    commit_name = 'fetch_commit_' + test.platform.value
-    commit = GeneralData.query.filter(GeneralData.key == commit_name).first()
     if platform is TestPlatform.linux:
-        if test.test_type == TestType.commit:
+        if test_type == TestType.commit:
             if state == Status.SUCCESS:
                 with open('../static/badges/Windows_success.svg',
                           'r') as svg:
-                    return svg.read()
+                    print svg.read()
             elif state == Status.FAILURE:
                 with open('../static/badges/Windows_failed.svg',
                           'r') as svg:
-                    return svg.read()
+                    print svg.read()
             else:
                 with open('../static/badges/Windows_error.svg',
                           'r') as svg:
-                    return svg.read()
+                    print svg.read()
         else:
             return
     else:
         return
 
 
-def ci_badge_linux(status, platform, commit, test_type, test_id):
+def ci_badge_linux(status, platform, test_type, branch="master"):
     platform = test.platform
-    test = Test.query.filter(Test.id == test_id).first()
-    commit_name = 'fetch_commit_' + test.platform.value
-    commit = GeneralData.query.filter(GeneralData.key == commit_name).first(
     if platform is TestPlatform.linux:
         if test_type == TestType.commit:
             if state == Status.SUCCESS:
                 with open('../static/badges/Linux_success.svg',
                           'r') as svg:
-                    return svg.read()
+                    print svg.read()
             elif state == Status.FAILURE:
                 with open('../static/badges/Linux_failed.svg',
                           'r') as svg:
-                    return svg.read()
+                    print svg.read()
             else:
                 with open('../static/badges/Linux_error.svg',
                           'r') as svg:
-                    return svg.read()
+                    print svg.read()
         else:
             return
     else:
@@ -790,6 +784,7 @@ def progress_reporter(test_id, token):
                     message = 'Tests aborted due to an error; please check'
                     ci_badge_linux(state)
                     ci_badge_windows(state)
+
                 elif status == TestStatus.completed:
                     # Determine if success or failure
                     # It fails if any of these happen:

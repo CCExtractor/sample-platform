@@ -10,6 +10,7 @@ import json
 import os
 import shutil
 import sys
+import svgwrite
 
 import datetime
 
@@ -620,6 +621,21 @@ def start_ci():
         return json.dumps({'msg': 'EOL'})
 
 
+def update_build_badge(status, test):
+    if test.test_type == TestType.commit:
+        parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        output = os.path.join(parent_dir, 'static', 'svg', 'status-{platform}.svg'.format(platform=test.platform.value))
+        dwg = svgwrite.Drawing(output, profile='full')
+
+        if status == Status.SUCCESS:
+            dwg.add(dwg.text('Passing', insert=(0, 0.2), fill='green'))
+        elif status == Status.FAILURE:
+            dwg.add(dwg.text('Failing', insert=(0, 0.2), fill='red'))
+        else:
+            dwg.add(dwg.text('Unknown', insert=(0, 0.2), fill='gray'))
+        dwg.save()
+
+
 @mod_ci.route('/progress-reporter/<test_id>/<token>', methods=['POST'])
 def progress_reporter(test_id, token):
     """
@@ -777,9 +793,12 @@ def progress_reporter(test_id, token):
                     if crashes > 0 or results > 0:
                         state = Status.FAILURE
                         message = 'Not all tests completed successfully, please check'
+
                     else:
                         state = Status.SUCCESS
                         message = 'Tests completed'
+
+                    update_build_badge(state, test)
 
                 else:
                     message = progress.message

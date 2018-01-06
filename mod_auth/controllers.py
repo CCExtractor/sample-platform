@@ -226,13 +226,13 @@ def reset():
     }
 
 
-@mod_auth.route('/reset/<uid>/<expires>/<mac>', methods=['GET', 'POST'])
+@mod_auth.route('/reset/<int:uid>/<int:expires>/<mac>', methods=['GET', 'POST'])
 @template_renderer()
 def complete_reset(uid, expires, mac):
     from run import app
     # Check if time expired
     now = int(time.time())
-    if now <= int(expires):
+    if now <= expires:
         user = User.query.filter_by(id=uid).first()
         if user is not None:
             # Validate HMAC
@@ -311,14 +311,14 @@ def signup():
     }
 
 
-@mod_auth.route('/complete_signup/<email>/<expires>/<mac>',
+@mod_auth.route('/complete_signup/<email>/<int:expires>/<mac>',
                 methods=['GET', 'POST'])
 @template_renderer()
 def complete_signup(email, expires, mac):
     from run import app
     # Check if time expired
     now = int(time.time())
-    if now <= int(expires):
+    if now <= expires:
         # Validate HMAC
         content_to_hash = "{email}|{expiry}".format(email=email, expiry=expires)
         real_hash = hmac.new(app.config.get('HMAC_KEY', ''), content_to_hash).hexdigest()
@@ -427,13 +427,13 @@ def users():
     }
 
 
-@mod_auth.route('/user/<uid>')
+@mod_auth.route('/user/<int:uid>')
 @login_required
 @template_renderer()
 def user(uid):
     from mod_upload.models import Upload
     # Only give access if the uid matches the user, or if the user is an admin
-    if g.user.id == int(uid) or g.user.role == Role.admin:
+    if g.user.id == uid or g.user.role == Role.admin:
         usr = User.query.filter_by(id=uid).first()
         if usr is not None:
             uploads = Upload.query.filter(Upload.user_id == usr.id).all()
@@ -446,13 +446,13 @@ def user(uid):
         abort(403, request.endpoint)
 
 
-@mod_auth.route('/reset_user/<uid>')
+@mod_auth.route('/reset_user/<int:uid>')
 @login_required
 @check_access_rights([Role.admin])
 @template_renderer()
 def reset_user(uid):
     # Only give access if the uid matches the user, or if the user is an admin
-    if g.user.id == int(uid) or g.user.role == Role.admin:
+    if g.user.id == uid or g.user.role == Role.admin:
         usr = User.query.filter_by(id=uid).first()
         if usr is not None:
             send_reset_email(usr)
@@ -464,7 +464,7 @@ def reset_user(uid):
         abort(403, request.endpoint)
 
 
-@mod_auth.route('/role/<uid>', methods=['GET', 'POST'])
+@mod_auth.route('/role/<int:uid>', methods=['GET', 'POST'])
 @login_required
 @check_access_rights([Role.admin])
 @template_renderer()
@@ -486,12 +486,12 @@ def role(uid):
     abort(404)
 
 
-@mod_auth.route('/deactivate/<uid>', methods=['GET', 'POST'])
+@mod_auth.route('/deactivate/<int:uid>', methods=['GET', 'POST'])
 @login_required
 @template_renderer()
 def deactivate(uid):
     # Only give access if the uid matches the user, or if the user is an admin
-    if g.user.id == int(uid) or g.user.role == Role.admin:
+    if g.user.id == uid or g.user.role == Role.admin:
         usr = User.query.filter_by(id=uid).first()
         if usr is not None:
             form = DeactivationForm(request.form)

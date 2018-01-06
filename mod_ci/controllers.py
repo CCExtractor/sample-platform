@@ -566,8 +566,7 @@ def start_ci():
                     g.log.critical("Didn't find a SHA value for a newly opened PR!")
                     g.log.debug(payload)
                 # Check if user blacklisted
-                if BlockedUsers.query.filter(BlockedUsers.userID == payload[
-                        'pull_request']['user']['id']).first() is not None:
+                if BlockedUsers.query.filter(BlockedUsers.userID == payload['pull_request']['user']['id']).first() is not None:
                     log.critical("User Blacklisted")
                     gh_commit.post(
                         state=Status.ERROR,

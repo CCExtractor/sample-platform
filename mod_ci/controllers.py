@@ -622,7 +622,7 @@ def start_ci():
 
 
 def check_status_for_badge(status, test):
-    if test.test_type != test.pull_request:
+    if test.test_type == TestType.pull_request:
         dwg = svgwrite.Drawing(
             '../static/svg/status-{platform}.svg'.format(platform=test.platform.value), profile='full')
         if status == Status.SUCCESS:

@@ -11,6 +11,7 @@ import os
 import shutil
 import sys
 import svgwrite
+import requests
 
 import datetime
 
@@ -872,37 +873,44 @@ def show_maintenance():
 @check_access_rights([Role.admin])
 @template_renderer()
 def blocked_users():
-    return {
-        'blocked_users': BlockedUsers.query.order_by(BlockedUsers.userID)
-    }
-
-
-@mod_ci.route('/blocked_users/add', method=['POST'])
-@login_required
-@check_access_rights([Role.admin])
-def add_user_to_blacklist():
-    form = AddUsersToBlacklist()
-    if form.validate_on_submit():
-        blocked_user = BlockedUsers(form.userID.data, form.comment.data)
-        if blocked_user == BlockedUsers.query.filter_by(userID=form.userID.data).first():
-            flash('User already blocked.')
-            return redirect(url_for('.blocked_users'))
-        g.db.add(blocked_user)
-        g.db.commit()
-
-
-@mod_ci.route('/blocked_users/delete',  method=['POST'])
-@login_required
-@check_access_rights([Role.admin])
-def remove_user_from_blacklist():
-    form = RemoveUsersFromBlacklist()
-    if form.validate_on_submit():
-        blocked_user = BlockedUsers.query.filter_by(userID=form.userID.data).first()
-        if blocked_user is None:
-            flash('No such user in Blacklist')
-            return redirect(url_for('.blocked_users'))
-        g.db.remove(blocked_user)
-        g.db.commit()
+        blocked_users = BlockedUsers.query.order_by(BlockedUsers.userID)
+        usernames = {}
+        for instance in BlockedUsers.query(BlockedUsers.userID):
+            usernames[instance] = 'Error, cannot get username'
+        for instance in BlockedUsers.query(BlockedUsers.userID):
+            api_url = requests.get('https://api.github.com/user/{}'.format(instance), timeout=30)
+            if requests.exceptions.RequestException is not None:
+                break
+            userdata = api_url.json()
+            usernames[instance] = userdata['login']
+        if AddUsersToBlacklist().submit.data is not None:
+            form = AddUsersToBlacklist()
+            if form.validate_on_submit():
+                blocked_user = BlockedUsers(form.userID.data, form.comment.data)
+                if BlockedUsers.query.filter_by(userID=form.userID.data).first() is not None:
+                    flash('User already blocked.')
+                    return redirect(url_for('.blocked_users'))
+                g.db.add(blocked_user)
+                g.db.commit()
+                flash('User blocked successfully.')
+                return redirect(url_for('.blocked_users'))
+            return {
+                'form': form
+            }
+        if RemoveUsersFromBlacklist().submit.data is not None:
+            form = RemoveUsersFromBlacklist()
+            if form.validate_on_submit():
+                blocked_user = BlockedUsers.query.filter_by(userID=form.userID.data).first()
+                if blocked_user is None:
+                    flash('No such user in Blacklist')
+                    return redirect(url_for('.blocked_users'))
+                g.db.remove(blocked_user)
+                g.db.commit()
+                flash('User removed successfully.')
+                return redirect(url_for('.blocked_users'))
+            return {
+                'form': form
+            }
 
 
 @mod_ci.route('/toggle_maintenance/<platform>/<status>')

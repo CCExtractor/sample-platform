@@ -73,17 +73,6 @@ def install_secret_keys(application, secret_session='secret_key', secret_csrf='s
 install_secret_keys(app)
 
 
-def username(u):
-    user_id = str(u)
-    api_url = requests.get('https://api.github.com/user/' + user_id)
-    userdata = api_url.json()
-    username = userdata['login']
-    return username
-
-
-app.jinja_env.globals.update(username=username)
-
-
 # Expose submenu method for jinja templates
 def sub_menu_open(menu_entries, active_route):
     for menu_entry in menu_entries:

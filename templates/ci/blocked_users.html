@@ -22,7 +22,7 @@
             {% for u in blocked_users %}
                 <tr>
                     <td>{{ u.id }}</td>
-                    <td>{{ username(u.id) }}</td>
+                    <td>{{ usernames[u.id] }}</td>
                     <td>{{ u.comment }}</td>
                 </tr>
             {% endfor %}

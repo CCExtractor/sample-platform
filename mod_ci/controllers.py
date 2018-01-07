@@ -883,17 +883,17 @@ def blocked_users():
                 api_url = requests.get('https://api.github.com/user/{}'.format(key), timeout=10)
             except requests.exceptions.RequestException:
                 break
-            userdata = api_url.json()
-            # Set values to the actual usernames if no errors
-            usernames[key] = userdata['login']
+                userdata = api_url.json()
+                # Set values to the actual usernames if no errors
+                usernames[key] = userdata['login']
 
         # Define addUserForm processing
         addUserForm = AddUsersToBlacklist()
         if addUserForm.validate_on_submit():
-            blocked_user = BlockedUsers(addUserForm.userID.data, addUserForm.comment.data)
             if BlockedUsers.query.filter_by(userID=addUserForm.userID.data).first() is not None:
                 flash('User already blocked.')
                 return redirect(url_for('.blocked_users'))
+            blocked_user = BlockedUsers(addUserForm.userID.data, addUserForm.comment.data)
             g.db.add(blocked_user)
             g.db.commit()
             flash('User blocked successfully.')

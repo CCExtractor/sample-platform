@@ -11,10 +11,11 @@ import os
 import shutil
 import sys
 import svgwrite
+import requests
 
 import datetime
 
-from flask import Blueprint, request, abort, g, url_for, jsonify
+from flask import Blueprint, request, abort, g, url_for, jsonify, flash, redirect
 from git import Repo, InvalidGitRepositoryError, GitCommandError
 from github import GitHub, ApiError
 from multiprocessing import Process
@@ -29,6 +30,7 @@ from pymysql.err import IntegrityError
 from decorators import template_renderer, get_menu_entries
 from mod_auth.controllers import login_required, check_access_rights
 from mod_ci.models import Kvm, MaintenanceMode, BlockedUsers
+from mod_ci.forms import AddUsersToBlacklist, RemoveUsersFromBlacklist
 from mod_deploy.controllers import request_from_github, is_valid_signature
 from mod_home.models import GeneralData
 from mod_regression.models import Category, RegressionTestOutput, RegressionTest
@@ -538,15 +540,15 @@ def start_ci():
                     g.log.debug(payload)
 
                 # Check if user blacklisted
-                user_id = payload['pull_request']['user']['id']
-                if BlockedUsers.query.filter(BlockedUsers.userID == user_id).first() is not None:
-                    g.log.critical("User Blacklisted")
-                    gh_commit.post(
-                        state=Status.ERROR,
-                        description="CI start aborted. You may be blocked from accessing this functionality",
-                        target_url=url_for('home.index', _external=True)
-                    )
-                    return 'ERROR'
+                if BlockedUsers.query.filter(BlockedUsers.userID == payload['pull_request'][
+                        'user']['id']).first() is not None:
+                            g.log.critical("User Blacklisted")
+                            gh_commit.post(
+                                state=Status.ERROR,
+                                description="CI start aborted. You may be blocked from accessing this functionality",
+                                target_url=url_for('home.index', _external=True)
+                            )
+                            return 'ERROR'
 
                 queue_test(g.db, gh_commit, commit, TestType.pull_request, pr_nr=pr_nr)
 
@@ -864,6 +866,51 @@ def show_maintenance():
     return {
         'platforms': MaintenanceMode.query.all()
     }
+
+
+@mod_ci.route('/blocked_users')
+@login_required
+@check_access_rights([Role.admin])
+@template_renderer()
+def blocked_users():
+        blocked_users = BlockedUsers.query.order_by(BlockedUsers.userID)
+        usernames = {}
+        for instance in BlockedUsers.query(BlockedUsers.userID):
+            usernames[instance] = 'Error, cannot get username'
+        for instance in BlockedUsers.query(BlockedUsers.userID):
+            api_url = requests.get('https://api.github.com/user/{}'.format(instance), timeout=30)
+            if requests.exceptions.RequestException is not None:
+                break
+            userdata = api_url.json()
+            usernames[instance] = userdata['login']
+        if AddUsersToBlacklist().submit.data is not None:
+            form = AddUsersToBlacklist()
+            if form.validate_on_submit():
+                blocked_user = BlockedUsers(form.userID.data, form.comment.data)
+                if BlockedUsers.query.filter_by(userID=form.userID.data).first() is not None:
+                    flash('User already blocked.')
+                    return redirect(url_for('.blocked_users'))
+                g.db.add(blocked_user)
+                g.db.commit()
+                flash('User blocked successfully.')
+                return redirect(url_for('.blocked_users'))
+            return {
+                'form': form
+            }
+        if RemoveUsersFromBlacklist().submit.data is not None:
+            form = RemoveUsersFromBlacklist()
+            if form.validate_on_submit():
+                blocked_user = BlockedUsers.query.filter_by(userID=form.userID.data).first()
+                if blocked_user is None:
+                    flash('No such user in Blacklist')
+                    return redirect(url_for('.blocked_users'))
+                g.db.remove(blocked_user)
+                g.db.commit()
+                flash('User removed successfully.')
+                return redirect(url_for('.blocked_users'))
+            return {
+                'form': form
+            }
 
 
 @mod_ci.route('/toggle_maintenance/<platform>/<status>')

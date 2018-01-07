@@ -621,20 +621,21 @@ def start_ci():
 
 
 def update_build_badge(status, test):
-    '''
+    """
     Build status badge for current test to be displayed on sample-platform.ccextractor.org
 
     :param status: current testing status
     :type status: str
     :param test: current commit that is tested
-    :type test: str
+    :type test: Test
     :return: Nothing.
     :rtype: None
-    '''
+    """
     if test.test_type == TestType.commit:
+        test.status = Status()
         parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         availableon = os.path.join(parent_dir, 'static', 'svg',
-                                   '{status}-{platform}.svg'.format(status=Status.value, platform=test.platform.value))
+                                   '{status}-{platform}.svg'.format(status=test.status.value, platform=test.platform.value))
         svglocation = os.path.join(parent_dir, 'static', 'img', 'status',
                                    'build-{platform}.svg'.format(platform=test.platform.value))
         shutil.copyfile(availableon, svglocation)

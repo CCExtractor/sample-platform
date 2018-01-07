@@ -875,7 +875,7 @@ def show_maintenance():
 def blocked_users():
         blocked_users = BlockedUsers.query.order_by(BlockedUsers.userID)
 
-        usernames = {}  # Initialize usernames dictionary
+        # Initialize usernames dictionary
         usernames = {u.userID: 'Error, cannot get username' for u in blocked_users}
         for key in usernames.keys():
             # Fetch usernames from GitHub API

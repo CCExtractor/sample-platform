@@ -635,7 +635,8 @@ def update_build_badge(status, test):
         test.status = Status()
         parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         availableon = os.path.join(parent_dir, 'static', 'svg',
-                                   '{status}-{platform}.svg'.format(status=test.status.value, platform=test.platform.value))
+                                   '{status}-{platform}.svg'.format(status=test.status.value,
+                                                                    platform=test.platform.value))
         svglocation = os.path.join(parent_dir, 'static', 'img', 'status',
                                    'build-{platform}.svg'.format(platform=test.platform.value))
         shutil.copyfile(availableon, svglocation)

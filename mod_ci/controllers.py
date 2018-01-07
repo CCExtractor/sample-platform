@@ -634,17 +634,9 @@ def update_build_badge(status, test):
     if test.test_type == TestType.commit:
         parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         availableon = os.path.join(parent_dir, 'static', 'svg',
-                                   '{status}-{platform}.svg'.format(platform=test.platform.value))
-        if status == Status.SUCCESS:
-            availableon.format(status, platform=test.platform.value)
-
-        elif status == Status.FAILURE:
-            availableon.format(status, platform=test.platform.value)
-
-        else:
-            availableon.format(status, platform=test.platform.value)
-        svglocation = os.path.join(parent_dir, 'static', 'img',
-                                   'status', '{status}-{platform}.svg'.format(platform=test.platform.value))
+                                   '{status}-{platform}.svg'.format(status=Status.value, platform=test.platform.value))
+        svglocation = os.path.join(parent_dir, 'static', 'img', 'status',
+                                   'status-{platform}.svg'.format(platform=test.platform.value))                                           
         shutil.copyfile(availableon, svglocation)
     else:
         return

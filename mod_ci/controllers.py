@@ -874,43 +874,49 @@ def show_maintenance():
 @template_renderer()
 def blocked_users():
         blocked_users = BlockedUsers.query.order_by(BlockedUsers.userID)
-        usernames = {}
-        for instance in BlockedUsers.query(BlockedUsers.userID):
+
+        usernames = {}  # Initialize usernames dictionary
+        for instance in blocked_users:
+            # Set values as an error variable
             usernames[instance] = 'Error, cannot get username'
-        for instance in BlockedUsers.query(BlockedUsers.userID):
-            api_url = requests.get('https://api.github.com/user/{}'.format(instance), timeout=30)
+        for key in usernames.keys():
+            # Fetch usernames from GitHub API
+            api_url = requests.get('https://api.github.com/user/{}'.format(key), timeout=30)
             if requests.exceptions.RequestException is not None:
                 break
             userdata = api_url.json()
-            usernames[instance] = userdata['login']
-        if AddUsersToBlacklist().submit.data is not None:
-            form = AddUsersToBlacklist()
-            if form.validate_on_submit():
-                blocked_user = BlockedUsers(form.userID.data, form.comment.data)
-                if BlockedUsers.query.filter_by(userID=form.userID.data).first() is not None:
-                    flash('User already blocked.')
-                    return redirect(url_for('.blocked_users'))
-                g.db.add(blocked_user)
-                g.db.commit()
-                flash('User blocked successfully.')
+            # Set values to the actual usernames if no errors
+            usernames[key] = userdata['login']
+
+        # Define addUserForm processing
+        addUserForm = AddUsersToBlacklist()
+        if addUserForm.validate_on_submit():
+            blocked_user = BlockedUsers(addUserForm.userID.data, addUserForm.comment.data)
+            if BlockedUsers.query.filter_by(userID=addUserForm.userID.data).first() is not None:
+                flash('User already blocked.')
                 return redirect(url_for('.blocked_users'))
-            return {
-                'form': form
-            }
-        if RemoveUsersFromBlacklist().submit.data is not None:
-            form = RemoveUsersFromBlacklist()
-            if form.validate_on_submit():
-                blocked_user = BlockedUsers.query.filter_by(userID=form.userID.data).first()
-                if blocked_user is None:
-                    flash('No such user in Blacklist')
-                    return redirect(url_for('.blocked_users'))
-                g.db.remove(blocked_user)
-                g.db.commit()
-                flash('User removed successfully.')
+            g.db.add(blocked_user)
+            g.db.commit()
+            flash('User blocked successfully.')
+            return redirect(url_for('.blocked_users'))
+
+        # Define removeUserForm processing
+        removeUserForm = RemoveUsersFromBlacklist()
+        if removeUserForm.validate_on_submit():
+            blocked_user = BlockedUsers.query.filter_by(userID=removeUserForm.userID.data).first()
+            if blocked_user is None:
+                flash('No such user in Blacklist')
                 return redirect(url_for('.blocked_users'))
-            return {
-                'form': form
-            }
+            g.db.remove(blocked_user)
+            g.db.commit()
+            flash('User removed successfully.')
+            return redirect(url_for('.blocked_users'))
+
+        return{
+            'addUserForm': addUserForm(),
+            'removeUserForm': removeUserForm(),
+            'blocked_users': blocked_users
+        }
 
 
 @mod_ci.route('/toggle_maintenance/<platform>/<status>')

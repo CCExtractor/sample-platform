@@ -32,8 +32,8 @@
     <div class="row">
         <h1>Add Users</h1>
     </div>
-    <form method="post" name="addUserForm" id="addUserForm" action="{{ url_for('.add_user_to_blacklist') }}">
-        {{ form.csrf_token }}
+    <form method="post" name="addUserForm" id="addUserForm" action="{{ url_for('.blocked_users') }}">
+        {{ addUserForm.csrf_token }}
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <div class="row">
@@ -47,10 +47,10 @@
                 </div>
             {% endif %}
         {% endwith %}
-        {% if form.errors %}
+        {% if addUserForm.errors %}
             <div class="row">
                 <div class="callout alert">
-                    {% for field, error in form.errors.items() %}
+                    {% for field, error in addUserForm.errors.items() %}
                         {% for e in error %}
                             {{ e }}<br>
                         {% endfor %}
@@ -60,21 +60,21 @@
         {% endif %}
         <div class="row">
             <div class="medium-12 columns">
-                {{ macros.render_field(form.userID) }}
+                {{ macros.render_field(addUserForm.userID) }}
             </div>
             <div class="medium-6 columns">
-                {{ macros.render_field(form.comment) }}
+                {{ macros.render_field(addUserForm.comment) }}
             </div>
             <div class="medium-12 columns">
-                {{ macros.render_field(form.submit) }}
+                {{ macros.render_field(addUserForm.submit) }}
             </div>
         </div>
     </form>
     <div class="row">
         <h1>Remove Blocked Users</h1>
     </div>
-    <form method="post" name="removeUserForm" id="removeUserForm" action="{{ url_for('.remove_user_from_blacklist') }}">
-        {{ form.csrf_token }}
+    <form method="post" name="removeUserForm" id="removeUserForm" action="{{ url_for('.blocked_users') }}">
+        {{ removeUserForm.csrf_token }}
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <div class="row">
@@ -88,10 +88,10 @@
                 </div>
             {% endif %}
         {% endwith %}
-        {% if form.errors %}
+        {% if removeUserForm.errors %}
             <div class="row">
                 <div class="callout alert">
-                    {% for field, error in form.errors.items() %}
+                    {% for field, error in removeUserForm.errors.items() %}
                         {% for e in error %}
                             {{ e }}<br>
                         {% endfor %}
@@ -101,10 +101,10 @@
         {% endif %}
         <div class="row">
             <div class="medium-12 columns">
-                {{ macros.render_field(form.userID) }}
+                {{ macros.render_field(removeUserForm.userID) }}
             </div>
             <div class="medium-12 columns">
-                {{ macros.render_field(form.submit) }}
+                {{ macros.render_field(removeUserForm.submit) }}
             </div>
         </div>
     </form>

@@ -876,13 +876,12 @@ def blocked_users():
         blocked_users = BlockedUsers.query.order_by(BlockedUsers.userID)
 
         usernames = {}  # Initialize usernames dictionary
-        for instance in blocked_users:
-            # Set values as an error variable
-            usernames[instance] = 'Error, cannot get username'
+        usernames = {u.userID: 'Error, cannot get username' for u in blocked_users}
         for key in usernames.keys():
             # Fetch usernames from GitHub API
-            api_url = requests.get('https://api.github.com/user/{}'.format(key), timeout=30)
-            if requests.exceptions.RequestException is not None:
+            try:
+                api_url = requests.get('https://api.github.com/user/{}'.format(key), timeout=10)
+            except requests.exceptions.RequestException:
                 break
             userdata = api_url.json()
             # Set values to the actual usernames if no errors
@@ -913,8 +912,8 @@ def blocked_users():
             return redirect(url_for('.blocked_users'))
 
         return{
-            'addUserForm': addUserForm(),
-            'removeUserForm': removeUserForm(),
+            'addUserForm': addUserForm,
+            'removeUserForm': removeUserForm,
             'blocked_users': blocked_users
         }
 

@@ -3,6 +3,7 @@ from __future__ import print_function
 import os
 import sys
 import traceback
+import requests
 
 from flask import Flask, g
 from werkzeug.contrib.fixers import ProxyFix

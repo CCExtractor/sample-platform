@@ -10,7 +10,6 @@ import json
 import os
 import shutil
 import sys
-import svgwrite
 import requests
 
 import datetime
@@ -586,19 +585,26 @@ def start_ci():
 
 
 def update_build_badge(status, test):
+    """
+    Build status badge for current test to be displayed on sample-platform.ccextractor.org
+
+    :param status: current testing status
+    :type status: str
+    :param test: current commit that is tested
+    :type test: Test
+    :return: Nothing.
+    :rtype: None
+    """
     if test.test_type == TestType.commit:
         parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        output = os.path.join(parent_dir, 'static', 'svg', 'status-{platform}.svg'.format(platform=test.platform.value))
-        dwg = svgwrite.Drawing(output, profile='full')
-
-        if status == Status.SUCCESS:
-            dwg.add(dwg.text('Passing', insert=(0, 0.2), fill='green'))
-        elif status == Status.FAILURE:
-            dwg.add(dwg.text('Failing', insert=(0, 0.2), fill='red'))
-        else:
-            dwg.add(dwg.text('Unknown', insert=(0, 0.2), fill='gray'))
-
-        dwg.save()
+        availableon = os.path.join(parent_dir, 'static', 'svg',
+                                   '{status}-{platform}.svg'.format(status=status.upper(),
+                                                                    platform=test.platform.value))
+        svglocation = os.path.join(parent_dir, 'static', 'img', 'status',
+                                   'build-{platform}.svg'.format(platform=test.platform.value))
+        shutil.copyfile(availableon, svglocation)
+    else:
+        return
 
 
 @mod_ci.route('/progress-reporter/<test_id>/<token>', methods=['POST'])

@@ -632,17 +632,29 @@ def update_build_badge(status, test):
     :return: Nothing.
     :rtype: None
     """
-    if test.test_type == TestType.commit:
-        test.status = Status()
-        parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        availableon = os.path.join(parent_dir, 'static', 'svg',
-                                   '{status}-{platform}.svg'.format(status=test.status.value,
-                                                                    platform=test.platform.value))
-        svglocation = os.path.join(parent_dir, 'static', 'img', 'status',
-                                   'build-{platform}.svg'.format(platform=test.platform.value))
-        shutil.copyfile(availableon, svglocation)
+    if 'type' in request.form:
+        if request.form['type'] == 'upload':
+            if test.test_type == TestType.commit:
+                if 'file' in request.files:
+                    uploaded_file = request.files['file']
+                    filename = secure_filename(uploaded_file.filename)
+                    if filename is '':
+                        return 'EMPTY'
+                    test.status = Status()
+                    parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    availableon = os.path.join(parent_dir, 'static', 'svg',
+                                                '{status}-{platform}.svg'.format(status=test.status.value,
+                                                                                platform=test.platform.value))
+                    svglocation = os.path.join(parent_dir, 'static', 'img', 'status',
+                                                'build-{platform}.svg'.format(platform=test.platform.value))
+                    shutil.copyfile(availableon, svglocation)
+                    uploaded_file.save(svglocation)
+            else:
+                return 
+        else:
+            return 
     else:
-        return
+        return "FAIL"
 
 @mod_ci.route('/progress-reporter/<test_id>/<token>', methods=['POST'])
 def progress_reporter(test_id, token):

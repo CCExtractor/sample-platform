@@ -881,11 +881,11 @@ def blocked_users():
             # Fetch usernames from GitHub API
             try:
                 api_url = requests.get('https://api.github.com/user/{}'.format(key), timeout=10)
-            except requests.exceptions.RequestException:
-                break
                 userdata = api_url.json()
                 # Set values to the actual usernames if no errors
                 usernames[key] = userdata['login']
+            except requests.exceptions.RequestException:
+                break
 
         # Define addUserForm processing
         addUserForm = AddUsersToBlacklist()

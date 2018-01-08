@@ -14,4 +14,3 @@ xmltodict
 lxml
 pytz
 tzlocal
-svgwrite

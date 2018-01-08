@@ -620,6 +620,7 @@ def start_ci():
         return json.dumps({'msg': 'EOL'})
 
 
+@mod_ci.route('/buildtest/result', methods=['POST'])
 def update_build_badge(status, test):
     """
     Build status badge for current test to be displayed on sample-platform.ccextractor.org

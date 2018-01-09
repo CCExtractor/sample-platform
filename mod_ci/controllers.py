@@ -60,6 +60,8 @@ def before_app_request():
         g.user, 'Platform mgmt', 'cog', [], '', [
             {'title': 'Maintenance', 'icon': 'wrench', 'route':
                 'ci.show_maintenance', 'access': [Role.admin]}
+            {'title': 'Blocked Users', 'icon': 'ban', 'route':
+                'ci.blocked_users', 'access': [Role.admin]}
         ]
     )
     if 'config' in g.menu_entries and 'entries' in config_entries:
@@ -875,7 +877,7 @@ def show_maintenance():
     }
 
 
-@mod_ci.route('/blocked_users')
+@mod_ci.route('/blocked_users', methods=['GET', 'POST'])
 @login_required
 @check_access_rights([Role.admin])
 @template_renderer()

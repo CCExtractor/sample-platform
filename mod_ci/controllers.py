@@ -10,7 +10,6 @@ import json
 import os
 import shutil
 import sys
-import svgwrite
 import requests
 
 import datetime
@@ -59,7 +58,7 @@ def before_app_request():
     config_entries = get_menu_entries(
         g.user, 'Platform mgmt', 'cog', [], '', [
             {'title': 'Maintenance', 'icon': 'wrench', 'route':
-                'ci.show_maintenance', 'access': [Role.admin]}
+                'ci.show_maintenance', 'access': [Role.admin]},
             {'title': 'Blocked Users', 'icon': 'ban', 'route':
                 'ci.blocked_users', 'access': [Role.admin]}
         ]

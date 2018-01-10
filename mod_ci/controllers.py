@@ -905,6 +905,24 @@ def blocked_users():
             g.db.add(blocked_user)
             g.db.commit()
             flash('User blocked successfully.')
+            # Remove any queued pull request from blocked user
+            payload = request.get_json()
+            gh = GitHub(access_token=g.github['bot_token'])
+            repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
+            if addUserForm.userID.data == payload['pull_request']['user']['id']:
+                tests = Test.query.filter(Test.pr_nr == payload['pull_request']['number']).all()
+                for test in tests:
+                    # Add canceled status only if the test hasn't started yet
+                    if len(test.progress) > 0:
+                        continue
+                    progress = TestProgress(test.id, TestStatus.canceled, "PR closed", datetime.datetime.now())
+                    g.db.add(progress)
+                    repository.statuses(test.commit).post(
+                        state=Status.FAILURE,
+                        description="Tests canceled",
+                        context="CI - {name}".format(name=test.platform.value),
+                        target_url=url_for('test.by_id', test_id=test.id, _external=True)
+                    )
             return redirect(url_for('.blocked_users'))
 
         # Define removeUserForm processing

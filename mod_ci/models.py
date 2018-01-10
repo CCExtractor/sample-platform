@@ -22,6 +22,10 @@ class BlockedUsers(Base):
     userID = Column(Integer, primary_key=True)
     comment = Column(Text())
 
+    def __init__(self, userID, comment):
+        self.userID = userID
+        self.comment = comment
+
     def __repr__(self):
         return "<BlockedUsers(userID='{id}', comment='{comment}')>".format(
             id=self.userID, comment=self.comment)

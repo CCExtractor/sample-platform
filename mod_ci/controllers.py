@@ -912,7 +912,7 @@ def blocked_users():
                 gh = GitHub(access_token=g.github['bot_token'])
                 repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
                 # Getting all pull requests by blocked user on the repo
-                pulls = gh.repos('ccextractor')('sample-platform').pulls.get()
+                pulls = repository.pulls.get()
                 for pull in pulls:
                     if pull['user']['id'] == addUserForm.userID.data:
                         tests = Test.query.filter(Test.pr_nr == pull['number']).all()

@@ -917,6 +917,7 @@ def blocked_users():
                         continue
                     progress = TestProgress(test.id, TestStatus.canceled, "PR closed", datetime.datetime.now())
                     g.db.add(progress)
+                    g.db.commit()
                     repository.statuses(test.commit).post(
                         state=Status.FAILURE,
                         description="Tests canceled",

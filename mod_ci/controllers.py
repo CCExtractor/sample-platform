@@ -907,13 +907,12 @@ def blocked_users():
             g.db.add(blocked_user)
             g.db.commit()
             flash('User blocked successfully.')
-            # Remove any queued pull request from blocked user
-            gh = GitHub(access_token=g.github['bot_token'])
-            repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
             try:
+                # Remove any queued pull request from blocked user
+                gh = GitHub(access_token=g.github['bot_token'])
+                repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
                 # Getting all pull requests by blocked user on the repo
-                pulls = requests.get('https://api.github.com/repos/ccextractor/sample-platform/pulls/head={username}'
-                                     ).format(username=usernames[addUserForm.userID.data])
+                pulls = gh.repos('ccextractor')('sample-platform').pulls.get()
                 for pull in pulls:
                     tests = Test.query.filter(Test.pr_nr == pull['number']).all()
                     for test in tests:
@@ -923,14 +922,18 @@ def blocked_users():
                         progress = TestProgress(test.id, TestStatus.canceled, "PR closed", datetime.datetime.now())
                         g.db.add(progress)
                         g.db.commit()
-                        repository.statuses(test.commit).post(
-                            state=Status.FAILURE,
-                            description="Tests canceled since user blacklisted",
-                            context="CI - {name}".format(name=test.platform.value),
-                            target_url=url_for('test.by_id', test_id=test.id, _external=True)
-                        )
-            except requests.exceptions.RequestException:
-                log.error('Pull Requests of Blocked User could not be fetched.')
+                        try:
+                            repository.statuses(test.commit).post(
+                                state=Status.FAILURE,
+                                description="Tests canceled since user blacklisted",
+                                context="CI - {name}".format(name=test.platform.value),
+                                target_url=url_for('test.by_id', test_id=test.id, _external=True)
+                            )
+                        except ApiError as a:
+                            log.error('Got an exception while posting to GitHub! Message: {message}'.format(
+                                message=a.message))
+            except ApiError as a:
+                log.error('Pull Requests of Blocked User could not be fetched: {res}'.format(res=a.response))
             return redirect(url_for('.blocked_users'))
 
         # Define removeUserForm processing

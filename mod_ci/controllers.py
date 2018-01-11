@@ -881,6 +881,8 @@ def show_maintenance():
 @check_access_rights([Role.admin])
 @template_renderer()
 def blocked_users():
+        from run import log
+
         blocked_users = BlockedUsers.query.order_by(BlockedUsers.userID)
 
         # Initialize usernames dictionary
@@ -906,12 +908,14 @@ def blocked_users():
             g.db.commit()
             flash('User blocked successfully.')
             # Remove any queued pull request from blocked user
-            payload = request.get_json()
             gh = GitHub(access_token=g.github['bot_token'])
             repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
-            if addUserForm.userID.data == payload['pull_request']['user']['id']:
-                tests = Test.query.filter(Test.pr_nr == payload['pull_request']['number']).all()
-                for test in tests:
+            try:
+                # Getting all pull requests by blocked user on the repo
+                pulls = requests.get('https://api.github.com/repos/ccextractor/sample-platform/pulls/head={username}'
+                                     ).format(username=usernames[addUserForm.userID.data])
+                for pull in pulls:
+                    test = Test.query.filter(Test.pr_nr == pull['number']).all()
                     # Add canceled status only if the test hasn't started yet
                     if len(test.progress) > 0:
                         continue
@@ -920,10 +924,12 @@ def blocked_users():
                     g.db.commit()
                     repository.statuses(test.commit).post(
                         state=Status.FAILURE,
-                        description="Tests canceled",
+                        description="Tests canceled since user blacklisted",
                         context="CI - {name}".format(name=test.platform.value),
                         target_url=url_for('test.by_id', test_id=test.id, _external=True)
                     )
+            except requests.exceptions.RequestException:
+                log.error('Pull Requests of Blocked User could not be fetched.')
             return redirect(url_for('.blocked_users'))
 
         # Define removeUserForm processing

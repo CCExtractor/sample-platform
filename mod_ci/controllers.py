@@ -914,24 +914,25 @@ def blocked_users():
                 # Getting all pull requests by blocked user on the repo
                 pulls = gh.repos('ccextractor')('sample-platform').pulls.get()
                 for pull in pulls:
-                    tests = Test.query.filter(Test.pr_nr == pull['number']).all()
-                    for test in tests:
-                        # Add canceled status only if the test hasn't started yet
-                        if len(test.progress) > 0:
-                            continue
-                        progress = TestProgress(test.id, TestStatus.canceled, "PR closed", datetime.datetime.now())
-                        g.db.add(progress)
-                        g.db.commit()
-                        try:
-                            repository.statuses(test.commit).post(
-                                state=Status.FAILURE,
-                                description="Tests canceled since user blacklisted",
-                                context="CI - {name}".format(name=test.platform.value),
-                                target_url=url_for('test.by_id', test_id=test.id, _external=True)
-                            )
-                        except ApiError as a:
-                            log.error('Got an exception while posting to GitHub! Message: {message}'.format(
-                                message=a.message))
+                    if pull['user']['id'] == addUserForm.userID.data:
+                        tests = Test.query.filter(Test.pr_nr == pull['number']).all()
+                        for test in tests:
+                            # Add canceled status only if the test hasn't started yet
+                            if len(test.progress) > 0:
+                                continue
+                            progress = TestProgress(test.id, TestStatus.canceled, "PR closed", datetime.datetime.now())
+                            g.db.add(progress)
+                            g.db.commit()
+                            try:
+                                repository.statuses(test.commit).post(
+                                    state=Status.FAILURE,
+                                    description="Tests canceled since user blacklisted",
+                                    context="CI - {name}".format(name=test.platform.value),
+                                    target_url=url_for('test.by_id', test_id=test.id, _external=True)
+                                )
+                            except ApiError as a:
+                                log.error('Got an exception while posting to GitHub! Message: {message}'.format(
+                                    message=a.message))
             except ApiError as a:
                 log.error('Pull Requests of Blocked User could not be fetched: {res}'.format(res=a.response))
             return redirect(url_for('.blocked_users'))

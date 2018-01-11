@@ -881,8 +881,6 @@ def show_maintenance():
 @check_access_rights([Role.admin])
 @template_renderer()
 def blocked_users():
-        from run import log
-
         blocked_users = BlockedUsers.query.order_by(BlockedUsers.userID)
 
         # Initialize usernames dictionary

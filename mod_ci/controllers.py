@@ -931,10 +931,10 @@ def blocked_users():
                                     target_url=url_for('test.by_id', test_id=test.id, _external=True)
                                 )
                             except ApiError as a:
-                                log.error('Got an exception while posting to GitHub! Message: {message}'.format(
+                                g.log.error('Got an exception while posting to GitHub! Message: {message}'.format(
                                     message=a.message))
             except ApiError as a:
-                log.error('Pull Requests of Blocked User could not be fetched: {res}'.format(res=a.response))
+                g.log.error('Pull Requests of Blocked User could not be fetched: {res}'.format(res=a.response))
             return redirect(url_for('.blocked_users'))
 
         # Define removeUserForm processing

@@ -915,19 +915,20 @@ def blocked_users():
                 pulls = requests.get('https://api.github.com/repos/ccextractor/sample-platform/pulls/head={username}'
                                      ).format(username=usernames[addUserForm.userID.data])
                 for pull in pulls:
-                    test = Test.query.filter(Test.pr_nr == pull['number']).all()
-                    # Add canceled status only if the test hasn't started yet
-                    if len(test.progress) > 0:
-                        continue
-                    progress = TestProgress(test.id, TestStatus.canceled, "PR closed", datetime.datetime.now())
-                    g.db.add(progress)
-                    g.db.commit()
-                    repository.statuses(test.commit).post(
-                        state=Status.FAILURE,
-                        description="Tests canceled since user blacklisted",
-                        context="CI - {name}".format(name=test.platform.value),
-                        target_url=url_for('test.by_id', test_id=test.id, _external=True)
-                    )
+                    tests = Test.query.filter(Test.pr_nr == pull['number']).all()
+                    for test in tests:
+                        # Add canceled status only if the test hasn't started yet
+                        if len(test.progress) > 0:
+                            continue
+                        progress = TestProgress(test.id, TestStatus.canceled, "PR closed", datetime.datetime.now())
+                        g.db.add(progress)
+                        g.db.commit()
+                        repository.statuses(test.commit).post(
+                            state=Status.FAILURE,
+                            description="Tests canceled since user blacklisted",
+                            context="CI - {name}".format(name=test.platform.value),
+                            target_url=url_for('test.by_id', test_id=test.id, _external=True)
+                        )
             except requests.exceptions.RequestException:
                 log.error('Pull Requests of Blocked User could not be fetched.')
             return redirect(url_for('.blocked_users'))

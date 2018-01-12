@@ -905,6 +905,35 @@ def blocked_users():
             g.db.add(blocked_user)
             g.db.commit()
             flash('User blocked successfully.')
+            try:
+                # Remove any queued pull request from blocked user
+                gh = GitHub(access_token=g.github['bot_token'])
+                repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
+                # Getting all pull requests by blocked user on the repo
+                pulls = repository.pulls.get()
+                for pull in pulls:
+                    if pull['user']['id'] != addUserForm.userID.data:
+                        continue
+                    tests = Test.query.filter(Test.pr_nr == pull['number']).all()
+                    for test in tests:
+                        # Add canceled status only if the test hasn't started yet
+                        if len(test.progress) > 0:
+                            continue
+                        progress = TestProgress(test.id, TestStatus.canceled, "PR closed", datetime.datetime.now())
+                        g.db.add(progress)
+                        g.db.commit()
+                        try:
+                            repository.statuses(test.commit).post(
+                                state=Status.FAILURE,
+                                description="Tests canceled since user blacklisted",
+                                context="CI - {name}".format(name=test.platform.value),
+                                target_url=url_for('test.by_id', test_id=test.id, _external=True)
+                            )
+                        except ApiError as a:
+                            g.log.error('Got an exception while posting to GitHub! Message: {message}'.format(
+                                message=a.message))
+            except ApiError as a:
+                g.log.error('Pull Requests of Blocked User could not be fetched: {res}'.format(res=a.response))
             return redirect(url_for('.blocked_users'))
 
         # Define removeUserForm processing

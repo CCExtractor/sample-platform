@@ -20,6 +20,8 @@ if [ "${maintenance}" == "True" ]; then
     exit;
 fi
 
-wget "${runCIURL}"
+# Copy runCI to local folder
+cp ${runCIFile}/* ${runCIFile}
+# Get runCI from GitHub if a new version exists
+wget -N "${runCIURL}" -o runCI
 chmod a+x runCI
-./runCI

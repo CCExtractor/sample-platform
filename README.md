@@ -7,8 +7,8 @@ report errors, submit samples, view existing samples and more. It was
 originally developed during GSoC 2015 and rewritten during GSoC 2016. During
 GSoC 2017 it's being further improved.
 
-To see the live version of the platform, simply go to
-[CCExtractor Submission Platform](https://sampleplatform.ccextractor.org/).
+To see the live version of the platform, simply go to <a href="https://sampleplatform.ccextractor.org/" target= "_blank">
+CCExtractor Submission Platform</a>.
 
 ## Concept
 

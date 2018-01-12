@@ -18,7 +18,7 @@ reported through a variety of channels (private email, mailing list, GitHub,
 and so on...).
 
 The aim of this project is to build a platform, which is accessible to
-everyone ([after signing up](https://sampleplatform.ccextractor.org/account/signup)), that provides a single place to upload, view
+everyone ([after signing up](https://sampleplatform.ccextractor.org/account/signup)), that provides a single place to upload, view 
 samples and associated test results.
 
 ## Installation

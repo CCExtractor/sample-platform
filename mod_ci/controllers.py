@@ -131,7 +131,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     Checks whether machine is in maintenance mode or not
     Launch kvm if not used by any other test
     Creates testing xml files to test the change in main repo.
-    Creates clone with seperate branch and merge pr into it.
+    Creates clone with separate branch and merge pr into it.
     """
     from run import config, log, app
 

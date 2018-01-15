@@ -21,6 +21,6 @@ if [ "${maintenance}" == "True" ]; then
 fi
 
 # Copy runCI to local folder
-cp ${runCIFile} $DIR/'runCI'
+cp ${runCIFile} "$DIR/runCI"
 chmod a+x runCI
 ./runCI

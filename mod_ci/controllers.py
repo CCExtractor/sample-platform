@@ -53,7 +53,7 @@ class Status:
 @mod_ci.before_app_request
 def before_app_request():
     """
-    Function that organize menu content such as Platform management
+    Function that organizes menu content such as Platform management
     """
     config_entries = get_menu_entries(
         g.user, 'Platform mgmt', 'cog', [], '', [
@@ -473,7 +473,7 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
 @request_from_github()
 def start_ci():
     """
-    Get's called when the webhook on GitHub is triggered. Reaction to the next events need to be processed
+    Gets called when the webhook on GitHub is triggered. Reaction to the next events need to be processed
     (after verification):
         - Ping (for fun)
         - Push
@@ -881,6 +881,12 @@ def show_maintenance():
 @check_access_rights([Role.admin])
 @template_renderer()
 def blocked_users():
+        """
+        Method to render the blocked_users template.
+        This returns a list of all currently blacklisted users.
+        Also defines processing of forms to add/remove users from blacklist.
+        When a user is added to blacklist, removes queued tests on any PR by the user.
+        """
         blocked_users = BlockedUsers.query.order_by(BlockedUsers.userID)
 
         # Initialize usernames dictionary

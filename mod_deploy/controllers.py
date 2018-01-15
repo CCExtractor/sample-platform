@@ -139,8 +139,8 @@ def deploy():
 
         # Update runCI
         run_ci_repo = path.join(app.config['INSTALL_FOLDER'], 'install', 'ci-vm', 'ci-linux', 'ci', 'runCI')
-        run_ci_nfs = path.join(app.config.get('SAMPLE_REPOSITORY', ''), 'vm_data', app.config.get(
-            'KVM_LINUX_NAME', ''), 'runCI')
+        run_ci_nfs = path.join(app.config['SAMPLE_REPOSITORY'], 'vm_data', app.config[
+            'KVM_LINUX_NAME'], 'runCI')
         copyfile(run_ci_repo, run_ci_nfs)
 
         # Reload platform service

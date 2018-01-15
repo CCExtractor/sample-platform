@@ -8,6 +8,7 @@ import hashlib
 import hmac
 import json
 import subprocess
+import os
 from functools import wraps
 
 import requests
@@ -137,10 +138,10 @@ def deploy():
             f.write(build_commit)
 
         # Update runCI
-        runCI_repo = os.path.join(app.config['INSTALL_FOLDER'], 'install', 'ci-vm', 'ci-linux', 'ci', 'runCI')
-        runCI_nfs = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', config.get(
+        run_ci_repo = os.path.join(config['INSTALL_FOLDER'], 'install', 'ci-vm', 'ci-linux', 'ci', 'runCI')
+        run_ci_nfs = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', config.get(
             'KVM_LINUX_NAME', ''), 'runCI')
-        copyfile(runCI_repo, runCI_nfs)
+        copyfile(run_ci_repo, run_ci_nfs)
 
         # Reload platform service
         g.log.info('Platform upgraded to commit {commit}'.format(commit=commit_hash))

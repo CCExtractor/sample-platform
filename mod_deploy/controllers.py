@@ -135,6 +135,11 @@ def deploy():
         with open('build_commit.py', 'w') as f:
             f.write(build_commit)
 
+        # Update runCI
+        runCI = origin.pull('install/ci-vm/ci-linux/ci/runCI').read()
+        runCI_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', 'runCIFile')
+        runCI.getroottree().write(os.path.join(runCI_path, 'runCI'), encoding='utf-8', pretty_print=True)
+
         # Reload platform service
         g.log.info('Platform upgraded to commit {commit}'.format(commit=commit_hash))
         subprocess.Popen(["sudo", "service", "platform", "reload"])

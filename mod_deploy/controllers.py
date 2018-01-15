@@ -137,10 +137,10 @@ def deploy():
             f.write(build_commit)
 
         # Update runCI
-        runCIrepo = os.path.join(app.config['INSTALL_FOLDER'], 'install', 'ci-vm', 'ci-linux', 'ci', 'runCI')
-        runCI_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', config.get(
+        runCI_repo = os.path.join(app.config['INSTALL_FOLDER'], 'install', 'ci-vm', 'ci-linux', 'ci', 'runCI')
+        runCI_nfs = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', config.get(
             'KVM_LINUX_NAME', ''), 'runCI')
-        copyfile(runCIrepo, runCI_path)
+        copyfile(runCI_repo, runCI_nfs)
 
         # Reload platform service
         g.log.info('Platform upgraded to commit {commit}'.format(commit=commit_hash))

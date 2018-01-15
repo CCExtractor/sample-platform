@@ -8,7 +8,6 @@ import hashlib
 import hmac
 import json
 import subprocess
-import os
 from functools import wraps
 
 import requests
@@ -16,6 +15,7 @@ from flask import Blueprint, request, abort, g
 from git import Repo, InvalidGitRepositoryError
 from ipaddress import ip_address, ip_network
 from shutil import copyfile
+from os import path
 
 from compare_digest import compare_digest
 
@@ -138,7 +138,7 @@ def deploy():
             f.write(build_commit)
 
         # Update runCI
-        run_ci_repo = os.path.join(config['INSTALL_FOLDER'], 'install', 'ci-vm', 'ci-linux', 'ci', 'runCI')
+        run_ci_repo = os.path.join(app.config['INSTALL_FOLDER'], 'install', 'ci-vm', 'ci-linux', 'ci', 'runCI')
         run_ci_nfs = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', config.get(
             'KVM_LINUX_NAME', ''), 'runCI')
         copyfile(run_ci_repo, run_ci_nfs)

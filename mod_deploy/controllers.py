@@ -137,8 +137,9 @@ def deploy():
             f.write(build_commit)
 
         # Update runCI
-        runCIrepo = os.path.join(repo,'install/ci-vm/ci-linux/ci/runCI')
-        runCI_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', config.get('KVM_LINUX_NAME', ''), 'runCI')
+        runCIrepo = os.path.join(repo, 'install/ci-vm/ci-linux/ci/runCI')
+        runCI_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', config.get(
+            'KVM_LINUX_NAME', ''), 'runCI')
         copyfile(runCIrepo, runCI_nfs)
 
         # Reload platform service

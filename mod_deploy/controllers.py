@@ -14,6 +14,7 @@ import requests
 from flask import Blueprint, request, abort, g
 from git import Repo, InvalidGitRepositoryError
 from ipaddress import ip_address, ip_network
+from shutil import copyfile
 
 from compare_digest import compare_digest
 
@@ -136,9 +137,11 @@ def deploy():
             f.write(build_commit)
 
         # Update runCI
-        runCI = origin.pull('install/ci-vm/ci-linux/ci/runCI').read()
-        runCI_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', 'runCIFile')
-        runCI.getroottree().write(os.path.join(runCI_path, 'runCI'), encoding='utf-8', pretty_print=True)
+        runCIrepo = config.get('install/ci-vm/ci-linux/ci/runCI', '')
+        kvm_name = config.get('KVM_LINUX_NAME', '')
+        runCI_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', kvm_name, 'runCI')
+        runCI_nfs = os.path.join(runCI_path, 'runCI')
+        copyfile(runCIrepo, runCI_nfs)
 
         # Reload platform service
         g.log.info('Platform upgraded to commit {commit}'.format(commit=commit_hash))

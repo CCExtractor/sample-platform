@@ -138,8 +138,8 @@ def deploy():
             f.write(build_commit)
 
         # Update runCI
-        run_ci_repo = os.path.join(app.config['INSTALL_FOLDER'], 'install', 'ci-vm', 'ci-linux', 'ci', 'runCI')
-        run_ci_nfs = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', config.get(
+        run_ci_repo = path.join(app.config['INSTALL_FOLDER'], 'install', 'ci-vm', 'ci-linux', 'ci', 'runCI')
+        run_ci_nfs = path.join(app.config.get('SAMPLE_REPOSITORY', ''), 'vm_data', app.config.get(
             'KVM_LINUX_NAME', ''), 'runCI')
         copyfile(run_ci_repo, run_ci_nfs)
 

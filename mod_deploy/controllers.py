@@ -14,6 +14,8 @@ import requests
 from flask import Blueprint, request, abort, g
 from git import Repo, InvalidGitRepositoryError
 from ipaddress import ip_address, ip_network
+from shutil import copyfile
+from os import path
 
 from compare_digest import compare_digest
 
@@ -134,6 +136,11 @@ def deploy():
         build_commit = 'build_commit = "{commit}"'.format(commit=commit_hash)
         with open('build_commit.py', 'w') as f:
             f.write(build_commit)
+
+        # Update runCI
+        run_ci_repo = path.join(app.config['INSTALL_FOLDER'], 'install', 'ci-vm', 'ci-linux', 'ci', 'runCI')
+        run_ci_nfs = path.join(app.config['SAMPLE_REPOSITORY'], 'vm_data', app.config['KVM_LINUX_NAME'], 'runCI')
+        copyfile(run_ci_repo, run_ci_nfs)
 
         # Reload platform service
         g.log.info('Platform upgraded to commit {commit}'.format(commit=commit_hash))

@@ -20,6 +20,7 @@ if [ "${maintenance}" == "True" ]; then
     exit;
 fi
 
-wget "${runCIURL}"
+# Copy runCI to local folder
+cp ${runCIFile} "$DIR/runCI"
 chmod a+x runCI
 ./runCI

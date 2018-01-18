@@ -902,15 +902,17 @@ def blocked_users():
                 break
 
         # Define addUserForm processing
-        addUserForm = AddUsersToBlacklist()
-        if addUserForm.validate_on_submit():
-            if BlockedUsers.query.filter_by(userID=addUserForm.userID.data).first() is not None:
+        add_user_form = AddUsersToBlacklist()
+        if add_user_form.validate_on_submit():
+            if BlockedUsers.query.filter_by(userID=add_user_form.userID.data).first() is not None:
                 flash('User already blocked.')
                 return redirect(url_for('.blocked_users'))
-            blocked_user = BlockedUsers(addUserForm.userID.data, addUserForm.comment.data)
+
+            blocked_user = BlockedUsers(add_user_form.userID.data, add_user_form.comment.data)
             g.db.add(blocked_user)
             g.db.commit()
             flash('User blocked successfully.')
+
             try:
                 # Remove any queued pull request from blocked user
                 gh = GitHub(access_token=g.github['bot_token'])
@@ -918,7 +920,7 @@ def blocked_users():
                 # Getting all pull requests by blocked user on the repo
                 pulls = repository.pulls.get()
                 for pull in pulls:
-                    if pull['user']['id'] != addUserForm.userID.data:
+                    if pull['user']['id'] != add_user_form.userID.data:
                         continue
                     tests = Test.query.filter(Test.pr_nr == pull['number']).all()
                     for test in tests:
@@ -940,23 +942,25 @@ def blocked_users():
                                 message=a.message))
             except ApiError as a:
                 g.log.error('Pull Requests of Blocked User could not be fetched: {res}'.format(res=a.response))
+
             return redirect(url_for('.blocked_users'))
 
         # Define removeUserForm processing
-        removeUserForm = RemoveUsersFromBlacklist()
-        if removeUserForm.validate_on_submit():
-            blocked_user = BlockedUsers.query.filter_by(userID=removeUserForm.userID.data).first()
+        remove_user_form = RemoveUsersFromBlacklist()
+        if remove_user_form.validate_on_submit():
+            blocked_user = BlockedUsers.query.filter_by(userID=remove_user_form.userID.data).first()
             if blocked_user is None:
                 flash('No such user in Blacklist')
                 return redirect(url_for('.blocked_users'))
+
             g.db.remove(blocked_user)
             g.db.commit()
             flash('User removed successfully.')
             return redirect(url_for('.blocked_users'))
 
         return{
-            'addUserForm': addUserForm,
-            'removeUserForm': removeUserForm,
+            'addUserForm': add_user_form,
+            'removeUserForm': remove_user_form,
             'blocked_users': blocked_users
         }
 

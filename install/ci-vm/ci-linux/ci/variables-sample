@@ -9,6 +9,8 @@ maintenanceURL="http://foo.bar/maintenance/linux"
 runCIURL="https://raw.githubusercontent.com/CCExtractor/sample-platform/master/install/ci-vm/ci-linux/ci/runCI"
 # File that contains the URL to report to
 reportURLFile="/path/to/token/file"
+# runCI location
+runCIFile="/path/to/runCI/file"
 # Directory that contains the sources of the version to test
 srcDir="/path/to/ccextractor/repository"
 # Directory to copy the files to

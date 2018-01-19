@@ -21,8 +21,8 @@
             <tbody>
             {% for u in blocked_users %}
                 <tr>
-                    <td>{{ u.id }}</td>
-                    <td>{{ usernames[u.id] }}</td>
+                    <td>{{ u.user_id }}</td>
+                    <td>{{ usernames[u.user_id] }}</td>
                     <td>{{ u.comment }}</td>
                 </tr>
             {% endfor %}
@@ -60,7 +60,7 @@
         {% endif %}
         <div class="row">
             <div class="medium-12 columns">
-                {{ macros.render_field(addUserForm.userID) }}
+                {{ macros.render_field(addUserForm.user_id) }}
             </div>
             <div class="medium-6 columns">
                 {{ macros.render_field(addUserForm.comment) }}
@@ -101,7 +101,7 @@
         {% endif %}
         <div class="row">
             <div class="medium-12 columns">
-                {{ macros.render_field(removeUserForm.userID) }}
+                {{ macros.render_field(removeUserForm.user_id) }}
             </div>
             <div class="medium-12 columns">
                 {{ macros.render_field(removeUserForm.submit) }}

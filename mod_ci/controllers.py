@@ -961,7 +961,8 @@ def blocked_users():
         return{
             'addUserForm': add_user_form,
             'removeUserForm': remove_user_form,
-            'blocked_users': blocked_users
+            'blocked_users': blocked_users,
+            'usernames': usernames
         }
 
 

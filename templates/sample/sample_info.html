@@ -4,12 +4,12 @@
 {% block body %}
     {{ super() }}
     <br />
-    <div class="row">
-        <div class="row">
+    <div class="grid-x">
+        <div class="grid-x">
             <div class="column medium-9">
                 {% with messages = get_flashed_messages(with_categories=true) %}
                     {% if messages %}
-                        <div class="row">
+                        <div class="grid-x">
                             <div class="callout alert">
                                 <ul class="flashes">
                                     {% for category, message in messages %}

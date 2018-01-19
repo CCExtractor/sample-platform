@@ -538,7 +538,7 @@ def start_ci():
 
                 # Check if user blacklisted
                 user_id = payload['pull_request']['user']['id']
-                if BlockedUsers.query.filter(BlockedUsers.userID == user_id).first() is not None:
+                if BlockedUsers.query.filter(BlockedUsers.user_id == user_id).first() is not None:
                     g.log.critical("User Blacklisted")
                     gh_commit.post(
                         state=Status.ERROR,
@@ -883,10 +883,10 @@ def blocked_users():
         Also defines processing of forms to add/remove users from blacklist.
         When a user is added to blacklist, removes queued tests on any PR by the user.
         """
-        blocked_users = BlockedUsers.query.order_by(BlockedUsers.userID)
+        blocked_users = BlockedUsers.query.order_by(BlockedUsers.user_id)
 
         # Initialize usernames dictionary
-        usernames = {u.userID: 'Error, cannot get username' for u in blocked_users}
+        usernames = {u.user_id: 'Error, cannot get username' for u in blocked_users}
         for key in usernames.keys():
             # Fetch usernames from GitHub API
             try:
@@ -900,11 +900,11 @@ def blocked_users():
         # Define addUserForm processing
         add_user_form = AddUsersToBlacklist()
         if add_user_form.validate_on_submit():
-            if BlockedUsers.query.filter_by(userID=add_user_form.userID.data).first() is not None:
+            if BlockedUsers.query.filter_by(user_id=add_user_form.user_id.data).first() is not None:
                 flash('User already blocked.')
                 return redirect(url_for('.blocked_users'))
 
-            blocked_user = BlockedUsers(add_user_form.userID.data, add_user_form.comment.data)
+            blocked_user = BlockedUsers(add_user_form.user_id.data, add_user_form.comment.data)
             g.db.add(blocked_user)
             g.db.commit()
             flash('User blocked successfully.')
@@ -916,7 +916,7 @@ def blocked_users():
                 # Getting all pull requests by blocked user on the repo
                 pulls = repository.pulls.get()
                 for pull in pulls:
-                    if pull['user']['id'] != add_user_form.userID.data:
+                    if pull['user']['id'] != add_user_form.user_id.data:
                         continue
                     tests = Test.query.filter(Test.pr_nr == pull['number']).all()
                     for test in tests:
@@ -944,7 +944,7 @@ def blocked_users():
         # Define removeUserForm processing
         remove_user_form = RemoveUsersFromBlacklist()
         if remove_user_form.validate_on_submit():
-            blocked_user = BlockedUsers.query.filter_by(userID=remove_user_form.userID.data).first()
+            blocked_user = BlockedUsers.query.filter_by(user_id=remove_user_form.user_id.data).first()
             if blocked_user is None:
                 flash('No such user in Blacklist')
                 return redirect(url_for('.blocked_users'))
@@ -957,7 +957,8 @@ def blocked_users():
         return{
             'addUserForm': add_user_form,
             'removeUserForm': remove_user_form,
-            'blocked_users': blocked_users
+            'blocked_users': blocked_users,
+            'usernames': usernames
         }
 
 

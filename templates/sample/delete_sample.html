@@ -4,15 +4,15 @@
 {% block body %}
     {{ super() }}
     <br />
-    <div class="row">
-        <div class="row">
+    <div class="grid-x">
+        <div class="grid-x">
             <div class="column medium-12">
                 <h1>Delete sample</h1>
                 <p>Are you sure you want to delete the sample with id {{ sample.id }}?</p>
                 <p><strong>This will delete the files, as well as all tests that were created for this sample!</strong></p>
                 <form method="post" name="deleteForm" id="deleteForm" action="{{ url_for('.delete_sample', sample_id=sample.id) }}">
                     {{ form.csrf_token }}
-                    <div class="row">
+                    <div class="grid-x">
                         <div class="medium-6 columns">
                             {{ macros.render_field(form.submit) }}
                         </div>

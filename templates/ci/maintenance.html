@@ -5,7 +5,7 @@
 {% block body %}
 	{{ super() }}
     <br />
-    <div class="row">
+    <div class="grid-x">
 	    <h1>Maintenance Mode</h1>
 		{% for platform_status in platforms %}
 			<h3>{{ platform_status.platform.description }}</h3>

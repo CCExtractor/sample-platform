@@ -4,7 +4,7 @@
 {% block body %}
     {{ super() }}
     <br />
-    <div class="row">
+    <div class="grid-x">
         <div class="callout warning">
             <h5>Recover password</h5>
             <p>In order to recover your password we need the email address linked to the account so we can send an email with instructions.</p>
@@ -14,7 +14,7 @@
         {{ form.csrf_token }}
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                <div class="row">
+                <div class="grid-x">
                     <div class="callout alert">
                         <ul class="flashes">
                             {% for category, message in messages %}
@@ -34,7 +34,7 @@
             {% endfor %}
         </div>
         {% endif %}
-        <div class="row">
+        <div class="grid-x">
             <div class="medium-12 columns">
                 {{ macros.render_field(form.email) }}
             </div>

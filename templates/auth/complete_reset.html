@@ -4,7 +4,7 @@
 {% block body %}
     {{ super() }}
     <br />
-    <div class="row">
+    <div class="grid-x">
         <div class="callout warning">
             <h5>Reset your password</h5>
             <p>Please enter your new password below:</p>
@@ -14,7 +14,7 @@
         {{ form.csrf_token }}
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                <div class="row">
+                <div class="grid-x">
                     <div class="callout alert">
                         <ul class="flashes">
                             {% for category, message in messages %}
@@ -26,7 +26,7 @@
             {% endif %}
         {% endwith %}
         {% if form.errors %}
-            <div class="row">
+            <div class="grid-x">
                 <div class="callout alert">
                     {% for field, error in form.errors.items() %}
                         {% for e in error %}
@@ -36,7 +36,7 @@
                 </div>
             </div>
         {% endif %}
-        <div class="row">
+        <div class="grid-x">
             <div class="medium-6 columns">
                 {{ macros.render_field(form.password) }}
             </div>

@@ -5,11 +5,11 @@
 {% block body %}
     {{ super() }}
     <br>
-    <div class="row">
+    <div class="grid-x">
         <h1>Manage Blocked Users</h1>
         <p>Below you can find an overview of all blocked users on the platform and add or remove them.</p>
     </div>
-    <div class="row">
+    <div class="grid-x">
         <table class="stack hover sortable" id="userTable">
             <thead>
                 <tr>
@@ -29,14 +29,14 @@
             </tbody>
         </table>
     </div>
-    <div class="row">
+    <div class="grid-x">
         <h1>Add Users</h1>
     </div>
     <form method="post" name="addUserForm" id="addUserForm" action="{{ url_for('.blocked_users') }}">
         {{ addUserForm.csrf_token }}
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                <div class="row">
+                <div class="grid-x">
                     <div class="callout alert">
                         <ul class="flashes">
                             {% for category, message in messages %}
@@ -48,7 +48,7 @@
             {% endif %}
         {% endwith %}
         {% if addUserForm.errors %}
-            <div class="row">
+            <div class="grid-x">
                 <div class="callout alert">
                     {% for field, error in addUserForm.errors.items() %}
                         {% for e in error %}
@@ -58,7 +58,7 @@
                 </div>
             </div>
         {% endif %}
-        <div class="row">
+        <div class="grid-x">
             <div class="medium-12 columns">
                 {{ macros.render_field(addUserForm.userID) }}
             </div>
@@ -70,14 +70,14 @@
             </div>
         </div>
     </form>
-    <div class="row">
+    <div class="grid-x">
         <h1>Remove Blocked Users</h1>
     </div>
     <form method="post" name="removeUserForm" id="removeUserForm" action="{{ url_for('.blocked_users') }}">
         {{ removeUserForm.csrf_token }}
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                <div class="row">
+                <div class="grid-x">
                     <div class="callout alert">
                         <ul class="flashes">
                             {% for category, message in messages %}
@@ -89,7 +89,7 @@
             {% endif %}
         {% endwith %}
         {% if removeUserForm.errors %}
-            <div class="row">
+            <div class="grid-x">
                 <div class="callout alert">
                     {% for field, error in removeUserForm.errors.items() %}
                         {% for e in error %}
@@ -99,7 +99,7 @@
                 </div>
             </div>
         {% endif %}
-        <div class="row">
+        <div class="grid-x">
             <div class="medium-12 columns">
                 {{ macros.render_field(removeUserForm.userID) }}
             </div>

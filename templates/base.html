@@ -55,9 +55,11 @@
                         </div>
                     </div>
                     {% endif %}
-                    {% block body %}{% endblock %}
+                    <div style="display:grid">
+                        {% block body %}{% endblock %}
+                    </div>
                     {% block footer %}
-                    <footer class="row">
+                    <footer class="grid-x">
                         &copy; {{ currentYear }} {{ applicationName }} &bull; <a href="{{ url_for('home.about') }}">About</a> &bull; Built with commit <a target="_blank" href="https://github.com/CCExtractor/sample-platform/commit/{{ build_commit }}">{{ build_commit|truncate(10, end='') }}</a>
                     </footer>
                     {% endblock %}

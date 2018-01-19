@@ -4,7 +4,7 @@
 {% block body %}
     {{ super() }}
     <br />
-    <div class="row">
+    <div class="grid-x">
         <div class="column medium-9">
             <h1>Regression test  {{ test.id }}</h1>
             <p>Sample: <a href="{{ url_for('sample.sample_by_id', sample_id=test.sample_id) }}">Sample #{{ test.sample.id }}</a></p>

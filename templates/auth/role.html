@@ -4,14 +4,14 @@
 {% block body %}
     {{ super() }}
     <br />
-    <div class="row">
+    <div class="grid-x">
         <div class="callout warning">
             <h5>Change user role for {{ view_user.name }}</h5>
             <p>Select a new role for this user:</p>
         </div>
     </div>
     {% if form.errors %}
-        <div class="row">
+        <div class="grid-x">
             <div class="medium-12 columns">
                 {% for field, error in form.errors.items() %}
                     {% for e in error %}
@@ -21,7 +21,7 @@
             </div>
         </div>
     {% endif %}
-    <div class="row">
+    <div class="grid-x">
         <div class="medium-12 columns">
             <form method="post" action="{{ url_for(".role", uid=view_user.id) }}">
                 {{ form.csrf_token }}

@@ -4,11 +4,11 @@
 {% block body %}
     {{ super() }}
     <br />
-    <div class="row">
+    <div class="grid-x">
         <div class="column medium-9">
             <h1>Regression tests</h1>
             {% if tests|length > 0 %}
-                <p class="row">
+                <p class="grid-x">
                     <label for="category" class="column medium-4">Select a category</label>
                     <select id="category" style="background-position: right 0 center"onchange="switchCategory();" class="column medium-6">
                         {% for category in categories %}

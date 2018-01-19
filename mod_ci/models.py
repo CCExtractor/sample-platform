@@ -18,17 +18,17 @@ from mod_test.models import Test, TestPlatform
 class BlockedUsers(Base):
     __tablename__ = 'blocked_users'
     __table_args__ = {'mysql_engine': 'InnoDB'}
-    # userID refers to the ID from https://api.github.com/users/your_username
-    userID = Column(Integer, primary_key=True)
+    # user_id refers to the ID from https://api.github.com/users/your_username
+    user_id = Column(Integer, primary_key=True)
     comment = Column(Text())
 
-    def __init__(self, userID, comment):
-        self.userID = userID
+    def __init__(self, user_id, comment):
+        self.user_id = user_id
         self.comment = comment
 
     def __repr__(self):
-        return "<BlockedUsers(userID='{id}', comment='{comment}')>".format(
-            id=self.userID, comment=self.comment)
+        return "<BlockedUsers(user_id='{id}', comment='{comment}')>".format(
+            id=self.user_id, comment=self.comment)
 
 
 class Kvm(Base):

@@ -5,7 +5,7 @@
 {% block body %}
     {{ super() }}
     <br>
-    <div class="row">
+    <div class="grid-x">
         <h1>User details for {{ view_user.name }}</h1>
         <p><small>Note: only you and the site admin can see these details.</small></p>
         <p>Name: {{ view_user.name }}</p>
@@ -13,7 +13,7 @@
         <p>GitHub linked? {{ "Yes" if view_user.github_token is not none else "No" }}</p>
         <p>Role: {{ view_user.role.description }}</p>
     </div>
-    <div class="row">
+    <div class="grid-x">
         <h4>Submitted samples</h4>
         {% set no_samples="This user didn't submit any samples yet." %}
         {% set use_sample_original=true %}

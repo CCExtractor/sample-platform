@@ -4,7 +4,7 @@
 {% block body %}
     {{ super() }}
     <br />
-    <div class="row">
+    <div class="grid-x">
         <div class="callout primary">
             <h1>{{ applicationName }}</h1>
             <p>
@@ -14,7 +14,7 @@
             <p>This instance of {{ applicationName }} is running version {{ applicationVersion }}. More information about the version can be found on the <a target="_blank" href="https://github.com/CCExtractor/sample-platform">GitHub repository</a>.</p>
             <p>{{ applicationName }} is released under the <a target="_blank" href="https://en.wikipedia.org/wiki/ISC_license">ICS</a> (permissive) license and can be found on GitHub: <a target="_blank" href="https://github.com/CCExtractor/sample-platform">{{ applicationName }} on GitHub</a>.</p>
         </div>
-        <div class="row">
+        <div class="grid-x">
             <div class="column medium-8">
                 <h3>About this platform</h3>
                 <p>{{ applicationName }} makes use of the next frameworks &amp; open-source utilities:</p>

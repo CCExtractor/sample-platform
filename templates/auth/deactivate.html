@@ -4,14 +4,14 @@
 {% block body %}
     {{ super() }}
     <br />
-    <div class="row">
+    <div class="grid-x">
         <div class="callout warning">
             <h5>Account deactivation for {{ view_user.name }}</h5>
             <p>This action cannot be undone. Your details will be anonymized, and you will not longer be able to log in. Are you sure you want to do this?</p>
         </div>
     </div>
     {% if form.errors %}
-        <div class="row">
+        <div class="grid-x">
             <div class="medium-12 columns">
                 {% for field, error in form.errors.items() %}
                     {% for e in error %}
@@ -21,7 +21,7 @@
             </div>
         </div>
     {% endif %}
-    <div class="row">
+    <div class="grid-x">
         <div class="medium-12 columns">
             <form method="post" action="{{ url_for(".deactivate", uid=view_user.id) }}">
                 {{ form.csrf_token }}

@@ -368,30 +368,24 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
 
         test_branch.checkout(True)
 
-        # TODO: check what happens on merge conflicts
         # Merge on master if no conflict
         try:
-            repo.git.merge('test_branch', '--ff-only')
+            repo.git.merge('master', '--ff-only')
         except GitCommandError:
-            tests = Test.query.filter(Test.pr_nr == test.pr_nr).all()
-            for test in tests:
-                # Add canceled status only if the test hasn't started yet
-                if len(test.progress) > 0:
-                    continue
-                progress = TestProgress(test.id, TestStatus.canceled, "Commit could not be merged",
-                                        datetime.datetime.now())
-                g.db.add(progress)
-                g.db.commit()
-                try:
-                    repository.statuses(test.commit).post(
-                        state=Status.FAILURE,
-                        description="Tests canceled due to merge conflict",
-                        context="CI - {name}".format(name=test.platform.value),
-                        target_url=url_for('test.by_id', test_id=test.id, _external=True)
-                    )
-                except ApiError as a:
-                    g.log.error('Got an exception while posting to GitHub! Message: {message}'.format(
-                        message=a.message))
+            test = Test.query.filter(Test.pr_nr == test.pr_nr).first()
+            progress = TestProgress(test.id, TestStatus.canceled, "Commit could not be merged", datetime.datetime.now())
+            g.db.add(progress)
+            g.db.commit()
+            try:
+                repository.statuses(test.commit).post(
+                    state=Status.FAILURE,
+                    description="Tests canceled due to merge conflict",
+                    context="CI - {name}".format(name=test.platform.value),
+                    target_url=url_for('test.by_id', test_id=test.id, _external=True)
+                )
+            except ApiError as a:
+                g.log.error('Got an exception while posting to GitHub! Message: {message}'.format(
+                    message=a.message))
 
     else:
         test_branch = repo.create_head('CI_Branch', 'HEAD')

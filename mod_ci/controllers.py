@@ -892,7 +892,7 @@ def blocked_users():
 
         # Define addUserForm processing
         add_user_form = AddUsersToBlacklist()
-        if add_user_form.validate_on_submit():
+        if add_user_form.add.data and add_user_form.validate_on_submit():
             if BlockedUsers.query.filter_by(user_id=add_user_form.user_id.data).first() is not None:
                 flash('User already blocked.')
                 return redirect(url_for('.blocked_users'))
@@ -936,7 +936,7 @@ def blocked_users():
 
         # Define removeUserForm processing
         remove_user_form = RemoveUsersFromBlacklist()
-        if remove_user_form.validate_on_submit():
+        if remove_user_form.remove.data and remove_user_form.validate_on_submit():
             blocked_user = BlockedUsers.query.filter_by(user_id=remove_user_form.user_id.data).first()
             if blocked_user is None:
                 flash('No such user in Blacklist')

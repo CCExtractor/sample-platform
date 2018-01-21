@@ -368,34 +368,23 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
 
         test_branch.checkout(True)
 
-        # TODO: check what happens on merge conflicts
-        # Rebase on master
-        # try:
-        #     repo.git.rebase('master')
-        # except GitCommandError:
-        #     progress = TestProgress(
-        #         test.id, TestStatus.preparation,
-        #         'Rebase on master'
-        #     )
-        #     db.add(progress)
-        #     progress = TestProgress(
-        #         test.id, TestStatus.canceled,
-        #         'Merge conflict, please resolve.'
-        #     )
-        #     db.add(progress)
-        #     db.commit()
-        #     # Report back
-        #     gh_commit = repository.statuses(test.commit)
-        #
-        #     with app.app_context():
-        #         target_url = url_for(
-        #             'test.by_id', test_id=test.id, _external=True)
-        #     context = "CI - %s" % test.platform.value
-        #     gh_commit.post(
-        #         state=Status.ERROR, description='Failed to rebase',
-        #         context=context, target_url=target_url)
-        #     # Return, so next one can be handled
-        #     return
+        # Merge on master if no conflict
+        try:
+            repo.git.merge('master', '--ff-only')
+        except GitCommandError:
+            progress = TestProgress(test.id, TestStatus.canceled, "Commit could not be merged", datetime.datetime.now())
+            g.db.add(progress)
+            g.db.commit()
+            try:
+                repository.statuses(test.commit).post(
+                    state=Status.FAILURE,
+                    description="Tests canceled due to merge conflict",
+                    context="CI - {name}".format(name=test.platform.value),
+                    target_url=url_for('test.by_id', test_id=test.id, _external=True)
+                )
+            except ApiError as a:
+                g.log.error('Got an exception while posting to GitHub! Message: {message}'.format(
+                    message=a.message))
 
     else:
         test_branch = repo.create_head('CI_Branch', 'HEAD')

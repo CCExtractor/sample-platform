@@ -942,7 +942,7 @@ def blocked_users():
                 flash('No such user in Blacklist')
                 return redirect(url_for('.blocked_users'))
 
-            g.db.remove(blocked_user)
+            g.db.delete(blocked_user)
             g.db.commit()
             flash('User removed successfully.')
             return redirect(url_for('.blocked_users'))

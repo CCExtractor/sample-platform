@@ -372,7 +372,6 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         try:
             repo.git.merge('master', '--ff-only')
         except GitCommandError:
-            test = Test.query.filter(Test.pr_nr == test.pr_nr).first()
             progress = TestProgress(test.id, TestStatus.canceled, "Commit could not be merged", datetime.datetime.now())
             g.db.add(progress)
             g.db.commit()

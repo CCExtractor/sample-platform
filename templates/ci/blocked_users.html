@@ -9,6 +9,19 @@
         <h1>Manage Blocked Users</h1>
         <p>Below you can find an overview of all blocked users on the platform and add or remove them.</p>
     </div>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="grid-x">
+                <div class="callout alert">
+                    <ul class="flashes">
+                        {% for category, message in messages %}
+                        <li class="{{ category }}">{{ message }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        {% endif %}
+    {% endwith %}
     <div class="grid-x">
         <table class="stack hover sortable" id="userTable">
             <thead>
@@ -34,19 +47,6 @@
     </div>
     <form method="post" name="addUserForm" id="addUserForm" action="{{ url_for('.blocked_users') }}">
         {{ addUserForm.csrf_token }}
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <div class="grid-x">
-                    <div class="callout alert">
-                        <ul class="flashes">
-                            {% for category, message in messages %}
-                            <li class="{{ category }}">{{ message }}</li>
-                            {% endfor %}
-                        </ul>
-                    </div>
-                </div>
-            {% endif %}
-        {% endwith %}
         {% if addUserForm.errors %}
             <div class="grid-x">
                 <div class="callout alert">
@@ -75,19 +75,6 @@
     </div>
     <form method="post" name="removeUserForm" id="removeUserForm" action="{{ url_for('.blocked_users') }}">
         {{ removeUserForm.csrf_token }}
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <div class="grid-x">
-                    <div class="callout alert">
-                        <ul class="flashes">
-                            {% for category, message in messages %}
-                            <li class="{{ category }}">{{ message }}</li>
-                            {% endfor %}
-                        </ul>
-                    </div>
-                </div>
-            {% endif %}
-        {% endwith %}
         {% if removeUserForm.errors %}
             <div class="grid-x">
                 <div class="callout alert">

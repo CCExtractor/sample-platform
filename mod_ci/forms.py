@@ -6,9 +6,9 @@ from wtforms.validators import DataRequired
 class AddUsersToBlacklist(Form):
     user_id = IntegerField('User ID', [DataRequired(message='GitHub User ID not filled in')])
     comment = StringField('Comment')
-    submit = SubmitField('Add User')
+    add = SubmitField('Add User')
 
 
 class RemoveUsersFromBlacklist(Form):
     user_id = IntegerField('User ID', [DataRequired(message='GitHub User ID not filled in')])
-    submit = SubmitField('Remove User')
+    remove = SubmitField('Remove User')

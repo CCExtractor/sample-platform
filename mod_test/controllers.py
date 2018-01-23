@@ -234,31 +234,13 @@ def by_commit(commit_hash):
     return get_data_for_test(test, 'commit {commit}'.format(commit=commit_hash))
 
 
-@mod_test.route('/master/windows')
+@mod_test.route('/master/<platform>')
 @template_renderer('test/by_id.html')
-def latest_windows():
-    # Look up the hash
-    gh = GitHub(access_token=g.github['bot_token'])
-    repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
-    latest_commit = repository.commits.master.get()
-    commit_hash = latest_commit['sha']
-    test = Test.query.filter((Test.commit == commit_hash) & (Test.platform == 'windows')).first()
-
-    if test is None:
-        raise TestNotFoundException('There is no test available for commit {commit}'.format(commit=commit_hash))
-
-    return get_data_for_test(test, 'commit {commit}'.format(commit=commit_hash))
-
-
-@mod_test.route('/master/linux')
-@template_renderer('test/by_id.html')
-def latest_linux():
-    # Look up the hash
-    gh = GitHub(access_token=g.github['bot_token'])
-    repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
-    latest_commit = repository.commits.master.get()
-    commit_hash = latest_commit['sha']
-    test = Test.query.filter((Test.commit == commit_hash) & (Test.platform == 'linux')).first()
+def latest_commit_info(platform):
+    # Look up the hash of the latest commit
+    commit_hash = GeneralData.query.filter(GeneralData.key == 'last_commit').first().value
+    test = Test.query.filter(Test.commit == commit_hash, Test.platform == '{platform}'.format(
+        platform=platform)).first()
 
     if test is None:
         raise TestNotFoundException('There is no test available for commit {commit}'.format(commit=commit_hash))

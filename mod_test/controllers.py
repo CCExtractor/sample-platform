@@ -14,7 +14,7 @@ from decorators import template_renderer
 from mod_home.models import CCExtractorVersion
 from mod_regression.models import Category, regressionTestLinkTable, \
     RegressionTestOutput
-from mod_test.models import Test, TestProgress, TestResultFile, TestType
+from mod_test.models import Test, TestProgress, TestResultFile, TestType, TestPlatform
 from mod_home.models import GeneralData
 from mod_ci.models import Kvm
 from datetime import datetime
@@ -237,10 +237,13 @@ def by_commit(commit_hash):
 @mod_test.route('/master/<platform>')
 @template_renderer('test/by_id.html')
 def latest_commit_info(platform):
+    try:
+        platform = TestPlatform.from_string(platform)
+    except ValueError:
+        return 'ERROR'
     # Look up the hash of the latest commit
     commit_hash = GeneralData.query.filter(GeneralData.key == 'last_commit').first().value
-    test = Test.query.filter(Test.commit == commit_hash, Test.platform == '{platform}'.format(
-        platform=platform)).first()
+    test = Test.query.filter(Test.commit == commit_hash, Test.platform == platform).first()
 
     if test is None:
         raise TestNotFoundException('There is no test available for commit {commit}'.format(commit=commit_hash))

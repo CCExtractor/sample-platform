@@ -18,6 +18,7 @@ from mod_test.models import Test, TestProgress, TestResultFile, TestType
 from mod_home.models import GeneralData
 from mod_ci.models import Kvm
 from datetime import datetime
+from github import GitHub
 mod_test = Blueprint('test', __name__)
 
 
@@ -226,6 +227,38 @@ def ccextractor_version(ccx_version):
 def by_commit(commit_hash):
     # Look up the hash, find a test for it and redirect
     test = Test.query.filter(Test.commit == commit_hash).first()
+
+    if test is None:
+        raise TestNotFoundException('There is no test available for commit {commit}'.format(commit=commit_hash))
+
+    return get_data_for_test(test, 'commit {commit}'.format(commit=commit_hash))
+
+
+@mod_test.route('/master/windows')
+@template_renderer('test/by_id.html')
+def latest_windows():
+    # Look up the hash
+    gh = GitHub(access_token=g.github['bot_token'])
+    repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
+    latest_commit = repository.commits.master.get()
+    commit_hash = latest_commit['sha']
+    test = Test.query.filter((Test.commit == commit_hash) & (Test.platform == 'windows')).first()
+
+    if test is None:
+        raise TestNotFoundException('There is no test available for commit {commit}'.format(commit=commit_hash))
+
+    return get_data_for_test(test, 'commit {commit}'.format(commit=commit_hash))
+
+
+@mod_test.route('/master/linux')
+@template_renderer('test/by_id.html')
+def latest_linux():
+    # Look up the hash
+    gh = GitHub(access_token=g.github['bot_token'])
+    repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
+    latest_commit = repository.commits.master.get()
+    commit_hash = latest_commit['sha']
+    test = Test.query.filter((Test.commit == commit_hash) & (Test.platform == 'linux')).first()
 
     if test is None:
         raise TestNotFoundException('There is no test available for commit {commit}'.format(commit=commit_hash))

@@ -34,6 +34,7 @@ from mod_deploy.controllers import request_from_github, is_valid_signature
 from mod_home.models import GeneralData
 from mod_regression.models import Category, RegressionTestOutput, RegressionTest
 from mod_auth.models import Role
+from mod_home.models import CCExtractorVersion
 from mod_sample.models import Issue
 from mod_test.models import TestType, Test, TestStatus, TestProgress, Fork, TestPlatform, TestResultFile, TestResult
 
@@ -566,6 +567,36 @@ def start_ci():
             if issue is not None:
                 issue.title = issue_data['title']
                 issue.status = issue_data['state']
+                g.db.commit()
+
+        elif event == "release":
+            release_data = payload['release']
+            release_type = payload['prerelease']
+            # checking whether it is meant for production
+            if release_type is False:
+                return
+            else:
+                release_version = payload['tag_name']
+                # Github recommends adding v to the version
+                if release_version[0] == 'v':
+                    release_version = release_version[1:]
+                release_date = payload['created_at']
+                release_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
+                release = CCExtractorVersion(release_data, release_version, release_commit)
+                g.db.add(release)
+                g.db.commit()
+                # adding test corresponding to last commit to the baseline regression results
+                test = Test.query.filter(Test.commit == release_commit).first()
+                test_result_file = g.db.query(TestResultFile).filter(
+                                    TestResultFile.test_id == test.id).subquery()
+                test_result = g.db.query(TestResult).filter(
+                                    TestResult.test_id == test.id).subquery()
+                g.db.query(RegressionTestOutput.correct).filter(
+                                RegressionTestOutput.regression_id == test_result_file.c.regression_test_id &
+                                test_result_file.c.got is not None).values(test_result_file.c.got)
+                g.db.query(RegressionTest.expected_rc).filter(
+                                RegressionTest.id == test_result.c.regression_test_id
+                                ).values(test_result.c.expected_rc)
                 g.db.commit()
 
         else:

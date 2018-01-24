@@ -246,9 +246,9 @@ def latest_commit_info(platform):
     test = Test.query.filter(Test.commit == commit_hash, Test.platform == platform).first()
 
     if test is None:
-        raise TestNotFoundException('There is no test available for commit {master}'.format(master=commit_hash))
+        raise TestNotFoundException('There is no test available for commit {commit}'.format(commit=commit_hash))
 
-    return get_data_for_test(test, 'commit {master}'.format(master=commit_hash))
+    return get_data_for_test(test, 'master {commit}'.format(commit=commit_hash))
 
 
 @mod_test.route('/diff/<test_id>/<regression_test_id>/<output_id>')

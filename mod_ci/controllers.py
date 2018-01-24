@@ -574,6 +574,7 @@ def start_ci():
             release_type = payload['prerelease']
             # checking whether it is meant for production
             if release_type is False:
+                g.log.debug("error, release event meant for pre-release")
                 return
             else:
                 release_version = payload['tag_name']
@@ -586,14 +587,15 @@ def start_ci():
                 g.db.add(release)
                 g.db.commit()
                 # adding test corresponding to last commit to the baseline regression results
-                test = Test.query.filter(Test.commit == release_commit).first()
+                test = Test.query.filter(and_(Test.commit == release_commit,
+                                         Test.platform == TestPlatform.linux)).first()
                 test_result_file = g.db.query(TestResultFile).filter(
                                     TestResultFile.test_id == test.id).subquery()
                 test_result = g.db.query(TestResult).filter(
                                     TestResult.test_id == test.id).subquery()
                 g.db.query(RegressionTestOutput.correct).filter(
-                                RegressionTestOutput.regression_id == test_result_file.c.regression_test_id &
-                                test_result_file.c.got is not None).values(test_result_file.c.got)
+                                    and_(RegressionTestOutput.regression_id == test_result_file.c.regression_test_id,
+                                    test_result_file.c.got is not None)).values(test_result_file.c.got)
                 g.db.query(RegressionTest.expected_rc).filter(
                                 RegressionTest.id == test_result.c.regression_test_id
                                 ).values(test_result.c.expected_rc)

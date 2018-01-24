@@ -49,6 +49,9 @@ class Status:
     ERROR = "error"
     FAILURE = "failure"
 
+    def __init__(self):
+        pass
+
 
 @mod_ci.before_app_request
 def before_app_request():
@@ -726,7 +729,8 @@ def progress_reporter(test_id, token):
 
                 if status == TestStatus.canceled:
                     state = Status.ERROR
-                    message = 'Tests aborted due to an error; please check'
+                    error_id = TestResult.regression_test_id
+                    message = 'Tests aborted due to the following error_id error: {}'.format(error_id)
 
                 elif status == TestStatus.completed:
                     # Determine if success or failure

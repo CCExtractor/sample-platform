@@ -595,7 +595,7 @@ def start_ci():
                                     TestResult.test_id == test.id).subquery()
                 g.db.query(RegressionTestOutput.correct).filter(
                                     and_(RegressionTestOutput.regression_id == test_result_file.c.regression_test_id,
-                                    test_result_file.c.got is not None)).values(test_result_file.c.got)
+                                         test_result_file.c.got is not None)).values(test_result_file.c.got)
                 g.db.query(RegressionTest.expected_rc).filter(
                                 RegressionTest.id == test_result.c.regression_test_id
                                 ).values(test_result.c.expected_rc)

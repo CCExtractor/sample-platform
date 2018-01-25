@@ -374,8 +374,8 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
             repo.git.merge('master', '--ff-only')
         except GitCommandError:
             progress = TestProgress(test.id, TestStatus.canceled, "Commit could not be merged", datetime.datetime.now())
-            g.db.add(progress)
-            g.db.commit()
+            db.add(progress)
+            db.commit()
             try:
                 repository.statuses(test.commit).post(
                     state=Status.FAILURE,
@@ -384,8 +384,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
                     target_url=url_for('test.by_id', test_id=test.id, _external=True)
                 )
             except ApiError as a:
-                g.log.error('Got an exception while posting to GitHub! Message: {message}'.format(
-                    message=a.message))
+                log.error('Got an exception while posting to GitHub! Message: {message}'.format(message=a.message))
 
     else:
         test_branch = repo.create_head('CI_Branch', 'HEAD')

@@ -1,4 +1,9 @@
 #!/usr/bin/python
+"""
+Initialize Database for installation
+===================
+This script creates an Admin User
+"""
 
 import sys
 from os import path
@@ -21,7 +26,9 @@ def run():
     if admin is not None:
         print("Admin already exists: {name}".format(name=admin.name))
         return
-
+    """
+    Add an admin if not already present
+    """
     user = User(sys.argv[2], Role.admin, sys.argv[3],
                 User.generate_hash(sys.argv[4]))
     db.add(user)

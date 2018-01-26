@@ -369,7 +369,11 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
 
         test_branch.checkout(True)
 
-        pull = repository.pulls('{pr_nr}'.format(pr_nr=test.pr_nr)).get()
+        try:
+            pull = repository.pulls('{pr_nr}'.format(pr_nr=test.pr_nr)).get()
+        except ApiError as a:
+            log.error('Got an exception while posting to GitHub! Message: {message}'.format(message=a.message))
+            return
         if pull['mergeable'] == 'false':
             progress = TestProgress(test.id, TestStatus.canceled, "Commit could not be merged", datetime.datetime.now())
             db.add(progress)

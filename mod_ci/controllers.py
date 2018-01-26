@@ -371,7 +371,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
 
         gh = GitHub(access_token=g.github['bot_token'])
         repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
-        pull = repository.pulls(test.pr_nr).get()
+        pull = repository.pulls('{pr_nr}'.format(pr_nr=test.pr_nr)).get()
         if pull['mergeable'] == 'false':
             progress = TestProgress(test.id, TestStatus.canceled, "Commit could not be merged", datetime.datetime.now())
             db.add(progress)

@@ -369,20 +369,19 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
 
         test_branch.checkout(True)
 
-        gh = GitHub(access_token=g.github['bot_token'])
-        repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
         pull = repository.pulls('{pr_nr}'.format(pr_nr=test.pr_nr)).get()
         if pull['mergeable'] == 'false':
             progress = TestProgress(test.id, TestStatus.canceled, "Commit could not be merged", datetime.datetime.now())
             db.add(progress)
             db.commit()
             try:
-                repository.statuses(test.commit).post(
-                    state=Status.FAILURE,
-                    description="Tests canceled due to merge conflict",
-                    context="CI - {name}".format(name=test.platform.value),
-                    target_url=url_for('test.by_id', test_id=test.id, _external=True)
-                )
+                with app.app_context():
+                    repository.statuses(test.commit).post(
+                        state=Status.FAILURE,
+                        description="Tests canceled due to merge conflict",
+                        context="CI - {name}".format(name=test.platform.value),
+                        target_url=url_for('test.by_id', test_id=test.id, _external=True)
+                    )
             except ApiError as a:
                 log.error('Got an exception while posting to GitHub! Message: {message}'.format(message=a.message))
             return

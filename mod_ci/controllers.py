@@ -369,22 +369,26 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
 
         test_branch.checkout(True)
 
+        gh = GitHub(access_token=g.github['bot_token'])
+        repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
+        pull = repository.pulls(test.pr_nr).get()
+        if pull['mergeable'] == 'false':
+            progress = TestProgress(test.id, TestStatus.canceled, "Commit could not be merged", datetime.datetime.now())
+            db.add(progress)
+            db.commit()
+            try:
+                repository.statuses(test.commit).post(
+                    state=Status.FAILURE,
+                    description="Tests canceled due to merge conflict",
+                    context="CI - {name}".format(name=test.platform.value),
+                    target_url=url_for('test.by_id', test_id=test.id, _external=True)
+                )
+            except ApiError as a:
+                log.error('Got an exception while posting to GitHub! Message: {message}'.format(message=a.message))
+            return
+
         # Merge on master if no conflict
-        # try:
-        #     repo.git.merge('master', '--ff-only')
-        # except GitCommandError:
-        #     progress = TestProgress(test.id, TestStatus.canceled, "Commit could not be merged", datetime.datetime.now())
-        #     db.add(progress)
-        #     db.commit()
-        #     try:
-        #         repository.statuses(test.commit).post(
-        #             state=Status.FAILURE,
-        #             description="Tests canceled due to merge conflict",
-        #             context="CI - {name}".format(name=test.platform.value),
-        #             target_url=url_for('test.by_id', test_id=test.id, _external=True)
-        #         )
-        #     except ApiError as a:
-        #         log.error('Got an exception while posting to GitHub! Message: {message}'.format(message=a.message))
+        repo.git.merge('master')
 
     else:
         test_branch = repo.create_head('CI_Branch', 'HEAD')

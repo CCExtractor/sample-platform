@@ -137,6 +137,11 @@ def get_html_diff(test_correct_lines, test_res_lines):
     res_len = len(test_res_lines)
     correct_len = len(test_correct_lines)
 
+    if not correct_len:
+        return "One file is empty (Correct regression_test_output)."
+    if not res_len:
+        return "One file is empty (Test regression_test_output)."
+
     if res_len <= correct_len:
         use = res_len
         till = correct_len

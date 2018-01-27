@@ -112,7 +112,7 @@ def _process(test_result, correct, suffix_id):
             html_correct += cr_compr[idx]
             idx += 1
         if event[1] == 'OPEN':
-            _id = "{region}_diff_same_correct_{suffix}".format(region=event[2], suffix_id=suffix_id)
+            _id = "{region}_diff_same_correct_{suffix}".format(region=event[2], suffix=suffix_id)
             cl = '<div class="diff-same-region" id="{id}">'.format(id=_id)
             html_correct += cl
         else:
@@ -137,11 +137,6 @@ def get_html_diff(test_correct_lines, test_res_lines):
     res_len = len(test_res_lines)
     correct_len = len(test_correct_lines)
 
-    if not correct_len:
-        return "One file is empty (Correct regression_test_output)."
-    if not res_len:
-        return "One file is empty (Test regression_test_output)."
-
     if res_len <= correct_len:
         use = res_len
         till = correct_len
@@ -149,7 +144,7 @@ def get_html_diff(test_correct_lines, test_res_lines):
     else:
         use = correct_len
         till = res_len
-
+        
     for line in range(use):
         if test_correct_lines[line] == test_res_lines[line]:
             continue
@@ -169,7 +164,8 @@ def get_html_diff(test_correct_lines, test_res_lines):
         
     # processing remaining lines
     
-    for line in range(use+1, till):
+    for line in range(use, till):
+
         html += '<table>'
 
         if till == res_len:

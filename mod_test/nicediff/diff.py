@@ -144,7 +144,7 @@ def get_html_diff(test_correct_lines, test_res_lines):
     else:
         use = correct_len
         till = res_len
-        
+
     for line in range(use):
         if test_correct_lines[line] == test_res_lines[line]:
             continue

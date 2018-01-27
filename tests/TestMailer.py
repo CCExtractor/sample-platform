@@ -1,12 +1,18 @@
+"""
+TestMailer
+==========
+This module contains unit tests related to the mailer script.
+"""
 import unittest
-
 from mock import mock
-
 from mailer import Mailer
 
 
 class TestMailer(unittest.TestCase):
     def test_that_init_works_correctly(self):
+	"""
+	Decorator that tests the mailer with correct test case.
+	"""
         domain = 'domain'
         api_key = 'APIKEY'
         sender_name = 'foo'
@@ -21,6 +27,9 @@ class TestMailer(unittest.TestCase):
         self.assertEqual(actual.sender, sender)
 
     def test_that_send_simple_message_creates_the_appropriate_request(self):
+	"""
+	Decorator that tests the mailer with an incorrect testcase.
+	"""
         domain = 'domain'
         api_key = 'APIKEY'
         sender_name = 'foo'

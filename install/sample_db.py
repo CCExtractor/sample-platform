@@ -1,4 +1,10 @@
 #!/usr/bin/python
+"""
+Sample Database to initialize the first build with
+===================
+This script creates an instance of a database.
+"""
+
 
 import sys
 from os import path
@@ -15,7 +21,9 @@ def run():
     from database import create_session
 
     db = create_session(sys.argv[1])
-
+    """
+    Create a database session and add the test categories
+    """
     categories = [
         Category('Broken', 'Samples that are broken'),
         Category('DVB', 'Samples that contain DVB subtitles'),
@@ -37,6 +45,9 @@ def run():
     db.add(cc_version)
     db.commit()
 
+    """
+    Perform regression tests on the created database instanse
+    """
     regression_tests = [
         RegressionTest(1, '-autoprogram -out=ttxt -latin1', InputType.file, OutputType.file, 3, 10),
         RegressionTest(2, '-autoprogram -out=ttxt -latin1 -ucla', InputType.file, OutputType.file, 1, 10)

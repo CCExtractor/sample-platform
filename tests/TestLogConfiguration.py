@@ -1,8 +1,11 @@
+"""
+TestConfiguration
+=================
+This module contains tests related to the configuration.
+"""
 import logging
 import unittest
-
 from mock import mock
-
 from log_configuration import LogConfiguration
 
 # This is necessary to avoid a warning with PyCharm
@@ -10,7 +13,13 @@ mock.patch.object = mock.patch.object
 
 
 class TestLogConfiguration(unittest.TestCase):
+
     def _test_init_with_log_value(self, debug, result_level):
+	"""
+	Decorator that initializes the configuration log.
+    :param debug: A flag to enable debugging mode.
+    :type debug: Boolean
+	"""
         joined_path = 'baz'
         folder = 'foo'
         filename = 'bar'
@@ -49,12 +58,21 @@ class TestLogConfiguration(unittest.TestCase):
                         return log_config
 
     def test_init_correctly_initializes_the_instance_when_debug(self):
+	"""
+	Decorator that invokes the _test_init_with_log_value function in Debug mode.
+	"""
         self._test_init_with_log_value(True, logging.DEBUG)
 
     def test_init_correctly_initializes_the_instance_when_no_debug(self):
-        self._test_init_with_log_value(False, logging.INFO)
+	"""
+	Decorator that invokes the _test_init_with_log_value function without Debug mode.
+	"""
+	self._test_init_with_log_value(False, logging.INFO)
 
     def test_create_logger(self):
+	"""
+	Decorator that creates a sample logger with assertions.
+	"""
         with mock.patch.object(LogConfiguration, '__init__',
                                return_value=None):
             with mock.patch('logging.getLogger') as mock_get:

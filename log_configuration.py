@@ -1,3 +1,8 @@
+"""
+log_configuration
+=================
+This module contains the logging functions.
+"""
 import logging
 import logging.handlers
 import os
@@ -9,6 +14,16 @@ class LogConfiguration:
     """
 
     def __init__(self, folder, filename, debug=False):
+	"""
+	Parameterised constructor.
+	
+	:param folder: Path of a directory.
+    :type folder: str
+    :param filename: Name of the file to log the information.
+    :type filename: str
+    :param debug: Boolean flag to enable Debugging mode.
+    :type debug: bool
+	"""
         # create console handler
         self._consoleLogger = logging.StreamHandler()
         self._consoleLogger.setFormatter(logging.Formatter('[%(levelname)s] %(message)s'))

@@ -165,7 +165,6 @@ def get_html_diff(test_correct_lines, test_res_lines):
     # processing remaining lines
     
     for line in range(use, till):
-
         html += '<table>'
 
         if till == res_len:

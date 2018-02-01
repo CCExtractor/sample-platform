@@ -50,7 +50,7 @@ def eq(a, b, same_regions=None, delta_a=0, delta_b=0):
         index[zip_(a)] = index.get(zip_(a), dict())
         index[zip_(a)][zip_(b)] = [e, rez, a_iter, b_iter, best_len]
 
-    if same_regions is not None and index[zip_(a)][zip_(b)][0] != 0:
+    if same_regions is not None and index[zip_(a)][zip_(b)][0] > 1:
         a_iter, b_iter, best_len = index[zip_(a)][zip_(b)][2:]
         # print(delta)
         same_regions.append([
@@ -112,7 +112,7 @@ def _process(test_result, correct, suffix_id):
             html_correct += cr_compr[idx]
             idx += 1
         if event[1] == 'OPEN':
-            _id = "{region}_diff_same_correct_{suffix}".format(region=event[2], suffix_id=suffix_id)
+            _id = "{region}_diff_same_correct_{suffix}".format(region=event[2], suffix=suffix_id)
             cl = '<div class="diff-same-region" id="{id}">'.format(id=_id)
             html_correct += cl
         else:
@@ -164,7 +164,7 @@ def get_html_diff(test_correct_lines, test_res_lines):
         
     # processing remaining lines
     
-    for line in range(use+1, till):
+    for line in range(use, till):
         html += '<table>'
 
         if till == res_len:

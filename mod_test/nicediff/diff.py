@@ -50,7 +50,7 @@ def eq(a, b, same_regions=None, delta_a=0, delta_b=0):
         index[zip_(a)] = index.get(zip_(a), dict())
         index[zip_(a)][zip_(b)] = [e, rez, a_iter, b_iter, best_len]
 
-    if same_regions is not None and index[zip_(a)][zip_(b)][0] != 0:
+    if same_regions is not None and index[zip_(a)][zip_(b)][0] > 1:
         a_iter, b_iter, best_len = index[zip_(a)][zip_(b)][2:]
         # print(delta)
         same_regions.append([

@@ -439,3 +439,7 @@ input.toggle-round:checked + label:after {
     float: right; }
   .column.end:last-child:last-child, .end.columns:last-child:last-child {
     float: left; }
+
+.flow{
+    display: flow-root;
+}

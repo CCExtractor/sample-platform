@@ -440,6 +440,6 @@ input.toggle-round:checked + label:after {
   .column.end:last-child:last-child, .end.columns:last-child:last-child {
     float: left; }
 
-.flow{
+.flow {
     display: flow-root;
 }

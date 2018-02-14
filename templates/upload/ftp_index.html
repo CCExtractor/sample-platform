@@ -4,12 +4,12 @@
 {% block body %}
     {{ super() }}
     <br />
-    <div class="grid-x">
+    <div>
         <div class="column medium-12">
             <h1>Upload a new sample through FTP</h1>
             <p>Below you can find the login details so you can upload your sample.</p>
             <p><strong>These credentials are <em>for you alone</em>! This will guarantee your privacy. If you share them, your samples are no longer guaranteed to be viewable by you alone.</strong></p>
-            <blockquote class="row">
+            <blockquote class="flow">
                 <div class="column medium-3">Server:</div><div class="column medium-9">{{ host }}</div>
                 <div class="column medium-3">Port:</div><div class="column medium-9">{{ port }}</div>
                 <div class="column medium-3">Username:</div><div class="column medium-9">{{ username }}</div>

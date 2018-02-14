@@ -22,7 +22,7 @@
                         </span>
                     {% endif %}
                 </p>
-                <p>Category description:
+                <p style="display: inline-block;">Category description:
                     <span id="category-descriptions">
                         {% for category in categories %}
                             <span {% if not loop.first %}class="hide" {% endif %}data-category="{{ category.id }}">{{ category.description }}</span>

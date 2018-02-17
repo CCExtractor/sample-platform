@@ -442,4 +442,5 @@ input.toggle-round:checked + label:after {
 
 .flow {
     display: flow-root;
+    padding: 50px;
 }

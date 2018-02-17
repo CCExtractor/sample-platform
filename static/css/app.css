@@ -334,6 +334,10 @@ section,
 summary {
     display: block;
     padding-bottom: 0.5%;
+    padding-inline-start: 1.5%;
+    position:fixed;
+    bottom:0;
+    background-color: white;	
 }
 
 .row {
@@ -442,4 +446,5 @@ input.toggle-round:checked + label:after {
 
 .flow {
     display: flow-root;
+    padding-bottom: 50px;
 }

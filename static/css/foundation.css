@@ -47,7 +47,12 @@ footer,
 header,
 nav,
 section {
-  display: block; }
+  display: block;
+  padding-inline-start: 1.5%;
+  bottom: 0;
+  position: fixed;
+  background-color: white;
+}
 
 /**
      * Correct the font size and margin on `h1` elements within `section` and

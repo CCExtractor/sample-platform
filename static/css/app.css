@@ -334,6 +334,10 @@ section,
 summary {
     display: block;
     padding-bottom: 0.5%;
+    padding-inline-start: 1.5%;
+    bottom: 0;
+    position: fixed;
+    background-color: white;
 }
 
 .row {

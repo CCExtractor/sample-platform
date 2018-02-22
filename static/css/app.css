@@ -334,7 +334,9 @@ section,
 summary {
     display: block;
     padding-bottom: 0.5%;
-    padding-inline-start: 1.5%;
+}
+
+footer{
     position:fixed;
     bottom:0;
     background-color: white;

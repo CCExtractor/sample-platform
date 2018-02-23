@@ -336,6 +336,12 @@ summary {
     padding-bottom: 0.5%;
 }
 
+footer{
+    position:fixed;
+    bottom:0;
+    background-color: white;
+}
+
 .row {
     max-width: 75rem;
     margin-left: 2%;
@@ -442,4 +448,5 @@ input.toggle-round:checked + label:after {
 
 .flow {
     display: flow-root;
+    padding-bottom: 50px;
 }

@@ -1,13 +1,10 @@
 from __future__ import print_function
-
 import os
 import sys
 import traceback
-
 from flask import Flask, g
 from werkzeug.contrib.fixers import ProxyFix
 from werkzeug.routing import BaseConverter
-
 from config_parser import parse_config
 from database import create_session
 from decorators import template_renderer

@@ -1,8 +1,6 @@
 import os
-
 import sys
 from collections import OrderedDict
-
 from lxml import etree
 import subprocess
 import xmltodict

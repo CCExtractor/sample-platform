@@ -6,7 +6,6 @@ running on homepage.
 """
 from flask import Blueprint, g
 from github import GitHub
-
 from decorators import template_renderer
 from mod_home.models import CCExtractorVersion, GeneralData
 

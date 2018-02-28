@@ -1,11 +1,9 @@
 import os
 import magic
 import mimetypes
-
 from flask_wtf import Form
 from wtforms import FileField, SubmitField, TextAreaField, SelectField
 from wtforms.validators import DataRequired, ValidationError
-
 from mod_home.models import CCExtractorVersion
 from mod_sample.models import ForbiddenExtension, ForbiddenMimeType
 from mod_upload.models import Platform

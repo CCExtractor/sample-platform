@@ -2,7 +2,6 @@ from flask_wtf import Form
 from wtforms import PasswordField, StringField, SubmitField, SelectField
 from wtforms.fields.html5 import EmailField
 from wtforms.validators import DataRequired, Email, ValidationError
-
 from mod_auth.models import User, Role
 
 

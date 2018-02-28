@@ -6,7 +6,6 @@ of individual test.
 """
 
 import os
-
 from flask import Blueprint, g, abort, make_response, request, jsonify
 from sqlalchemy import and_, func
 from sqlalchemy.sql import label

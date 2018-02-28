@@ -1,5 +1,4 @@
 import subprocess
-
 from os import path
 
 current_dir = path.dirname(path.abspath(__file__))

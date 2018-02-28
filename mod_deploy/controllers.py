@@ -9,14 +9,12 @@ import hmac
 import json
 import subprocess
 from functools import wraps
-
 import requests
 from flask import Blueprint, request, abort, g
 from git import Repo, InvalidGitRepositoryError
 from ipaddress import ip_address, ip_network
 from shutil import copyfile
 from os import path
-
 from compare_digest import compare_digest
 
 mod_deploy = Blueprint('deploy', __name__)

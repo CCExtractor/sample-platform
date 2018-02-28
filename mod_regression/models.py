@@ -11,7 +11,6 @@ from sqlalchemy import Boolean
 from sqlalchemy import Column, Integer, String, Text, ForeignKey
 from sqlalchemy import Table
 from sqlalchemy.orm import relationship
-
 from database import Base, DeclEnum
 
 regressionTestLinkTable = Table(

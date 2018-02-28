@@ -8,11 +8,9 @@ from functools import wraps
 import hmac
 import time
 import requests
-
 from flask import Blueprint, g, request, flash, session, redirect, url_for, \
     abort
 from pyisemail import is_email
-
 from decorators import template_renderer, get_menu_entries
 from mod_auth.forms import LoginForm, AccountForm, SignupForm, \
     CompleteSignupForm, ResetForm, CompleteResetForm, DeactivationForm, \

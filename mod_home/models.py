@@ -8,7 +8,6 @@ List of models corresponding to mysql tables: ['CCExtractorVersion' =>
  'ccextractor_version','GeneralData' => 'general_data']
 """
 from sqlalchemy import Column, Integer, String, Text, Date
-
 from database import Base, DeclEnum
 from datetime import datetime
 

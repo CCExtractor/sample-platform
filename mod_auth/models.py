@@ -7,10 +7,8 @@ List of models corresponding to mysql tables: ['User' => 'user']
 """
 
 import string
-
 from passlib.apps import custom_app_context as pwd_context
 from sqlalchemy import Column, Integer, String, Text
-
 from database import Base, DeclEnum
 
 

@@ -8,10 +8,8 @@ List of models corresponding to mysql tables: ['Upload' => 'upload',
  'FTPCredentials' => 'ftpd']
 """
 import string
-
 from sqlalchemy import Column, Integer, String, Text, ForeignKey
 from sqlalchemy.orm import relationship
-
 from database import Base, DeclEnum
 
 

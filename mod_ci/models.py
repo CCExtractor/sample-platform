@@ -10,7 +10,6 @@ List of models corresponding to mysql tables: ['Kvm' => 'kvm',
 import datetime
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import relationship
-
 from database import Base
 from mod_test.models import Test, TestPlatform
 

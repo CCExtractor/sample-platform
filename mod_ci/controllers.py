@@ -11,9 +11,7 @@ import os
 import shutil
 import sys
 import requests
-
 import datetime
-
 from flask import Blueprint, request, abort, g, url_for, jsonify, flash, redirect
 from git import Repo, InvalidGitRepositoryError, GitCommandError
 from github import GitHub, ApiError
@@ -25,7 +23,6 @@ from sqlalchemy.sql import label
 from sqlalchemy.sql.functions import count
 from werkzeug.utils import secure_filename
 from pymysql.err import IntegrityError
-
 from decorators import template_renderer, get_menu_entries
 from mod_auth.controllers import login_required, check_access_rights
 from mod_ci.models import Kvm, MaintenanceMode, BlockedUsers

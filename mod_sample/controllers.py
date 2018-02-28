@@ -9,9 +9,7 @@ import os
 import json
 import requests
 from operator import and_
-
 from flask import Blueprint, make_response, request, redirect, url_for, g
-
 from decorators import template_renderer
 from mod_auth.controllers import login_required, check_access_rights
 from mod_auth.models import Role
@@ -21,7 +19,6 @@ from mod_sample.forms import EditSampleForm, DeleteSampleForm, \
     DeleteAdditionalSampleForm
 from mod_sample.media_info_parser import MediaInfoFetcher, \
     InvalidMediaInfoError
-
 from mod_sample.models import Sample, ExtraFile, ForbiddenExtension, Issue
 from mod_test.models import Test, TestResult, TestResultFile
 from mod_upload.models import Platform

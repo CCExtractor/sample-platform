@@ -1,6 +1,5 @@
 from flask_wtf import Form
 from wtforms import SubmitField
-
 from mod_upload.forms import CommonSampleForm
 
 

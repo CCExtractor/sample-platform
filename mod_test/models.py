@@ -12,12 +12,10 @@ import datetime
 import pytz
 import os
 import string
-
 from sqlalchemy import (Column, Integer, String, Text, ForeignKey,
                         DateTime, orm)
 from sqlalchemy.orm import relationship
 from tzlocal import get_localzone
-
 from database import Base, DeclEnum
 from mod_test.nicediff import diff
 

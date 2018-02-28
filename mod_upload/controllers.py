@@ -12,13 +12,10 @@ import os
 import traceback
 import magic
 import mimetypes
-
 import shutil
 import requests
-
 from flask import Blueprint, g, make_response, render_template, request,  redirect, url_for, flash
 from werkzeug.utils import secure_filename
-
 from decorators import template_renderer, get_menu_entries
 from git import Repo, InvalidGitRepositoryError, GitCommandError
 from mod_auth.controllers import login_required, check_access_rights

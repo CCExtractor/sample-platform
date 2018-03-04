@@ -9,6 +9,7 @@ install:
   - pip install nose-cov
   - pip install Flask
   - pip install Flask-Testing
+  - pip install SQLAlchemy
 script:
   - nosetests --with-cov --cov-config .coveragerc
 after_success:

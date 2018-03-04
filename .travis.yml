@@ -7,6 +7,7 @@ python:
 install:
   - pip install codecov
   - pip install nose-cov
+  - pip install Flask-Testing
 script:
   - nosetests --with-cov --cov-config .coveragerc
 after_success:

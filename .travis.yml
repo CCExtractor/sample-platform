@@ -10,6 +10,20 @@ install:
   - pip install Flask
   - pip install Flask-Testing
   - pip install SQLAlchemy
+  - pip install passlib
+  - pip install pymysql
+  - pip install python-magic
+  - pip install flask-wtf
+  - pip install gunicorn
+  - pip install githubpy
+  - pip install requests
+  - pip install pyIsEmail
+  - pip install ipaddress
+  - pip install GitPython
+  - pip install xmltodict
+  - pip install lxml
+  - pip install pytz
+  - pip install tzlocal
 script:
   - nosetests --with-cov --cov-config .coveragerc
 after_success:

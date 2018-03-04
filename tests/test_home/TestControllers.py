@@ -1,31 +1,22 @@
-import unittest
-from database import create_session
+from tests.base import BaseTestCase
 from mock import mock
 
 import mod_home.controllers as home
 from mod_home.models import GeneralData, CCExtractorVersion
 
 
-def mock_database(db_string, drop_tables=False):
-    db = create_session(db_string, drop_tables)
-    mock_db = mock.MagicMock(spec=db)
-    return mock_db
-
-
-class TestControllers(unittest.TestCase):
-
-    def setUp(self):
-        with mock.patch('database.create_session') as create_session:
-            create_session.side_effect = mock_database
-            from run import app
-            app.config['TESTING'] = True
-            self.app = app.test_client()
+class TestControllers(BaseTestCase):
 
     def test_root(self):
-        response = self.app.get('/')
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.status_code, 200)
+        self.app.preprocess_request()
+        with self.app.test_client() as c:
+            self.add_last_commit_to_general_data()
+            self.add_ccextractor_version()
+            response = c.get('/')
+            self.assertEqual(response.status_code, 200)
+            self.assert_template_used('home/index.html')
 
     def test_about(self):
-        response = self.app.get('/about')
+        response = self.app.test_client().get('/about')
         self.assertEqual(response.status_code, 200)
+        self.assert_template_used('home/about.html')

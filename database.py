@@ -5,6 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base, DeclarativeMeta
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.sql.sqltypes import SchemaType, Enum, TypeDecorator
+from sqlalchemy.pool import StaticPool
 
 
 class DeclarativeABCMeta(DeclarativeMeta, ABCMeta):
@@ -32,8 +33,8 @@ def create_session(db_string, drop_tables=False):
     :rtype: sqlalchemy.orm.scoped_session
     """
     global db_engine, Base
-
-    db_engine = create_engine(db_string, convert_unicode=True)
+    if db_engine is None:
+        db_engine = create_engine(db_string, convert_unicode=True)
     db_session = scoped_session(sessionmaker(bind=db_engine))
     Base.query = db_session.query_property()
 

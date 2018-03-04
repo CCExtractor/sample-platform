@@ -4,7 +4,9 @@ from mod_home.models import GeneralData
 
 from mock import mock
 
+
 class TestGeneralData(unittest.TestCase):
+
     def test_that_init_works_correctly(self):
         key = 'linux'
         value = '22'

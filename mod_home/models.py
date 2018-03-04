@@ -12,6 +12,7 @@ from sqlalchemy import Column, Integer, String, Text, Date
 from database import Base, DeclEnum
 from datetime import datetime
 
+
 class CCExtractorVersion(Base):
     __tablename__ = 'ccextractor_version'
     __table_args__ = {'mysql_engine': 'InnoDB'}
@@ -35,7 +36,7 @@ class CCExtractorVersion(Base):
         :type commit: str
         """
         self.version = version
-        self.released = datetime.strptime(released, '%Y-%m-%dT%H:%M:%SZ').date
+        self.released = datetime.strptime(released, '%Y-%m-%dT%H:%M:%SZ').date()
         self.commit = commit
 
     def __repr__(self):

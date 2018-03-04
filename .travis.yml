@@ -5,6 +5,7 @@ python:
   - 3.6
   - nightly
 install:
+  - apt-get install libvirt-dev
   - pip install codecov
   - pip install nose-cov
   - pip install Flask

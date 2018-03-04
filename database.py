@@ -5,7 +5,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base, DeclarativeMeta
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.sql.sqltypes import SchemaType, Enum, TypeDecorator
-from sqlalchemy.pool import StaticPool
 
 
 class DeclarativeABCMeta(DeclarativeMeta, ABCMeta):

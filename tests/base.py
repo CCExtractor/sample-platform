@@ -5,6 +5,7 @@ from flask_testing import TestCase
 from database import create_session
 from mod_home.models import GeneralData, CCExtractorVersion
 
+
 class BaseTestCase(TestCase):
 
     def create_app(self):
@@ -27,13 +28,15 @@ class BaseTestCase(TestCase):
         g.db.add(generaldata)
         g.db.commit()
         return
+
     @staticmethod
     def add_ccextractor_version():
-        ccextractorversion = CCExtractorVersion(ccextractor_version.version, ccextractor_version.released, 
-            ccextractor_version.commit)
+        ccextractorversion = CCExtractorVersion(ccextractor_version.version, ccextractor_version.released,
+                                                ccextractor_version.commit)
         g.db.add(ccextractorversion)
         g.db.commit()
         return
+
 
 class ccextractor_version:
     version = '1.2.3'

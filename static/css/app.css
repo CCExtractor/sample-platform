@@ -58,6 +58,18 @@ label.warning {
     padding: 0 5px;
     border-radius: 5px;
 }
+
+.callout.warning {
+    margin-right: 14px;
+    margin-left: 14px;
+}
+
+.callout.primary {
+    margin-right: 14px;
+    margin-left: 14px;
+}
+
+
 label.alert {
     background-color: #fce6e2;
     padding: 0 5px;

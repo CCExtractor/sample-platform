@@ -35,7 +35,7 @@ class CCExtractorVersion(Base):
         :type commit: str
         """
         self.version = version
-        self.released = datetime.strptime(released, '%Y-%m-%dT%H:%M:%SZ').date
+        self.released = datetime.strptime(released, '%Y-%m-%dT%H:%M:%SZ').date()
         self.commit = commit
 
     def __repr__(self):

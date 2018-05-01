@@ -466,7 +466,7 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     log.debug("Created tests, waiting for cron...")
 
 
-def inform_mailing_list(id,title,author,body):
+def inform_mailing_list(id, title, author, body):
     """
     Function that gets called when a issue is opened via the Webhook.
     :param id: ID of the Issue Opened

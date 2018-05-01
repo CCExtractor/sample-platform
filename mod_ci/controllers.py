@@ -579,7 +579,11 @@ def start_ci():
                 issue_author = issue_data['user']['login']
                 issue_body = issue_data['body']
                 subject = "GitHub Issue #{issue_number}".format(issue_number=issue_id)
-                mailer = # Let me figure out how to send mails using Mailer
+                mailer.send_simple_message({
+                    "to": "ccextractor-dev@googlegroups.com",
+                    "subject": subject,
+                    "text": "{title} - {author}\n {body}".format(title=issue.title, author=issue_author, body=issue_body)
+                })
                 g.db.commit()
 
         elif event == "release":

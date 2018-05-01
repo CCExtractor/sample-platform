@@ -465,6 +465,7 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
 
     log.debug("Created tests, waiting for cron...")
 
+
 def inform_mailing_list(id,title,author,body):
     """
     Function that gets called when a issue is opened via the Webhook.
@@ -483,7 +484,6 @@ def inform_mailing_list(id,title,author,body):
         "subject": subject,
         "text": "{title} - {author}\n {body}".format(title=title, author=author, body=body)
     })
-
 
 
 @mod_ci.route('/start-ci', methods=['GET', 'POST'])

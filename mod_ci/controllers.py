@@ -466,7 +466,7 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     log.debug("Created tests, waiting for cron...")
 
 
-def inform_mailing_list(id, title, author, body):
+def inform_mailing_list(id, title, author, body, status):
     """
     Function that gets called when a issue is opened via the Webhook.
     :param id: ID of the Issue Opened
@@ -477,13 +477,18 @@ def inform_mailing_list(id, title, author, body):
     :type author: str
     :param body: The Content of the Issue
     :type body: str
+    :param status: The Action of the issue: Edited,Reopened,Opened...
+    :type status: str
     """
-    subject = "GitHub Issue #{issue_number}".format(issue_number=id)
-    mailer.send_simple_message({
-        "to": "ccextractor-dev@googlegroups.com",
-        "subject": subject,
-        "text": "{title} - {author}\n {body}".format(title=title, author=author, body=body)
-    })
+    if status == "opened"
+        subject = "GitHub Issue #{issue_number}".format(issue_number=id)
+        mailer.send_simple_message({
+            "to": "ccextractor-dev@googlegroups.com",
+            "subject": subject,
+            "text": "{title} - {author}\n {body}".format(title=title, author=author, body=body)
+        })
+    else:
+        pass
 
 
 @mod_ci.route('/start-ci', methods=['GET', 'POST'])
@@ -589,13 +594,14 @@ def start_ci():
 
         elif event == "issues":
             issue_data = payload['issue']
+            issue_action = payload['action']
             issue = Issue.query.filter(Issue.issue_id == issue_data['number']).first()
             issue_title = issue_data['title']
             issue_id = issue_data['number']
             issue_author = issue_data['user']['login']
             issue_body = issue_data['body']
             # Send Email to the Mailing List using the Mailer Module and Mailgun's API
-            inform_mailing_list(issue_id, issue_title, issue_author, issue_body)
+            inform_mailing_list(issue_id, issue_title, issue_author, issue_body, issue_action)
 
             if issue is not None:
                 issue.title = issue_title

@@ -37,6 +37,7 @@ from mod_auth.models import Role
 from mod_home.models import CCExtractorVersion
 from mod_sample.models import Issue
 from mod_test.models import TestType, Test, TestStatus, TestProgress, Fork, TestPlatform, TestResultFile, TestResult
+from mailer import Mailer
 
 if sys.platform.startswith("linux"):
     import libvirt
@@ -573,6 +574,12 @@ def start_ci():
             if issue is not None:
                 issue.title = issue_data['title']
                 issue.status = issue_data['state']
+                # Send Email to the Mailing List using the Mailer Module and Mailgun's API
+                issue_id = issue_data['number']
+                issue_author = issue_data['user']['login']
+                issue_body = issue_data['body']
+                subject = "GitHub Issue #{issue_number}".format(issue_number=issue_id)
+                mailer = # Let me figure out how to send mails using Mailer
                 g.db.commit()
 
         elif event == "release":

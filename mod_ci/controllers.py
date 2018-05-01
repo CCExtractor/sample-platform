@@ -480,7 +480,7 @@ def inform_mailing_list(id, title, author, body, status):
     :param status: The Action of the issue: Edited,Reopened,Opened...
     :type status: str
     """
-    if status == "opened"
+    if status == "opened":
         subject = "GitHub Issue #{issue_number}".format(issue_number=id)
         mailer.send_simple_message({
             "to": "ccextractor-dev@googlegroups.com",

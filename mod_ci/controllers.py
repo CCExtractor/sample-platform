@@ -466,9 +466,11 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     log.debug("Created tests, waiting for cron...")
 
 
-def inform_mailing_list(id, title, author, body, status):
+def inform_mailing_list(mailer, id, title, author, body, status):
     """
     Function that gets called when a issue is opened via the Webhook.
+    :param mailer: The mailer instance
+    :type mailer: Mailer
     :param id: ID of the Issue Opened
     :type id: int
     :param title: Title of the Created Ossie
@@ -487,8 +489,6 @@ def inform_mailing_list(id, title, author, body, status):
             "subject": subject,
             "text": "{title} - {author}\n {body}".format(title=title, author=author, body=body)
         })
-    else:
-        pass
 
 
 @mod_ci.route('/start-ci', methods=['GET', 'POST'])
@@ -601,7 +601,7 @@ def start_ci():
             issue_author = issue_data['user']['login']
             issue_body = issue_data['body']
             # Send Email to the Mailing List using the Mailer Module and Mailgun's API
-            inform_mailing_list(issue_id, issue_title, issue_author, issue_body, issue_action)
+            inform_mailing_list(g.mailer, issue_id, issue_title, issue_author, issue_body, issue_action)
 
             if issue is not None:
                 issue.title = issue_title

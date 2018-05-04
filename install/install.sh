@@ -174,6 +174,7 @@ KVM_LINUX_NAME = '${kvm_linux_name}'
 KVM_WINDOWS_NAME = '${kvm_windows_name}'
 KVM_MAX_RUNTIME = $kvm_max_runtime # In minutes
 SAMPLE_REPOSITORY = '${sample_repository}'
+SESSION_COOKIE_PATH = '/'
 FTP_PORT = $ftp_port
 MAX_CONTENT_LENGTH = $max_content_length
 " > "${dir}/../config.py"

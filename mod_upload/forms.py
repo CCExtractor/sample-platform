@@ -2,7 +2,7 @@ import os
 import magic
 import mimetypes
 
-from flask_wtf import Form
+from flask_wtf import FlaskForm
 from wtforms import FileField, SubmitField, TextAreaField, SelectField
 from wtforms.validators import DataRequired, ValidationError
 
@@ -11,7 +11,7 @@ from mod_sample.models import ForbiddenExtension, ForbiddenMimeType
 from mod_upload.models import Platform
 
 
-class UploadForm(Form):
+class UploadForm(FlaskForm):
     accept = '.ts, .txt, .srt, .png, video/*'
 
     file = FileField('File to upload', [DataRequired(message='No file was provided.')], render_kw={'accept': accept})
@@ -39,11 +39,11 @@ class UploadForm(Form):
                 raise ValidationError('Extension not allowed')
 
 
-class DeleteQueuedSampleForm(Form):
+class DeleteQueuedSampleForm(FlaskForm):
     submit = SubmitField('Delete queued file')
 
 
-class CommonSampleForm(Form):
+class CommonSampleForm(FlaskForm):
     notes = TextAreaField('Notes', [DataRequired(message='Notes are not filled in')])
     parameters = TextAreaField('Parameters', [DataRequired(message='Parameters are not filled in')])
     platform = SelectField(

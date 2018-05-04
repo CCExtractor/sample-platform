@@ -2,7 +2,7 @@
 # install.sh, the config.py should have been generated for you.
 APPLICATION_ROOT = None
 CSRF_ENABLED = True
-DATABASE_URI = 'mysql+pymysql://root:@localhost:3306/test'
+DATABASE_URI = 'mysql+pymysql://root:@localhost:3306/test?charset=utf8'
 GITHUB_TOKEN = ''
 GITHUB_OWNER = 'CCExtractor'
 GITHUB_REPOSITORY = 'ccextractor'
@@ -19,5 +19,6 @@ KVM_LINUX_NAME = ''
 KVM_WINDOWS_NAME = ''
 KVM_MAX_RUNTIME = 120  # In minutes
 SAMPLE_REPOSITORY = '/path/to/samples'
+SESSION_COOKIE_PATH = '/'
 FTP_PORT = 21
 MAX_CONTENT_LENGTH = 512 * 1024 * 1024

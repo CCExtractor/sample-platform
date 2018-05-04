@@ -73,7 +73,9 @@ def is_valid_signature(x_hub_signature, data, private_key):
     """
     hash_algorithm, github_signature = x_hub_signature.split('=', 1)
     algorithm = hashlib.__dict__.get(hash_algorithm)
-    mac = hmac.new(private_key, msg=data, digestmod=algorithm)
+    encoded_key = bytes(private_key, 'latin-1')
+    encoded_data = bytes(data, 'latin-1')
+    mac = hmac.new(encoded_key, msg=encoded_data, digestmod=algorithm)
     return compare_digest(mac.hexdigest(), github_signature.encode())
 
 

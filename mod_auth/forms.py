@@ -1,4 +1,4 @@
-from flask_wtf import Form
+from flask_wtf import FlaskForm
 from wtforms import PasswordField, StringField, SubmitField, SelectField
 from wtforms.fields.html5 import EmailField
 from wtforms.validators import DataRequired, Email, ValidationError
@@ -70,7 +70,7 @@ def role_id_is_valid(form, field):
         raise ValidationError('Role id is invalid')
 
 
-class LoginForm(Form):
+class LoginForm(FlaskForm):
     """
     The form rendered when a User has to enter Log in credentials
     """
@@ -82,7 +82,7 @@ class LoginForm(Form):
     submit = SubmitField('Login')
 
 
-class SignupForm(Form):
+class SignupForm(FlaskForm):
     """
     Sign up form for new Users.
     """
@@ -93,14 +93,14 @@ class SignupForm(Form):
     submit = SubmitField('Register')
 
 
-class DeactivationForm(Form):
+class DeactivationForm(FlaskForm):
     """
     Deactivate existing account
     """
     submit = SubmitField('Deactivate account')
 
 
-class RoleChangeForm(Form):
+class RoleChangeForm(FlaskForm):
     """
     Changing the Role
     """
@@ -108,7 +108,7 @@ class RoleChangeForm(Form):
     submit = SubmitField('Change role')
 
 
-class CompleteSignupForm(Form):
+class CompleteSignupForm(FlaskForm):
     """
     The Complete Sign up form for new users.
     """
@@ -131,12 +131,12 @@ class CompleteSignupForm(Form):
             raise ValidationError('The password needs to match the new password')
 
 
-class AccountForm(Form):
+class AccountForm(FlaskForm):
     """
     Form for editing current Account
     """
     def __init__(self, formdata=None, obj=None, prefix='', *args, **kwargs):
-        super(AccountForm, self).__init__(formdata, obj, prefix, *args, **kwargs)
+        super(AccountForm, self).__init__(*args, **kwargs)
         self.user = obj
 
     current_password = PasswordField('Current password', [DataRequired(message='current password cannot be empty')])
@@ -201,7 +201,7 @@ class AccountForm(Form):
             raise ValidationError('The password needs to match the new password')
 
 
-class ResetForm(Form):
+class ResetForm(FlaskForm):
     """
     Form for resetting password
     """
@@ -212,7 +212,7 @@ class ResetForm(Form):
     submit = SubmitField('Request reset instructions')
 
 
-class CompleteResetForm(Form):
+class CompleteResetForm(FlaskForm):
     """
     Resetting password after clicking on the link in the email
     """

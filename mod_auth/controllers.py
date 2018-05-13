@@ -363,7 +363,7 @@ def complete_signup(email, expires, mac):
 def generate_hmac_hash(key, data):
     # Accepts key and data in any format and encodes it into bytes
     # With python 3.6, hmac accepts these encoded key and messages
-    # Returns cryptographic hash of data combined with key  
+    # Returns cryptographic hash of data combined with key
     encoded_key = bytes(key, 'latin-1')
     encoded_data = bytes(data, 'latin-1')
     return hmac.new(encoded_key, encoded_data).hexdigest()

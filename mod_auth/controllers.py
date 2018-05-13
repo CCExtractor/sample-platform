@@ -321,7 +321,7 @@ def complete_signup(email, expires, mac):
     if now <= expires:
         # Validate HMAC
         content_to_hash = "{email}|{expiry}".format(email=email, expiry=expires)
-        real_hash = generate_hmac_hash(app.config.get('HMAC_KEY', ''), content_to_hash).hexdigest()
+        real_hash = generate_hmac_hash(app.config.get('HMAC_KEY', ''), content_to_hash)
         try:
             authentic = hmac.compare_digest(real_hash, mac.encode('utf-8'))
         except AttributeError:
@@ -361,7 +361,9 @@ def complete_signup(email, expires, mac):
 
 
 def generate_hmac_hash(key, data):
-    # generate hmac using encoded key and data
+    # Accepts key and data in any format and encodes it into bytes
+    # With python 3.6, hmac accepts these encoded key and messages
+    # Returns cryptographic hash of data combined with key  
     encoded_key = bytes(key, 'latin-1')
     encoded_data = bytes(data, 'latin-1')
     return hmac.new(encoded_key, encoded_data).hexdigest()

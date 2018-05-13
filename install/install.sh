@@ -159,7 +159,7 @@ echo "* Generating config file"
 echo "# Auto-generated configuration by install.sh
 APPLICATION_ROOT = ${config_application_root}
 CSRF_ENABLED = True
-DATABASE_URI = '${config_db_uri}'
+DATABASE_URI = '${config_db_uri}?charset=utf8'
 GITHUB_TOKEN = '${github_token}'
 GITHUB_OWNER = '${github_owner_name}'
 GITHUB_REPOSITORY = '${github_repository}'

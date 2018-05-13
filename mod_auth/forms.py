@@ -136,7 +136,7 @@ class AccountForm(FlaskForm):
     Form for editing current Account
     """
     def __init__(self, formdata=None, obj=None, prefix='', *args, **kwargs):
-        super(AccountForm, self).__init__(*args, **kwargs)
+        super(AccountForm, self).__init__(formdata=formdata, obj=obj, prefix=prefix, *args, **kwargs)
         self.user = obj
 
     current_password = PasswordField('Current password', [DataRequired(message='current password cannot be empty')])

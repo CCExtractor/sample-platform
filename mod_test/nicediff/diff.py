@@ -1,17 +1,15 @@
 import re
 import cgi
-index = dict()  # for optimization
 
+index = dict()  # for optimization
 
 def zip_(ls):
     return ''.join(ls)
-
 
 # compress words and digits to one list
 def compress(s):
     rez = re.split('(\W)', s)
     return rez
-
 
 # equality factor
 def eq(a, b, same_regions=None, delta_a=0, delta_b=0):
@@ -67,8 +65,8 @@ def eq(a, b, same_regions=None, delta_a=0, delta_b=0):
 
     return index[zip_(a)][zip_(b)]
 
-
 # processing one line
+
 def _process(test_result, correct, suffix_id):
     test_result = cgi.escape(test_result, quote=True)
     correct = cgi.escape(correct, quote=True)
@@ -120,6 +118,7 @@ def _process(test_result, correct, suffix_id):
     html_correct += ''.join(cr_compr[idx:])
     return '<div class="diff-div-text">' + html_test + '</div>', '<div class="diff-div-text">' + html_correct + '</div>'
 
+# return generated difference in HTML formatted table
 
 def get_html_diff(test_correct_lines, test_res_lines):
     html = """
@@ -148,7 +147,8 @@ def get_html_diff(test_correct_lines, test_res_lines):
     for line in range(use):
         if test_correct_lines[line] == test_res_lines[line]:
             continue
-        html += '<table>'        
+        html += """
+    <table>"""
         actual, expected = _process(test_res_lines[line], test_correct_lines[line], suffix_id=str(line))
 
         html += """
@@ -160,12 +160,14 @@ def get_html_diff(test_correct_lines, test_res_lines):
             <td class="diff-table-td" style="width: 30px;"></td>
             <td class="diff-table-td">{b}</td>
         </tr>""".format(line_id=line + 1, a=actual, b=expected)
-        html += '</table>'
-        
+        html += """
+    </table>"""
+
     # processing remaining lines
-    
+
     for line in range(use, till):
-        html += '<table>'
+        html += """
+    <table>"""
 
         if till == res_len:
             output, _ = _process(test_res_lines[line], " ", suffix_id=str(line))
@@ -192,6 +194,7 @@ def get_html_diff(test_correct_lines, test_res_lines):
             </tr>
             """.format(line_id=line + 1, b=output)
 
-        html += '</table>'
+        html += """
+    <table>"""
 
     return html

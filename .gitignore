@@ -37,3 +37,6 @@ gunicorn.pid
 # Coverage data
 coverage_report/
 .coverage
+
+#virtualenv
+venv/

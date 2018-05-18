@@ -70,8 +70,8 @@ def eq(a, b, same_regions=None, delta_a=0, delta_b=0):
 
 # processing one line
 def _process(test_result, correct, suffix_id):
-    test_result = cgi.escape(test_result)
-    correct = cgi.escape(correct)
+    test_result = cgi.escape(test_result, quote=True)
+    correct = cgi.escape(correct, quote=True)
     tr_compr = compress(test_result)
     cr_compr = compress(correct)
     regions = []

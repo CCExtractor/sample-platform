@@ -66,8 +66,8 @@ def eq(a, b, same_regions=None, delta_a=0, delta_b=0):
     return index[zip_(a)][zip_(b)]
 
 # processing one line
-
 def _process(test_result, correct, suffix_id):
+    # TODO: replace cgi.escape (deprecated in Python 3.2) with html.escape while porting to Python 3.2+
     test_result = cgi.escape(test_result, quote=True)
     correct = cgi.escape(correct, quote=True)
     tr_compr = compress(test_result)
@@ -119,7 +119,6 @@ def _process(test_result, correct, suffix_id):
     return '<div class="diff-div-text">' + html_test + '</div>', '<div class="diff-div-text">' + html_correct + '</div>'
 
 # return generated difference in HTML formatted table
-
 def get_html_diff(test_correct_lines, test_res_lines):
     html = """
     <table>
@@ -164,7 +163,6 @@ def get_html_diff(test_correct_lines, test_res_lines):
     </table>"""
 
     # processing remaining lines
-
     for line in range(use, till):
         html += """
     <table>"""

@@ -161,7 +161,7 @@ def ftp_filezilla():
             host=config.get('SERVER_NAME', ''),
             port=config.get('FTP_PORT', ''),
             username=credentials.user_name,
-            password=base64.b64encode(credentials.password.encode())
+            password=base64.b64encode(credentials.password.encode()).decode()
         )
     )
     response.headers['Content-Description'] = 'File Transfer'

@@ -239,7 +239,7 @@ def complete_reset(uid, expires, mac):
             content_to_hash = "{id}|{expiry}|{passwd}".format(id=uid, expiry=expires, passwd=user.password)
             real_hash = generate_hmac_hash(app.config.get('HMAC_KEY', ''), content_to_hash)
             try:
-                authentic = hmac.compare_digest(real_hash, mac.encode('utf-8'))
+                authentic = hmac.compare_digest(real_hash, mac)
             except AttributeError:
                 # Older python version? Fallback which is less safe
                 authentic = real_hash == mac
@@ -323,7 +323,7 @@ def complete_signup(email, expires, mac):
         content_to_hash = "{email}|{expiry}".format(email=email, expiry=expires)
         real_hash = generate_hmac_hash(app.config.get('HMAC_KEY', ''), content_to_hash)
         try:
-            authentic = hmac.compare_digest(real_hash, mac.encode('utf-8'))
+            authentic = hmac.compare_digest(real_hash, mac)
         except AttributeError:
             # Older python version? Fallback which is less safe
             authentic = real_hash == mac

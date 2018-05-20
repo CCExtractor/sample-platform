@@ -2,7 +2,7 @@
 # install.sh, the config.py should have been generated for you.
 APPLICATION_ROOT = None
 CSRF_ENABLED = True
-DATABASE_URI = 'mysql+pymysql://root:@localhost:3306/test'
+DATABASE_URI = 'mysql+pymysql://root:@localhost:3306/test?charset=utf8'
 GITHUB_TOKEN = ''
 GITHUB_OWNER = 'CCExtractor'
 GITHUB_REPOSITORY = 'ccextractor'

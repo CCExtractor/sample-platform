@@ -93,7 +93,7 @@ def send_reset_email(usr):
     from run import app
     expires = int(time.time()) + 86400
     content_to_hash = "{id}|{expiry}|{passwd}".format(id=usr.id, expiry=expires, passwd=usr.password)
-    mac = hmac.new(app.config.get('HMAC_KEY', ''), content_to_hash).hexdigest()
+    mac = generate_hmac_hash(app.config.get('HMAC_KEY', ''), content_to_hash)
     template = app.jinja_env.get_or_select_template('email/recovery_link.txt')
     message = template.render(
         url=url_for('.complete_reset', uid=usr.id, expires=expires, mac=mac, _external=True),
@@ -237,7 +237,7 @@ def complete_reset(uid, expires, mac):
         if user is not None:
             # Validate HMAC
             content_to_hash = "{id}|{expiry}|{passwd}".format(id=uid, expiry=expires, passwd=user.password)
-            real_hash = hmac.new(app.config.get('HMAC_KEY', ''), content_to_hash).hexdigest()
+            real_hash = generate_hmac_hash(app.config.get('HMAC_KEY', ''), content_to_hash)
             try:
                 authentic = hmac.compare_digest(real_hash, mac.encode('utf-8'))
             except AttributeError:
@@ -284,7 +284,7 @@ def signup():
             if user is None:
                 expires = int(time.time()) + 86400
                 content_to_hash = "{email}|{expiry}".format(email=form.email.data, expiry=expires)
-                hmac_hash = hmac.new(app.config.get('HMAC_KEY', ''), content_to_hash).hexdigest()
+                hmac_hash = generate_hmac_hash(app.config.get('HMAC_KEY', ''), content_to_hash)
                 # New user
                 template = app.jinja_env.get_or_select_template('email/registration_email.txt')
                 message = template.render(url=url_for(
@@ -321,7 +321,7 @@ def complete_signup(email, expires, mac):
     if now <= expires:
         # Validate HMAC
         content_to_hash = "{email}|{expiry}".format(email=email, expiry=expires)
-        real_hash = hmac.new(app.config.get('HMAC_KEY', ''), content_to_hash).hexdigest()
+        real_hash = generate_hmac_hash(app.config.get('HMAC_KEY', ''), content_to_hash)
         try:
             authentic = hmac.compare_digest(real_hash, mac.encode('utf-8'))
         except AttributeError:
@@ -358,6 +358,15 @@ def complete_signup(email, expires, mac):
     flash('The request to complete the registration was invalid. Please enter your email again to start over.',
           'error-message')
     return redirect(url_for('.signup'))
+
+
+def generate_hmac_hash(key, data):
+    # Accepts key and data in any format and encodes it into bytes
+    # With python 3.6, hmac accepts these encoded key and messages
+    # Returns cryptographic hash of data combined with key
+    encoded_key = bytes(key, 'latin-1')
+    encoded_data = bytes(data, 'latin-1')
+    return hmac.new(encoded_key, encoded_data).hexdigest()
 
 
 @mod_auth.route('/logout')
@@ -423,7 +432,7 @@ def manage():
 @template_renderer()
 def users():
     return {
-        'users': User.query.order_by(User.name.asc())
+        'users': User.query.order_by(User.name.asc()).all()
     }
 
 

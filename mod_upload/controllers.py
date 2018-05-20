@@ -27,7 +27,7 @@ from mod_home.models import CCExtractorVersion
 from mod_sample.models import Sample, ForbiddenExtension, ForbiddenMimeType, Issue
 from mod_upload.forms import UploadForm, DeleteQueuedSampleForm, \
     FinishQueuedSampleForm
-from models import Upload, QueuedSample, UploadLog, FTPCredentials, Platform
+from .models import Upload, QueuedSample, UploadLog, FTPCredentials, Platform
 
 mod_upload = Blueprint('upload', __name__)
 

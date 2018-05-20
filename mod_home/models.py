@@ -12,6 +12,7 @@ from sqlalchemy import Column, Integer, String, Text, Date
 from database import Base, DeclEnum
 from datetime import datetime
 
+
 class CCExtractorVersion(Base):
     __tablename__ = 'ccextractor_version'
     __table_args__ = {'mysql_engine': 'InnoDB'}

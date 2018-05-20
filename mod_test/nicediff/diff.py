@@ -1,5 +1,5 @@
 import re
-import cgi
+import html
 
 index = dict()  # for optimization
 
@@ -67,9 +67,8 @@ def eq(a, b, same_regions=None, delta_a=0, delta_b=0):
 
 # processing one line
 def _process(test_result, correct, suffix_id):
-    # TODO: replace cgi.escape (deprecated in Python 3.2) with html.escape while porting to Python 3.2+
-    test_result = cgi.escape(test_result, quote=True)
-    correct = cgi.escape(correct, quote=True)
+    test_result = html.escape(test_result)
+    correct = html.escape(correct)
     tr_compr = compress(test_result)
     cr_compr = compress(correct)
     regions = []

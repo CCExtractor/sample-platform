@@ -19,7 +19,7 @@ class BaseTestCase(TestCase):
         app.config['SQLALCHEMY_POOL_SIZE'] = 1
         return app
 
-    def SetUp(self):
+    def setUp(self):
         pass
 
     @staticmethod

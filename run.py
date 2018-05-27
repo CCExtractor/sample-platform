@@ -8,7 +8,6 @@ from flask import Flask, g
 from werkzeug.contrib.fixers import ProxyFix
 from werkzeug.routing import BaseConverter
 
-from config_parser import parse_config
 from database import create_session
 from decorators import template_renderer
 from log_configuration import LogConfiguration
@@ -25,8 +24,7 @@ from mod_upload.controllers import mod_upload
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app)
 # Load config
-config = parse_config('config')
-app.config.from_mapping(config)
+app.config.from_pyfile('config_sample.py')
 try:
     app.config['DEBUG'] = os.environ['DEBUG']
 except KeyError:
@@ -69,7 +67,8 @@ def install_secret_keys(application, secret_session='secret_key', secret_csrf='s
         sys.exit(1)
 
 
-install_secret_keys(app)
+if 'TESTING' not in os.environ or os.environ['TESTING'] == 'False':
+    install_secret_keys(app)
 
 
 # Expose submenu method for jinja templates

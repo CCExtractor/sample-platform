@@ -5,7 +5,7 @@ python:
   - 3.6
   - nightly
 install:
-  - sudo apt-get install python3-libvirt
+  - sudo apt-get install libvirt-dev
   - pip install -r requirements.txt
 script:
   - nosetests --with-cov --cov-config .coveragerc

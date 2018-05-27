@@ -27,7 +27,7 @@ echo ""
 echo "* Updating package list"
 apt-get update >> "$install_log" 2>&1
 echo "* Installing nginx, python, pip, kvm, libvirt and virt-manager"
-apt-get -q -y install nginx python python-dev libxslt1-dev libxml2-dev python-pip qemu-kvm libvirt-bin virt-manager mediainfo >> "$install_log" 2>&1
+apt-get -q -y install nginx python python-dev python3-libvirt libxslt1-dev libxml2-dev python-pip qemu-kvm libvirt-bin virt-manager mediainfo >> "$install_log" 2>&1
 if [ ! -f /etc/init.d/mysql* ]; then
     echo "* Installing MySQL (root password will be empty!)"
     DEBIAN_FRONTEND=noninteractive apt-get install -y mysql-server >> "$install_log" 2>&1
@@ -159,7 +159,7 @@ echo "* Generating config file"
 echo "# Auto-generated configuration by install.sh
 APPLICATION_ROOT = ${config_application_root}
 CSRF_ENABLED = True
-DATABASE_URI = '${config_db_uri}'
+DATABASE_URI = '${config_db_uri}?charset=utf8'
 GITHUB_TOKEN = '${github_token}'
 GITHUB_OWNER = '${github_owner_name}'
 GITHUB_REPOSITORY = '${github_repository}'
@@ -174,6 +174,7 @@ KVM_LINUX_NAME = '${kvm_linux_name}'
 KVM_WINDOWS_NAME = '${kvm_windows_name}'
 KVM_MAX_RUNTIME = $kvm_max_runtime # In minutes
 SAMPLE_REPOSITORY = '${sample_repository}'
+SESSION_COOKIE_PATH = '/'
 FTP_PORT = $ftp_port
 MAX_CONTENT_LENGTH = $max_content_length
 " > "${dir}/../config.py"

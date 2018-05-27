@@ -37,6 +37,7 @@ from mod_auth.models import Role
 from mod_home.models import CCExtractorVersion
 from mod_sample.models import Issue
 from mod_test.models import TestType, Test, TestStatus, TestProgress, Fork, TestPlatform, TestResultFile, TestResult
+from mailer import Mailer
 
 if sys.platform.startswith("linux"):
     import libvirt
@@ -75,7 +76,7 @@ def start_platform(db, repository, delay=None):
     Function to check whether there is already running test for which it check the kvm progress and if no running test
     then it start a new test.
     """
-    from run import log, config
+    from run import config
 
     linux_kvm_name = config.get('KVM_LINUX_NAME', '')
     win_kvm_name = config.get('KVM_WINDOWS_NAME', '')
@@ -465,6 +466,28 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     log.debug("Created tests, waiting for cron...")
 
 
+def inform_mailing_list(mailer, id, title, author, body):
+    """
+    Function that gets called when a issue is opened via the Webhook.
+    :param mailer: The mailer instance
+    :type mailer: Mailer
+    :param id: ID of the Issue Opened
+    :type id: int
+    :param title: Title of the Created Ossie
+    :type title: str
+    :param author: The Authors Username of the Issue
+    :type author: str
+    :param body: The Content of the Issue
+    :type body: str
+    """
+    subject = "GitHub Issue #{issue_number}".format(issue_number=id)
+    mailer.send_simple_message({
+        "to": "ccextractor-dev@googlegroups.com",
+        "subject": subject,
+        "text": "{title} - {author}\n {body}".format(title=title, author=author, body=body)
+    })
+
+
 @mod_ci.route('/start-ci', methods=['GET', 'POST'])
 @request_from_github()
 def start_ci():
@@ -568,10 +591,19 @@ def start_ci():
 
         elif event == "issues":
             issue_data = payload['issue']
+            issue_action = payload['action']
             issue = Issue.query.filter(Issue.issue_id == issue_data['number']).first()
+            issue_title = issue_data['title']
+            issue_id = issue_data['number']
+            issue_author = issue_data['user']['login']
+            issue_body = issue_data['body']
+
+            # Send Email to the Mailing List using the Mailer Module and Mailgun's API
+            if issue_action == "opened":
+                inform_mailing_list(g.mailer, issue_id, issue_title, issue_author, issue_body)
 
             if issue is not None:
-                issue.title = issue_data['title']
+                issue.title = issue_title
                 issue.status = issue_data['state']
                 g.db.commit()
 
@@ -587,7 +619,6 @@ def start_ci():
                 # Github recommends adding v to the version
                 if release_version[0] == 'v':
                     release_version = release_version[1:]
-                release_date = payload['created_at']
                 release_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
                 release = CCExtractorVersion(release_data, release_version, release_commit)
                 g.db.add(release)

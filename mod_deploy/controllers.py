@@ -17,8 +17,6 @@ from ipaddress import ip_address, ip_network
 from shutil import copyfile
 from os import path
 
-from compare_digest import compare_digest
-
 mod_deploy = Blueprint('deploy', __name__)
 
 
@@ -73,8 +71,9 @@ def is_valid_signature(x_hub_signature, data, private_key):
     """
     hash_algorithm, github_signature = x_hub_signature.split('=', 1)
     algorithm = hashlib.__dict__.get(hash_algorithm)
-    mac = hmac.new(private_key, msg=data, digestmod=algorithm)
-    return compare_digest(mac.hexdigest(), github_signature.encode())
+    encoded_key = bytes(private_key, 'latin-1')
+    mac = hmac.new(encoded_key, msg=data, digestmod=algorithm)
+    return hmac.compare_digest(mac.hexdigest(), github_signature)
 
 
 @mod_deploy.route('/deploy', methods=['GET', 'POST'])

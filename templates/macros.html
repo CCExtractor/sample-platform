@@ -29,7 +29,7 @@
                     {{ entry.name }}: <br/>
                     <ul style="list-style: none; margin-bottom: 0;">
                         {% if entry.value is mapping %}
-                            {% for key, value in entry.value.iteritems() recursive %}
+                            {% for key, value in entry.value.items() recursive %}
                                 {% if value is mapping %}
                                     <li>
                                         {{ key }}: <br/>

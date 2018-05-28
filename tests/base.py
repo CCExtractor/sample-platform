@@ -1,32 +1,26 @@
-import unittest
-import run
 from database import create_session
 from flask_testing import TestCase
 from database import create_session
 from mod_home.models import GeneralData, CCExtractorVersion
 from collections import namedtuple
-from mock import mock
+from unittest import mock
 
 
-def load_config():
-    return {}
-    pass
+def load_config(file):
+    return {'Testing': True, 'DATABASE_URI': 'sqlite:///:memory:',
+            'WTF_CSRF_ENABLED': False, 'SQLALCHEMY_POOL_SIZE': 1}
 
 
 class BaseTestCase(TestCase):
-    @mock.patch('run.app.config.from_pyfile', side_effect=load_config)
+    @mock.patch('config_parser.parse_config', side_effect=load_config)
     def create_app(self, mock_config):
         """
         Create an instance of the app with the testing configuration
         :return:
         """
         from run import app, g
-        app.config['TESTING'] = True
-        app.config['DATABASE_URI'] = 'sqlite:///:memory:'
-        app.config['WTF_CSRF_ENABLED'] = False
         with app.app_context():
             self.db = create_session(app.config['DATABASE_URI'])
-        app.config['SQLALCHEMY_POOL_SIZE'] = 1
         return app
 
     def setUp(self):
@@ -39,14 +33,12 @@ class BaseTestCase(TestCase):
         self.ccextractor_version = ccextractor_version(version='1.2.3',
                                                        released='2013-02-27T19:35:32Z',
                                                        commit='1978060bf7d2edd119736ba3ba88341f3bec3323')
-        pass
 
     @staticmethod
     def add_last_commit_to_general_data(general_data, db):
         generaldata = GeneralData(general_data.key, general_data.value)
         db.add(generaldata)
         db.commit()
-        return
 
     @staticmethod
     def add_ccextractor_version(ccx_ver, db):
@@ -54,4 +46,3 @@ class BaseTestCase(TestCase):
                                                 ccx_ver.commit)
         db.add(ccextractorversion)
         db.commit()
-        return

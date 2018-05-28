@@ -24,7 +24,7 @@ from mod_upload.controllers import mod_upload
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app)
 # Load config
-app.config.from_pyfile('config_sample.py')
+app.config.from_pyfile('config.py')
 try:
     app.config['DEBUG'] = os.environ['DEBUG']
 except KeyError:

@@ -427,7 +427,9 @@ def add_sample_to_queue(file_hash, temp_path, user_id, db):
     :rtype: void
     """
     from run import config
-    filename, file_extension = os.path.splitext(temp_path)
+    # Fetch file name from file path
+    uploaded_file = os.path.basename(temp_path)
+    filename, file_extension = os.path.splitext(uploaded_file)
     queued_sample = QueuedSample(file_hash, file_extension,
                                  filename, user_id)
     final_path = os.path.join(

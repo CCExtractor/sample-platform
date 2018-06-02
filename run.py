@@ -90,9 +90,6 @@ def date_time_format(value, fmt='%Y-%m-%d %H:%M:%S'):
     return value.strftime(fmt)
 
 
-app.jinja_env.filters['date'] = date_time_format
-
-
 def get_github_issue_link(issue_id):
     return 'https://www.github.com/{org}/{repo}/issues/{id}'.format(
         org=config.get('GITHUB_OWNER', ''),
@@ -101,7 +98,13 @@ def get_github_issue_link(issue_id):
     )
 
 
+def filename(filepath):
+    return os.path.basename(filepath)
+
+
+app.jinja_env.filters['date'] = date_time_format
 app.jinja_env.filters['issue_link'] = get_github_issue_link
+app.jinja_env.filters['filename'] = filename
 
 
 class RegexConverter(BaseConverter):

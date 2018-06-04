@@ -16,7 +16,6 @@ from database import Base, DeclEnum
 
 
 class Platform(DeclEnum):
-    __order__ = 'linux windows mac bsd'
     linux = "linux", "Linux"
     windows = "windows", "Windows"
     mac = "mac", "Mac"

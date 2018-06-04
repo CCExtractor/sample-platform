@@ -14,7 +14,7 @@
         <tbody>
         {% for entry in queue %}
             <tr>
-                <td>{{ entry.original_name }}</td>
+                <td>{{ entry.original_name | filename }}</td>
                 <td>{{ entry.extension }}</td>
                 {% if admin|default(false) %}
                     <td>

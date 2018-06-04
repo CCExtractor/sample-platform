@@ -1,6 +1,6 @@
 # For manual installation, fill in the fields below. If you are using
 # install.sh, the config.py should have been generated for you.
-APPLICATION_ROOT = ''
+APPLICATION_ROOT = None
 CSRF_ENABLED = True
 DATABASE_URI = 'mysql+pymysql://root:@localhost:3306/test?charset=utf8'
 GITHUB_TOKEN = ''

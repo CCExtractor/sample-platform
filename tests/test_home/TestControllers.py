@@ -8,13 +8,9 @@ from mod_home.models import GeneralData, CCExtractorVersion
 class TestControllers(BaseTestCase):
 
     def test_root(self):
-        self.app.preprocess_request()
-        with self.app.test_client() as c:
-            self.add_last_commit_to_general_data(self.general_data1, self.db)
-            self.add_ccextractor_version(self.ccextractor_version, self.db)
-            response = c.get('/')
-            self.assertEqual(response.status_code, 200)
-            self.assert_template_used('home/index.html')
+        response = self.app.test_client().get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assert_template_used('home/index.html')
 
     def test_about(self):
         response = self.app.test_client().get('/about')

@@ -32,7 +32,7 @@ from mod_ci.models import Kvm, MaintenanceMode, BlockedUsers
 from mod_ci.forms import AddUsersToBlacklist, RemoveUsersFromBlacklist
 from mod_deploy.controllers import request_from_github, is_valid_signature
 from mod_home.models import GeneralData
-from mod_regression.models import Category, RegressionTestOutput, RegressionTest
+from mod_regression.models import Category, RegressionTestOutput, RegressionTest, regressionTestLinkTable
 from mod_auth.models import Role
 from mod_home.models import CCExtractorVersion
 from mod_sample.models import Issue
@@ -822,14 +822,17 @@ def progress_reporter(test_id, token):
                     log.debug('Test {id} completed: {crashes} crashes, {results} results'.format(
                         id=test.id, crashes=crashes, results=results
                     ))
+                    crash = True
                     if crashes > 0 or results > 0:
                         state = Status.FAILURE
                         message = 'Not all tests completed successfully, please check'
 
                     else:
+                        crash = False
                         state = Status.SUCCESS
                         message = 'Tests completed'
-
+                    if test.test_type == TestType.pull_request:
+                        comment_pr(test.id, crash, test.pr_nr, test.platform.name)
                     update_build_badge(state, test)
 
                 else:
@@ -923,6 +926,66 @@ def progress_reporter(test_id, token):
             return "OK"
 
     return "FAIL"
+
+
+def comment_pr(test_id, crash, pr_nr, platform):
+    """
+    Upload the test report to the github PR as comment
+
+    :param test_id: The identity of Test whose report will be uploaded
+    :type test_id: str
+    :crash: whether test results in crash or not
+    :type: boolean
+    :pr_nr: PR number to which test commit is related and comment will be uploaded
+    :type: str
+    """
+    from run import app, log
+    regression_testid_passed = g.db.query(TestResult.regression_test_id).filter(
+        and_(TestResult.test_id == test_id,
+             and_(TestResultFile.test_id == test_id,
+                  and_(TestResult.regression_test_id == TestResultFile.regression_test_id,
+                       and_(TestResultFile.got.is_(None),
+                            TestResult.expected_rc == TestResult.exit_code))))).subquery()
+    passed = g.db.query(label('category_id', Category.id), label(
+        'success', count(regressionTestLinkTable.c.regression_id))).filter(
+        and_(regressionTestLinkTable.c.regression_id.in_(regression_testid_passed),
+             Category.id == regressionTestLinkTable.c.category_id)).group_by(
+                 regressionTestLinkTable.c.category_id).subquery()
+    tot = g.db.query(label('category', Category.name), label('total', count(regressionTestLinkTable.c.regression_id)),
+                     label('success', passed.c.success)).outerjoin(
+        passed, passed.c.category_id == Category.id).filter(
+        Category.id == regressionTestLinkTable.c.category_id).group_by(
+        regressionTestLinkTable.c.category_id).all()
+
+    regression_testid_failed = RegressionTest.query.filter(RegressionTest.id.notin_(regression_testid_passed)).all()
+    template = app.jinja_env.get_or_select_template('ci/pr_comment.txt')
+    message = template.render(tests=tot, failed_tests=regression_testid_failed, test_id=test_id,
+                              crash=crash, platform=platform)
+    log.debug('Github PR Comment Message Created for Test_id: {test_id}'.format(test_id=test_id))
+    try:
+        gh = GitHub(access_token=g.github['bot_token'])
+        repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
+        # Pull requests are just issues with code, so github consider pr comments in issues
+        pull_request = repository.issues(pr_nr)
+        comments = pull_request.comments().get()
+        bot_name = g.github['bot_name']
+        comment_id = None
+        for comment in comments:
+            if(comment['user']['login'] == bot_name and platform in comment['body']):
+                comment_id = comment['id']
+        log.debug('Github PR Comment ID Fetched for Test_id: {test_id}'.format(test_id=test_id))
+        if comment_id is None:
+            comment = pull_request.comments().post(body=message)
+            comment_id = comment['id']
+        else:
+            pull_request = repository.issues()
+            comment = pull_request.comments(comment_id).post(body=message)
+        log.debug('Github PR Comment ID {comment} Uploaded for Test_id: {test_id}'.format(
+                comment=comment_id, test_id=test_id))
+    except Exception as e:
+        log.error('Github PR Comment Failed for Test_id: {test_id} with Exception {exp}'.format(
+            test_id=test_id, exp=e))
+    return
 
 
 @mod_ci.route('/show_maintenance')

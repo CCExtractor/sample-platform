@@ -69,7 +69,8 @@ def install_secret_keys(application, secret_session='secret_key', secret_csrf='s
         sys.exit(1)
 
 
-install_secret_keys(app)
+if 'TESTING' not in os.environ or os.environ['TESTING'] == 'False':
+    install_secret_keys(app)
 
 
 # Expose submenu method for jinja templates
@@ -158,6 +159,7 @@ def before_request():
         'deploy_key': app.config.get('GITHUB_DEPLOY_KEY', ''),
         'ci_key': app.config.get('GITHUB_CI_KEY', ''),
         'bot_token': app.config.get('GITHUB_TOKEN', ''),
+        'bot_name': app.config.get('GITHUB_BOT', ''),
         'repository_owner': app.config.get('GITHUB_OWNER', ''),
         'repository': app.config.get('GITHUB_REPOSITORY', '')
     }

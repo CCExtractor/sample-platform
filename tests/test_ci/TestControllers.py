@@ -11,9 +11,9 @@ class TestControllers(BaseTestCase):
     def test_comments_successfully_in_passed_pr_test(self, git_mock):
         import mod_ci.controllers
         reload(mod_ci.controllers)
-        from mod_ci.controllers import comment_pr
+        from mod_ci.controllers import comment_pr, Status
         # Comment on test that passes all regression tests
-        comment_pr(1, False, 1, 'linux')
+        comment_pr(1, Status.SUCCESS, 1, 'linux')
         git_mock.assert_called_with(access_token=g.github['bot_token'])
         git_mock(access_token=g.github['bot_token']).repos.assert_called_with(g.github['repository_owner'])
         git_mock(access_token=g.github['bot_token']).repos(
@@ -33,7 +33,7 @@ class TestControllers(BaseTestCase):
     def test_comments_successfuly_in_failed_pr_test(self, git_mock):
         import mod_ci.controllers
         reload(mod_ci.controllers)
-        from mod_ci.controllers import comment_pr
+        from mod_ci.controllers import comment_pr, Status
         repository = git_mock(access_token=g.github['bot_token']).repos(
             g.github['repository_owner'])(g.github['repository'])
         pull_request = repository.issues(1)
@@ -42,7 +42,7 @@ class TestControllers(BaseTestCase):
         pull_request.comments().get.return_value = [{'user': {'login': g.github['bot_name']},
                                                     'id': 1, 'body': message}]
         # Comment on test that fails some/all regression tests
-        comment_pr(2, True, 1, 'linux')
+        comment_pr(2, Status.FAILURE, 1, 'linux')
         pull_request = repository.issues(1)
         pull_request.comments.assert_called_with(1)
         new_comment = pull_request.comments(1)

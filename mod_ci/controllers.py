@@ -822,17 +822,15 @@ def progress_reporter(test_id, token):
                     log.debug('Test {id} completed: {crashes} crashes, {results} results'.format(
                         id=test.id, crashes=crashes, results=results
                     ))
-                    crash = True
                     if crashes > 0 or results > 0:
                         state = Status.FAILURE
                         message = 'Not all tests completed successfully, please check'
 
                     else:
-                        crash = False
                         state = Status.SUCCESS
                         message = 'Tests completed'
                     if test.test_type == TestType.pull_request:
-                        comment_pr(test.id, crash, test.pr_nr, test.platform.name)
+                        comment_pr(test.id, state, test.pr_nr, test.platform.name)
                     update_build_badge(state, test)
 
                 else:
@@ -928,7 +926,7 @@ def progress_reporter(test_id, token):
     return "FAIL"
 
 
-def comment_pr(test_id, crash, pr_nr, platform):
+def comment_pr(test_id, state, pr_nr, platform):
     """
     Upload the test report to the github PR as comment
 
@@ -940,27 +938,26 @@ def comment_pr(test_id, crash, pr_nr, platform):
     :type: str
     """
     from run import app, log
-    regression_testid_passed = g.db.query(TestResult.regression_test_id).filter(
-        and_(TestResult.test_id == test_id,
-             and_(TestResultFile.test_id == test_id,
-                  and_(TestResult.regression_test_id == TestResultFile.regression_test_id,
-                       and_(TestResultFile.got.is_(None),
-                            TestResult.expected_rc == TestResult.exit_code))))).subquery()
+    regression_testid_passed = g.db.query(TestResult.regression_test_id).outerjoin(
+                                        TestResultFile, TestResult.test_id == TestResultFile.test_id).filter(
+                                        TestResult.test_id == test_id,
+                                        TestResult.regression_test_id == TestResultFile.regression_test_id,
+                                        TestResultFile.got.is_(None),
+                                        TestResult.expected_rc == TestResult.exit_code).subquery()
     passed = g.db.query(label('category_id', Category.id), label(
         'success', count(regressionTestLinkTable.c.regression_id))).filter(
-        and_(regressionTestLinkTable.c.regression_id.in_(regression_testid_passed),
-             Category.id == regressionTestLinkTable.c.category_id)).group_by(
+            regressionTestLinkTable.c.regression_id.in_(regression_testid_passed),
+            Category.id == regressionTestLinkTable.c.category_id).group_by(
                  regressionTestLinkTable.c.category_id).subquery()
     tot = g.db.query(label('category', Category.name), label('total', count(regressionTestLinkTable.c.regression_id)),
                      label('success', passed.c.success)).outerjoin(
         passed, passed.c.category_id == Category.id).filter(
         Category.id == regressionTestLinkTable.c.category_id).group_by(
         regressionTestLinkTable.c.category_id).all()
-
     regression_testid_failed = RegressionTest.query.filter(RegressionTest.id.notin_(regression_testid_passed)).all()
     template = app.jinja_env.get_or_select_template('ci/pr_comment.txt')
     message = template.render(tests=tot, failed_tests=regression_testid_failed, test_id=test_id,
-                              crash=crash, platform=platform)
+                              state=state, platform=platform)
     log.debug('Github PR Comment Message Created for Test_id: {test_id}'.format(test_id=test_id))
     try:
         gh = GitHub(access_token=g.github['bot_token'])
@@ -973,6 +970,7 @@ def comment_pr(test_id, crash, pr_nr, platform):
         for comment in comments:
             if(comment['user']['login'] == bot_name and platform in comment['body']):
                 comment_id = comment['id']
+                break
         log.debug('Github PR Comment ID Fetched for Test_id: {test_id}'.format(test_id=test_id))
         if comment_id is None:
             comment = pull_request.comments().post(body=message)

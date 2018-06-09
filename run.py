@@ -69,7 +69,8 @@ def install_secret_keys(application, secret_session='secret_key', secret_csrf='s
         sys.exit(1)
 
 
-install_secret_keys(app)
+if 'TESTING' not in os.environ or os.environ['TESTING'] == 'False':
+    install_secret_keys(app)
 
 
 # Expose submenu method for jinja templates

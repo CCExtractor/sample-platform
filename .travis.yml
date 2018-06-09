@@ -4,9 +4,18 @@ python:
   - 3.5
   - 3.6
   - nightly
+
+# environment variables
+env:
+ - TESTING=True
+
 install:
+  - sudo apt-get install libvirt-dev
   - pip install codecov
   - pip install nose-cov
+  - pip install -r requirements.txt
+  - pip install Flask-Testing
+  - pip install blinker
 script:
   - nosetests --with-cov --cov-config .coveragerc
 after_success:

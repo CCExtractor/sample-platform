@@ -17,7 +17,7 @@
 </tr>
 {% endfor %}
 </table>
-{% if crash %}
+{% if state == "failure" %}
 It seems that not all tests were passed completely. This is an indication that the output of some files is not as expected (but might be according to you). 
 
 Your PR breaks these cases:

@@ -3,7 +3,7 @@
 ## Requirements
 
 * Nginx (Other possible when modifying the sample download section)
-* Python 2.7 (Flask and other dependencies)
+* Python 3 (Flask and other dependencies)
 * MySQL
 * Pure-FTPD with mysql
 

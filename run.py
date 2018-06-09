@@ -159,6 +159,7 @@ def before_request():
         'deploy_key': app.config.get('GITHUB_DEPLOY_KEY', ''),
         'ci_key': app.config.get('GITHUB_CI_KEY', ''),
         'bot_token': app.config.get('GITHUB_TOKEN', ''),
+        'bot_name': app.config.get('GITHUB_BOT', ''),
         'repository_owner': app.config.get('GITHUB_OWNER', ''),
         'repository': app.config.get('GITHUB_REPOSITORY', '')
     }

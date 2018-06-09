@@ -1,0 +1,33 @@
+<b>CCExtractor CI platform</b> finished running the test files on <b>{{platform}}</b>. Below is a summary of the test results:
+<table>
+<thead>
+<td> Report Name </td>
+<td> Tests Passed </td>
+</thead>
+{% for test in tests%}
+<tr>
+<td> {{test.category}} </td>
+{% if test.success==None %}
+<td> <b> 0/{{test.total}}  </b> </td>
+{% elif test.success == test.total %}
+<td> {{test.success}}/{{test.total}} </td>
+{% else %}
+<td> <b> {{test.success}}/{{test.total}} </b> </td>
+{% endif %}
+</tr>
+{% endfor %}
+</table>
+{% if state == "failure" %}
+It seems that not all tests were passed completely. This is an indication that the output of some files is not as expected (but might be according to you). 
+
+Your PR breaks these cases:
+<ul>
+{% for test in failed_tests %}
+<li> ccextractor {{ test.command }} <a href="{{ url_for('sample.sample_by_id', sample_id=test.sample.id, _external=True) }}">{{ test.sample.sha[:10] }}...</a> </li>
+{% endfor %}
+</ul>
+{% else %}
+All tests were passed completely.
+{% endif %}
+<br>
+Check the <a href="{{ url_for('test.by_id', test_id=test_id, _external=True) }}">result</a> page for more info.

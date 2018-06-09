@@ -13,7 +13,10 @@ from flask import g
 
 def load_config(file):
     return {'Testing': True, 'DATABASE_URI': 'sqlite:///:memory:',
-            'WTF_CSRF_ENABLED': False, 'SQLALCHEMY_POOL_SIZE': 1}
+            'WTF_CSRF_ENABLED': False, 'SQLALCHEMY_POOL_SIZE': 1,
+            'GITHUB_DEPLOY_KEY': 'test_deploy', 'GITHUB_CI_KEY': 'test_ci',
+            'GITHUB_TOKEN': '', 'GITHUB_BOT': '',
+            'GITHUB_OWNER': 'test_owner', 'GITHUB_REPOSITORY': 'test_repo'}
 
 
 class BaseTestCase(TestCase):

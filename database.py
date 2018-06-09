@@ -33,8 +33,9 @@ def create_session(db_string, drop_tables=False):
     """
     import os
     global db_engine, Base
+
     # In testing, we want to maintain same memory variable
-    if db_engine is None or ('TESTING' not in os.environ or os.environ['TESTING'] == 'False'):
+    if db_engine is None or 'TESTING' not in os.environ or os.environ['TESTING'] == 'False':
         db_engine = create_engine(db_string, convert_unicode=True)
     db_session = scoped_session(sessionmaker(bind=db_engine))
     Base.query = db_session.query_property()

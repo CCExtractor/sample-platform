@@ -481,7 +481,7 @@ def role(uid):
     usr = User.query.filter_by(id=uid).first()
     if usr is not None:
         form = RoleChangeForm(request.form)
-        form.role.choices = [(r.name, r.description) for r in Role.__iter__()]
+        form.role.choices = [(r.name, r.description) for r in Role]
         if form.validate_on_submit():
             # Update role
             usr.role = Role.from_string(form.role.data)

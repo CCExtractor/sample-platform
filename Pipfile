@@ -21,7 +21,7 @@ xmltodict = "*"
 lxml = "*"
 pytz = "*"
 tzlocal = "*"
-libvirt-python = "*"
+libvirt-python = {version = "*", sys_platform !=  "== 'win32'"}
 SQLAlchemy = "*"
 
 [requires]

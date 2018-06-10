@@ -14,4 +14,4 @@ xmltodict
 lxml
 pytz
 tzlocal
-libvirt-python
+libvirt-python; sys_platform != 'win32'

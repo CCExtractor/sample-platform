@@ -1,0 +1,28 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[dev-packages]
+
+[packages]
+flask = "*"
+passlib = "*"
+pymysql = "*"
+python-magic = "*"
+flask-wtf = "*"
+gunicorn = "*"
+githubpy = "*"
+requests = "*"
+pyisemail = "*"
+ipaddress = "*"
+gitpython = "*"
+xmltodict = "*"
+lxml = "*"
+pytz = "*"
+tzlocal = "*"
+libvirt-python = {version = "*", sys_platform !=  "== 'win32'"}
+SQLAlchemy = "*"
+
+[requires]
+python_version = "3.6"

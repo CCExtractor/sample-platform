@@ -1,8 +1,4 @@
 from tests.base import BaseTestCase
-from mock import mock
-
-import mod_home.controllers as home
-from mod_home.models import GeneralData, CCExtractorVersion
 
 
 class TestControllers(BaseTestCase):

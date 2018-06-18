@@ -6,17 +6,35 @@ from mod_test.models import Fork, Test, TestType, TestPlatform, TestResult, Test
 from mod_regression.models import Category, RegressionTestOutput, RegressionTest, \
                                     regressionTestLinkTable, InputType, OutputType
 from mod_sample.models import Sample
+from mod_auth.models import User, Role
 from collections import namedtuple
 from unittest import mock
 from flask import g
 
 
 def load_config(file):
-    return {'Testing': True, 'DATABASE_URI': 'sqlite:///:memory:',
-            'WTF_CSRF_ENABLED': False, 'SQLALCHEMY_POOL_SIZE': 1,
-            'GITHUB_DEPLOY_KEY': 'test_deploy', 'GITHUB_CI_KEY': 'test_ci',
-            'GITHUB_TOKEN': '', 'GITHUB_BOT': '',
-            'GITHUB_OWNER': 'test_owner', 'GITHUB_REPOSITORY': 'test_repo'}
+    return {'Testing': True,
+            'DATABASE_URI': 'sqlite:///:memory:',
+            'WTF_CSRF_ENABLED': False,
+            'SQLALCHEMY_POOL_SIZE': 1,
+            'GITHUB_DEPLOY_KEY': 'test_deploy',
+            'GITHUB_CI_KEY': 'test_ci',
+            'GITHUB_TOKEN': '',
+            'GITHUB_BOT': '',
+            'GITHUB_OWNER': 'test_owner',
+            'GITHUB_REPOSITORY': 'test_repo',
+            'HMAC_KEY': 'test_key',
+            'MIN_PWD_LEN': '10',
+            'MAX_PWD_LEN': '500'
+            }
+
+
+class SignUpInformation:
+    valid_email = 'someone@example.com'
+    existing_user_email = 'dummy@example.com'
+    existing_user_name = 'dummy'
+    existing_user_pwd = 'dummy_pwd'
+    existing_user_role = Role.user
 
 
 class BaseTestCase(TestCase):
@@ -85,4 +103,7 @@ class BaseTestCase(TestCase):
             TestResultFile(2, 2, 2, 'sample_out2', 'out2')
         ]
         g.db.add_all(test_result_files)
+        dummy_user = User(SignUpInformation.existing_user_name, SignUpInformation.existing_user_role,
+                          SignUpInformation.existing_user_email, SignUpInformation.existing_user_pwd)
+        g.db.add(dummy_user)
         g.db.commit()

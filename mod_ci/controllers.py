@@ -19,7 +19,7 @@ from git import Repo, InvalidGitRepositoryError, GitCommandError
 from github import GitHub, ApiError
 from multiprocessing import Process
 from lxml import etree
-from sqlalchemy import and_
+from sqlalchemy import and_, or_
 from sqlalchemy import func
 from sqlalchemy.sql import label
 from sqlalchemy.sql.functions import count
@@ -939,11 +939,19 @@ def comment_pr(test_id, state, pr_nr, platform):
     """
     from run import app, log
     regression_testid_passed = g.db.query(TestResult.regression_test_id).outerjoin(
-                                        TestResultFile, TestResult.test_id == TestResultFile.test_id).filter(
-                                        TestResult.test_id == test_id,
-                                        TestResult.regression_test_id == TestResultFile.regression_test_id,
-                                        TestResultFile.got.is_(None),
-                                        TestResult.expected_rc == TestResult.exit_code).subquery()
+                                TestResultFile, TestResult.test_id == TestResultFile.test_id).filter(
+                                TestResult.test_id == test_id,
+                                TestResult.expected_rc == TestResult.exit_code,
+                                or_(
+                                    TestResult.exit_code != 0,
+                                    and_(TestResult.exit_code == 0,
+                                         TestResult.regression_test_id == TestResultFile.regression_test_id,
+                                         TestResultFile.got.is_(None)
+                                         ),
+                                    and_(
+                                         RegressionTestOutput.regression_id == TestResult.regression_test_id,
+                                         RegressionTestOutput.ignore.is_(True),
+                                            ))).subquery()
     passed = g.db.query(label('category_id', Category.id), label(
         'success', count(regressionTestLinkTable.c.regression_id))).filter(
             regressionTestLinkTable.c.regression_id.in_(regression_testid_passed),

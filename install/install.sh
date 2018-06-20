@@ -112,6 +112,10 @@ read -e -p "KVM Max Runtime (In minutes): " -i "120" kvm_max_runtime
 read -e -p "FTP Server IP/Domain name :" -i "" server_name
 read -e -p "FTP port: " -i "21" ftp_port
 read -e -p "Max HTTP sample size (in bytes) : " -i "536870912" max_content_length
+read -e -p "Minimum password length : " -i "10" min_pwd_len
+read -e -p "Maximum password length : " -i "500" max_pwd_len
+
+
 echo ""
 echo "In the following lines, enter the path "
 read -e -p "    To SSL certificate: " -i "/etc/letsencrypt/live/${config_server_name}/fullchain.pem" config_ssl_cert
@@ -177,6 +181,8 @@ SAMPLE_REPOSITORY = '${sample_repository}'
 SESSION_COOKIE_PATH = '/'
 FTP_PORT = $ftp_port
 MAX_CONTENT_LENGTH = $max_content_length
+MIN_PWD_LEN = $min_pwd_len
+MAX_PWD_LEN = $max_pwd_len
 " > "${dir}/../config.py"
 # Ensure the files are executable by www-data
 chown -R www-data:www-data "${root_dir}" "${sample_repository}"

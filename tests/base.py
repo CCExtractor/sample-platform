@@ -1,14 +1,14 @@
-from database import create_session
+from collections import namedtuple
+from unittest import mock
 from flask_testing import TestCase
+from flask import g
 from database import create_session
 from mod_home.models import GeneralData, CCExtractorVersion
-from mod_test.models import Fork, Test, TestType, TestPlatform, TestResult, TestResultFile
+from mod_auth.models import User
+from mod_test.models import Test, TestType, TestPlatform, TestResult, TestResultFile
 from mod_regression.models import Category, RegressionTestOutput, RegressionTest, \
                                     regressionTestLinkTable, InputType, OutputType
 from mod_sample.models import Sample
-from collections import namedtuple
-from unittest import mock
-from flask import g
 
 
 def load_config(file):
@@ -16,7 +16,17 @@ def load_config(file):
             'WTF_CSRF_ENABLED': False, 'SQLALCHEMY_POOL_SIZE': 1,
             'GITHUB_DEPLOY_KEY': 'test_deploy', 'GITHUB_CI_KEY': 'test_ci',
             'GITHUB_TOKEN': '', 'GITHUB_BOT': '',
-            'GITHUB_OWNER': 'test_owner', 'GITHUB_REPOSITORY': 'test_repo'}
+            'GITHUB_OWNER': 'test_owner', 'GITHUB_REPOSITORY': 'test_repo',
+            'SECRET_KEY': 'test124'}
+
+
+def MockRequests(url):
+    if url == "https://api.github.com/repos/test/test_repo/commits/abcdef":
+        return MockResponse({}, 200)
+    elif url == "https://api.github.com/user":
+        return MockResponse({"login": "test"}, 200)
+    else:
+        return MockResponse({}, 404)
 
 
 class BaseTestCase(TestCase):
@@ -26,6 +36,8 @@ class BaseTestCase(TestCase):
         Create an instance of the app with the testing configuration
         :return:
         """
+        user = namedtuple('user', 'name password email github_token')
+        self.user = user(name="test", password="test123", email="test@example.com", github_token="abcdefgh")
         from run import app
         return app
 
@@ -86,3 +98,28 @@ class BaseTestCase(TestCase):
         ]
         g.db.add_all(test_result_files)
         g.db.commit()
+
+    def create_login_form_data(self, email, password) -> dict:
+        """
+        Creates the form data for a login event.
+        :return: A dictionary containing the name, password and submit fields.
+        """
+        return {'email': email, 'password': password, 'submit': True}
+
+    def create_user_with_role(self, user, email, password, role):
+        """
+        Create a user with specified user details and role.
+        """
+        from flask import g
+        user = User(self.user.name, email=self.user.email, password=User.generate_hash(self.user.password), role=role)
+        g.db.add(user)
+        g.db.commit()
+
+
+class MockResponse:
+    def __init__(self, json_data, status_code):
+        self.json_data = json_data
+        self.status_code = status_code
+
+    def json(self):
+        return self.json_data

@@ -17,7 +17,7 @@
                         <td data-title="Details">{{ test.test_type.description }} <a href="{{ test.github_link }}" target="_blank">{{ (test.commit[:7] if test.test_type == TestType.commit else test.pr_nr) }}</a></td>
                         <td data-title="Platform">{{ test.platform.description }}</td>
                         <td data-title="Run Errors">{{ "Unknown" if not test.finished else ("Yes" if test.failed else "No") }}</td>
-                        <td data-title="Completed"><a href="{{ url_for('.by_id', test_id=test.id) }}">{{ "Yes" if test.finished else "No" }}</a></td>
+                        <td data-title="Completed"><a href="{{ url_for('test.by_id', test_id=test.id) }}">{{ "Yes" if test.finished else "No" }}</a></td>
                     </tr>
                 {% endfor %}
             </tbody>

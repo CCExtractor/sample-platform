@@ -55,3 +55,8 @@ class TestControllers(BaseTestCase):
                 flag = True
         if flag:
             assert False, "Message not Correct"
+
+    def test_check_main_repo_returns_in_false_url(self):
+        from mod_ci.controllers import check_main_repo
+        assert check_main_repo('random_user/random_repo') is False
+        assert check_main_repo('test_owner/test_repo') is True

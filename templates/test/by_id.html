@@ -77,7 +77,7 @@
                     {% if test.failed %}
                         <h2>An error occurred</h2>
                         <p>Something went wrong while the tests where running. You should be able to see in the bar above during which stage it went wrong exactly.</p>
-                        <p>If you have build errors, you can access a log file with build errors <a target="_blank" href = "{{ url_for('.download_build_log_file',test_id=test.id) }}">here</a>.</p>
+                        <p>If you have build errors, you can access a log file with build errors <a target="_blank" href = "{{ url_for('test.download_build_log_file',test_id=test.id) }}">here</a>.</p>
                     {% else %}
                         <h2>Test results</h2>
                         <p>Click on the category names to expand the results, and on "Fail" to see the differences.</p>
@@ -146,7 +146,7 @@
                 function () {
                     $.ajax({
                         type: "GET",
-                        url: "{{ url_for('.get_json_data', test_id=test.id) }}",
+                        url: "{{ url_for('test.get_json_data', test_id=test.id) }}",
                         contentType: "application/json; charset=utf-8",
                         dataType: "json",
                         success: function (data) {
@@ -213,7 +213,7 @@
             $('.diff_link').on('click', function(){
                 // Make ajax request to get a diff, and display it in a "popup"
                 var $modal = $('#modal');
-                var url = '{{ url_for('.generate_diff', test_id='_0_', regression_test_id='_1_', output_id='_2_') }}';
+                var url = '{{ url_for('test.generate_diff', test_id='_0_', regression_test_id='_1_', output_id='_2_') }}';
                 url = url.replace('_0_', $(this).data('test')).replace('_1_', $(this).data('regression')).replace('_2_', $(this).data('output'));
 
                 $.ajax(url).done(function(resp){

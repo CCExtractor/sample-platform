@@ -21,6 +21,7 @@ from mod_regression.controllers import mod_regression
 from mod_sample.controllers import mod_sample
 from mod_test.controllers import mod_test
 from mod_upload.controllers import mod_upload
+from mod_customized.controllers import mod_customized
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app)
@@ -181,6 +182,7 @@ app.register_blueprint(mod_home)
 app.register_blueprint(mod_deploy)
 app.register_blueprint(mod_test, url_prefix="/test")
 app.register_blueprint(mod_ci)
+app.register_blueprint(mod_customized, url_prefix='/custom')
 
 if __name__ == '__main__':
     # Run in development mode; Werkzeug server

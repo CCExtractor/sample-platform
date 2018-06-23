@@ -205,10 +205,14 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     finished_tests = db.query(TestProgress.test_id).filter(
         TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
     ).subquery()
+    fork = Fork.query.filter(Fork.github.like("%/CCExtractor/ccextractor.git")).first()
     test = Test.query.filter(
-        and_(Test.id.notin_(finished_tests), Test.platform == platform)
+        and_(Test.id.notin_(finished_tests), Test.platform == platform, Test.fork_id == fork.id)
     ).order_by(Test.id.asc()).first()
-
+    if test is None:
+        test = Test.query.filter(
+            and_(Test.id.notin_(finished_tests), Test.platform == platform)
+        ).order_by(Test.id.asc()).first()
     if test is None:
         log.info('[{platform}] No more tests to run, returning'.format(platform=platform))
         return
@@ -319,7 +323,17 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     repo.heads.master.checkout(True)
     # Update repository from upstream
     try:
-        origin = repo.remote('origin')
+        fork_id = test.fork.id
+        fork_url = test.fork.github
+        if not check_main_repo(fork_url):
+            remote = ('fork_{id}').format(id=fork_id)
+            existing_remote = [each_remote.name for each_remote in repo.remotes]
+            if remote in existing_remote:
+                origin = repo.remote(remote)
+            else:
+                origin = repo.create_remote(remote, url=fork_url)
+        else:
+            origin = repo.remote('origin')
     except ValueError:
         log.critical("[{platform}] Origin remote doesn't exist!".format(platform=platform))
         return
@@ -395,7 +409,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         repo.git.merge('master')
 
     else:
-        test_branch = repo.create_head('CI_Branch', 'HEAD')
+        test_branch = repo.create_head('CI_Branch', origin.refs.master)
         test_branch.checkout(True)
         try:
             repo.head.reset(test.commit, working_tree=True)
@@ -656,7 +670,7 @@ def update_build_badge(status, test):
     :return: Nothing.
     :rtype: None
     """
-    if test.test_type == TestType.commit:
+    if test.test_type == TestType.commit and check_main_repo(test.fork.github):
         parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         availableon = os.path.join(parent_dir, 'static', 'svg',
                                    '{status}-{platform}.svg'.format(status=status.upper(),
@@ -710,7 +724,7 @@ def progress_reporter(test_id, token):
                 gh = GitHub(access_token=g.github['bot_token'])
                 repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
                 # Store the test commit for testing in case of commit
-                if status == TestStatus.completed:
+                if status == TestStatus.completed and check_main_repo(test.fork.github):
                     commit_name = 'fetch_commit_' + test.platform.value
                     commit = GeneralData.query.filter(GeneralData.key == commit_name).first()
                     fetch_commit = Test.query.filter(
@@ -1135,3 +1149,11 @@ def in_maintenance_mode(platform):
         g.db.commit()
 
     return str(status.disabled)
+
+
+def check_main_repo(repo_url):
+    repo = ('{user}/{repo}').format(user=g.github['repository_owner'], repo=g.github['repository'])
+    if repo in repo_url:
+        return True
+    else:
+        return False

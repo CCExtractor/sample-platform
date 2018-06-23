@@ -147,6 +147,23 @@ def github_redirect():
     return 'https://github.com/login/oauth/authorize?client_id={id}&scope=public_repo'.format(id=github_clientid)
 
 
+def fetch_username_from_token():
+    import json
+    user = User.query.filter(User.id == g.user.id).first()
+    if user.github_token is None:
+        return None
+    url = 'https://api.github.com/user'
+    session = requests.Session()
+    session.auth = (user.email, user.github_token)
+    try:
+        response = session.get(url)
+        data = response.json()
+        return str(data['login'])
+    except Exception as e:
+        g.log.error('Failed to fetch the user token')
+        return None
+
+
 @mod_auth.route('/github_callback', methods=['GET', 'POST'])
 @template_renderer()
 def github_callback():

@@ -13,6 +13,8 @@
                 <li>Upload samples that are broken</li>
                 <li>Get information on previously submitted samples</li>
                 <li>Run the regression tests</li>
+                <li><a href="{{ url_for('custom.index')}}"> Run your own tests </a>if you have permissions</li>
+                <li>"Want to run your own tests? Send the admins a request" if you don't have the permissions yet</li>
             </ul>
             <h4>Development information</h4>
             <p>Last official release: <a target="_blank" href="http://sourceforge.net/projects/ccextractor/files/ccextractor/{{ ccx_last_release.version }}/">{{ ccx_last_release.version }}</a> (release date: {{ ccx_last_release.released }}). Regression tests for this version are available here: <a href="{{ url_for("test.ccextractor_version", ccx_version=ccx_last_release.version) }}">regression tests</a></p>

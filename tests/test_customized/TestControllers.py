@@ -17,9 +17,6 @@ def return_user():
 @mock.patch('github.GitHub')
 @mock.patch('mod_auth.controllers.fetch_username_from_token', side_effect=return_user)
 class TestControllers(BaseTestCase):
-    def create_customize_form(self, commit_hash, platform, commit_select=['', '']):
-        return {'commit_hash': commit_hash, 'commit_select': commit_select, 'platform': platform, 'add': True}
-
     def test_customize_test_page_fails_with_no_permission(self, mock_user, mock_git, mock_requests):
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.user)

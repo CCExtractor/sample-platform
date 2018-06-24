@@ -158,7 +158,7 @@ def fetch_username_from_token():
     try:
         response = session.get(url)
         data = response.json()
-        return str(data['login'])
+        return data['login']
     except Exception as e:
         g.log.error('Failed to fetch the user token')
         return None

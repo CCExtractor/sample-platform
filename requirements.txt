@@ -2,7 +2,6 @@ sqlalchemy
 flask
 passlib
 pymysql
-python-dateutil
 python-magic
 flask-wtf
 gunicorn

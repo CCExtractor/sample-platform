@@ -5,8 +5,7 @@ In this module, users can test their fork branch with customized set of regressi
 """
 from flask import Blueprint, g, request, redirect, url_for
 from github import GitHub, ApiError
-from datetime import datetime
-from dateutil.relativedelta import relativedelta
+from datetime import datetime, timedelta
 
 from decorators import template_renderer, get_menu_entries
 from mod_auth.controllers import login_required, check_access_rights
@@ -21,14 +20,14 @@ from sqlalchemy import and_
 mod_customized = Blueprint('custom', __name__)
 
 
-@check_access_rights([Role.tester, Role.contributor, Role.admin])
 @mod_customized.before_app_request
 def before_app_request():
     if g.user is not None:
         g.menu_entries['custom'] = {
             'title': 'Customize Test',
             'icon': 'code-fork',
-            'route': 'custom.index'
+            'route': 'custom.index',
+            'access': [Role.tester, Role.contributor, Role.admin]
         }
 
 
@@ -44,8 +43,7 @@ def index():
         gh = GitHub(access_token=g.github['bot_token'])
         repository = gh.repos(username)(g.github['repository'])
         # Only commits since last month
-        today_date = datetime.now()
-        last_month = today_date - relativedelta(months=1)
+        last_month = datetime.now() - timedelta(days=30)
         commit_since = last_month.isoformat() + 'Z'
         commits = repository.commits().get(since=commit_since)
         commit_arr = []
@@ -58,20 +56,20 @@ def index():
         if len(commit_arr) > 0:
             fork_test_form.commit_select.choices = commit_arr
             commit_options = True
-    if username is not None and fork_test_form.add.data and fork_test_form.validate_on_submit():
-        import requests
-        commit_hash = fork_test_form.commit_hash.data
-        repo = g.github['repository']
-        platforms = fork_test_form.platform.data
-        api_url = ('https://api.github.com/repos/{user}/{repo}/commits/{hash}').format(
-            user=username, repo=repo, hash=commit_hash
-        )
-        response = requests.get(api_url)
-        if response.status_code == 404:
-            fork_test_form.commit_hash.errors.append('Wrong Commit Hash')
-        else:
-            add_test_to_kvm(username, repo, commit_hash, platforms)
-            return redirect(url_for('custom.index'))
+        if fork_test_form.add.data and fork_test_form.validate_on_submit():
+            import requests
+            commit_hash = fork_test_form.commit_hash.data
+            repo = g.github['repository']
+            platforms = fork_test_form.platform.data
+            api_url = ('https://api.github.com/repos/{user}/{repo}/commits/{hash}').format(
+                user=username, repo=repo, hash=commit_hash
+            )
+            response = requests.get(api_url)
+            if response.status_code == 404:
+                fork_test_form.commit_hash.errors.append('Wrong Commit Hash')
+            else:
+                add_test_to_kvm(username, commit_hash, platforms)
+                return redirect(url_for('custom.index'))
     tests = Test.query.filter(and_(TestFork.user_id == g.user.id, TestFork.test_id == Test.id)).order_by(
         Test.id.desc()).limit(50).all()
     return {
@@ -83,7 +81,7 @@ def index():
     }
 
 
-def add_test_to_kvm(username, repo, commit_hash, platforms):
+def add_test_to_kvm(username, commit_hash, platforms):
     fork_url = ('https://github.com/{user}/{repo}.git').format(
         user=username, repo=g.github['repository']
     )

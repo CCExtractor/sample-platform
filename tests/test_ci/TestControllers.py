@@ -60,3 +60,70 @@ class TestControllers(BaseTestCase):
         from mod_ci.controllers import check_main_repo
         assert check_main_repo('random_user/random_repo') is False
         assert check_main_repo('test_owner/test_repo') is True
+
+    @mock.patch('github.GitHub')
+    @mock.patch('git.Repo')
+    @mock.patch('libvirt.open')
+    @mock.patch('shutil.rmtree')
+    @mock.patch('mod_ci.controllers.open')
+    @mock.patch('lxml.etree.Element')
+    def test_customize_tests_run_on_fork_if_no_remote(self, mock_etree, mock_open,
+                                                      mock_rmtree, mock_libvirt, mock_repo, mock_git):
+        self.create_forktest("own-fork-commit", TestPlatform.linux)
+        import mod_ci.cron
+        import mod_ci.controllers
+        reload(mod_ci.cron)
+        reload(mod_ci.controllers)
+        from mod_ci.cron import cron
+        conn = mock_libvirt()
+        vm = conn.lookupByName()
+        import libvirt
+        # mocking the libvirt kvm to shut down
+        vm.info.return_value = [libvirt.VIR_DOMAIN_SHUTOFF]
+        # Setting current snapshot of libvirt
+        vm.hasCurrentSnapshot.return_value = 1
+        repo = mock_repo()
+        origin = repo.create_remote()
+        from collections import namedtuple
+        GitPullInfo = namedtuple('GitPullInfo', 'flags')
+        pull_info = GitPullInfo(flags=0)
+        origin.pull.return_value = [pull_info]
+        cron()
+        fork_url = ('https://github.com/{user}/{repo}.git').format(
+                user=self.user.name, repo=g.github['repository'])
+        repo.create_remote.assert_called_with('fork_2', url=fork_url)
+        repo.create_head.assert_called_with('CI_Branch', origin.refs.master)
+
+    @mock.patch('github.GitHub')
+    @mock.patch('git.Repo')
+    @mock.patch('libvirt.open')
+    @mock.patch('shutil.rmtree')
+    @mock.patch('mod_ci.controllers.open')
+    @mock.patch('lxml.etree.Element')
+    def test_customize_tests_run_on_fork_if_remote_exist(self, mock_etree, mock_open,
+                                                         mock_rmtree, mock_libvirt, mock_repo, mock_git):
+        self.create_forktest("own-fork-commit", TestPlatform.linux)
+        import mod_ci.cron
+        import mod_ci.controllers
+        reload(mod_ci.cron)
+        reload(mod_ci.controllers)
+        from mod_ci.cron import cron
+        conn = mock_libvirt()
+        vm = conn.lookupByName()
+        import libvirt
+        # mocking the libvirt kvm to shut down
+        vm.info.return_value = [libvirt.VIR_DOMAIN_SHUTOFF]
+        # Setting current snapshot of libvirt
+        vm.hasCurrentSnapshot.return_value = 1
+        repo = mock_repo()
+        origin = repo.remote()
+        from collections import namedtuple
+        Remotes = namedtuple('Remotes', 'name')
+        repo.remotes = [Remotes(name='fork_2')]
+        GitPullInfo = namedtuple('GitPullInfo', 'flags')
+        pull_info = GitPullInfo(flags=0)
+        origin.pull.return_value = [pull_info]
+        cron()
+        fork_url = ('https://github.com/{user}/{repo}.git').format(
+                user=self.user.name, repo=g.github['repository'])
+        repo.remote.assert_called_with('fork_2')

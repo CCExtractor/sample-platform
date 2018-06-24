@@ -148,7 +148,6 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         time.sleep(delay)
 
     maintenance_mode = MaintenanceMode.query.filter(MaintenanceMode.platform == platform).first()
-
     if maintenance_mode is not None and maintenance_mode.disabled:
         log.debug('[{platform}] In maintenance mode! Waiting...').format(platform=platform)
         return
@@ -205,13 +204,14 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     finished_tests = db.query(TestProgress.test_id).filter(
         TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
     ).subquery()
-    fork = Fork.query.filter(Fork.github.like("%/CCExtractor/ccextractor.git")).first()
+    fork = Fork.query.filter(Fork.github.like(("%/{owner}/{repo}.git").format(owner=g.github['repository_owner'],
+                                                                              repo=g.github['repository']))).first()
     test = Test.query.filter(
-        and_(Test.id.notin_(finished_tests), Test.platform == platform, Test.fork_id == fork.id)
+            Test.id.notin_(finished_tests), Test.platform == platform, Test.fork_id == fork.id
     ).order_by(Test.id.asc()).first()
     if test is None:
         test = Test.query.filter(
-            and_(Test.id.notin_(finished_tests), Test.platform == platform)
+                Test.id.notin_(finished_tests), Test.platform == platform
         ).order_by(Test.id.asc()).first()
     if test is None:
         log.info('[{platform}] No more tests to run, returning'.format(platform=platform))
@@ -327,7 +327,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         fork_url = test.fork.github
         if not check_main_repo(fork_url):
             remote = ('fork_{id}').format(id=fork_id)
-            existing_remote = [each_remote.name for each_remote in repo.remotes]
+            existing_remote = [remote.name for remote in repo.remotes]
             if remote in existing_remote:
                 origin = repo.remote(remote)
             else:
@@ -346,7 +346,6 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     pull_info = origin.pull()
     if len(pull_info) == 0:
         log.info("[{platform}] Pull from remote returned no new data...".format(platform=platform))
-
     if pull_info[0].flags > 128:
         log.critical("[{platform}] Didn't pull any information from remote: {flags}!".format(
                 platform=platform, flags=pull_info[0].flags))
@@ -363,7 +362,6 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         shutil.rmtree(os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'unsafe-ccextractor', '.git', 'rebase-apply'))
     except OSError:
         log.warn("[{platform}] Could not delete rebase-apply".format(platform=platform))
-
     # If PR, merge, otherwise reset to commit
     if test.test_type == TestType.pull_request:
         # Fetch PR (stored under origin/pull/<id>/head
@@ -1153,7 +1151,4 @@ def in_maintenance_mode(platform):
 
 def check_main_repo(repo_url):
     repo = ('{user}/{repo}').format(user=g.github['repository_owner'], repo=g.github['repository'])
-    if repo in repo_url:
-        return True
-    else:
-        return False
+    return repo in repo_url

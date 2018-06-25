@@ -1,3 +1,5 @@
+import os
+
 from database import create_session
 from flask_testing import TestCase
 from database import create_session
@@ -7,12 +9,31 @@ from mod_regression.models import Category, RegressionTestOutput, RegressionTest
                                     regressionTestLinkTable, InputType, OutputType
 from mod_sample.models import Sample
 from mod_auth.models import User, Role
-from collections import namedtuple
 from unittest import mock
 from flask import g
 
 
+def generate_keys():
+    from utility import ROOT_DIR
+    secret_csrf_path = "{path}secret_csrf".format(path=os.path.join(ROOT_DIR, ""))
+    secret_key_path = "{path}secret_key".format(path=os.path.join(ROOT_DIR, ""))
+    if not os.path.exists(secret_csrf_path):
+        secret_csrf_cmd = "head -c 24 /dev/urandom > {path}".format(path=secret_csrf_path)
+        os.system(secret_csrf_cmd)
+    if not os.path.exists(secret_key_path):
+        secret_key_cmd = "head -c 24 /dev/urandom > {path}".format(path=secret_key_path)
+        os.system(secret_key_cmd)
+
+    return {'secret_csrf_path': secret_csrf_path, 'secret_key_path': secret_key_path}
+
+
 def load_config(file):
+    key_paths = generate_keys()
+    with open(key_paths['secret_key_path'], 'rb') as secret_key_file:
+        secret_key = secret_key_file.read()
+    with open(key_paths['secret_csrf_path'], 'rb') as secret_csrf_file:
+        secret_csrf = secret_csrf_file.read()
+
     return {'Testing': True,
             'DATABASE_URI': 'sqlite:///:memory:',
             'WTF_CSRF_ENABLED': False,
@@ -25,17 +46,18 @@ def load_config(file):
             'GITHUB_REPOSITORY': 'test_repo',
             'HMAC_KEY': 'test_key',
             'MIN_PWD_LEN': '10',
-            'MAX_PWD_LEN': '500'
+            'MAX_PWD_LEN': '500',
+            'SECRET_KEY': secret_key,
+            'CSRF_SESSION_KEY': secret_csrf
             }
 
 
-class SignUpInformation:
-    valid_email = 'someone@example.com'
-    existing_user_email = 'dummy@example.com'
-    existing_user_name = 'dummy'
-    existing_user_pwd = 'dummy_pwd'
-    existing_user_role = Role.user
-
+signup_information = {'valid_email': 'someone@example.com',
+                      'existing_user_email': 'dummy@example.com',
+                      'existing_user_name': 'dummy',
+                      'existing_user_pwd': 'dummy_pwd',
+                      'existing_user_role': Role.user
+                      }
 
 class BaseTestCase(TestCase):
     @mock.patch('config_parser.parse_config', side_effect=load_config)
@@ -103,7 +125,7 @@ class BaseTestCase(TestCase):
             TestResultFile(2, 2, 2, 'sample_out2', 'out2')
         ]
         g.db.add_all(test_result_files)
-        dummy_user = User(SignUpInformation.existing_user_name, SignUpInformation.existing_user_role,
-                          SignUpInformation.existing_user_email, SignUpInformation.existing_user_pwd)
+        dummy_user = User(signup_information['existing_user_name'], signup_information['existing_user_role'],
+                          signup_information['existing_user_email'], signup_information['existing_user_pwd'])
         g.db.add(dummy_user)
         g.db.commit()

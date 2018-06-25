@@ -17,6 +17,6 @@ install:
   - pip install Flask-Testing
   - pip install blinker
 script:
-  - nosetests --with-cov --cov-config .coveragerc
+  - nosetests --nocapture --with-cov --cov-config .coveragerc
 after_success:
   - codecov

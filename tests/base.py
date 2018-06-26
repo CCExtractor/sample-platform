@@ -99,11 +99,11 @@ class BaseTestCase(TestCase):
             TestProgress(1, TestStatus.preparation, "Test 1 preperation"),
             TestProgress(1, TestStatus.building, "Test 1 building"),
             TestProgress(1, TestStatus.testing, "Test 1 testing"),
-            TestProgress(1, TestStatus.completed, "Test 1 testing"),
+            TestProgress(1, TestStatus.completed, "Test 1 completed"),
             TestProgress(2, TestStatus.preparation, "Test 2 preperation"),
             TestProgress(2, TestStatus.building, "Test 2 building"),
             TestProgress(2, TestStatus.testing, "Test 2 testing"),
-            TestProgress(2, TestStatus.completed, "Test 2 testing")
+            TestProgress(2, TestStatus.completed, "Test 2 completed")
         ]
         g.db.add_all(test_result_progress)
         test_results = [

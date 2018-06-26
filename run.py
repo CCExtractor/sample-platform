@@ -45,10 +45,11 @@ def install_secret_keys(application, secret_session='secret_key', secret_csrf='s
     If the file does not exist, print instructions to create it from a shell with a random key, then exit.
     """
     do_exit = False
-    session_file = os.path.join(application.root_path, secret_session)
-    csrf_file = os.path.join(application.root_path, secret_csrf)
+    session_file_path = os.path.join(application.root_path, secret_session)
+    csrf_file_path = os.path.join(application.root_path, secret_csrf)
     try:
-        application.config['SECRET_KEY'] = open(session_file, 'rb').read()
+        with open(session_file_path, 'rb') as session_file:
+            application.config['SECRET_KEY'] = session_file.read()
     except IOError:
         traceback.print_exc()
         print('Error: No secret key. Create it with:')
@@ -58,7 +59,8 @@ def install_secret_keys(application, secret_session='secret_key', secret_csrf='s
         do_exit = True
 
     try:
-        application.config['CSRF_SESSION_KEY'] = open(csrf_file, 'rb').read()
+        with open(csrf_file_path, 'rb') as csrf_file:
+            application.config['CSRF_SESSION_KEY'] = csrf_file.read()
     except IOError:
         print('Error: No secret CSRF key. Create it with:')
         if not os.path.isdir(os.path.dirname(csrf_file)):

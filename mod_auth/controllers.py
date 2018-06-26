@@ -6,6 +6,7 @@ This module contains all the logic related to authentication and account functio
 
 from functools import wraps
 import hmac
+import hashlib
 import time
 import requests
 
@@ -383,7 +384,7 @@ def generate_hmac_hash(key, data):
     # Returns cryptographic hash of data combined with key
     encoded_key = bytes(key, 'latin-1')
     encoded_data = bytes(data, 'latin-1')
-    return hmac.new(encoded_key, encoded_data).hexdigest()
+    return hmac.new(encoded_key, encoded_data, hashlib.sha256).hexdigest()
 
 
 @mod_auth.route('/logout')

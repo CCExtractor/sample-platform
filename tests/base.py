@@ -156,6 +156,12 @@ class BaseTestCase(TestCase):
         g.db.add(user)
         g.db.commit()
 
+    def create_random_string(self, length=32):
+        import random
+        import string
+        random_string = ''.join([random.choice(string.ascii_letters + string.digits) for n in range(length)])
+        return random_string
+
 
 class MockResponse:
     def __init__(self, json_data, status_code):

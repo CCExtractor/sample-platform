@@ -18,6 +18,7 @@ class Role(DeclEnum):
     admin = "admin", "Admin"
     user = "user", "User"
     contributor = "contributor", "Contributor"
+    tester = "tester", "Tester"
 
 
 class User(Base):

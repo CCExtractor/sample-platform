@@ -14,7 +14,7 @@ from decorators import template_renderer
 from mod_home.models import CCExtractorVersion
 from mod_regression.models import Category, regressionTestLinkTable, \
     RegressionTestOutput
-from mod_test.models import Test, TestProgress, TestResultFile, TestType, TestPlatform
+from mod_test.models import Fork, Test, TestProgress, TestResultFile, TestType, TestPlatform
 from mod_home.models import GeneralData
 from mod_ci.models import Kvm
 from datetime import datetime
@@ -49,8 +49,9 @@ def not_found(error):
 @mod_test.route('/')
 @template_renderer()
 def index():
+    fork = Fork.query.filter(Fork.github.like("%/CCExtractor/ccextractor.git")).first()
     return {
-        'tests': Test.query.order_by(Test.id.desc()).limit(50).all(),
+        'tests': Test.query.filter(Test.fork_id == fork.id).order_by(Test.id.desc()).limit(50).all(),
         'TestType': TestType
     }
 

@@ -1,0 +1,26 @@
+from tests.base import BaseTestCase
+from mod_regression.models import RegressionTest
+
+
+class TestControllers(BaseTestCase):
+    def test_root(self):
+        response = self.app.test_client().get('/regression/')
+        self.assertEqual(response.status_code, 200)
+        self.assert_template_used('regression/index.html')
+
+    def test_specific_regression_test_loads(self):
+        response = self.app.test_client().get('/regression/test/1/view')
+        self.assertEqual(response.status_code, 200)
+        self.assert_template_used('regression/test_view.html')
+        regression_test = RegressionTest.query.filter(RegressionTest.id == 1).first()
+        self.assertIn(regression_test.command, str(response.data))
+
+    def test_regression_test_status_toggle(self):
+        regression_test = RegressionTest.query.filter(RegressionTest.id == 1).first()
+        response = self.app.test_client().get('/regression/test/1/toggle')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual('success', response.json['status'])
+        if regression_test.active == 1:
+            self.assertEqual('False', response.json['active'])
+        else:
+            self.assertEqual('True', response.json['active'])

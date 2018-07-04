@@ -3,6 +3,19 @@
 {% block body %}
 <h1>Create custom tests on your fork</h1>
 {% if GitUser is not none %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        <div class="grid-x">
+            <div class="callout alert">
+                <ul class="flashes">
+                    {% for category, message in messages %}
+                    <li class="{{ category }}">{{ message }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    {% endif %}
+{% endwith %}
 <form method="post" name="addTestFork" id="addTestFork" action="{{ url_for('.index') }}">
     {{ addTestFork.csrf_token }}
     {% if addTestFork.errors %}
@@ -33,9 +46,37 @@
             {{ macros.render_field(addTestFork.platform) }}
         </div>
         <div class="medium-12 columns">
+                <label for="regression_test">Choose Regression Tests</label>
+                {% for category in categories %}
+                <h6 class="category-header" data-category="{{ category.id }}">{{ category.name }} </h6>
+                <div class="hide" data-category="{{ category.id }}">
+                <input type="checkbox" name="{{ category.name }}" onClick="toggle(this)" /> Select All<br/>
+                <table class="striped sortable">
+                    <thead>
+                        <tr>
+                            <th>Select</th>
+                            <th>Regression ID</th>
+                            <th>Sample</th>
+                            <th>Command</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for test in category.regression_tests %}
+                            <tr name="{{ category.name }}-tr">
+                                <td><input type="checkbox" name="regression_test" value="{{test.id}}" /></td>
+                                <td><a href="{{ url_for('regression.test_view', regression_id=test.id) }}">{{ test.id }}</a></td>
+                                <td><a href="{{ url_for('sample.sample_by_id', sample_id=test.sample.id) }}">{{ test.sample.sha[:10] }}...</a></td>
+                                <td>{{ test.command }}</td>
+                            </tr>
+                        {%- endfor %}
+                    </tbody>
+                </table>
+                </div>
+                {% endfor %}
+        </div>
+        <div class="medium-12 columns">
             {{ macros.render_field(addTestFork.add) }}
         </div>
-    </div>
 </form>
 <div class="grid-x">
     <div class="column medium-8">
@@ -52,8 +93,21 @@
 {% block scripts %}
     {{ super() }}
     <script type="text/javascript">
+        function toggle(source) {
+            var name = source.name + "-tr";
+            checkboxes = document.getElementsByName(name);
+            for(var i=0; i < checkboxes.length; i++)
+            {
+                checkbox = checkboxes[i].querySelectorAll('input')[0];
+                checkbox.checked = source.checked;
+            }
+        }
         $("input[name='commit_select']").change(function(){
             $("#commit_hash").val(this.value)
         });
+        $('.category-header').on('click', function(){
+            var id = $(this).data('category');
+            $('div[data-category="'+id+'"]').toggleClass('hide');
+        });        
     </script>
 {% endblock %}

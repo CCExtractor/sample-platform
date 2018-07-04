@@ -7,12 +7,11 @@ from flask import g
 from database import create_session
 from mod_home.models import GeneralData, CCExtractorVersion
 from mod_auth.models import User, Role
-from mod_ci.models import TestPlatform
 from mod_test.models import Test, Fork, TestType, TestPlatform, TestResult, \
     TestResultFile, TestProgress, TestStatus
-from mod_regression.models import Category, RegressionTestOutput, RegressionTest, \
-    regressionTestLinkTable, InputType, OutputType
+from mod_regression.models import Category, RegressionTestOutput, RegressionTest, InputType, OutputType
 from mod_sample.models import Sample
+from mod_customized.models import CustomizedTest
 
 
 def generate_keys():
@@ -73,6 +72,7 @@ signup_information = {'valid_email': 'someone@example.com',
                       'existing_user_role': Role.user
                       }
 
+
 class BaseTestCase(TestCase):
     @mock.patch('config_parser.parse_config', side_effect=load_config)
     def create_app(self, mock_config):
@@ -125,12 +125,13 @@ class BaseTestCase(TestCase):
         ]
         g.db.add_all(samples)
         regression_tests = [
-            RegressionTest(1, '-autoprogram -out=ttxt -latin1',
+            RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
                            InputType.file, OutputType.file, 3, 10),
             RegressionTest(2, '-autoprogram -out=ttxt -latin1 -ucla',
                            InputType.file, OutputType.file, 1, 10)
         ]
-        g.db.add_all(regression_tests)
+        categories[0].regression_tests.append(regression_tests[0])
+        categories[2].regression_tests.append(regression_tests[1])
         regression_test_outputs = [
             RegressionTestOutput(1, 'sample_out1', '.srt', ''),
             RegressionTestOutput(2, 'sample_out2', '.srt', '')
@@ -173,10 +174,14 @@ class BaseTestCase(TestCase):
         """
         return {'email': email, 'password': password, 'submit': True}
 
-    def create_customize_form(self, commit_hash, platform, commit_select=['', '']):
-        return {'commit_hash': commit_hash, 'commit_select': commit_select, 'platform': platform, 'add': True}
+    def create_customize_form(self, commit_hash, platform, commit_select=['', ''], regression_test=[1, 2]):
+        return {'commit_hash': commit_hash,
+                'commit_select': commit_select,
+                'platform': platform,
+                'regression_test': regression_test,
+                'add': True}
 
-    def create_forktest(self, commit_hash, platform):
+    def create_forktest(self, commit_hash, platform, regression_tests=None):
         """
         Create a test on fork based on commit and platform
         """
@@ -188,6 +193,31 @@ class BaseTestCase(TestCase):
         g.db.commit()
         test = Test(platform, TestType.commit, fork.id, 'master', commit_hash)
         g.db.add(test)
+        g.db.commit()
+        if regression_tests is not None:
+            for regression_test in regression_tests:
+                customized_test = CustomizedTest(test.id, regression_test)
+                g.db.add(customized_test)
+                g.db.commit()
+
+    def complete_forktest(self, test_id, regression_tests):
+        from flask import g
+        test_result_progress = [
+            TestProgress(test_id, TestStatus.preparation, ("Test {0} preperation").format(test_id)),
+            TestProgress(test_id, TestStatus.building, ("Test {0} building").format(test_id)),
+            TestProgress(test_id, TestStatus.testing, ("Test {0} testing").format(test_id)),
+            TestProgress(test_id, TestStatus.completed, ("Test {0} completed").format(test_id)),
+        ]
+        g.db.add_all(test_result_progress)
+        test_results = [
+            TestResult(test_id, regression_test, 200, 0, 0) for regression_test in regression_tests
+        ]
+        g.db.add_all(test_results)
+        test_result_files = [
+            TestResultFile(test_id, regression_test, regression_test, 'sample_output')
+            for regression_test in regression_tests
+        ]
+        g.db.add_all(test_result_files)
         g.db.commit()
 
     def create_user_with_role(self, user, email, password, role):

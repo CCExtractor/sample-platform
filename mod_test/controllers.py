@@ -17,6 +17,7 @@ from mod_regression.models import Category, regressionTestLinkTable, \
 from mod_test.models import Fork, Test, TestProgress, TestResultFile, TestType, TestPlatform
 from mod_home.models import GeneralData
 from mod_ci.models import Kvm
+from mod_customized.models import CustomizedTest
 from datetime import datetime
 from github import GitHub
 mod_test = Blueprint('test', __name__)
@@ -49,7 +50,8 @@ def not_found(error):
 @mod_test.route('/')
 @template_renderer()
 def index():
-    fork = Fork.query.filter(Fork.github.like("%/CCExtractor/ccextractor.git")).first()
+    fork = Fork.query.filter(Fork.github.like(("%/{owner}/{repo}.git").format(owner=g.github['repository_owner'],
+                                                                              repo=g.github['repository']))).first()
     return {
         'tests': Test.query.filter(Test.fork_id == fork.id).order_by(Test.id.desc()).limit(50).all(),
         'TestType': TestType
@@ -114,7 +116,7 @@ def get_data_for_test(test, title=None):
             'files': TestResultFile.query.filter(
                 and_(TestResultFile.test_id == test.id, TestResultFile.regression_test_id == rt.id)
             ).all()
-        } for rt in category.regression_tests]
+        } for rt in category.regression_tests if rt.id in CustomizedTest.get_customized_regression_tests(test.id)]
     } for category in categories]
     # Run through the categories to see if they should be marked as failed or passed. A category failed if one or more
     # tests in said category failed.

@@ -83,8 +83,9 @@ class RegressionTest(Base):
     categories = relationship('Category', secondary=regressionTestLinkTable, back_populates='regression_tests')
     output_files = relationship('RegressionTestOutput', back_populates='regression_test')
     expected_rc = Column(Integer)
+    active = Column(Boolean(), default=True)
 
-    def __init__(self, sample_id, command, input_type, output_type, category_id, expected_rc):
+    def __init__(self, sample_id, command, input_type, output_type, category_id, expected_rc, active=True):
         """
         Parametrized constructor for the RegressionTest model
 
@@ -100,6 +101,8 @@ class RegressionTest(Base):
         :type category_id: int
         :param expected_rc: The value of the 'expected_rc' field of RegressionTest model
         :type expected_rc: int
+        :param active: The value of the 'active' field of RegressionTest model
+        :type active: bool
 
         """
         self.sample_id = sample_id
@@ -108,6 +111,7 @@ class RegressionTest(Base):
         self.output_type = output_type
         self.category_id = category_id
         self.expected_rc = expected_rc
+        self.active = active
 
     def __repr__(self):
         """

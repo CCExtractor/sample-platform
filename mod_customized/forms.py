@@ -2,6 +2,7 @@ from flask_wtf import FlaskForm
 from wtforms import widgets, StringField, SubmitField, SelectMultipleField, RadioField
 from wtforms.validators import DataRequired, url
 from mod_test.models import TestPlatform
+from mod_regression.models import RegressionTest
 
 
 class MultiCheckboxField(SelectMultipleField):
@@ -14,4 +15,6 @@ class TestForkForm(FlaskForm):
     commit_select = RadioField('Choose Commit', choices=[('', '')], default='')
     platform = MultiCheckboxField('Platform', validators=[DataRequired()], choices=[(
         platform, platform) for platform in TestPlatform.values()])
+    regression_test = MultiCheckboxField('Regression Test', validators=[DataRequired(
+                        message='Please add one or more Regression Tests')])
     add = SubmitField('Run Test')

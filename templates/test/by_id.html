@@ -83,6 +83,7 @@
                         <p>Click on the category names to expand the results, and on "Fail" to see the differences.</p>
                         {% for result in results %}
                             <h4 class="category-header {{ 'fail' if result.error else 'pass' }}" data-category="{{ result.category.id }}">{{ result.category.name }} - {{ 'Fail' if result.error else 'Pass' }}</h4>
+                            {% if result.tests | length != 0 %}
                             <table class="striped sortable hide" data-category="{{ result.category.id }}">
                                 <thead>
                                     <tr>
@@ -124,6 +125,9 @@
                                     {%- endfor %}
                                 </tbody>
                             </table>
+                            {% else %}
+                            <h6>There are no tests executed in this category.</h6>
+                            {% endif %}
                         {% else %}
                             <p>There are no results available, though the status indicates the tests are done. Please get in touch.</p>
                         {% endfor %}

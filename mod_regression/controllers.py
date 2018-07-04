@@ -4,7 +4,7 @@ mod_regression Controllers
 In this module, we are trying to create, update, edit, delete and
 other various operations on regression tests.
 """
-from flask import Blueprint, g
+from flask import Blueprint, g, abort, jsonify
 from flask import abort
 
 from decorators import template_renderer
@@ -72,6 +72,22 @@ def test_delete(regression_id):
 def test_edit(regression_id):
     # Edit the regression test
     pass
+
+
+@mod_regression.route('/test/<regression_id>/toggle')
+def toggle_active_status(regression_id):
+    # Change active status of the regression test
+    regression_test = RegressionTest.query.filter(RegressionTest.id == regression_id).first()
+    if regression_test is None:
+        abort(404)
+    else:
+        regression_test.active = 1 ^ regression_test.active
+        g.db.add(regression_test)
+        g.db.commit()
+    return jsonify({
+        "status": "success",
+        "active": str(regression_test.active)
+    })
 
 
 @mod_regression.route('/test/<regression_id>/results')

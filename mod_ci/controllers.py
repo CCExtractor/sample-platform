@@ -426,6 +426,8 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     except IntegrityError:
         log.warn("[{platform}] Duplicate entry for {id}".format(platform=platform, id=test.id))
 
+    # Close connection to libvirt
+    conn.close()
 
 def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     """

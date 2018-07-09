@@ -59,10 +59,8 @@ def before_app_request():
     """
     config_entries = get_menu_entries(
         g.user, 'Platform mgmt', 'cog', [], '', [
-            {'title': 'Maintenance', 'icon': 'wrench', 'route':
-                'ci.show_maintenance', 'access': [Role.admin]},
-            {'title': 'Blocked Users', 'icon': 'ban', 'route':
-                'ci.blocked_users', 'access': [Role.admin]}
+            {'title': 'Maintenance', 'icon': 'wrench', 'route': 'ci.show_maintenance', 'access': [Role.admin]},
+            {'title': 'Blocked Users', 'icon': 'ban', 'route': 'ci.blocked_users', 'access': [Role.admin]}
         ]
     )
     if 'config' in g.menu_entries and 'entries' in config_entries:
@@ -995,7 +993,7 @@ def comment_pr(test_id, state, pr_nr, platform):
         bot_name = g.github['bot_name']
         comment_id = None
         for comment in comments:
-            if(comment['user']['login'] == bot_name and platform in comment['body']):
+            if comment['user']['login'] == bot_name and platform in comment['body']:
                 comment_id = comment['id']
                 break
         log.debug('Github PR Comment ID Fetched for Test_id: {test_id}'.format(test_id=test_id))
@@ -1003,14 +1001,11 @@ def comment_pr(test_id, state, pr_nr, platform):
             comment = pull_request.comments().post(body=message)
             comment_id = comment['id']
         else:
-            pull_request = repository.issues()
-            comment = pull_request.comments(comment_id).post(body=message)
+            repository.issues().comments(comment_id).post(body=message)
         log.debug('Github PR Comment ID {comment} Uploaded for Test_id: {test_id}'.format(
                 comment=comment_id, test_id=test_id))
     except Exception as e:
-        log.error('Github PR Comment Failed for Test_id: {test_id} with Exception {exp}'.format(
-            test_id=test_id, exp=e))
-    return
+        log.error('Github PR Comment Failed for Test_id: {test_id} with Exception {e}'.format(test_id=test_id, e=e))
 
 
 @mod_ci.route('/show_maintenance')
@@ -1157,5 +1152,7 @@ def in_maintenance_mode(platform):
 
 
 def check_main_repo(repo_url):
-    repo = ('{user}/{repo}').format(user=g.github['repository_owner'], repo=g.github['repository'])
-    return repo in repo_url
+    from run import config, get_github_config
+
+    gh_config = get_github_config(config)
+    return '{user}/{repo}'.format(user=gh_config['repository_owner'], repo=gh_config['repository']) in repo_url

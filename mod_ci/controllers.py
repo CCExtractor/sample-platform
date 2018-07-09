@@ -135,7 +135,9 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     Creates testing xml files to test the change in main repo.
     Creates clone with separate branch and merge pr into it.
     """
-    from run import config, log, app
+    from run import config, log, app, get_github_config
+
+    github_config = get_github_config(config)
 
     log.info("[{platform}] Running kvm_processor".format(platform=platform))
     if kvm_name == "":
@@ -204,15 +206,17 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     finished_tests = db.query(TestProgress.test_id).filter(
         TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
     ).subquery()
-    fork = Fork.query.filter(Fork.github.like(("%/{owner}/{repo}.git").format(owner=g.github['repository_owner'],
-                                                                              repo=g.github['repository']))).first()
+    fork = Fork.query.filter(Fork.github.like(
+        "%/{owner}/{repo}.git".format(owner=github_config['repository_owner'], repo=github_config['repository'])
+    )).first()
     test = Test.query.filter(
             Test.id.notin_(finished_tests), Test.platform == platform, Test.fork_id == fork.id
     ).order_by(Test.id.asc()).first()
+
     if test is None:
-        test = Test.query.filter(
-                Test.id.notin_(finished_tests), Test.platform == platform
-        ).order_by(Test.id.asc()).first()
+        test = Test.query.filter(Test.id.notin_(finished_tests), Test.platform == platform).order_by(
+            Test.id.asc()).first()
+
     if test is None:
         log.info('[{platform}] No more tests to run, returning'.format(platform=platform))
         return
@@ -428,6 +432,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
 
     # Close connection to libvirt
     conn.close()
+
 
 def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     """

@@ -158,13 +158,17 @@ def before_request():
     )
     g.version = "0.1"
     g.log = log
-    g.github = {
-        'deploy_key': app.config.get('GITHUB_DEPLOY_KEY', ''),
-        'ci_key': app.config.get('GITHUB_CI_KEY', ''),
-        'bot_token': app.config.get('GITHUB_TOKEN', ''),
-        'bot_name': app.config.get('GITHUB_BOT', ''),
-        'repository_owner': app.config.get('GITHUB_OWNER', ''),
-        'repository': app.config.get('GITHUB_REPOSITORY', '')
+    g.github = get_github_config(app.config)
+
+
+def get_github_config(config):
+    return {
+        'deploy_key': config.get('GITHUB_DEPLOY_KEY', ''),
+        'ci_key': config.get('GITHUB_CI_KEY', ''),
+        'bot_token': config.get('GITHUB_TOKEN', ''),
+        'bot_name': config.get('GITHUB_BOT', ''),
+        'repository_owner': config.get('GITHUB_OWNER', ''),
+        'repository': config.get('GITHUB_REPOSITORY', '')
     }
 
 

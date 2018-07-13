@@ -60,10 +60,8 @@ def before_app_request():
     """
     config_entries = get_menu_entries(
         g.user, 'Platform mgmt', 'cog', [], '', [
-            {'title': 'Maintenance', 'icon': 'wrench', 'route':
-                'ci.show_maintenance', 'access': [Role.admin]},
-            {'title': 'Blocked Users', 'icon': 'ban', 'route':
-                'ci.blocked_users', 'access': [Role.admin]}
+            {'title': 'Maintenance', 'icon': 'wrench', 'route': 'ci.show_maintenance', 'access': [Role.admin]},
+            {'title': 'Blocked Users', 'icon': 'ban', 'route': 'ci.blocked_users', 'access': [Role.admin]}
         ]
     )
     if 'config' in g.menu_entries and 'entries' in config_entries:
@@ -136,7 +134,9 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     Creates testing xml files to test the change in main repo.
     Creates clone with separate branch and merge pr into it.
     """
-    from run import config, log, app
+    from run import config, log, app, get_github_config
+
+    github_config = get_github_config(config)
 
     log.info("[{platform}] Running kvm_processor".format(platform=platform))
     if kvm_name == "":
@@ -205,15 +205,17 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     finished_tests = db.query(TestProgress.test_id).filter(
         TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
     ).subquery()
-    fork = Fork.query.filter(Fork.github.like(("%/{owner}/{repo}.git").format(owner=g.github['repository_owner'],
-                                                                              repo=g.github['repository']))).first()
+    fork = Fork.query.filter(Fork.github.like(
+        "%/{owner}/{repo}.git".format(owner=github_config['repository_owner'], repo=github_config['repository'])
+    )).first()
     test = Test.query.filter(
             Test.id.notin_(finished_tests), Test.platform == platform, Test.fork_id == fork.id
     ).order_by(Test.id.asc()).first()
+
     if test is None:
-        test = Test.query.filter(
-                Test.id.notin_(finished_tests), Test.platform == platform
-        ).order_by(Test.id.asc()).first()
+        test = Test.query.filter(Test.id.notin_(finished_tests), Test.platform == platform).order_by(
+            Test.id.asc()).first()
+
     if test is None:
         log.info('[{platform}] No more tests to run, returning'.format(platform=platform))
         return
@@ -258,7 +260,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
 
     log.debug("[{p}] We will compare against the results of test {id}".format(p=platform, id=last_commit.id))
 
-    regression_ids = CustomizedTest.get_customized_regression_tests(test.id)
+    regression_ids = test.get_customized_regressiontests()
 
     # Init collection file
     multi_test = etree.Element('multitest')
@@ -272,9 +274,8 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         check_write = False
         for regression_test in category.regression_tests:
             if regression_test.id not in regression_ids:
-                break
-            else:
-                check_write = True
+                continue
+            check_write = True
             entry = etree.SubElement(single_test, 'entry', id=str(regression_test.id))
             command = etree.SubElement(entry, 'command')
             command.text = regression_test.command
@@ -1004,7 +1005,7 @@ def comment_pr(test_id, state, pr_nr, platform):
         bot_name = g.github['bot_name']
         comment_id = None
         for comment in comments:
-            if(comment['user']['login'] == bot_name and platform in comment['body']):
+            if comment['user']['login'] == bot_name and platform in comment['body']:
                 comment_id = comment['id']
                 break
         log.debug('Github PR Comment ID Fetched for Test_id: {test_id}'.format(test_id=test_id))
@@ -1012,14 +1013,11 @@ def comment_pr(test_id, state, pr_nr, platform):
             comment = pull_request.comments().post(body=message)
             comment_id = comment['id']
         else:
-            pull_request = repository.issues()
-            comment = pull_request.comments(comment_id).post(body=message)
+            repository.issues().comments(comment_id).post(body=message)
         log.debug('Github PR Comment ID {comment} Uploaded for Test_id: {test_id}'.format(
                 comment=comment_id, test_id=test_id))
     except Exception as e:
-        log.error('Github PR Comment Failed for Test_id: {test_id} with Exception {exp}'.format(
-            test_id=test_id, exp=e))
-    return
+        log.error('Github PR Comment Failed for Test_id: {test_id} with Exception {e}'.format(test_id=test_id, e=e))
 
 
 @mod_ci.route('/show_maintenance')
@@ -1166,8 +1164,10 @@ def in_maintenance_mode(platform):
 
 
 def check_main_repo(repo_url):
-    repo = ('{user}/{repo}').format(user=g.github['repository_owner'], repo=g.github['repository'])
-    return repo in repo_url
+    from run import config, get_github_config
+
+    gh_config = get_github_config(config)
+    return '{user}/{repo}'.format(user=gh_config['repository_owner'], repo=gh_config['repository']) in repo_url
 
 
 def add_customized_regression_tests(test_id):

@@ -174,6 +174,7 @@ class TestControllers(BaseTestCase):
                 '/custom/', data=self.create_customize_form('abcdef', ['linux'],
                                                             regression_test=[2]), follow_redirects=True)
             self.assertEqual(response.status_code, 200)
-            regression_tests = CustomizedTest.get_customized_regression_tests(3)
+            test = Test.query.filter(Test.id == 3).first()
+            regression_tests = test.get_customized_regressiontests()
             self.assertIn(2, regression_tests)
             self.assertNotIn(1, regression_tests)

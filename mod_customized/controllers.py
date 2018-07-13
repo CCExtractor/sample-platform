@@ -57,11 +57,11 @@ def index():
         if len(commit_arr) > 0:
             fork_test_form.commit_select.choices = commit_arr
             commit_options = True
-        fork_test_form.regression_test.choices = [(str(regression_test.id), regression_test)
+        fork_test_form.regression_test.choices = [(regression_test.id, regression_test)
                                                   for regression_test in RegressionTest.query.all()]
         if fork_test_form.add.data and fork_test_form.validate_on_submit():
-            regression_tests = fork_test_form.regression_test.data
             import requests
+            regression_tests = fork_test_form.regression_test.data
             commit_hash = fork_test_form.commit_hash.data
             repo = g.github['repository']
             platforms = fork_test_form.platform.data
@@ -105,7 +105,7 @@ def add_test_to_kvm(username, commit_hash, platforms, regression_tests):
         g.db.add(test)
         g.db.commit()
         for regression_test in regression_tests:
-            customized_test = CustomizedTest(test.id, int(regression_test))
+            customized_test = CustomizedTest(test.id, regression_test)
             g.db.add(customized_test)
         test_fork = TestFork(g.user.id, test.id)
         g.db.add(test_fork)

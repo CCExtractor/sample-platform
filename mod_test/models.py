@@ -20,6 +20,7 @@ from tzlocal import get_localzone
 
 from database import Base, DeclEnum
 from mod_test.nicediff import diff
+from mod_regression.models import RegressionTest
 
 
 class TestPlatform(DeclEnum):
@@ -86,6 +87,7 @@ class Test(Base):
     branch = Column(Text(), nullable=False)
     commit = Column(String(64), nullable=False)
     pr_nr = Column(Integer(), nullable=False, default=0)
+    customized_tests = relationship('CustomizedTest', back_populates='test')
     progress = relationship('TestProgress', back_populates='test', order_by='TestProgress.id')
     results = relationship('TestResult', back_populates='test')
 
@@ -217,6 +219,19 @@ class Test(Base):
         chars = string.ascii_letters + string.digits
         import os
         return ''.join(chars[ord(os.urandom(1)) % len(chars)] for i in range(length))
+
+    def get_customized_regressiontests(self):
+        """
+        Output all customized regression ids of the test
+        return: Regression IDs
+        rtype: list
+        """
+        customized_test = self.customized_tests
+        if len(customized_test) != 0:
+            regression_ids = [r.regression_id for r in customized_test]
+        else:
+            regression_ids = [r.id for r in RegressionTest.query.all()]
+        return regression_ids
 
 
 class TestProgress(Base):

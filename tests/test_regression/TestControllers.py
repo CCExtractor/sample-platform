@@ -1,4 +1,5 @@
 from tests.base import BaseTestCase
+from mod_auth.models import Role
 from mod_regression.models import RegressionTest
 
 
@@ -16,11 +17,16 @@ class TestControllers(BaseTestCase):
         self.assertIn(regression_test.command, str(response.data))
 
     def test_regression_test_status_toggle(self):
-        regression_test = RegressionTest.query.filter(RegressionTest.id == 1).first()
-        response = self.app.test_client().get('/regression/test/1/toggle')
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual('success', response.json['status'])
-        if regression_test.active == 1:
-            self.assertEqual('False', response.json['active'])
-        else:
-            self.assertEqual('True', response.json['active'])
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            regression_test = RegressionTest.query.filter(RegressionTest.id == 1).first()
+            response = c.get('/regression/test/1/toggle')
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual('success', response.json['status'])
+            if regression_test.active == 1:
+                self.assertEqual('False', response.json['active'])
+            else:
+                self.assertEqual('True', response.json['active'])

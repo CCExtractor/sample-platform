@@ -1,6 +1,6 @@
 from mock import mock
 from tests.base import BaseTestCase
-from mod_test.models import TestPlatform, TestType
+from mod_test.models import Test, TestPlatform, TestType
 from mod_regression.models import RegressionTest
 from mod_customized.models import CustomizedTest
 from importlib import reload
@@ -171,6 +171,7 @@ class TestControllers(BaseTestCase):
         reload(mod_ci.controllers)
         from mod_ci.controllers import queue_test
         queue_test(g.db, None, 'customizedcommitcheck', TestType.commit)
-        customized_test = CustomizedTest.get_customized_regression_tests(3)
+        test = Test.query.filter(Test.id == 3).first()
+        customized_test = test.get_customized_regressiontests()
         self.assertIn(2, customized_test)
         self.assertNotIn(1, customized_test)

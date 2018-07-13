@@ -116,7 +116,7 @@ def get_data_for_test(test, title=None):
             'files': TestResultFile.query.filter(
                 and_(TestResultFile.test_id == test.id, TestResultFile.regression_test_id == rt.id)
             ).all()
-        } for rt in category.regression_tests if rt.id in CustomizedTest.get_customized_regression_tests(test.id)]
+        } for rt in category.regression_tests if rt.id in test.get_customized_regressiontests()]
     } for category in categories]
     # Run through the categories to see if they should be marked as failed or passed. A category failed if one or more
     # tests in said category failed.

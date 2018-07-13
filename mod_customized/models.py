@@ -44,7 +44,7 @@ class CustomizedTest(Base):
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
     test_id = Column(Integer, ForeignKey(Test.id, onupdate="CASCADE", ondelete="RESTRICT"))
-    test = relationship('Test', uselist=False)
+    test = relationship('Test', back_populates='customized_tests')
     regression_id = Column(Integer, ForeignKey(RegressionTest.id, onupdate='CASCADE', ondelete='RESTRICT'))
     regression_test = relationship('RegressionTest', uselist=False)
 
@@ -61,12 +61,3 @@ class CustomizedTest(Base):
         """
         self.test_id = test_id
         self.regression_id = regression_id
-
-    @staticmethod
-    def get_customized_regression_tests(test_id):
-        customized_test = CustomizedTest.query.filter(CustomizedTest.test_id == test_id).all()
-        if len(customized_test) != 0:
-            regression_ids = [r.regression_id for r in customized_test]
-        else:
-            regression_ids = [r.id for r in RegressionTest.query.all()]
-        return regression_ids

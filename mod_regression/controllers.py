@@ -80,7 +80,7 @@ def toggle_active_status(regression_id):
     regression_test = RegressionTest.query.filter(RegressionTest.id == regression_id).first()
     if regression_test is None:
         abort(404)
-    regression_test.active = 1 - regression_test.active
+    regression_test.active = not regression_test.active
     g.db.commit()
     return jsonify({
         "status": "success",

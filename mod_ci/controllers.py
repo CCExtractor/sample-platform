@@ -337,8 +337,8 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         fork_id = test.fork.id
         fork_url = test.fork.github
         if not check_main_repo(fork_url):
-            remote = ('fork_{id}').format(id=fork_id)
             existing_remote = [remote.name for remote in repo.remotes]
+            remote = ('fork_{id}').format(id=fork_id)
             if remote in existing_remote:
                 origin = repo.remote(remote)
             else:
@@ -352,9 +352,10 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     fetch_info = origin.fetch()
     if len(fetch_info) == 0:
         log.info('[{platform}] Fetch from remote returned no new data...'.format(platform=platform))
-
+    # Checkout to Remote Master
+    repo.git.checkout(origin.refs.master)
     # Pull code (finally)
-    pull_info = origin.pull()
+    pull_info = origin.pull('master')
     if len(pull_info) == 0:
         log.info("[{platform}] Pull from remote returned no new data...".format(platform=platform))
     if pull_info[0].flags > 128:

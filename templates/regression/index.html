@@ -29,11 +29,13 @@
                         {% endfor %}
                     </span>
                 </p>
+                <div class="grid-x callout alert" style="display:none;" id="message"></div>
                 <table id="regression_tests" class="sortable tight striped">
                     <thead>
                     <tr>
                         <th>ID</th>
                         <th>Command</th>
+                        <th>Active</th>
                         <th>Actions</th>
                     </tr>
                     </thead>
@@ -45,9 +47,12 @@
                         <tr data-category="[{{ test.categories|join(', ', attribute='id') }}]">
                             <td>{{ test.id }}</td>
                             <td>{{ test.command }}</td>
+                            <td id="status-toggle-{{test.id}}">{{ true if test.active == 1 else false}}</td>
                             <td>
                                 <a href="{{ url_for('.test_view', regression_id=test.id) }}" title="View details"><i class="fa fa-info-circle"></i></a>&nbsp;
                                 {% if user is not none and user.has_role('contributor') %}
+                                    <a id="toggle-active-{{test.id}}" title="Toggle Active Status" onclick="toggleactive({{test.id}})"><i class="fa fa-support"></i></a>
+                                    <div id="loader-toggle-{{test.id}}" class="loader" style="display:none;"></div>
                                     <a href="{{ url_for('.test_edit', regression_id=test.id) }}" title="Edit regression test"><i class="fa fa-edit"></i></a>&nbsp;
                                     <a href="{{ url_for('.test_delete', regression_id=test.id) }}" title="Delete regression test"><i class="fa fa-remove"></i></a>&nbsp;
                                 {% endif %}
@@ -109,5 +114,42 @@
             });
             switchCategory();
         });
+        function toggleactive(test_id) {
+            $.ajax({
+                type: "GET",
+                url: ("{{ url_for('.toggle_active_status', regression_id='test_id') }}").replace('test_id', test_id),
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                beforeSend:function()
+                {
+                    var toggle_active = "#toggle-active-" + test_id;
+                    var toggle_loader = "#loader-toggle-" + test_id;
+                    $(toggle_active).hide();
+                    $(toggle_loader).show();
+                },
+                success:function(data){
+                    var message = "#message";
+                    var $div = $(message);
+                    if(data.status === "success")
+                    {
+                        var toggle_td = "#status-toggle-" + test_id;
+                        var toggle_active = "#toggle-active-" + test_id;
+                        var toggle_loader = "#loader-toggle-" + test_id;
+                        $(toggle_td).html(data.active);
+                        $(toggle_loader).hide();
+                        $(toggle_active).show();
+                        $div.html("Status updated for Regression Test " + test_id);
+                    }
+                    else{
+                        $div.html("Error updating status for Regression Test " + test_id);
+                    }
+                    $div.show();
+                    /* hide message after 5 seconds */
+                    setTimeout(function() {
+                            $div.hide();
+                    }, 5000);
+                }
+                });
+            }
     </script>
 {% endblock %}

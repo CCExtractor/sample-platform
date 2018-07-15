@@ -37,6 +37,7 @@ from mod_auth.models import Role
 from mod_home.models import CCExtractorVersion
 from mod_sample.models import Issue
 from mod_test.models import TestType, Test, TestStatus, TestProgress, Fork, TestPlatform, TestResultFile, TestResult
+from mod_customized.models import CustomizedTest
 from mailer import Mailer
 
 if sys.platform.startswith("linux"):
@@ -259,6 +260,8 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
 
     log.debug("[{p}] We will compare against the results of test {id}".format(p=platform, id=last_commit.id))
 
+    regression_ids = test.get_customized_regressiontests()
+
     # Init collection file
     multi_test = etree.Element('multitest')
     for category in categories:
@@ -268,7 +271,11 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         # Create XML file for test
         file_name = '{name}.xml'.format(name=category.name)
         single_test = etree.Element('tests')
+        check_write = False
         for regression_test in category.regression_tests:
+            if regression_test.id not in regression_ids:
+                continue
+            check_write = True
             entry = etree.SubElement(single_test, 'entry', id=str(regression_test.id))
             command = etree.SubElement(entry, 'command')
             command.text = regression_test.command
@@ -299,7 +306,9 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
 
                 expected = etree.SubElement(file_node, 'expected')
                 expected.text = output_file.filename_expected(regression_test.sample.sha)
-
+        # check whether category should be included or not
+        if not check_write:
+            continue
         # Save XML
         single_test.getroottree().write(
             os.path.join(base_folder, file_name), encoding='utf-8', xml_declaration=True, pretty_print=True
@@ -328,8 +337,8 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         fork_id = test.fork.id
         fork_url = test.fork.github
         if not check_main_repo(fork_url):
-            remote = ('fork_{id}').format(id=fork_id)
             existing_remote = [remote.name for remote in repo.remotes]
+            remote = ('fork_{id}').format(id=fork_id)
             if remote in existing_remote:
                 origin = repo.remote(remote)
             else:
@@ -343,9 +352,10 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     fetch_info = origin.fetch()
     if len(fetch_info) == 0:
         log.info('[{platform}] Fetch from remote returned no new data...'.format(platform=platform))
-
+    # Checkout to Remote Master
+    repo.git.checkout(origin.refs.master)
     # Pull code (finally)
-    pull_info = origin.pull()
+    pull_info = origin.pull('master')
     if len(pull_info) == 0:
         log.info("[{platform}] Pull from remote returned no new data...".format(platform=platform))
     if pull_info[0].flags > 128:
@@ -453,7 +463,8 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     """
     from run import log
 
-    fork = Fork.query.filter(Fork.github.like("%/CCExtractor/ccextractor.git")).first()
+    fork = Fork.query.filter(Fork.github.like(("%/{owner}/{repo}.git").format(owner=g.github['repository_owner'],
+                                                                              repo=g.github['repository']))).first()
 
     if test_type == TestType.pull_request:
         branch = "pull_request"
@@ -463,6 +474,8 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     windows_test = Test(TestPlatform.windows, test_type, fork.id, branch, commit, pr_nr)
     db.add(windows_test)
     db.commit()
+    add_customized_regression_tests(linux_test.id)
+    add_customized_regression_tests(windows_test.id)
 
     if gh_commit is not None:
         status_entries = {
@@ -1156,3 +1169,11 @@ def check_main_repo(repo_url):
 
     gh_config = get_github_config(config)
     return '{user}/{repo}'.format(user=gh_config['repository_owner'], repo=gh_config['repository']) in repo_url
+
+
+def add_customized_regression_tests(test_id):
+    active_regression_tests = RegressionTest.query.filter(RegressionTest.active == 1).all()
+    for regression_test in active_regression_tests:
+        customized_test = CustomizedTest(test_id, regression_test.id)
+        g.db.add(customized_test)
+        g.db.commit()

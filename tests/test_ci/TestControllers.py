@@ -1,7 +1,8 @@
 from mock import mock
 from tests.base import BaseTestCase
-from mod_test.models import TestPlatform
+from mod_test.models import Test, TestPlatform, TestType
 from mod_regression.models import RegressionTest
+from mod_customized.models import CustomizedTest
 from importlib import reload
 from flask import g
 
@@ -66,7 +67,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('libvirt.open')
     @mock.patch('shutil.rmtree')
     @mock.patch('mod_ci.controllers.open')
-    @mock.patch('lxml.etree.Element')
+    @mock.patch('lxml.etree')
     def test_customize_tests_run_on_fork_if_no_remote(self, mock_etree, mock_open,
                                                       mock_rmtree, mock_libvirt, mock_repo, mock_git):
         self.create_forktest("own-fork-commit", TestPlatform.linux)
@@ -99,7 +100,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('libvirt.open')
     @mock.patch('shutil.rmtree')
     @mock.patch('mod_ci.controllers.open')
-    @mock.patch('lxml.etree.Element')
+    @mock.patch('lxml.etree')
     def test_customize_tests_run_on_fork_if_remote_exist(self, mock_etree, mock_open,
                                                          mock_rmtree, mock_libvirt, mock_repo, mock_git):
         self.create_forktest("own-fork-commit", TestPlatform.linux)
@@ -127,3 +128,50 @@ class TestControllers(BaseTestCase):
         fork_url = ('https://github.com/{user}/{repo}.git').format(
                 user=self.user.name, repo=g.github['repository'])
         repo.remote.assert_called_with('fork_2')
+
+    @mock.patch('github.GitHub')
+    @mock.patch('git.Repo')
+    @mock.patch('libvirt.open')
+    @mock.patch('shutil.rmtree')
+    @mock.patch('mod_ci.controllers.open')
+    @mock.patch('lxml.etree')
+    def test_customize_tests_run_on_selected_regression_tests(self, mock_etree, mock_open,
+                                                              mock_rmtree, mock_libvirt, mock_repo, mock_git):
+        self.create_forktest("own-fork-commit", TestPlatform.linux, regression_tests=[2])
+        import mod_ci.cron
+        import mod_ci.controllers
+        reload(mod_ci.cron)
+        reload(mod_ci.controllers)
+        from mod_ci.cron import cron
+        conn = mock_libvirt()
+        vm = conn.lookupByName()
+        import libvirt
+        vm.info.return_value = [libvirt.VIR_DOMAIN_SHUTOFF]
+        vm.hasCurrentSnapshot.return_value = 1
+        repo = mock_repo()
+        origin = repo.remote()
+        from collections import namedtuple
+        Remotes = namedtuple('Remotes', 'name')
+        repo.remotes = [Remotes(name='fork_2')]
+        GitPullInfo = namedtuple('GitPullInfo', 'flags')
+        pull_info = GitPullInfo(flags=0)
+        origin.pull.return_value = [pull_info]
+        single_test = mock_etree.Element('tests')
+        mock_etree.Element.return_value = single_test
+        cron()
+        mock_etree.SubElement.assert_any_call(single_test, 'entry', id=str(2))
+        assert (single_test, 'entry', str(1)) not in mock_etree.call_args_list
+
+    def test_customizedtest_added_to_queue(self):
+        regression_test = RegressionTest.query.filter(RegressionTest.id == 1).first()
+        regression_test.active = False
+        g.db.add(regression_test)
+        g.db.commit()
+        import mod_ci.controllers
+        reload(mod_ci.controllers)
+        from mod_ci.controllers import queue_test
+        queue_test(g.db, None, 'customizedcommitcheck', TestType.commit)
+        test = Test.query.filter(Test.id == 3).first()
+        customized_test = test.get_customized_regressiontests()
+        self.assertIn(2, customized_test)
+        self.assertNotIn(1, customized_test)

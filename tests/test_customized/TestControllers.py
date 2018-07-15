@@ -3,10 +3,10 @@ from sqlalchemy import and_
 from importlib import reload
 from flask import g
 from tests.base import BaseTestCase, MockRequests
-from mod_test.models import TestPlatform
 from mod_auth.models import Role
 from mod_test.models import Fork, Test, TestPlatform
-from mod_customized.models import TestFork
+from mod_regression.models import RegressionTest
+from mod_customized.models import TestFork, CustomizedTest
 
 
 def return_gituser():
@@ -133,3 +133,48 @@ class TestControllers(BaseTestCase):
             response = c.get('/custom/')
             for commit in commits:
                 self.assertIn(commit['sha'], str(response.data))
+
+    def test_customize_regression_tests_load(self, mock_user, mock_git, mock_requests):
+        import mod_customized.controllers
+        reload(mod_customized.controllers)
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.tester)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.get('/custom/')
+            self.assertEqual(response.status_code, 200)
+            regression_tests = RegressionTest.query.all()
+            for regression_test in regression_tests:
+                self.assertIn(regression_test.command, str(response.data))
+
+    def test_error_on_no_regression_test(self, mock_user, mock_git, mock_requests):
+        import mod_customized.controllers
+        reload(mod_customized.controllers)
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.tester)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/custom/', data=self.create_customize_form('abcdef', ['linux'],
+                                                            regression_test=[]), follow_redirects=True)
+            self.assertEqual(response.status_code, 200)
+            self.assertIn('Please add one or more Regression Tests', str(response.data))
+
+    def test_customize_test_creates_with_customize_regression_tests(self, mock_user, mock_git, mock_requests):
+        import mod_customized.controllers
+        reload(mod_customized.controllers)
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.tester)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/custom/', data=self.create_customize_form('abcdef', ['linux'],
+                                                            regression_test=[2]), follow_redirects=True)
+            self.assertEqual(response.status_code, 200)
+            test = Test.query.filter(Test.id == 3).first()
+            regression_tests = test.get_customized_regressiontests()
+            self.assertIn(2, regression_tests)
+            self.assertNotIn(1, regression_tests)

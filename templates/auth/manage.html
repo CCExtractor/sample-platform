@@ -37,47 +37,44 @@
             <div class="grid-x">
                 <div class="medium-12 columns">
                     <h5>Github Linked</h5>
+                    <div class="medium-6">
+                        {% if url%}
+                                No &nbsp;
+                                <a href="{{url}}" class="button" ><i class="fa fa-github-square"></i> Link Github</a>
+                        {% else %}
+                                Yes
+                        {% endif %}
+                    </div>
                 </div>
-                <div class="medium-6 columns">
-                {% if url%}
-                        No &nbsp;
-                        <a href="{{url}}" class="button" ><i class="fa fa-github-square"></i> Link Github</a>
-                {% else %}
-                        Yes
-                {% endif %}
-                </div>
-
                 <div class="medium-12 columns">
-                    <h5>Current password</h5>
-                </div>
-                <div class="medium-6 columns">
+                <div class="medium-6">
                     {{ macros.render_field(form.current_password) }}
                 </div>
-                <div class="medium-12 columns">
-                    <h5>New password</h5>
                 </div>
-                <div class="medium-6 columns">
+                <div class="medium-12 columns">
+                <div class="medium-6">
                     {{ macros.render_field(form.new_password, helpText='Your password must have at least 10 characters.') }}
                 </div>
-                <div class="medium-6 columns">
+                </div>
+                <div class="medium-12 columns">
+                <div class="medium-6">
                     {{ macros.render_field(form.new_password_repeat) }}
                 </div>
-                <div class="medium-12 columns">
-                    <h5>Name</h5>
-                </div>
-                <div class="medium-6 columns">
-                    {{ macros.render_field(form.name) }}
                 </div>
                 <div class="medium-12 columns">
-                    <h5>Email address</h5>
+                    <div class="medium-6">
+                        {{ macros.render_field(form.name) }}
                 </div>
-                <div class="medium-6 columns">
-                    {{ macros.render_field(form.email) }}
+                </div>
+                <div class="medium-12 columns">
+                    <div class="medium-6">
+                        {{ macros.render_field(form.email) }}
+                </div>
                 </div>
                 <div class="medium-12 columns">
                     {{ macros.render_field(form.submit) }}
                 </div>
-                <div class="medium-12 columns">
+               <div class="medium-12 columns">
                     <p>If you want to deactivate your account, you can go to this page: <a href="{{ url_for('.deactivate', uid=user.id) }}">deactivate account</a>.</p>
                 </div>
             </div>

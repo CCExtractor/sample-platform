@@ -24,17 +24,17 @@
 {{ super() }}
 <script type="text/javascript">
     function switchCategory(){
-        var id = $("#category").val();
+        var id = parseInt($("#category").val());
         window.location.hash = id;
         $("tbody tr[data-category]").each(function(idx, elm){
-            var array = JSON.parse(elm.getAttribute("data-category"));
-            var main_fork = {{ fork.id }};
-            if(id == 1)
+            var value = parseInt(JSON.parse(elm.getAttribute("data-category")));
+            var main_fork = parseInt({{ fork.id }});
+            if(id === 1)
             {
-                elm.setAttribute("class", array.indexOf(parseInt(main_fork)) > -1 ? "" : "hide");
+                elm.setAttribute("class", value === main_fork ? "" : "hide");
             }
             else{
-                elm.setAttribute("class", array.indexOf(parseInt(main_fork)) > -1 ? "hide" : "");
+                elm.setAttribute("class", value === main_fork ? "hide" : "");
             }
         });
     }

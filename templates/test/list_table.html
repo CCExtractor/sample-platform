@@ -19,7 +19,7 @@
                         <td data-title="Run Errors">{{ "Unknown" if not test.finished else ("Yes" if test.failed else "No") }}</td>
                         <td data-title="Completed">
                             <a href="{{ url_for('test.by_id', test_id=test.id) }}">{{ "Yes" if test.finished else "No" }}</a>
-                            {% if user.is_admin or "{{ url_for(request.endpoint) }}" == "{{ url_for('custom.index'}}" %}
+                            {% if user.is_admin or url_for(request.endpoint) == url_for('custom.index') %}
                                 &nbsp;<a href="{{ url_for('test.restart_test', test_id=test.id) }}" title="Restart Test"><i class="fa fa-refresh"></i></a>
                                 {% if not test.finished %}
                                     &nbsp;<a href="{{ url_for('test.stop_test', test_id=test.id) }}" title="Stop Test"><i class="fa fa-stop"></i></a>

@@ -100,9 +100,9 @@ def display_sample_info(sample):
             )).first()
 
             if exit_code is None and not_null is None:
-                status = 'Pass'
+                status_release = 'Pass'
             else:
-                status = 'Fail'
+                status_release = 'Fail'
     else:
         status = 'Not present in regression tests'
         status_release = 'Not present in regression tests'

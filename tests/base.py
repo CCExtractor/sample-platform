@@ -11,7 +11,7 @@ from mod_test.models import Test, Fork, TestType, TestPlatform, TestResult, \
     TestResultFile, TestProgress, TestStatus
 from mod_regression.models import Category, RegressionTestOutput, RegressionTest, InputType, OutputType
 from mod_sample.models import Sample
-from mod_customized.models import CustomizedTest
+from mod_customized.models import CustomizedTest, TestFork
 from mod_upload.models import Upload, Platform
 
 
@@ -199,6 +199,10 @@ class BaseTestCase(TestCase):
         g.db.commit()
         test = Test(platform, TestType.commit, fork.id, 'master', commit_hash)
         g.db.add(test)
+        g.db.commit()
+        user = User.query.filter(User.email == self.user.email).first()
+        test_fork = TestFork(user.id, test.id)
+        g.db.add(test_fork)
         g.db.commit()
         if regression_tests is not None:
             for regression_test in regression_tests:

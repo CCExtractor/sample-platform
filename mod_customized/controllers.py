@@ -86,7 +86,8 @@ def index():
         'tests': tests,
         'TestType': TestType,
         'GitUser': username,
-        'categories': categories
+        'categories': categories,
+        'customize': True
     }
 
 

@@ -9,9 +9,37 @@
             <div class="column medium-8">
                 <h1>Latest tests</h1>
                 <p>Below you can see the overview of the last {{ tests|length }} test runs that were performed:</p>
+                <label for="category" class="column medium-4">Select test category</label>
+                <select id="category" style="background-position: right 0 center" onchange="switchCategory();" class="column medium-6">
+                    <option value="1">Main Repository</option>
+                    <option value="2">Fork</option>
+                </select>&nbsp;
                 {% include "test/list_table.html" %}
             </div>
         </div>
 
     </div>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script type="text/javascript">
+    function switchCategory(){
+        var id = parseInt($("#category").val());
+        window.location.hash = id;
+        $("tbody tr[data-category]").each(function(idx, elm){
+            var value = parseInt(JSON.parse(elm.getAttribute("data-category")));
+            var main_fork = parseInt({{ fork.id }});
+            if(id === 1)
+            {
+                elm.setAttribute("class", value === main_fork ? "" : "hide");
+            }
+            else{
+                elm.setAttribute("class", value === main_fork ? "hide" : "");
+            }
+        });
+    }
+    $(document).ready(function(){
+        switchCategory();
+    });
+</script>
 {% endblock %}

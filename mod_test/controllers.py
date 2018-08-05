@@ -55,8 +55,9 @@ def index():
     fork = Fork.query.filter(Fork.github.like(("%/{owner}/{repo}.git").format(owner=g.github['repository_owner'],
                                                                               repo=g.github['repository']))).first()
     return {
-        'tests': Test.query.filter(Test.fork_id == fork.id).order_by(Test.id.desc()).limit(50).all(),
-        'TestType': TestType
+        'tests': Test.query.order_by(Test.id.desc()).limit(50).all(),
+        'TestType': TestType,
+        'fork': fork
     }
 
 

@@ -12,6 +12,7 @@ from mod_test.models import Test, Fork, TestType, TestPlatform, TestResult, \
 from mod_regression.models import Category, RegressionTestOutput, RegressionTest, InputType, OutputType
 from mod_sample.models import Sample
 from mod_customized.models import CustomizedTest, TestFork
+from mod_upload.models import Upload, Platform
 
 
 def generate_keys():
@@ -124,6 +125,11 @@ class BaseTestCase(TestCase):
             Sample('sample2', 'ts', 'sample2')
         ]
         g.db.add_all(samples)
+        upload = [
+            Upload(1, 1, 1, Platform.windows),
+            Upload(1, 2, 1, Platform.linux)
+        ]
+        g.db.add_all(upload)
         regression_tests = [
             RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
                            InputType.file, OutputType.file, 3, 10),

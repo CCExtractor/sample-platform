@@ -314,6 +314,11 @@ def download_build_log_file(test_id):
 @check_access_rights([Role.admin, Role.tester, Role.contributor])
 @template_renderer()
 def restart_test(test_id):
+    """
+    Admin or Test User can restart the running or finished test.
+    :param test_id: Test ID of the test which user want to restart
+    :type test_id: int
+    """
     test = Test.query.filter(Test.id == test_id).first()
     test_fork = TestFork.query.filter(TestFork.user_id == g.user.id, TestFork.test_id == test_id).first()
     if not g.user.is_admin and test_fork is None:
@@ -330,6 +335,11 @@ def restart_test(test_id):
 @check_access_rights([Role.admin, Role.tester, Role.contributor])
 @template_renderer()
 def stop_test(test_id):
+    """
+    Admin or Test User can stop the running test.
+    :param test_id: Test ID of the test which user want to stop
+    :type test_id: int
+    """
     test = Test.query.filter(Test.id == test_id).first()
     test_fork = TestFork.query.filter(TestFork.user_id == g.user.id, TestFork.test_id == test_id).first()
     if not g.user.is_admin and test_fork is None:

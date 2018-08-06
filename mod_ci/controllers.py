@@ -1165,6 +1165,13 @@ def in_maintenance_mode(platform):
 
 
 def check_main_repo(repo_url):
+    """
+    Check whether the repo_url links to the main repository or not
+    :param repo_url: url of fork/main repository of the user
+    :type repo_url: str
+    :return: checks whether url of main repo is same or not
+    :rtype: bool
+    """
     from run import config, get_github_config
 
     gh_config = get_github_config(config)

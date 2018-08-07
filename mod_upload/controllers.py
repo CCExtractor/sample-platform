@@ -117,7 +117,7 @@ def make_github_issue(title, body=None, labels=None):
     r = session.post(url, json.dumps(issue))
 
     if r.status_code == 201:
-        return r.content
+        return r.json()
 
     return 'ERROR'
 
@@ -287,10 +287,9 @@ def process_id(upload_id):
                         data += '**Extra information**\n\n*Notes:*\n{notes}\n*Description:*\n{desc}'.format(
                             notes=form.notes.data, desc=form.IssueBody.data)
                         issue_title = '[BUG] {data}'.format(data=form.IssueTitle.data)
-                        issue_upload = make_github_issue(issue_title, data, ['bug', 'sample' + str(sample.id)])
+                        issue_data = make_github_issue(issue_title, data, ['bug', 'sample' + str(sample.id)])
 
-                        if issue_upload != 'ERROR':
-                            issue_data = json.loads(issue_upload)
+                        if issue_data != 'ERROR':
                             issue_id = issue_data['number']
                             issue_title = issue_data['title']
                             issue_user = issue_data['user']['login']

@@ -10,8 +10,9 @@ from mod_auth.models import User, Role
 from mod_test.models import Test, Fork, TestType, TestPlatform, TestResult, \
     TestResultFile, TestProgress, TestStatus
 from mod_regression.models import Category, RegressionTestOutput, RegressionTest, InputType, OutputType
-from mod_sample.models import Sample
-from mod_customized.models import CustomizedTest
+from mod_sample.models import Sample, ForbiddenMimeType, ForbiddenExtension
+from mod_customized.models import CustomizedTest, TestFork
+from mod_upload.models import Upload, Platform
 
 
 def generate_keys():
@@ -56,11 +57,17 @@ def load_config(file):
             }
 
 
-def MockRequests(url):
+def MockRequests(url, data=None):
     if url == "https://api.github.com/repos/test/test_repo/commits/abcdef":
         return MockResponse({}, 200)
     elif url == "https://api.github.com/user":
         return MockResponse({"login": "test"}, 200)
+    elif url == "https://api.github.com/repos/test_owner/test_repo/issues":
+        return MockResponse({'number': 1,
+                             'title': 'test title',
+                             'user': {'login': 'test_user'},
+                             'created_at': '2011-04-14T16:00:49Z',
+                             'state': 'open'}, 201)
     else:
         return MockResponse({}, 404)
 
@@ -124,6 +131,11 @@ class BaseTestCase(TestCase):
             Sample('sample2', 'ts', 'sample2')
         ]
         g.db.add_all(samples)
+        upload = [
+            Upload(1, 1, 1, Platform.windows),
+            Upload(1, 2, 1, Platform.linux)
+        ]
+        g.db.add_all(upload)
         regression_tests = [
             RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
                            InputType.file, OutputType.file, 3, 10),
@@ -166,6 +178,14 @@ class BaseTestCase(TestCase):
                           signup_information['existing_user_email'], signup_information['existing_user_pwd'])
         g.db.add(dummy_user)
         g.db.commit()
+        forbidden_mime = ForbiddenMimeType('application/javascript')
+        forbidden_ext = [
+            ForbiddenExtension('js'),
+            ForbiddenExtension('com')
+        ]
+        g.db.add(forbidden_mime)
+        g.db.add_all(forbidden_ext)
+        g.db.commit()
 
     def create_login_form_data(self, email, password) -> dict:
         """
@@ -193,6 +213,10 @@ class BaseTestCase(TestCase):
         g.db.commit()
         test = Test(platform, TestType.commit, fork.id, 'master', commit_hash)
         g.db.add(test)
+        g.db.commit()
+        user = User.query.filter(User.email == self.user.email).first()
+        test_fork = TestFork(user.id, test.id)
+        g.db.add(test_fork)
         g.db.commit()
         if regression_tests is not None:
             for regression_test in regression_tests:

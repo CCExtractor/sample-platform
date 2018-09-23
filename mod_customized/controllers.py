@@ -37,6 +37,13 @@ def before_app_request():
 @check_access_rights([Role.tester, Role.contributor, Role.admin])
 @template_renderer()
 def index():
+    """
+        Display a form to allow users to run tests.
+        User can enter commit or select the commit from their repo that are not more than 30 days old.
+        User can customized test based on selected regression tests and platforms.
+        Also Display list of customized tests started by user.
+        User will be redirected to the same page on submit.
+    """
     fork_test_form = TestForkForm(request.form)
     username = fetch_username_from_token()
     commit_options = False
@@ -54,6 +61,7 @@ def index():
             commit_option = (
                 '<a href="{url}">{sha}</a>').format(url=commit_url, sha=commit_sha)
             commit_arr.append((commit_sha, commit_option))
+        # If there are commits present, display it on webpage
         if len(commit_arr) > 0:
             fork_test_form.commit_select.choices = commit_arr
             commit_options = True
@@ -68,6 +76,7 @@ def index():
             api_url = ('https://api.github.com/repos/{user}/{repo}/commits/{hash}').format(
                 user=username, repo=repo, hash=commit_hash
             )
+            # Show error if github fails to recognize commit
             response = requests.get(api_url)
             if response.status_code == 404:
                 fork_test_form.commit_hash.errors.append('Wrong Commit Hash')
@@ -86,11 +95,23 @@ def index():
         'tests': tests,
         'TestType': TestType,
         'GitUser': username,
-        'categories': categories
+        'categories': categories,
+        'customize': True
     }
 
 
 def add_test_to_kvm(username, commit_hash, platforms, regression_tests):
+    """
+    Create new tests and add it to CustomizedTests based on parameters.
+    :param username: git username required to find fork
+    :type username: str
+    :param commit_hash: commit hash of the repo user selected to run test
+    :type commit_hash: str
+    :param platforms: platforms user selected to run test
+    :type platforms: list
+    :param regression_tests: regression tests user selected to run tests
+    :type regression_tests: list
+    """
     fork_url = ('https://github.com/{user}/{repo}.git').format(
         user=username, repo=g.github['repository']
     )

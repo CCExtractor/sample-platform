@@ -7,17 +7,19 @@ of individual test.
 
 import os
 
-from flask import Blueprint, g, abort, make_response, request, jsonify
+from flask import Blueprint, g, abort, make_response, request, jsonify, redirect, url_for
 from sqlalchemy import and_, func
 from sqlalchemy.sql import label
 from decorators import template_renderer
+from mod_auth.controllers import login_required, check_access_rights
 from mod_home.models import CCExtractorVersion
 from mod_regression.models import Category, regressionTestLinkTable, \
     RegressionTestOutput
-from mod_test.models import Fork, Test, TestProgress, TestResultFile, TestType, TestPlatform
+from mod_test.models import Fork, Test, TestProgress, TestResult, TestResultFile, TestType, TestPlatform, TestStatus
 from mod_home.models import GeneralData
+from mod_auth.models import Role
 from mod_ci.models import Kvm
-from mod_customized.models import CustomizedTest
+from mod_customized.models import CustomizedTest, TestFork
 from datetime import datetime
 from github import GitHub
 mod_test = Blueprint('test', __name__)
@@ -53,8 +55,9 @@ def index():
     fork = Fork.query.filter(Fork.github.like(("%/{owner}/{repo}.git").format(owner=g.github['repository_owner'],
                                                                               repo=g.github['repository']))).first()
     return {
-        'tests': Test.query.filter(Test.fork_id == fork.id).order_by(Test.id.desc()).limit(50).all(),
-        'TestType': TestType
+        'tests': Test.query.order_by(Test.id.desc()).limit(50).all(),
+        'TestType': TestType,
+        'fork': fork
     }
 
 
@@ -245,7 +248,7 @@ def latest_commit_info(platform):
     except ValueError:
         abort(404)
     # Look up the hash of the latest commit
-    commit_hash = GeneralData.query.filter(GeneralData.key == 'last_commit').first().value
+    commit_hash = GeneralData.query.filter(GeneralData.key == 'fetch_commit_' + platform).first().value
     test = Test.query.filter(Test.commit == commit_hash, Test.platform == platform).first()
 
     if test is None:
@@ -304,3 +307,47 @@ def download_build_log_file(test_id):
         raise TestNotFoundException('Build log for Test {id} not found'.format(id=test_id))
 
     raise TestNotFoundException('Test with id {id} not found'.format(id=test_id))
+
+
+@mod_test.route('/restart_test/<test_id>', methods=['GET', 'POST'])
+@login_required
+@check_access_rights([Role.admin, Role.tester, Role.contributor])
+@template_renderer()
+def restart_test(test_id):
+    """
+    Admin or Test User can restart the running or finished test.
+    :param test_id: Test ID of the test which user want to restart
+    :type test_id: int
+    """
+    test = Test.query.filter(Test.id == test_id).first()
+    test_fork = TestFork.query.filter(TestFork.user_id == g.user.id, TestFork.test_id == test_id).first()
+    if not g.user.is_admin and test_fork is None:
+        abort(403)
+    TestResultFile.query.filter(TestResultFile.test_id == test.id).delete()
+    TestResult.query.filter(TestResult.test_id == test.id).delete()
+    TestProgress.query.filter(TestProgress.test_id == test.id).delete()
+    g.db.commit()
+    return redirect(url_for('.by_id', test_id=test.id))
+
+
+@mod_test.route('/stop_test/<test_id>', methods=['GET', 'POST'])
+@login_required
+@check_access_rights([Role.admin, Role.tester, Role.contributor])
+@template_renderer()
+def stop_test(test_id):
+    """
+    Admin or Test User can stop the running test.
+    :param test_id: Test ID of the test which user want to stop
+    :type test_id: int
+    """
+    test = Test.query.filter(Test.id == test_id).first()
+    test_fork = TestFork.query.filter(TestFork.user_id == g.user.id, TestFork.test_id == test_id).first()
+    if not g.user.is_admin and test_fork is None:
+        abort(403)
+    message = "Canceled by user"
+    if g.user.is_admin:
+        message = "Canceled by admin"
+    test_progress = TestProgress(test.id, TestStatus.canceled, message)
+    g.db.add(test_progress)
+    g.db.commit()
+    return redirect(url_for('.by_id', test_id=test.id))

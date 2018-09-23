@@ -3,6 +3,7 @@ from tests.base import BaseTestCase
 from mod_test.models import Test, TestPlatform, TestType
 from mod_regression.models import RegressionTest
 from mod_customized.models import CustomizedTest
+from mod_auth.models import Role
 from importlib import reload
 from flask import g
 
@@ -70,6 +71,8 @@ class TestControllers(BaseTestCase):
     @mock.patch('lxml.etree')
     def test_customize_tests_run_on_fork_if_no_remote(self, mock_etree, mock_open,
                                                       mock_rmtree, mock_libvirt, mock_repo, mock_git):
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.tester)
         self.create_forktest("own-fork-commit", TestPlatform.linux)
         import mod_ci.cron
         import mod_ci.controllers
@@ -103,6 +106,8 @@ class TestControllers(BaseTestCase):
     @mock.patch('lxml.etree')
     def test_customize_tests_run_on_fork_if_remote_exist(self, mock_etree, mock_open,
                                                          mock_rmtree, mock_libvirt, mock_repo, mock_git):
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.tester)
         self.create_forktest("own-fork-commit", TestPlatform.linux)
         import mod_ci.cron
         import mod_ci.controllers
@@ -137,6 +142,8 @@ class TestControllers(BaseTestCase):
     @mock.patch('lxml.etree')
     def test_customize_tests_run_on_selected_regression_tests(self, mock_etree, mock_open,
                                                               mock_rmtree, mock_libvirt, mock_repo, mock_git):
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.tester)
         self.create_forktest("own-fork-commit", TestPlatform.linux, regression_tests=[2])
         import mod_ci.cron
         import mod_ci.controllers

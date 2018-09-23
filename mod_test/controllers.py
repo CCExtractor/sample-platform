@@ -248,7 +248,7 @@ def latest_commit_info(platform):
     except ValueError:
         abort(404)
     # Look up the hash of the latest commit
-    commit_hash = GeneralData.query.filter(GeneralData.key == 'last_commit').first().value
+    commit_hash = GeneralData.query.filter(GeneralData.key == 'fetch_commit_' + platform).first().value
     test = Test.query.filter(Test.commit == commit_hash, Test.platform == platform).first()
 
     if test is None:

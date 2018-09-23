@@ -75,7 +75,7 @@ def start_platform(db, repository, delay=None):
     Function to check whether there is already running test for which it check the kvm progress and if no running test
     then it start a new test.
     """
-    from run import config
+    from run import config, log
 
     linux_kvm_name = config.get('KVM_LINUX_NAME', '')
     win_kvm_name = config.get('KVM_WINDOWS_NAME', '')
@@ -83,12 +83,15 @@ def start_platform(db, repository, delay=None):
 
     if kvm_test is None:
         start_new_test(db, repository, delay)
-    elif kvm_test.name is linux_kvm_name:
+    elif kvm_test.name == linux_kvm_name:
         kvm_processor_linux(db, repository, delay)
-    elif kvm_test.name is win_kvm_name:
+    elif kvm_test.name == win_kvm_name:
         kvm_processor_windows(db, repository, delay)
-
-    return
+    else:
+        log.error(
+            "There's a test in the KVM machine, but none of the platforms matched! We got {name}, compared against "
+            "{lin}, {win}".format(name=kvm_test.name, lin=linux_kvm_name, win=win_kvm_name)
+        )
 
 
 def start_new_test(db, repository, delay):

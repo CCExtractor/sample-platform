@@ -107,9 +107,9 @@ def start_new_test(db, repository, delay):
 
     if test is None:
         return
-    elif test.platform is TestPlatform.windows:
+    elif test.platform == TestPlatform.windows:
         kvm_processor_windows(db, repository, delay)
-    elif test.platform is TestPlatform.linux:
+    elif test.platform == TestPlatform.linux:
         kvm_processor_linux(db, repository, delay)
     else:
         log.error("Unsupported CI platform: {platform}".format(platform=test.platform))

@@ -4,9 +4,7 @@
 
 This repository contains the code for a platform that manages a test suite bot, sample upload and more. This platform allows for a unified place to
 report errors, submit samples, view existing samples and more. It was
-originally developed during GSoC 2015 and rewritten during GSoC 2016. During
-GSoC 2017 it was further improved. Now, during GSoC 2018, it is again being
-worked upon. 
+originally developed during GSoC 2015 and rewritten during GSoC 2016. It was further improved and worked upon during GSoC 2017 and GSoC 2018.
 
 To see the live version of the platform, simply go to
 [CCExtractor Submission Platform](https://sampleplatform.ccextractor.org/).

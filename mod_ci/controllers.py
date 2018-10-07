@@ -379,7 +379,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         log.warn("[{platform}] Could not delete rebase-apply".format(platform=platform))
     # If PR, merge, otherwise reset to commit
     if test.test_type == TestType.pull_request:
-        # Fetch PR (stored under origin/pull/<id>/head
+        # Fetch PR (stored under origin/pull/<id>/head)
         pull_info = origin.fetch('pull/{id}/head:CI_Branch'.format(id=test.pr_nr))
         if len(pull_info) == 0:
             log.warn("[{platform}] Didn't pull any information from remote PR!".format(platform=platform))

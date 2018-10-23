@@ -183,7 +183,7 @@ class TestControllers(BaseTestCase):
         self.assertIn(2, customized_test)
         self.assertNotIn(1, customized_test)
 
-    @mock.patch('mailer.send_simple_message')
+    @mock.patch('Mailer.send_simple_message')
     def test_inform_mailing_list(self, mock_email):
         """
         Test the inform_mailing_list function

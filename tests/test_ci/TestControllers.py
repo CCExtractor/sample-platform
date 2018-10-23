@@ -189,7 +189,7 @@ class TestControllers(BaseTestCase):
         """
         import mod_ci.controllers
         reload(mod_ci.controllers)
-        from mod_ci.controllers import inform_mailing_list, mailer
+        from mod_ci.controllers import inform_mailing_list
         from mailer import Mailer
 
         with mock.patch('Mailer.send_simple_message') as mock_email:

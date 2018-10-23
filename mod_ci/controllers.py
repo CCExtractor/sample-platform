@@ -506,7 +506,7 @@ def inform_mailing_list(mailer, id, title, author, body):
     :type mailer: Mailer
     :param id: ID of the Issue Opened
     :type id: int
-    :param title: Title of the Created Ossie
+    :param title: Title of the Created Issue
     :type title: str
     :param author: The Authors Username of the Issue
     :type author: str
@@ -517,7 +517,7 @@ def inform_mailing_list(mailer, id, title, author, body):
     mailer.send_simple_message({
         "to": "ccextractor-dev@googlegroups.com",
         "subject": subject,
-        "text": "{title} - {author}\n {body}".format(title=title, author=author, body=body)
+        "text": "{title} - {author}\n {body}\n\n Visit the Issue at: https://github.com/CCExtractor/ccextractor/issues/{issue_number}\n The Author of the Issue's profile: https://github.com/{author}".format(title=title, author=author, body=body, issue_number=id)
     })
 
 

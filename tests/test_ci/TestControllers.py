@@ -193,7 +193,7 @@ class TestControllers(BaseTestCase):
         from mailer import Mailer
 
         with mock.patch('mailer.send_simple_message') as mock_email:
-            email = inform_mailing_list(mailer, "matejmecka", "2430", "How do i find Love?",
+            email = inform_mailing_list(g.mailer, "matejmecka", "2430", "How do i find Love?",
                                         "Lorem Ipsum sit dolor amet...")
 
             mock_email.assert_called_once_with("matejmecka", "2430", "How do i find Love?",

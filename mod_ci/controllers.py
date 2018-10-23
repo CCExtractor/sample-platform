@@ -514,7 +514,7 @@ def inform_mailing_list(mailer, id, title, author, body):
     :type body: str
     """
     subject = "GitHub Issue #{issue_number}".format(issue_number=id)
-    return mailer.send_simple_message({
+    mailer.send_simple_message({
         "to": "ccextractor-dev@googlegroups.com",
         "subject": subject,
         "text": """{title} - {author}\n

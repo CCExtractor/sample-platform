@@ -189,11 +189,12 @@ class TestControllers(BaseTestCase):
         """
         import mod_ci.controllers
         reload(mod_ci.controllers)
-        from mod_ci.controllers import inform_mailing_list
+        from mod_ci.controllers import inform_mailing_list, mailer
+        from mailer import Mailer
 
         with mock.patch('Mailer.send_simple_message') as mock_email:
-            email = inform_mailing_list(g.mailer, "matejmecka", "2430", "How do i find Love?",
+            email = inform_mailing_list(g.mailer, "matejmecka", "2430", "Some random string",
                                         "Lorem Ipsum sit dolor amet...")
 
-            mock_email.assert_called_once_with("matejmecka", "2430", "How do i find Love?",
+            mock_email.assert_called_once_with("matejmecka", "2430", "Some random string",
                                         "Lorem Ipsum sit dolor amet...")

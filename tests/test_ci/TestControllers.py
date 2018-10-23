@@ -182,3 +182,20 @@ class TestControllers(BaseTestCase):
         customized_test = test.get_customized_regressiontests()
         self.assertIn(2, customized_test)
         self.assertNotIn(1, customized_test)
+
+    def test_inform_mailing_list(self):
+        """
+        Test the inform_mailing_list function
+        :return:
+        """
+        import mod_ci.controllers
+        reload(mod_ci.controllers)
+        from mod_ci.controllers import inform_mailing_list
+        from mailer import Mailer
+
+        with mock.patch('mailer.send_simple_message') as mock_email:
+            email = inform_mailing_list(mailer, "matejmecka", "2430", "How do i find Love?",
+                                        "Lorem Ipsum sit dolor amet...")
+
+            mock_email.assert_called_once_with("matejmecka", "2430", "How do i find Love?",
+                                        "Lorem Ipsum sit dolor amet...")

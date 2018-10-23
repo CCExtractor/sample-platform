@@ -6,6 +6,7 @@ from mod_customized.models import CustomizedTest
 from mod_auth.models import Role
 from importlib import reload
 from flask import g
+from mailer import Mailer
 
 
 class TestControllers(BaseTestCase):

@@ -6,7 +6,6 @@ from mod_customized.models import CustomizedTest
 from mod_auth.models import Role
 from importlib import reload
 from flask import g
-from mailer import Mailer
 
 
 class TestControllers(BaseTestCase):
@@ -184,8 +183,7 @@ class TestControllers(BaseTestCase):
         self.assertIn(2, customized_test)
         self.assertNotIn(1, customized_test)
 
-    @mock.patch('Mailer.send_simple_message')
-    def test_inform_mailing_list(self, mock_email):
+    def test_inform_mailing_list(self):
         """
         Test the inform_mailing_list function
         """
@@ -193,8 +191,9 @@ class TestControllers(BaseTestCase):
         reload(mod_ci.controllers)
         from mod_ci.controllers import inform_mailing_list
 
-        email = inform_mailing_list(g.mailer, "matejmecka", "2430", "Random Sentence",
+        with mock.patch('Mailer.send_simple_message') as mock_email:
+            email = inform_mailing_list(g.mailer, "matejmecka", "2430", "How do i find Love?",
                                         "Lorem Ipsum sit dolor amet...")
 
-        mock_email.assert_called_once_with("matejmecka", "2430", "Random Sentence",
+            mock_email.assert_called_once_with("matejmecka", "2430", "How do i find Love?",
                                         "Lorem Ipsum sit dolor amet...")

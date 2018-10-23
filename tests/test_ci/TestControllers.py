@@ -186,7 +186,6 @@ class TestControllers(BaseTestCase):
     def test_inform_mailing_list(self):
         """
         Test the inform_mailing_list function
-        :return:
         """
         import mod_ci.controllers
         reload(mod_ci.controllers)

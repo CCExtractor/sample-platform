@@ -517,7 +517,11 @@ def inform_mailing_list(mailer, id, title, author, body):
     mailer.send_simple_message({
         "to": "ccextractor-dev@googlegroups.com",
         "subject": subject,
-        "text": "{title} - {author}\n {body}\n\n Visit the Issue at: https://github.com/CCExtractor/ccextractor/issues/{issue_number}\n The Author of the Issue's profile: https://github.com/{author}".format(title=title, author=author, body=body, issue_number=id)
+        "text": """{title} - {author}\n
+        Link to Issue: https://github.com/CCExtractor/ccextractor/issues/{issue_number}\n
+        {author}(https://github.com/{author})\n\n
+        {body}
+        """.format(title=title, author=author, body=body, issue_number=id)
     })
 
 

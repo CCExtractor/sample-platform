@@ -183,7 +183,7 @@ class TestControllers(BaseTestCase):
         self.assertIn(2, customized_test)
         self.assertNotIn(1, customized_test)
 
-    @mock.patch('mailer.Mailer.send_simple_message')
+    @mock.patch('mailer.Mailer')
     def test_inform_mailing_list(self, mock_email):
         """
         Test the inform_mailing_list function
@@ -194,7 +194,7 @@ class TestControllers(BaseTestCase):
         email = inform_mailing_list(mock_email, "matejmecka", "2430", "Some random string",
                                     "Lorem Ipsum sit dolor amet...")
 
-        mock_email.assert_called_once_with(
+        mock_email.send_simple_message.assert_called_once_with(
             {
                 'text': '2430 - Some random string\n\n'
                 '        Link to Issue: https://www.github.com/test_owner/test_repo/issues/matejmecka\n\n'

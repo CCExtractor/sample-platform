@@ -184,7 +184,7 @@ class TestControllers(BaseTestCase):
         self.assertNotIn(1, customized_test)
 
     @mock.patch('mailer.Mailer.send_simple_message')
-    @mock.patch('g.mailer')
+    @mock.patch('flask.g.mailer')
     def test_inform_mailing_list(self, mock_email,mock_gmailer):
         """
         Test the inform_mailing_list function

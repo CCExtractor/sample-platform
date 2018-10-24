@@ -202,4 +202,4 @@ class TestControllers(BaseTestCase):
                 '        Lorem Ipsum sit dolor amet...\n        ',
                 'subject': 'GitHub Issue #matejmecka', 'to': 'ccextractor-dev@googlegroups.com'
             }
-        )
+)

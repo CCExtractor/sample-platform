@@ -50,7 +50,9 @@ Install the requirements
 ```
 sudo pip install -r requirements.txt
 sudo pip3 install -r requirements.txt
+```
 There might be an error something like libvirt not found. Ignore that
+```
 sudo apt-get install libvirt-dev
 ```
 
@@ -59,22 +61,25 @@ Running the program
 sudo python3 run.py
 ```
 
-If you face some problems try this -
+If you face some problems try doing these -
 ```
 In the config.py file change SERVER_NAME = '0.0.0.0:2000'
 In the run.py file change port = app.config.get('SERVER_PORT',2000)
+```
 
+```
 sudo mysql -u root -p
 use sample_platform;
 select * from general_data;
+```
 If you get an empty set:
   fill in some random data
   For example,
-  INSERT INTO general_data (`key`, value) VALUES ('last_commit', '71dffd6eb30c1f4b5cf800307de845072ce33262');
-close mysql
-
-Try running the program again
 ```
+INSERT INTO general_data (`key`, value) VALUES ('last_commit', '71dffd6eb30c1f4b5cf800307de845072ce33262');
+```
+close mysql
+Try running the program again
 
 Please read the below troubleshooting notes in case of any error or doubt.
 

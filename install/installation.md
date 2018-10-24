@@ -72,13 +72,13 @@ sudo mysql -u root -p
 use sample_platform;
 select * from general_data;
 ```
-If you get an empty set:
-  fill in some random data
-  For example,
+If you get an empty set: <br>
+  fill in some random data <br>
+  For example, <br>
 ```
 INSERT INTO general_data (`key`, value) VALUES ('last_commit', '71dffd6eb30c1f4b5cf800307de845072ce33262');
 ```
-close mysql
+close mysql <br>
 Try running the program again
 
 Please read the below troubleshooting notes in case of any error or doubt.

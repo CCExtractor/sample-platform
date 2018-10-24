@@ -513,15 +513,17 @@ def inform_mailing_list(mailer, id, title, author, body):
     :param body: The Content of the Issue
     :type body: str
     """
+    from run import get_github_issue_link
     subject = "GitHub Issue #{issue_number}".format(issue_number=id)
+    url = get_github_issue_link(id)
     mailer.send_simple_message({
         "to": "ccextractor-dev@googlegroups.com",
         "subject": subject,
         "text": """{title} - {author}\n
-        Link to Issue: https://github.com/CCExtractor/ccextractor/issues/{issue_number}\n
+        Link to Issue: {url}\n
         {author}(https://github.com/{author})\n\n
         {body}
-        """.format(title=title, author=author, body=body, issue_number=id)
+        """.format(title=title, author=author, body=body, issue_number=id, url=url)
     })
 
 

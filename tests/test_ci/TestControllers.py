@@ -192,7 +192,9 @@ class TestControllers(BaseTestCase):
         from mod_ci.controllers import inform_mailing_list
         from mailer import Mailer
 
-        with mock.patch('Mailer.send_simple_message') as mock_email:
+        mailer = Mailer(domain, api_key, sender_name)
+
+        with mock.patch('mailer.send_simple_message') as mock_email:
             email = inform_mailing_list(g.mailer, "matejmecka", "2430", "Some random string",
                                         "Lorem Ipsum sit dolor amet...")
 

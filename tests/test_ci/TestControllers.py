@@ -184,15 +184,14 @@ class TestControllers(BaseTestCase):
         self.assertNotIn(1, customized_test)
 
     @mock.patch('mailer.Mailer.send_simple_message')
-    @mock.patch('flask.g.mailer')
-    def test_inform_mailing_list(self, mock_email,mock_gmailer):
+    def test_inform_mailing_list(self, mock_email):
         """
         Test the inform_mailing_list function
         """
         from mod_ci.controllers import inform_mailing_list
         from mailer import Mailer
 
-        email = inform_mailing_list(mock_gmailer, "matejmecka", "2430", "Some random string",
+        email = inform_mailing_list(mock_email, "matejmecka", "2430", "Some random string",
                                     "Lorem Ipsum sit dolor amet...")
 
         mock_email.assert_called_once_with(

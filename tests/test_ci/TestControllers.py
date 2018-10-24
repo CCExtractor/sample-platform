@@ -183,20 +183,23 @@ class TestControllers(BaseTestCase):
         self.assertIn(2, customized_test)
         self.assertNotIn(1, customized_test)
 
-    def test_inform_mailing_list(self):
+    @mock.patch('mailer.Mailer.send_simple_message')
+    def test_inform_mailing_list(self, mock_email):
         """
         Test the inform_mailing_list function
         """
-        import mod_ci.controllers
-        reload(mod_ci.controllers)
         from mod_ci.controllers import inform_mailing_list
         from mailer import Mailer
 
-        mailer = Mailer(domain, api_key, sender_name)
+        email = inform_mailing_list(g.mailer, "matejmecka", "2430", "Some random string",
+                                    "Lorem Ipsum sit dolor amet...")
 
-        with mock.patch('mailer.send_simple_message') as mock_email:
-            email = inform_mailing_list(g.mailer, "matejmecka", "2430", "Some random string",
-                                        "Lorem Ipsum sit dolor amet...")
-
-            mock_email.assert_called_once_with("matejmecka", "2430", "Some random string",
-                                        "Lorem Ipsum sit dolor amet...")
+        mock_email.assert_called_once_with(
+            {
+                'text': '2430 - Some random string\n\n'
+                '        Link to Issue: https://www.github.com/test_owner/test_repo/issues/matejmecka\n\n'
+                '        Some random string(https://github.com/Some random string)\n\n\n'
+                '        Lorem Ipsum sit dolor amet...\n        ',
+                'subject': 'GitHub Issue #matejmecka', 'to': 'ccextractor-dev@googlegroups.com'
+            }
+        )

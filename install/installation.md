@@ -3,6 +3,12 @@
 ## Requirements
 
 * Nginx (Other possible when modifying the sample download section)
+```
+sudo apt update
+sudo apt install nginx
+sudo ufw allow 'Nginx HTTP'
+sudo ufw enable
+```
 * Python 3 (Flask and other dependencies)
 * MySQL
 * Pure-FTPD with mysql
@@ -14,14 +20,6 @@ functionality. To install the VM's for KVM, see
 [the installation guide](ci-vm/installation.md).
 
 ### Linux
-
-First Setup Nginx.
-```
-sudo apt update
-sudo apt install nginx
-sudo ufw allow 'Nginx HTTP'
-sudo ufw enable
-```
 
 Clone the latest sample-platform repository from
 https://github.com/CCExtractor/sample-platform.

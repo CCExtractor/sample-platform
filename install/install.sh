@@ -36,6 +36,7 @@ echo "* Update pip, setuptools and wheel"
 python -m pip install --upgrade pip setuptools wheel >> "$install_log" 2>&1
 echo "* Installing pip dependencies"
 pip install -r "${root_dir}/requirements.txt" >> "$install_log" 2>&1
+pip3 install -r "${root_dir}/requirements.txt" >> "$install_log" 2>&1
 echo ""
 echo "-------------------------------"
 echo "|        Configuration        |"

@@ -44,13 +44,16 @@ The `install.sh` will begin downloading and updating all the necessary
 dependencies. Once done, it'll ask to enter some details in order to set up
 the sample-platform. Fill in the the details.
 
-Running the program
+Giving read,write permissions
 ```
-sudo python3 run.py
+cd ..
+sudo chmod +rwx sample-platform
 ```
 
-close mysql <br>
-Try running the program again
+Running the program
+```
+python3 run.py
+```
 
 Please read the below troubleshooting notes in case of any error or doubt.
 

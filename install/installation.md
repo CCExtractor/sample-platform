@@ -46,38 +46,11 @@ The `install.sh` will begin downloading and updating all the necessary
 dependencies. Once done, it'll ask to enter some details in order to set up
 the sample-platform. Fill in the the details.
 
-Install the requirements
-```
-sudo pip install -r requirements.txt
-sudo pip3 install -r requirements.txt
-```
-There might be an error something like libvirt not found. Ignore that
-```
-sudo apt-get install libvirt-dev
-```
-
 Running the program
 ```
 sudo python3 run.py
 ```
 
-If you face some problems try doing these -
-```
-In the config.py file change SERVER_NAME = '0.0.0.0:2000'
-In the run.py file change port = app.config.get('SERVER_PORT',2000)
-```
-
-```
-sudo mysql -u root -p
-use sample_platform;
-select * from general_data;
-```
-If you get an empty set: <br>
-  fill in some random data <br>
-  For example, <br>
-```
-INSERT INTO general_data (`key`, value) VALUES ('last_commit', '71dffd6eb30c1f4b5cf800307de845072ce33262');
-```
 close mysql <br>
 Try running the program again
 
@@ -96,7 +69,7 @@ able to run virsh and send commands to it.
 * Follow the steps from the Linux installation from within the Cygwin terminal
 to complete the platform's installation.
 
-## Screencast-Demo
+### Screencast-Demo
 [![IMAGE ALT TEXT](http://img.youtube.com/vi/hmNj3gbe5rM/0.jpg)](http://www.youtube.com/watch?v=hmNj3gbe5rM "CCExtractor - Sample Platform : Installation Tutorial")
 
 ### Troubleshooting
@@ -119,10 +92,26 @@ that will run the platform. E.g., if the platform will run locally, enter
 * In case of a `502 Bad Gateway` response, the platform didn't start
 correctly. Manually running `bootstrap_gunicorn.py` (as root!) can help to
 determine what goes wrong. The snippet below shows how this can be done:
-
 ```
 cd /var/www/sample-platform/
 sudo python bootstrap_gunicorn.py
+```
+* In case of 404 Not Found, try this
+```
+In the config.py file change SERVER_NAME = '0.0.0.0:2000'
+In the run.py file change port = app.config.get('SERVER_PORT',2000)
+```
+* In case of 500 Internal Error, try this
+```
+sudo mysql -u root -p
+use sample_platform;
+select * from general_data;
+```
+If you get an empty set: <br>
+  fill in some random data <br>
+  For example, <br>
+```
+INSERT INTO general_data (`key`, value) VALUES ('last_commit', '71dffd6eb30c1f4b5cf800307de845072ce33262');
 ```
 
 * If `gunicorn` boots up successfully, most relevant logs will be stored in

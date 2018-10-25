@@ -96,7 +96,8 @@ able to run virsh and send commands to it.
 * Follow the steps from the Linux installation from within the Cygwin terminal
 to complete the platform's installation.
 
-### Demo
+## Screencast-Demo
+[![IMAGE ALT TEXT](http://img.youtube.com/vi/hmNj3gbe5rM/0.jpg)](http://www.youtube.com/watch?v=hmNj3gbe5rM "CCExtractor - Sample Platform : Installation Tutorial")
 
 ### Troubleshooting
 

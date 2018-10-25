@@ -44,15 +44,9 @@ The `install.sh` will begin downloading and updating all the necessary
 dependencies. Once done, it'll ask to enter some details in order to set up
 the sample-platform. Fill in the the details.
 
-Giving read,write permissions
-```
-cd ..
-sudo chmod +rwx sample-platform
-```
-
 Running the program
 ```
-python3 run.py
+sudo python3 run.py
 ```
 
 Please read the below troubleshooting notes in case of any error or doubt.

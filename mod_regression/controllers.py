@@ -63,8 +63,37 @@ def test_view(regression_id):
 
 @mod_regression.route('/test/<regression_id>/delete')
 def test_delete(regression_id):
-    # Delete the regression test
-    pass
+    """
+    Function to delete regression tests
+
+    :param regression_id: Id of the regression test to be deleted
+    :type regression_id: int
+    """
+
+    regression_test = RegressionTest.query.filter(RegressionTest.id == regression_id).first()  # find regression test corresponding to id given in argument
+
+    if regression_test is None:
+        abort(404) # aborting if a regression test with the given id doesn't exist
+
+    customized_tests = CustomizedTest.query.filter(CustomizedTest.regression_id == regression_id).all() # finding all customized tests that have the given regression test
+    regression_test_outputs = RegressionTestOutput.query.filter(RegressionTestOutput.regression_id == regression_id).all() # finding all regression test outputs that have the given regression test
+    test_results = TestResult.query.filter(TestResult.regression_test_id == regression_id).all() # finding all test results that have the given regression test
+    test_result_files = TestResultFile.query.filter(TestResultFile.regression_test_id == regression_id).all() # finding all test result files that have the given regression test
+
+    # Deleting the tests/files which have the given regression test
+
+    for customized_test in customized_tests:
+        g.db.delete(customized_test)
+    for regression_test_output in regression_test_outputs:
+        g.db.delete(regression_test_output)
+    for test_result in test_results:
+        g.db.delete(test_result)
+    for test_result_file in test_result_files:
+        g.db.delete(test_result_file)
+
+    g.db.delete(regression_test) # deleting the regression test
+    g.db.commit() #  flush pending changes
+    return redirect(url_for('.index')) # redirecting to the regression test page
 
 
 @mod_regression.route('/test/<regression_id>/edit')

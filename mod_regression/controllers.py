@@ -11,6 +11,7 @@ from mod_auth.controllers import login_required, check_access_rights
 from mod_auth.models import Role
 from mod_regression.models import Category, RegressionTest, RegressionTestOutput
 from mod_test.models import TestResult, TestResultFile
+from mod_customized.models import CustomizedTest
 from mod_sample.models import Sample
 
 mod_regression = Blueprint('regression', __name__)

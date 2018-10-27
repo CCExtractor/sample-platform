@@ -98,12 +98,10 @@ def test_delete(regression_id):
     for test_result_file in test_result_files:
         g.db.delete(test_result_file)
 
-    g.db.session.delete(test)
-    g.db.session.commit()
+    g.db.delete(test)
+    g.db.commit()
 
-    return {
-        'test': test
-    }
+    return redirect(url_for('.index'))
 
 
 @mod_regression.route('/test/<regression_id>/edit')

@@ -75,7 +75,6 @@ def test_delete(regression_id):
     test = RegressionTest.query.filter(RegressionTest.id == regression_id).first_or_404()
 
     # Get All References of where we can locate the Regression Test
-
     custom_tests = CustomizedTest.query.filter(CustomizedTest.regression_id == regression_id).all()
     test_outputs = RegressionTestOutput.query.filter(RegressionTestOutput.regression_id == regression_id).all()
     test_results = TestResult.query.filter(TestResult.regression_test_id == regression_id).all()

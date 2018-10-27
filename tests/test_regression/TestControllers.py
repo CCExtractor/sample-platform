@@ -1,6 +1,7 @@
 from tests.base import BaseTestCase
 from mod_auth.models import Role
 from mod_regression.models import RegressionTest
+from flask import g
 
 
 class TestControllers(BaseTestCase):
@@ -58,6 +59,7 @@ class TestControllers(BaseTestCase):
         :return:
         """
         # Create Valid Entry
+        from mod_regression.models import Category, RegressionTestOutput, InputType, OutputType
 
         test = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
                        InputType.file, OutputType.file, 3, 10)

@@ -4,13 +4,15 @@ mod_regression Controllers
 In this module, we are trying to create, update, edit, delete and
 other various operations on regression tests.
 """
-from flask import Blueprint, g, abort, jsonify, abort
+from flask import Blueprint, g, abort, jsonify, abort,redirect,url_for
 
 from decorators import template_renderer
 from mod_auth.controllers import login_required, check_access_rights
 from mod_auth.models import Role
-from mod_regression.models import Category, RegressionTest
+from mod_regression.models import Category, RegressionTest, RegressionTestOutput
 from mod_sample.models import Sample
+from mod_customized.models import CustomizedTest
+from mod_test.models import Test, TestResult, TestResultFile
 
 mod_regression = Blueprint('regression', __name__)
 
@@ -62,7 +64,6 @@ def test_view(regression_id):
 
 
 @mod_regression.route('/test/<regression_id>/delete')
-@template_renderer()
 @check_access_rights([Role.contributor, Role.admin]) # confirmation to delete regression test
 def test_delete(regression_id):
     """
@@ -80,9 +81,9 @@ def test_delete(regression_id):
     regression_test_outputs = RegressionTestOutput.query.filter(RegressionTestOutput.regression_id == regression_id).all() # finding all regression test outputs that have the given regression test
     test_results = TestResult.query.filter(TestResult.regression_test_id == regression_id).all() # finding all test results that have the given regression test
     test_result_files = TestResultFile.query.filter(TestResultFile.regression_test_id == regression_id).all() # finding all test result files that have the given regression test
-
+    
     # Deleting the tests/files which have the given regression test
-
+    
     for customized_test in customized_tests:
         g.db.delete(customized_test)
     for regression_test_output in regression_test_outputs:

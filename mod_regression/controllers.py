@@ -90,7 +90,7 @@ def test_delete(regression_id):
     for test_result in test_results:
         g.db.delete(test_result)
 
-    for test_result_file in test_results_file:
+    for test_result_file in test_results_files:
         g.db.delete(test_result_file)
 
     g.db.session.delete(test)

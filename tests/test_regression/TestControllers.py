@@ -49,5 +49,5 @@ class TestControllers(BaseTestCase):
         with self.app.test_client() as c:
             response = c.post(
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
-            responseRegression = self.app.test_client().get('/regression/test/9432/delete')
-            self.assertEqual(responseRegression.status_code, 404)
+            response_regression = c.get('/regression/test/9432/delete')
+            self.assertEqual(response_regression.status_code, 404)

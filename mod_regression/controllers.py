@@ -62,9 +62,44 @@ def test_view(regression_id):
 
 
 @mod_regression.route('/test/<regression_id>/delete')
+@check_access_rights([Role.contributor, Role.admin])
 def test_delete(regression_id):
-    # Delete the regression test
-    pass
+    """
+    Delete the regression test
+
+    :param regression_id: The ID of the Regression Test
+    :type int
+    :return: Status Code
+    """
+
+    test = RegressionTest.query.filter(RegressionTest.id == regression_id).first_or_404()
+
+    # Get All References of where we can locate the Regression Test
+
+    custom_tests = CustomizedTest.query.filter(CustomizedTest.regression_id == regression_id).all()
+    test_outputs = RegressionTestOutput.query.filter(RegressionTestOutput.regression_id == regression_id).all()
+    test_results = TestResult.query.filter(TestResult.regression_test_id == regression_id).all()
+    test_result_files = TestResultFile.query.filter(TestResultFile.regression_test_id == regression_id).all()
+
+    # Delete All Tests with found Reference from the Regression test
+    for custom_test in custom_tests:
+        g.db.delete(custom_test)
+
+    for test_output in test_outputs:
+        g.db.delete(test_output)
+
+    for test_result in test_results:
+        g.db.delete(test_result)
+
+    for test_result_file in test_results_file:
+        g.db.delete(test_result_file)
+
+    g.db.session.delete(test)
+    g.db.session.commit()
+
+    return {
+        'test': test
+    }
 
 
 @mod_regression.route('/test/<regression_id>/edit')

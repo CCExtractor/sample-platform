@@ -69,9 +69,9 @@ def test_delete(regression_id):
 
     :param regression_id: The ID of the Regression Test
     :type int
-    :return: Status Code
+    :return: Redirect
     """
-
+    # Show a Single Test
     test = RegressionTest.query.filter(RegressionTest.id == regression_id).first()
 
     if test is None:

@@ -9,9 +9,7 @@ from flask import Blueprint, g, abort, jsonify, abort
 from decorators import template_renderer
 from mod_auth.controllers import login_required, check_access_rights
 from mod_auth.models import Role
-from mod_regression.models import Category, RegressionTest, RegressionTestOutput
-from mod_test.models import TestResult, TestResultFile
-from mod_customized.models import CustomizedTest
+from mod_regression.models import Category, RegressionTest
 from mod_sample.models import Sample
 
 mod_regression = Blueprint('regression', __name__)
@@ -78,25 +76,6 @@ def test_delete(regression_id):
 
     if test is None:
         abort(404)
-
-    # Get All References of where we can locate the Regression Test
-    custom_tests = CustomizedTest.query.filter(CustomizedTest.regression_id == regression_id).all()
-    test_outputs = RegressionTestOutput.query.filter(RegressionTestOutput.regression_id == regression_id).all()
-    test_results = TestResult.query.filter(TestResult.regression_test_id == regression_id).all()
-    test_result_files = TestResultFile.query.filter(TestResultFile.regression_test_id == regression_id).all()
-
-    # Delete All Tests with found Reference from the Regression test
-    for custom_test in custom_tests:
-        g.db.delete(custom_test)
-
-    for test_output in test_outputs:
-        g.db.delete(test_output)
-
-    for test_result in test_results:
-        g.db.delete(test_result)
-
-    for test_result_file in test_result_files:
-        g.db.delete(test_result_file)
 
     g.db.delete(test)
     g.db.commit()

@@ -74,7 +74,7 @@ def test_delete(regression_id):
     :return: Status Code
     """
 
-    test = RegressionTest.query.filter(RegressionTest.id == regression_id)
+    test = RegressionTest.query.filter(RegressionTest.id == regression_id).first()
 
     if test is None:
         abort(404)

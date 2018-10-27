@@ -31,10 +31,10 @@ class TestControllers(BaseTestCase):
             else:
                 self.assertEqual('True', response.json['active'])
 
-    def test_delete_if_will_abort(self):
+    def test_delete_if_will_abort_due_to_lack_of_permission(self):
         """
         This will test if it will abort on an invalid test
         :return:
         """
         response = self.app.test_client().get('/regression/test/9432/delete')
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, 500)

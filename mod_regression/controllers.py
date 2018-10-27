@@ -9,7 +9,8 @@ from flask import Blueprint, g, abort, jsonify, abort
 from decorators import template_renderer
 from mod_auth.controllers import login_required, check_access_rights
 from mod_auth.models import Role
-from mod_regression.models import Category, RegressionTest
+from mod_regression.models import Category, RegressionTest, RegressionTestOutput
+from mod_test.models import TestResult, TestResultFile
 from mod_sample.models import Sample
 
 mod_regression = Blueprint('regression', __name__)
@@ -93,7 +94,7 @@ def test_delete(regression_id):
     for test_result in test_results:
         g.db.delete(test_result)
 
-    for test_result_file in test_results_files:
+    for test_result_file in test_result_files:
         g.db.delete(test_result_file)
 
     g.db.session.delete(test)

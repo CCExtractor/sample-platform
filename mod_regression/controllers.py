@@ -72,7 +72,10 @@ def test_delete(regression_id):
     :return: Status Code
     """
 
-    test = RegressionTest.query.filter_by(RegressionTest.id == regression_id).first_or_404()
+    test = RegressionTest.query.filter(RegressionTest.id == regression_id)
+
+    if test is None:
+        abort(404)
 
     # Get All References of where we can locate the Regression Test
     custom_tests = CustomizedTest.query.filter(CustomizedTest.regression_id == regression_id).all()

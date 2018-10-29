@@ -58,10 +58,6 @@ class TestControllers(BaseTestCase):
         :return:
         """
         # Create Valid Entry
-        from mod_regression.models import Category, RegressionTest
-
-        category = Category('Some Random Category', 'Todo')
-
         g.db.add(category)
         g.db.commit()
 

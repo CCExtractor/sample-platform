@@ -30,3 +30,7 @@ class TestControllers(BaseTestCase):
                 self.assertEqual('False', response.json['active'])
             else:
                 self.assertEqual('True', response.json['active'])
+
+    def test_add_category:
+        pass
+        # will add unitests tomorrow if you think that the rest of the work is good

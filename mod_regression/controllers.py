@@ -4,7 +4,7 @@ mod_regression Controllers
 In this module, we are trying to create, update, edit, delete and
 other various operations on regression tests.
 """
-from flask import Blueprint, g, abort, jsonify, abort, redirect, url_for,request, render_template, flash
+from flask import Blueprint, g, abort, jsonify, abort, redirect, url_for, request, render_template, flash
 
 from decorators import template_renderer
 from mod_auth.controllers import login_required, check_access_rights
@@ -124,11 +124,10 @@ def category_add():
     """
     form = AddCategoryForm(request.form)
     if form.validate():
-        new_category = Category(name = form.category_name.data,description = form.category_description.data)
+        new_category = Category(
+            name=form.category_name.data, description=form.category_description.data)
         g.db.add(new_category)
         g.db.commit()
         flash('New Category Added')
-        form = AddCategoryForm(None)
         return redirect(url_for('.index'))
-    else:
-        return {'form': form}
+    return {'form': form}

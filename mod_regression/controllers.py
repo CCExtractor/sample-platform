@@ -4,7 +4,7 @@ mod_regression Controllers
 In this module, we are trying to create, update, edit, delete and
 other various operations on regression tests.
 """
-from flask import Blueprint, g, abort, jsonify, abort
+from flask import Blueprint, g, abort, jsonify, abort, redirect, url_for
 
 from decorators import template_renderer
 from mod_auth.controllers import login_required, check_access_rights
@@ -101,9 +101,24 @@ def test_add():
 
 
 @mod_regression.route('/category/<category_id>/delete')
+@check_access_rights([Role.contributor, Role.admin])
 def category_delete(category_id):
-    # Delete a regression test category
-    pass
+    """
+    Delete the category
+    :param category_id: The ID of the Category
+    :type int
+    :return: Redirect
+    """
+
+    category = Category.query.filter(Category.id == category_id).first()
+
+    if category is None:
+        abort(404)
+
+    g.db.delete(test)
+    g.db.commit()
+
+    return redirect(url_for('.index'))
 
 
 @mod_regression.route('/category/<category_id>/edit')

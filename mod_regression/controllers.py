@@ -1,133 +1,146 @@
-"""
-mod_regression Controllers
-===================
-In this module, we are trying to create, update, edit, delete and
-other various operations on regression tests.
-"""
-from flask import Blueprint, g, abort, jsonify, abort, redirect, url_for
-
-from decorators import template_renderer
-from mod_auth.controllers import login_required, check_access_rights
+from tests.base import BaseTestCase
 from mod_auth.models import Role
-from mod_regression.models import Category, RegressionTest
-from mod_sample.models import Sample
-
-mod_regression = Blueprint('regression', __name__)
+from mod_regression.models import RegressionTest,Category
+from flask import g
 
 
-@mod_regression.before_app_request
-def before_app_request():
-    g.menu_entries['regression'] = {
-        'title': 'Regression tests',
-        'icon': 'industry',
-        'route': 'regression.index'
-    }
+class TestControllers(BaseTestCase):
+    def test_root(self):
+        response = self.app.test_client().get('/regression/')
+        self.assertEqual(response.status_code, 200)
+        self.assert_template_used('regression/index.html')
 
+    def test_specific_regression_test_loads(self):
+        response = self.app.test_client().get('/regression/test/1/view')
+        self.assertEqual(response.status_code, 200)
+        self.assert_template_used('regression/test_view.html')
+        regression_test = RegressionTest.query.filter(RegressionTest.id == 1).first()
+        self.assertIn(regression_test.command, str(response.data))
 
-@mod_regression.route('/')
-@template_renderer()
-def index():
-    return {
-        'tests': RegressionTest.query.all(),
-        'categories': Category.query.order_by(Category.name.asc()).all()
-    }
+    def test_regression_test_status_toggle(self):
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            regression_test = RegressionTest.query.filter(RegressionTest.id == 1).first()
+            response = c.get('/regression/test/1/toggle')
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual('success', response.json['status'])
+            if regression_test.active == 1:
+                self.assertEqual('False', response.json['active'])
+            else:
+                self.assertEqual('True', response.json['active'])
 
+    def test_delete_if_will_abort_due_to_lack_of_permission(self):
+        """
+        This will test if it will abort on lack of permission
+        :return:
+        """
+        response = self.app.test_client().get('/regression/test/9432/delete')
+        self.assertEqual(response.status_code, 500)
 
-@mod_regression.route('/sample/<sample_id>')
-@template_renderer()
-def by_sample(sample_id):
-    # Show all regression tests for sample
-    sample = Sample.query.filter(Sample.id == sample_id).first()
-    if sample is None:
-        abort(404)
-    return {
-        'sample': sample,
-        'tests': RegressionTest.query.filter(
-            RegressionTest.sample_id == sample.id).all()
-    }
+    def test_delete_if_will_throw_404(self):
+        """
+        Check if it will throw an error 404
+        :return:
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response_regression = c.get('/regression/test/9432/delete')
+            self.assertEqual(response_regression.status_code, 404)
 
+    def test_delete(self):
+        """
+        Check it will delete the test
+        :return:
+        """
+        # Create Valid Entry
+        from mod_regression.models import Category, RegressionTestOutput, InputType, OutputType
 
-@mod_regression.route('/test/<regression_id>/view')
-@template_renderer()
-def test_view(regression_id):
-    # Show a single regression test
-    test = RegressionTest.query.filter(RegressionTest.id == regression_id).first()
+        test = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
+                       InputType.file, OutputType.file, 3, 10)
 
-    if test is None:
-        abort(404)
+        g.db.add(test)
 
-    return {
-        'test': test
-    }
+        g.db.commit()
 
+        # Create Account to Delete Test
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
 
-@mod_regression.route('/test/<regression_id>/delete')
-def test_delete(regression_id):
-    # Delete the regression test
-    pass
+        # Delete Test
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response_regression = c.get('/regression/test/1/delete')
+            self.assertEqual(response_regression.status_code, 302) # 302 is code for redirection
 
+    def test_add_category(self):
+        """
+        Check it will add a category
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/regression/category_add', data=dict(category_name="Lost", category_description="And found", submit=True))
+            self.assertNotEqual(Category.query.filter(Category.name=="Lost").first(),None)
 
-@mod_regression.route('/test/<regression_id>/edit')
-def test_edit(regression_id):
-    # Edit the regression test
-    pass
+    def test_add_category_empty(self):
+        """
+        Check it won't add a category with an empty name
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/regression/category_add', data=dict(category_name="", category_description="And Lost", submit=True))
+            self.assertEqual(Category.query.filter(Category.name=="").first(),None)
+            self.assertEqual(Category.query.filter(Category.description=="And Lost").first(),None)
 
+    def category_delete_if_will_abort_due_to_lack_of_permission(self):
+        """
+        This will test if it will abort on lack of permission
+        :return:
+        """
+        response = self.app.test_client().get('/regression/category/9432/delete')
+        self.assertEqual(response.status_code, 500)
 
-@mod_regression.route('/test/<regression_id>/toggle')
-@check_access_rights([Role.admin])
-def toggle_active_status(regression_id):
-    # Change active status of the regression test
-    regression_test = RegressionTest.query.filter(RegressionTest.id == regression_id).first()
-    if regression_test is None:
-        abort(404)
-    regression_test.active = not regression_test.active
-    g.db.commit()
-    return jsonify({
-        "status": "success",
-        "active": str(regression_test.active)
-    })
+    def category_delete_if_will_throw_404(self):
+        """
+        Check if it will throw an error 404
+        :return:
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response_regression = c.get('/regression/category/9432/delete')
+            self.assertEqual(response_regression.status_code, 404)
 
+    def category_delete(self):
+        """
+        Check it will delete the test
+        :return:
+        """
 
-@mod_regression.route('/test/<regression_id>/results')
-def test_result(regression_id):
-    # View the output files of the regression test
-    pass
+        # Create Account to Delete Test
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
 
+        # Delete Test
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response_regression = c.get('/regression/category/1/delete')
+            self.assertEqual(response_regression.status_code, 302)  # 302 is code for redirection
 
-@mod_regression.route('/test/new')
-def test_add():
-    # Add a new regression test
-    pass
-
-
-@mod_regression.route('/category/<category_id>/delete')
-@check_access_rights([Role.contributor, Role.admin])
-def category_delete(category_id):
-    """
-    Delete the category
-    :param category_id: The ID of the Category
-    :type int
-    :return: Redirect
-    """
-
-    category = Category.query.filter(Category.id == category_id).first()
-
-    if category is None:
-        abort(404)
-
-    g.db.delete(category)
-    g.db.commit()
-
-    return redirect(url_for('.index'))
-
-
-@mod_regression.route('/category/<category_id>/edit')
-def category_edit(category_id):
-    # Edit a regression test category
-    pass
-
-
-@mod_regression.route('/category/add')
-def category_add():
-    # Add a regression test category
-    pass

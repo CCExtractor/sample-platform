@@ -57,7 +57,7 @@ class TestControllers(BaseTestCase):
         Check it will delete the test
         :return:
         """
-        
+
         # Create Account to Delete Test
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)

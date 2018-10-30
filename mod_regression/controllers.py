@@ -115,7 +115,7 @@ def category_delete(category_id):
     if category is None:
         abort(404)
 
-    g.db.delete(test)
+    g.db.delete(category)
     g.db.commit()
 
     return redirect(url_for('.index'))

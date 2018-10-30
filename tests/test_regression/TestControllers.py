@@ -106,7 +106,7 @@ class TestControllers(BaseTestCase):
             self.assertEqual(Category.query.filter(Category.name=="").first(),None)
             self.assertEqual(Category.query.filter(Category.description=="And Lost").first(),None)
 
-    def category_delete_if_will_abort_due_to_lack_of_permission(self):
+    def test_category_delete_if_will_abort_due_to_lack_of_permission(self):
         """
         This will test if it will abort on lack of permission
         :return:
@@ -114,7 +114,7 @@ class TestControllers(BaseTestCase):
         response = self.app.test_client().get('/regression/category/9432/delete')
         self.assertEqual(response.status_code, 500)
 
-    def category_delete_if_will_throw_404(self):
+    def test_category_delete_if_will_throw_404(self):
         """
         Check if it will throw an error 404
         :return:
@@ -127,7 +127,7 @@ class TestControllers(BaseTestCase):
             response_regression = c.get('/regression/category/9432/delete')
             self.assertEqual(response_regression.status_code, 404)
 
-    def category_delete(self):
+    def test_category_delete(self):
         """
         Check it will delete the test
         :return:

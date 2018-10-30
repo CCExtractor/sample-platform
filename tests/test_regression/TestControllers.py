@@ -143,3 +143,4 @@ class TestControllers(BaseTestCase):
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
             response_regression = c.get('/regression/category/1/delete')
             self.assertEqual(response_regression.status_code, 302)  # 302 is code for redirection
+

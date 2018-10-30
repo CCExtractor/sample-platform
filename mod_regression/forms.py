@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
-from wtforms import Form, StringField, SubmitField
-from wtforms.validators import DataRequired
+from wtforms import Form, StringField, SubmitField, SelectField, validators
+from wtforms.validators import DataRequired, Email, ValidationError
 
 class AddCategoryForm(FlaskForm):
     """

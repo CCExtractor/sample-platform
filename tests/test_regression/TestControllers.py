@@ -87,7 +87,9 @@ class TestControllers(BaseTestCase):
             self.user.name, self.user.email, self.user.password, Role.admin)
         with self.app.test_client() as c:
             response = c.post(
-                '/category_add', data=dict(category_name="Lost", category_description="And found", submit=True))
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/regression/category_add', data=dict(category_name="Lost", category_description="And found", submit=True))
             self.assertNotEqual(Category.query.filter(Category.name=="Lost").first(),None)
 
     def test_add_category_empty(self):
@@ -98,6 +100,8 @@ class TestControllers(BaseTestCase):
             self.user.name, self.user.email, self.user.password, Role.admin)
         with self.app.test_client() as c:
             response = c.post(
-                '/category_add', data=dict(category_name="", category_description="And Lost", submit=True))
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/regression/category_add', data=dict(category_name="", category_description="And Lost", submit=True))
             self.assertEqual(Category.query.filter(Category.name=="").first(),None)
             self.assertEqual(Category.query.filter(Category.description=="And Lost").first(),None)

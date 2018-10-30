@@ -1,6 +1,6 @@
 from tests.base import BaseTestCase
 from mod_auth.models import Role
-from mod_regression.models import RegressionTest
+from mod_regression.models import RegressionTest,Category
 from flask import g
 
 
@@ -78,7 +78,27 @@ class TestControllers(BaseTestCase):
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
             response_regression = c.get('/regression/test/1/delete')
             self.assertEqual(response_regression.status_code, 302) # 302 is code for redirection
+
+    def test_add_category(self):
+        """
+        Check it will add a category
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/category_add', data=dict(name="Lost", description="And found"))
+            self.assertNotEqual(Category.query.filter(Category.name=="Lost"),None)
+
+    def test_add_category_empty(self):
+        """
+        Check it won't add a category with an empty name
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/category_add', data=dict(name="", description="And Lost"))
+            self.assertEqual(Category.query.filter(Category.name==""),None)
+            self.assertEqual(Category.query.filter(Category.description=="And Lost"),None)
             
-    def test_add_category:
-        pass
-        # will add unitests tomorrow if you think that the rest of the work is good            

@@ -88,7 +88,7 @@ class TestControllers(BaseTestCase):
         with self.app.test_client() as c:
             response = c.post(
                 '/category_add', data=dict(name="Lost", description="And found"))
-            self.assertNotEqual(Category.query.filter(Category.name=="Lost"),None)
+            self.assertNotEqual(Category.query.filter(Category.name=="Lost").first(),None)
 
     def test_add_category_empty(self):
         """

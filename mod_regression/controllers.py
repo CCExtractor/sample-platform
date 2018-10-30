@@ -5,7 +5,7 @@ In this module, we are trying to create, update, edit, delete and
 other various operations on regression tests.
 """
 
-from flask import Blueprint, g, abort, jsonify, abort, redirect, url_for, request, render_template, flash
+from flask import Blueprint, g, abort, jsonify, abort, redirect, url_for, request, flash
 
 from decorators import template_renderer
 from mod_auth.controllers import login_required, check_access_rights

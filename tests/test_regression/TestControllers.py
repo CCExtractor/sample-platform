@@ -105,3 +105,49 @@ class TestControllers(BaseTestCase):
                 '/regression/category_add', data=dict(category_name="", category_description="And Lost", submit=True))
             self.assertEqual(Category.query.filter(Category.name=="").first(),None)
             self.assertEqual(Category.query.filter(Category.description=="And Lost").first(),None)
+
+    def test_edit_category(self):
+        """
+        Check it will edit a category
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            new_category = Category(name="C-137", description="Wubba lubba dub dub")
+            g.db.add(new_category)
+            g.db.commit()
+            response = c.post(
+                '/regression/category/1/edit', data=dict(category_name="Sheldon", category_description="Thats ma spot", submit=True))
+            self.assertNotEqual(Category.query.filter(Category.name=="Sheldon").first(),None)
+
+    def test_edit_category_empty(self):
+        """
+        Check it won't edit a category with an empty name
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            new_category = Category(name="C-137", description="Wubba lubba dub dub")
+            g.db.add(new_category)
+            g.db.commit()
+            response = c.post(
+                '/regression/category/1/edit', data=dict(category_name="", category_description="GG", submit=True))
+            self.assertEqual(Category.query.filter(Category.name=="").first(),None)
+            self.assertEqual(Category.query.filter(Category.description=="GG").first(),None)
+            self.assertNotEqual(Category.query.filter(Category.name=="C-137").first(),None)
+
+    def test_edit_wrong_category(self):
+        """
+        Check it will throw 404 if trying to edit a category which doesn't exist
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response_regression = c.get('/category/1729/edit')
+            self.assertEqual(response_regression.status_code, 404)

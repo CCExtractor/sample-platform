@@ -5,7 +5,7 @@ In this module, we are trying to create, update, edit, delete and
 other various operations on regression tests.
 """
 
-from flask import Blueprint, g, abort, jsonify, abort, redirect, url_for, request, render_template, flash
+from flask import Blueprint, g, abort, jsonify, abort, redirect, url_for, request, flash
 
 from decorators import template_renderer
 from mod_auth.controllers import login_required, check_access_rights
@@ -126,7 +126,7 @@ def category_delete(category_id):
     pass
 
 
-@mod_regression.route('/category/<category_id>/edit')
+@mod_regression.route('/category/<category_id>/edit', methods=['GET', 'POST'])
 @template_renderer()
 @check_access_rights([Role.admin])
 def category_edit(category_id):
@@ -148,8 +148,7 @@ def category_edit(category_id):
         g.db.commit()
         flash('Category Updated')
         return redirect(url_for('.index'))
-    # return render_template('regression/category_edit.html',category_id=category_id,form=form)
-    return {'form': form}
+    return {'form': form, 'category_id': category_id}
 
 @mod_regression.route('/category_add', methods=['GET', 'POST'])
 @template_renderer()

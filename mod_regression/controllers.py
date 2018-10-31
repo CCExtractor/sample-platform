@@ -126,11 +126,29 @@ def category_delete(category_id):
     pass
 
 
-@mod_regression.route('/category/<category_id>/edit')
+@mod_regression.route('/category/<category_id>/edit', methods=['GET', 'POST'])
+@template_renderer()
+@check_access_rights([Role.admin])
 def category_edit(category_id):
-    # Edit a regression test category
-    pass
+    """
+    Function  to edit regression test category
+    param category_id : The ID of the Regression Test Category
+    type category_id : int
+    """
 
+    test = Category.query.filter(Category.id == category_id).first()
+
+    if(test is None):
+        abort(404)
+
+    form = AddCategoryForm(request.form)
+    if form.validate():
+        test.name = form.category_name.data
+        test.description = form.category_description.data
+        g.db.commit()
+        flash('Category Updated')
+        return redirect(url_for('.index'))
+    return {'form': form, 'category_id': category_id}
 
 @mod_regression.route('/category_add', methods=['GET', 'POST'])
 @template_renderer()

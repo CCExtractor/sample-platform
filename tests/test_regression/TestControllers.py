@@ -149,6 +149,8 @@ class TestControllers(BaseTestCase):
         with self.app.test_client() as c:
             response = c.post(
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
-
+            new_category = Category(name="C-137", description="Wubba lubba dub dub")
+            g.db.add(new_category)
+            g.db.commit()
             response_regression = c.post('/category/1729/edit',data=dict(category_name="Sheldon", category_description="Thats ma spot", submit=True))
             self.assertEqual(response_regression.status_code, 404)

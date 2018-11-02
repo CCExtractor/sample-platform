@@ -5,13 +5,13 @@ In this module, we are trying to create, update, edit, delete and
 other various operations on regression tests.
 """
 
-from flask import Blueprint, g, abort, jsonify, abort, redirect, url_for, request, flash
+from flask import Blueprint, g, abort, jsonify, abort, redirect, url_for, request, render_template, flash
 
 from decorators import template_renderer
 from mod_auth.controllers import login_required, check_access_rights
 from mod_auth.models import Role
-from mod_regression.models import Category, RegressionTest, RegressionTestOutput
-from mod_regression.forms import AddCategoryForm
+from mod_regression.models import Category, RegressionTest, RegressionTestOutput, InputType, OutputType
+from mod_regression.forms import AddCategoryForm, AddTestForm
 from mod_sample.models import Sample
 from mod_customized.models import CustomizedTest
 from mod_test.models import Test, TestResult, TestResultFile
@@ -114,11 +114,24 @@ def test_result(regression_id):
     pass
 
 
-@mod_regression.route('/test/new')
+@mod_regression.route('/test/new', methods=['GET', 'POST'])
+@template_renderer()
+@check_access_rights([Role.admin])
 def test_add():
-    # Add a new regression test
-    pass
-
+    """
+    Function to add a regression test
+    """
+    form = AddTestForm(request.form)
+    if form.validate():
+        new_test = RegressionTest(
+            sample_id=form.sample_id.data, command=form.command.data,
+            category_id=form.category_id.data, expected_rc=form.expected_rc.data,
+            input_type=InputType.file, output_type=OutputType.file)
+        g.db.add(new_test)
+        g.db.commit()
+        flash('New Regression Test Added')
+        return redirect(url_for('.index'))
+    return {'form': form}
 
 @mod_regression.route('/category/<category_id>/delete')
 def category_delete(category_id):

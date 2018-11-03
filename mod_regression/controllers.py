@@ -122,11 +122,13 @@ def test_add():
     Function to add a regression test
     """
     form = AddTestForm(request.form)
+    form.sample_id.choices = [(sam.id,sam.sha) for sam in Sample.query.all()]
+    form.category_id.choices = [(cat.id,cat.name) for cat in Category.query.all()]
     if form.validate():
         new_test = RegressionTest(
             sample_id=form.sample_id.data, command=form.command.data,
             category_id=form.category_id.data, expected_rc=form.expected_rc.data,
-            input_type=InputType.file, output_type=OutputType.file)
+            input_type=input_type.data, output_type=output_type.file)
         g.db.add(new_test)
         g.db.commit()
         flash('New Regression Test Added')

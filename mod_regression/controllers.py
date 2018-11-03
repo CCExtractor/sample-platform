@@ -36,6 +36,12 @@ def index():
         'categories': Category.query.order_by(Category.name.asc()).all()
     }
 
+def ask_confirm():
+    """
+    Used for the confirmation_required decorator
+    :return:
+    """
+    return "This Action is Permanent and cannot be recovered! Are you sure you want to delete this?"
 
 @mod_regression.route('/sample/<sample_id>')
 @template_renderer()
@@ -119,11 +125,26 @@ def test_add():
     # Add a new regression test
     pass
 
-
 @mod_regression.route('/category/<category_id>/delete')
+@confirmation_required(ask_confirm)
+@check_access_rights([Role.contributor, Role.admin])
 def category_delete(category_id):
-    # Delete a regression test category
-    pass
+    """
+    Delete the category
+    :param category_id: The ID of the Category
+    :type int
+    :return: Redirect
+    """
+
+    category = Category.query.filter(Category.id == category_id).first()
+
+    if category is None:
+        abort(404)
+
+    g.db.delete(category)
+    g.db.commit()
+
+    return redirect(url_for('.index'))
 
 
 @mod_regression.route('/category/<category_id>/edit', methods=['GET', 'POST'])

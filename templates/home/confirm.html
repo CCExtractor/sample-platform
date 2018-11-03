@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}Confirm Action!{% endblock %}
+{% block body %}
+
+{{ super() }}
+
+<div class="column medium-12">
+    <h1>{{ desc }}</h1>
+</div>
+
+<div class="column medium-12">
+<form action="{{ action_url }}" method="GET">
+    <input type="hidden" name="confirm" value="1">
+    <input type="submit" value="Yes">
+</form>
+</div>

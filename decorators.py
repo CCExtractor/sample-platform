@@ -1,6 +1,6 @@
 from datetime import date
 from functools import wraps
-from flask import request, g, render_template
+from flask import request, g, render_template, url_for
 
 
 def get_menu_entries(user, title, icon, access=None, route='', all_entries=None):
@@ -113,3 +113,23 @@ def template_renderer(template=None, status=200):
         return decorated_function
 
     return decorator
+
+
+def confirmation_required(confirm_fn):
+    """
+    Based on: https://stackoverflow.com/questions/32911578/flask-confirm-action
+
+    Decorator to return a redirect for a confirmation
+    :param confirm_fn: The Value from a Confirm function
+    :return:
+    """
+    def inner(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            if request.args.get('confirm') != '1':
+                desc = confirm_fn()
+                return redirect(url_for('confirm',
+                    desc=desc, action_url=quote(request.url)))
+            return f(*args, **kwargs)
+        return wrapper
+    return inner

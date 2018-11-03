@@ -154,3 +154,41 @@ class TestControllers(BaseTestCase):
             g.db.commit()
             response_regression = c.post('regression/category/1729/edit',data=dict(category_name="Sheldon", category_description="That\'s my spot", submit=True))
             self.assertEqual(response_regression.status_code, 404)
+
+    def test_category_delete_if_will_abort_due_to_lack_of_permission(self):
+        """
+        This will test if it will abort on lack of permission
+        :return:
+        """
+        response = self.app.test_client().get('/regression/category/9432/delete')
+        self.assertEqual(response.status_code, 500)
+
+    def test_category_delete_if_will_throw_404(self):
+        """
+        Check if it will throw an error 404
+        :return:
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response_regression = c.get('/regression/category/9432/delete')
+            self.assertEqual(response_regression.status_code, 404)
+
+    def test_category_delete(self):
+        """
+        Check it will delete the test
+        :return:
+        """
+
+        # Create Account to Delete Test
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+
+        # Delete Test
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response_regression = c.get('/regression/category/1/delete')
+            self.assertEqual(response_regression.status_code, 302)  # 302 is code for redirection

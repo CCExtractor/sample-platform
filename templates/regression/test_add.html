@@ -10,7 +10,7 @@
             <p>Please add new regression test</p>
         </div>
     </div>
-    <form method="post" name="TestForm" id="TestForm" action="{{ url_for('.test_add') }}">
+    <form method="post" name="AddTestForm" id="AddTestForm" action="{{ url_for('.test_add') }}">
         {{ form.csrf_token }}
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}

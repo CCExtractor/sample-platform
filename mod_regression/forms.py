@@ -16,11 +16,20 @@ class AddTestForm(FlaskForm):
     """
     Flask form to Add Regression Test
     """
-    sample_id = SelectField(u'Sample', choices=[(' ',' ')], default=' ')
+    sample_id = SelectField(u'Sample', coerce=int)
     command = StringField('Command')
-    input_type = SelectField(u'Input Type', choices = [(InputType.file,"File"),(InputType.stdin,"Stdin"),(InputType.udp,"UDP")])
-    output_type = SelectField(u'Output Type', choices = [(OutputType.file,"File"),(OutputType.null,"Null"),(OutputType.tcp,"TCP"),
-        (OutputType.cea708,"CEA-708"),(OutputType.multi_program,"Multi-Program"),(OutputType.stdout,"Stdout"),(OutputType.report,"Report")])
-    category_id = SelectField(u'Category', choices=[(' ',' ')], default=' ')
-    expected_rc = IntegerField('Expected Runtime Code', [NumberRange(min=0,message="Expected Runtime Code must be greater than 0")])
+    input_type = SelectField(
+        u'Input Type',
+        [DataRequired(message='Input Type is not selected')],
+        coerce=str,
+        choices=[(i.value, i.description) for i in InputType]
+    )
+    output_type = SelectField(
+        u'Output Type',
+        [DataRequired(message='Output Type is not selected')],
+        coerce=str,
+        choices=[(o.value, o.description) for o in OutputType]
+    )
+    category_id = SelectField(u'Category', coerce=int)
+    expected_rc = IntegerField('Expected Runtime Code',[NumberRange(min=0,message="Expected Runtime Code must be greater than 0")])
     submit = SubmitField("Add Regression Test")

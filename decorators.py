@@ -1,6 +1,6 @@
 from datetime import date
 from functools import wraps
-from flask import request, g, render_template, url_for
+from flask import request, g, render_template, url_for, redirect
 
 
 def get_menu_entries(user, title, icon, access=None, route='', all_entries=None):

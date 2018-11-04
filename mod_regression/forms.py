@@ -35,7 +35,7 @@ class AddTestForm(FlaskForm):
         [DataRequired(message="Expected Runtime Code can't be empty")])
     submit = SubmitField("Add Regression Test")
 
-class confirmation(FlaskForm):
+class ConfirmationForm(FlaskForm):
     """
     Flask Form Used for Asking Confirmations
     """

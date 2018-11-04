@@ -9,7 +9,7 @@ from decorators import template_renderer
 from mod_auth.controllers import login_required, check_access_rights
 from mod_auth.models import Role
 from mod_regression.models import Category, RegressionTest, RegressionTestOutput
-from mod_regression.forms import AddCategoryForm, AddTestForm, ConfirmationForm
+from mod_regression.forms import AddCategoryForm, AddTest, ConfirmationForm
 from mod_sample.models import Sample
 from mod_customized.models import CustomizedTest
 from mod_test.models import Test, TestResult, TestResultFile
@@ -150,7 +150,7 @@ def category_delete(category_id):
     if category is None:
         abort(404)
 
-    form = deleteConfirmation()
+    form = ConfirmationForm()
 
     if form.validate_on_submit():
         g.db.delete(category)

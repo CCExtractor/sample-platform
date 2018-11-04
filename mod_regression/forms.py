@@ -39,5 +39,5 @@ class ConfirmationForm(FlaskForm):
     """
     Flask Form Used for Asking Confirmations
     """
-    confirm = HiddenField('nesho', default='yes',) # nesho = something
+    confirm = HiddenField('nesho', default='yes') # nesho = something
     submit = SubmitField('Confirm')

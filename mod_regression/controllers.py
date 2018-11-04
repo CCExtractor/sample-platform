@@ -13,7 +13,6 @@ from mod_regression.forms import AddCategoryForm
 from mod_sample.models import Sample
 from mod_customized.models import CustomizedTest
 from mod_test.models import Test, TestResult, TestResultFile
-from urllib import urlencode, quote, unquote
 
 mod_regression = Blueprint('regression', __name__)
 
@@ -25,19 +24,6 @@ def before_app_request():
         'icon': 'industry',
         'route': 'regression.index'
     }
-
-@app.route('/confirm')
-def confirm():
-    """
-    Ask for Confirmation.
-    """
-    desc = request.args['desc']
-    action_url = unquote(request.args['action_url'])
-
-
-def ask_confirmation():
-    return "Do you confirm the deletion?"
-
 
 @mod_regression.route('/')
 @template_renderer()

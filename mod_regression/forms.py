@@ -34,3 +34,10 @@ class AddTestForm(FlaskForm):
     expected_rc = IntegerField("Expected Runtime Code",
         [DataRequired(message="Expected Runtime Code can't be empty")])
     submit = SubmitField("Add Regression Test")
+
+class confirmation(FlaskForm):
+    """
+    Flask Form Used for Asking Confirmations
+    """
+    confirm = HiddenField('nesho', default='yes',) # nesho = something
+    submit = SubmitField('Confirm')

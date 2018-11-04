@@ -1,6 +1,6 @@
 from tests.base import BaseTestCase
 from mod_auth.models import Role
-from mod_regression.models import RegressionTest,Category
+from mod_regression.models import RegressionTest, Category, InputType, OutputType
 from flask import g
 
 
@@ -119,7 +119,7 @@ class TestControllers(BaseTestCase):
             g.db.add(new_category)
             g.db.commit()
             response = c.post(
-                '/regression/category/1/edit', data=dict(category_name="Sheldon", category_description="That\'s my spot", submit=True))
+                '/regression/category/1/edit', data=dict(category_name="Sheldon", category_description="Thats my spot", submit=True))
             self.assertNotEqual(Category.query.filter(Category.name=="Sheldon").first(),None)
 
     def test_edit_category_empty(self):
@@ -152,5 +152,47 @@ class TestControllers(BaseTestCase):
             new_category = Category(name="C-137", description="Wubba lubba dub dub")
             g.db.add(new_category)
             g.db.commit()
-            response_regression = c.post('regression/category/1729/edit',data=dict(category_name="Sheldon", category_description="That\'s my spot", submit=True))
+            response_regression = c.post('regression/category/1729/edit',data=dict(category_name="Sheldon", category_description="Thats my spot", submit=True))
             self.assertEqual(response_regression.status_code, 404)
+
+    def test_add_test(self):
+        """
+        Check it will add a regression test
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/regression/test/new', data=dict(
+                    sample_id = 1,
+                    command = "-autoprogram -out=ttxt -latin1 -2",
+                    input_type = InputType.file,
+                    output_type = OutputType.file,
+                    category_id = 1,
+                    expected_rc = 25,
+                    submit = True,
+                ))
+            self.assertNotEqual(RegressionTest.query.filter(RegressionTest.id==1).first(),None)
+
+    def test_add_test_negative_erc(self):
+        """
+        Check it will not add a regression test with negative Expected Runtime Code
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/regression/test/new', data=dict(
+                    sample_id = 1,
+                    command = "-autoprogram -out=ttxt -latin1 -2",
+                    input_type = InputType.file,
+                    output_type = OutputType.file,
+                    category_id = 1,
+                    expected_rc = -25,
+                    submit = True,
+                ))
+            self.assertEqual(RegressionTest.query.filter(RegressionTest.id==1).first(),None)

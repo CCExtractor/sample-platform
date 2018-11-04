@@ -130,8 +130,9 @@ def test_add():
             category_id=form.category_id.data, expected_rc=form.expected_rc.data,
             input_type=InputType.from_string(form.input_type.data), output_type=OutputType.from_string(form.output_type.data))
         g.db.add(new_test)
+        category = Category.query.filter(Category.id==form.category_id.data).first()
+        category.regression_tests.append(new_test)
         g.db.commit()
-        flash('New Regression Test Added')
         return redirect(url_for('.index'))
     return {'form': form}
 

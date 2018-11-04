@@ -31,5 +31,7 @@ class AddTestForm(FlaskForm):
         choices=[(o.value, o.description) for o in OutputType]
     )
     category_id = SelectField(u'Category', coerce=int)
-    expected_rc = IntegerField('Expected Runtime Code',[NumberRange(min=0,message="Expected Runtime Code must be greater than 0")])
+    expected_rc = IntegerField('Expected Runtime Code',
+        [NumberRange(min=0,message='Expected Runtime Code must be non-negative')],
+        default=0)
     submit = SubmitField("Add Regression Test")

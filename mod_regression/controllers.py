@@ -134,7 +134,8 @@ def test_add():
     return {'form': form}
 
 
-@mod_regression.route('/category/<category_id>/delete')
+@mod_regression.route('/category/<category_id>/delete', methods=['GET', 'POST'])
+@template_renderer()
 @check_access_rights([Role.contributor, Role.admin])
 def category_delete(category_id):
     """
@@ -149,10 +150,16 @@ def category_delete(category_id):
     if category is None:
         abort(404)
 
-    g.db.delete(category)
-    g.db.commit()
+    form = deleteConfirmation()
 
-    return redirect(url_for('.index'))
+    if form.validate_on_submit():
+        g.db.delete(category)
+        g.db.commit()
+        return redirect(url_for('.index'))
+    return {
+        'form': form,
+        'category': category
+    }
 
 
 @mod_regression.route('/category/<category_id>/edit', methods=['GET', 'POST'])

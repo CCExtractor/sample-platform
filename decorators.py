@@ -1,7 +1,6 @@
 from datetime import date
 from functools import wraps
 from flask import request, g, render_template, url_for, redirect
-from urllib2 import quote
 
 def get_menu_entries(user, title, icon, access=None, route='', all_entries=None):
     """
@@ -113,4 +112,3 @@ def template_renderer(template=None, status=200):
         return decorated_function
 
     return decorator
-    

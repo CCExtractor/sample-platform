@@ -4,7 +4,7 @@ mod_home Controllers
 In this module, we are trying to maintain all functionalities
 running on homepage.
 """
-from flask import Blueprint, g, render_template
+from flask import Blueprint, g
 
 from decorators import template_renderer
 from mod_auth.models import Role

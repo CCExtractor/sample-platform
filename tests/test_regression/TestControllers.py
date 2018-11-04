@@ -119,7 +119,7 @@ class TestControllers(BaseTestCase):
             g.db.add(new_category)
             g.db.commit()
             response = c.post(
-                '/regression/category/1/edit', data=dict(category_name="Sheldon", category_description="That\'s my spot", submit=True))
+                '/regression/category/1/edit', data=dict(category_name="Sheldon", category_description="That's my spot", submit=True))
             self.assertNotEqual(Category.query.filter(Category.name=="Sheldon").first(),None)
 
     def test_edit_category_empty(self):
@@ -152,7 +152,7 @@ class TestControllers(BaseTestCase):
             new_category = Category(name="C-137", description="Wubba lubba dub dub")
             g.db.add(new_category)
             g.db.commit()
-            response_regression = c.post('regression/category/1729/edit',data=dict(category_name="Sheldon", category_description="That\'s my spot", submit=True))
+            response_regression = c.post('regression/category/1729/edit',data=dict(category_name="Sheldon", category_description="That's my spot", submit=True))
             self.assertEqual(response_regression.status_code, 404)
 
     def test_add_test(self):

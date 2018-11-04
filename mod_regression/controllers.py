@@ -10,11 +10,9 @@ from flask import Blueprint, g, abort, jsonify, abort, redirect, url_for, reques
 from decorators import template_renderer
 from mod_auth.controllers import login_required, check_access_rights
 from mod_auth.models import Role
-from mod_regression.models import Category, RegressionTest, RegressionTestOutput
-from mod_regression.forms import AddCategoryForm
+from mod_regression.models import Category, RegressionTest, InputType, OutputType
+from mod_regression.forms import AddCategoryForm, AddTestForm
 from mod_sample.models import Sample
-from mod_customized.models import CustomizedTest
-from mod_test.models import Test, TestResult, TestResultFile
 
 mod_regression = Blueprint('regression', __name__)
 
@@ -114,11 +112,27 @@ def test_result(regression_id):
     pass
 
 
-@mod_regression.route('/test/new')
+@mod_regression.route('/test/new', methods=['GET', 'POST'])
+@template_renderer()
+@check_access_rights([Role.admin])
 def test_add():
-    # Add a new regression test
-    pass
-
+    """
+    Function to add a regression test
+    """
+    form = AddTestForm(request.form)
+    form.sample_id.choices = [(sam.id, sam.sha) for sam in Sample.query.all()]
+    form.category_id.choices = [(cat.id, cat.name) for cat in Category.query.all()]
+    if form.validate_on_submit():
+        new_test = RegressionTest(
+            sample_id=form.sample_id.data, command=form.command.data,
+            category_id=form.category_id.data, expected_rc=form.expected_rc.data,
+            input_type=InputType.from_string(form.input_type.data), output_type=OutputType.from_string(form.output_type.data))
+        g.db.add(new_test)
+        category = Category.query.filter(Category.id == form.category_id.data).first()
+        category.regression_tests.append(new_test)
+        g.db.commit()
+        return redirect(url_for('.index'))
+    return {'form': form}
 
 @mod_regression.route('/category/<category_id>/delete')
 def category_delete(category_id):

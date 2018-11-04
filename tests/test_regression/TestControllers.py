@@ -168,8 +168,8 @@ class TestControllers(BaseTestCase):
                 '/regression/test/new', data=dict(
                     sample_id = 1,
                     command = "-autoprogram -out=ttxt -latin1 -2",
-                    input_type = InputType.file,
-                    output_type = OutputType.file,
+                    input_type = "file",
+                    output_type = "file",
                     category_id = 1,
                     expected_rc = 25,
                     submit = True,

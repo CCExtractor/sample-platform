@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Regression Test Add {{ super() }}{% endblock %}
+{% block body %}
+    {{ super() }}
+    <br />
+    <div class="grid-x">
+        <div class="callout warning">
+            <h5>Regression Test Add</h5>
+            <p>Please add new regression test</p>
+        </div>
+    </div>
+    <form method="post" name="AddTestForm" id="AddTestForm" action="{{ url_for('.test_add') }}">
+        {{ form.csrf_token }}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="grid-x">
+                    <div class="callout alert">
+                        <ul class="flashes">
+                            {% for category, message in messages %}
+                            <li class="{{ category }}">{{ message }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            {% endif %}
+        {% endwith %}
+        {% if form.errors %}
+          <div class="grid-x">
+            <div class="callout alert">
+              {% for field, error in form.errors.items() %}
+                {{ error }}<br>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+        <div class="grid-x">
+            <div class="medium-12 columns">
+                {{ macros.render_field(form.sample_id) }}
+            </div>
+            <div class="medium-12 columns">
+                {{ macros.render_field(form.command) }}
+            </div>
+            <div class="medium-12 columns">
+                {{ macros.render_field(form.input_type) }}
+            </div>
+            <div class="medium-12 columns">
+                {{ macros.render_field(form.output_type) }}
+            </div>
+            <div class="medium-12 columns">
+                {{ macros.render_field(form.category_id) }}
+            </div>
+            <div class="medium-12 columns">
+                {{ macros.render_field(form.expected_rc) }}
+            </div>
+            <div class="medium-12 columns">
+                {{ macros.render_field(form.submit) }}
+            </div>
+        </div>
+    </form>
+{% endblock %}

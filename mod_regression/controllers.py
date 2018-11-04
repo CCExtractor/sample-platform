@@ -5,16 +5,14 @@ In this module, we are trying to create, update, edit, delete and
 other various operations on regression tests.
 """
 
-from flask import Blueprint, g, abort, jsonify, abort, redirect, url_for, request, render_template, flash
+from flask import Blueprint, g, abort, jsonify, abort, redirect, url_for, request, flash
 
 from decorators import template_renderer
-from mod_auth.controllers import login_required, check_access_rights
+from mod_auth.controllers import check_access_rights
 from mod_auth.models import Role
-from mod_regression.models import Category, RegressionTest, RegressionTestOutput, InputType, OutputType
+from mod_regression.models import Category, RegressionTest, InputType, OutputType
 from mod_regression.forms import AddCategoryForm, AddTestForm
 from mod_sample.models import Sample
-from mod_customized.models import CustomizedTest
-from mod_test.models import Test, TestResult, TestResultFile
 
 mod_regression = Blueprint('regression', __name__)
 
@@ -122,15 +120,15 @@ def test_add():
     Function to add a regression test
     """
     form = AddTestForm(request.form)
-    form.sample_id.choices = [(sam.id,sam.sha) for sam in Sample.query.all()]
-    form.category_id.choices = [(cat.id,cat.name) for cat in Category.query.all()]
+    form.sample_id.choices = [(sam.id, sam.sha) for sam in Sample.query.all()]
+    form.category_id.choices = [(cat.id, cat.name) for cat in Category.query.all()]
     if form.validate_on_submit():
         new_test = RegressionTest(
             sample_id=form.sample_id.data, command=form.command.data,
             category_id=form.category_id.data, expected_rc=form.expected_rc.data,
             input_type=InputType.from_string(form.input_type.data), output_type=OutputType.from_string(form.output_type.data))
         g.db.add(new_test)
-        category = Category.query.filter(Category.id==form.category_id.data).first()
+        category = Category.query.filter(Category.id == form.category_id.data).first()
         category.regression_tests.append(new_test)
         g.db.commit()
         return redirect(url_for('.index'))

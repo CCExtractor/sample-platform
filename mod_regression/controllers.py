@@ -124,9 +124,7 @@ def test_add():
     form = AddTestForm(request.form)
     form.sample_id.choices = [(sam.id,sam.sha) for sam in Sample.query.all()]
     form.category_id.choices = [(cat.id,cat.name) for cat in Category.query.all()]
-    if form.expected_rc.data < 0:
-        form.errors['expected_rc'] = "Expected Runtime Code can't be negative";
-    elif form.validate_on_submit():
+    if form.validate_on_submit():
         new_test = RegressionTest(
             sample_id=form.sample_id.data, command=form.command.data,
             category_id=form.category_id.data, expected_rc=form.expected_rc.data,

@@ -32,12 +32,5 @@ class AddTestForm(FlaskForm):
     )
     category_id = SelectField(u'Category', coerce=int)
     expected_rc = IntegerField('Expected Runtime Code',
-        [NumberRange(min=0,message='Expected Runtime Code must be non-negative')],
-        default=0)
+        [DataRequired(message='Expected Runtime Code can\'t be empty')])
     submit = SubmitField("Add Regression Test")
-
-    def validate(self):
-        if self.expected_rc.data < 0:
-            self.expected_rc.errors.append(
-                'Expected Runtime Code must be non-negative')
-            return False

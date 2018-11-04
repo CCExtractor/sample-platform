@@ -174,25 +174,25 @@ class TestControllers(BaseTestCase):
                     expected_rc = 25,
                     submit = True,
                 ))
-            self.assertNotEqual(RegressionTest.query.filter(RegressionTest.id==1).first(),None)
+            self.assertNotEqual(RegressionTest.query.filter(RegressionTest.id==3).first(),None)
 
-    def test_add_test_negative_erc(self):
-        """
-        Check it will not add a regression test with negative Expected Runtime Code
-        """
-        self.create_user_with_role(
-            self.user.name, self.user.email, self.user.password, Role.admin)
-        with self.app.test_client() as c:
-            response = c.post(
-                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
-            response = c.post(
-                '/regression/test/new', data=dict(
-                    sample_id = 1,
-                    command = "-autoprogram -out=ttxt -latin1 -2",
-                    input_type = InputType.file,
-                    output_type = OutputType.file,
-                    category_id = 1,
-                    expected_rc = -25,
-                    submit = True,
-                ))
-            self.assertEqual(RegressionTest.query.filter(RegressionTest.id==1).first(),None)
+    # def test_add_test_negative_erc(self):
+    #     """
+    #     Check it will not add a regression test with negative Expected Runtime Code
+    #     """
+    #     self.create_user_with_role(
+    #         self.user.name, self.user.email, self.user.password, Role.admin)
+    #     with self.app.test_client() as c:
+    #         response = c.post(
+    #             '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+    #         response = c.post(
+    #             '/regression/test/new', data=dict(
+    #                 sample_id = 1,
+    #                 command = "-autoprogram -out=ttxt -latin1 -2",
+    #                 input_type = InputType.file,
+    #                 output_type = OutputType.file,
+    #                 category_id = 1,
+    #                 expected_rc = -25,
+    #                 submit = True,
+    #             ))
+    #         self.assertEqual(RegressionTest.query.filter(RegressionTest.id==3).first(),None)

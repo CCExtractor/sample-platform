@@ -238,4 +238,5 @@ class TestControllers(BaseTestCase):
                     hidden='yes',
                     submit=True
                 )
+            )
             self.assertEqual(response_regression.status_code, 302)  # 302 is code for redirection

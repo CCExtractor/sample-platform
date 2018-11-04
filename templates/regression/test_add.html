@@ -25,6 +25,15 @@
                 </div>
             {% endif %}
         {% endwith %}
+        {% if form.errors %}
+          <div class="grid-x">
+            <div class="callout alert">
+              {% for field, error in form.errors.items() %}
+                {{ error }}<br>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
         <div class="grid-x">
             <div class="medium-12 columns">
                 {{ macros.render_field(form.sample_id) }}

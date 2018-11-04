@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import Form, StringField, SubmitField, SelectField, validators, IntegerField
+from wtforms import Form, StringField, SubmitField, SelectField, validators,IntegerField
 from wtforms.validators import DataRequired, Email, ValidationError, NumberRange
 from mod_sample.models import Sample
 from mod_regression.models import InputType, OutputType, Category
@@ -35,3 +35,9 @@ class AddTestForm(FlaskForm):
         [NumberRange(min=0,message='Expected Runtime Code must be non-negative')],
         default=0)
     submit = SubmitField("Add Regression Test")
+
+    def validate(self):
+        if self.expected_rc.data < 0:
+            self.expected_rc.errors.append(
+                'Expected Runtime Code must be non-negative')
+            return False

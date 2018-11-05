@@ -4,14 +4,13 @@ mod_regression Controllers
 In this module, we are trying to create, update, edit, delete and
 other various operations on regression tests.
 """
-
 from flask import Blueprint, g, abort, jsonify, abort, redirect, url_for, request, flash
 
 from decorators import template_renderer
 from mod_auth.controllers import login_required, check_access_rights
 from mod_auth.models import Role
 from mod_regression.models import Category, RegressionTest, InputType, OutputType
-from mod_regression.forms import AddCategoryForm, AddTestForm
+from mod_regression.forms import AddCategoryForm, AddTestForm, ConfirmationForm
 from mod_sample.models import Sample
 
 mod_regression = Blueprint('regression', __name__)
@@ -24,7 +23,6 @@ def before_app_request():
         'icon': 'industry',
         'route': 'regression.index'
     }
-
 
 @mod_regression.route('/')
 @template_renderer()
@@ -134,10 +132,33 @@ def test_add():
         return redirect(url_for('.index'))
     return {'form': form}
 
-@mod_regression.route('/category/<category_id>/delete')
+
+@mod_regression.route('/category/<category_id>/delete', methods=['GET', 'POST'])
+@template_renderer()
+@check_access_rights([Role.contributor, Role.admin])
 def category_delete(category_id):
-    # Delete a regression test category
-    pass
+    """
+    Delete the category
+    :param category_id: The ID of the Category
+    :type int
+    :return: Redirect
+    """
+
+    category = Category.query.filter(Category.id == category_id).first()
+
+    if category is None:
+        abort(404)
+
+    form = ConfirmationForm()
+
+    if form.validate_on_submit():
+        g.db.delete(category)
+        g.db.commit()
+        return redirect(url_for('.index'))
+    return {
+        'form': form,
+        'category': category
+    }
 
 
 @mod_regression.route('/category/<category_id>/edit', methods=['GET', 'POST'])

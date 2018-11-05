@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import Form, StringField, SubmitField, SelectField, validators,IntegerField
+from wtforms import Form, StringField, SubmitField, SelectField, validators, IntegerField, HiddenField
 from wtforms.validators import DataRequired, Email, ValidationError, NumberRange
 from mod_sample.models import Sample
 from mod_regression.models import InputType, OutputType, Category
@@ -34,3 +34,10 @@ class AddTestForm(FlaskForm):
     expected_rc = IntegerField("Expected Runtime Code",
         [DataRequired(message="Expected Runtime Code can't be empty")])
     submit = SubmitField("Add Regression Test")
+
+class ConfirmationForm(FlaskForm):
+    """
+    Flask Form Used for Asking Confirmations
+    """
+    confirm = HiddenField('nesho', default='yes') # nesho = something
+    submit = SubmitField('Confirm')

@@ -1,6 +1,6 @@
 {%- import 'macros.html' as macros -%}
 <!DOCTYPE html>
-<html class="no-js" lang="en">
+<html class="no-js" lang="en" prefix="og: {{request.url_root}}">
     <head>
         {%- block head %}
             <meta charset="utf-8"/>
@@ -37,6 +37,15 @@
             <meta name="msapplication-config" content="{{ url_for('static', filename='browserconfig.xml') }}">
             <meta name="theme-color" content="#ffffff">
             <!-- end of favicon & app stuff -->
+
+            <!-- Open Graph Protocol-->
+            <meta property="og:title" content="CCExtractor CI Platform" />
+            <meta property="og:description" content="The Sample Platform is a Testing Platform for CCExtractor."/>
+            <meta property="og:type" content="website" />
+            <meta property="og:url" content="{{request.url}}"/> 
+            <meta property="og:image" content="https://raw.githubusercontent.com/CCExtractor/ccextractor-org-media/master/static/ccx_logo_transparent_800x600.png" />
+            <!-- End of Open Graph Protocol-->
+
             <script type="text/javascript" src="{{ url_for('static', filename='js/sorttable.js') }}"></script>
         {%- endblock %}
     </head>

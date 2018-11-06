@@ -262,12 +262,8 @@ class TestControllers(BaseTestCase):
                 ))
             self.assertNotEqual(RegressionTest.query.filter(RegressionTest.command == "-demogorgans").first(),None)
             category = Category.query.filter(Category.id == 1).first()
-            testisincategory = False
             for i in category.regression_tests:
-                if i.id == 1:
-                    testisincategory = True
-                    break
-            self.assertEqual(testisincategory,False)
+                self.assertNotEqual(i.id,1)
             category = Category.query.filter(Category.id == 2).first()
             testisincategory = False
             for i in category.regression_tests:
@@ -303,12 +299,8 @@ class TestControllers(BaseTestCase):
                     break
             self.assertEqual(testisincategory,True)
             category = Category.query.filter(Category.id == 2).first()
-            testisincategory = False
             for i in category.regression_tests:
-                if i.id == 1:
-                    testisincategory = True
-                    break
-            self.assertEqual(testisincategory,False)
+                self.assertNotEqual(i.id,1)
 
     def test_edit_wrong_test(self):
         """
@@ -357,4 +349,4 @@ class TestControllers(BaseTestCase):
                 if i.id == 1:
                     testisincategory = True
                     break
-            self.assertEqual(testisincategory,True)                        
+            self.assertEqual(testisincategory,True)

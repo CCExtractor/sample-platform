@@ -250,6 +250,13 @@ class TestControllers(BaseTestCase):
         with self.app.test_client() as c:
             response = c.post(
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            category = Category.query.filter(Category.id == 1).first()
+            testisincategory = False
+            for i in category.regression_tests:
+                if i.id == 1:
+                    testisincategory = True
+                    break
+            self.assertEqual(testisincategory,True)
             response = c.post(
                 '/regression/test/1/edit', data=dict(
                     sample_id = 1,
@@ -281,6 +288,13 @@ class TestControllers(BaseTestCase):
         with self.app.test_client() as c:
             response = c.post(
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            category = Category.query.filter(Category.id == 1).first()
+            testisincategory = False
+            for i in category.regression_tests:
+                if i.id == 1:
+                    testisincategory = True
+                    break
+            self.assertEqual(testisincategory,True)
             response = c.post(
                 '/regression/test/1/edit', data=dict(
                     sample_id = 1,
@@ -311,6 +325,13 @@ class TestControllers(BaseTestCase):
         with self.app.test_client() as c:
             response = c.post(
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            category = Category.query.filter(Category.id == 1).first()
+            testisincategory = False
+            for i in category.regression_tests:
+                if i.id == 1:
+                    testisincategory = True
+                    break
+            self.assertEqual(testisincategory,True)
             response_regression = c.post(
                 '/regression/test/42/edit', data=dict(
                     sample_id = 1,
@@ -332,6 +353,13 @@ class TestControllers(BaseTestCase):
         with self.app.test_client() as c:
             response = c.post(
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            category = Category.query.filter(Category.id == 1).first()
+            testisincategory = False
+            for i in category.regression_tests:
+                if i.id == 1:
+                    testisincategory = True
+                    break
+            self.assertEqual(testisincategory,True)    
             response = c.post(
                 '/regression/test/1/edit', data=dict(
                     sample_id = 1,

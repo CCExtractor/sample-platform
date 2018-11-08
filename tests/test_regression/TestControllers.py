@@ -232,14 +232,14 @@ class TestControllers(BaseTestCase):
             response = c.post(
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
             response_regression = c.get('/regression/category/1/delete')
-            self.assertEqual(response_regression.status_code, 200)  
+            self.assertEqual(response_regression.status_code, 200)
             response = c.post(
                 '/regression/category/1/delete', data=dict(
                     hidden='yes',
                     submit=True
                 )
             )
-            self.assertEqual(response_regression.status_code, 200)  
+            self.assertEqual(response_regression.status_code, 200)
 
     def test_edit_test(self):
         """
@@ -261,6 +261,15 @@ class TestControllers(BaseTestCase):
                     submit = True,
                 ))
             self.assertNotEqual(RegressionTest.query.filter(RegressionTest.command == "-demogorgans").first(),None)
+
+            test = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
+                           InputType.file, OutputType.file, 1, 10)
+            test2 = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
+                           InputType.file, OutputType.file, 2, 10)
+            g.db.add(test)
+            g.db.add(test2)
+            g.db.commit()
+
             category = Category.query.filter(Category.id == 1).first()
             for i in category.regression_tests:
                 self.assertNotEqual(i.id,1)
@@ -291,6 +300,15 @@ class TestControllers(BaseTestCase):
                     submit = True,
                 ))
             self.assertEqual(RegressionTest.query.filter(RegressionTest.command == "-demogorgans").first(),None)
+
+            test = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
+                           InputType.file, OutputType.file, 1, 10)
+            test2 = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
+                           InputType.file, OutputType.file, 2, 10)
+            g.db.add(test)
+            g.db.add(test2)
+            g.db.commit()
+
             category = Category.query.filter(Category.id == 1).first()
             testisincategory = False
             for i in category.regression_tests:
@@ -343,6 +361,12 @@ class TestControllers(BaseTestCase):
                     submit = True,
                 ))
             self.assertNotEqual(RegressionTest.query.filter(RegressionTest.command == "-demogorgans").first(),None)
+
+            test = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
+                           InputType.file, OutputType.file, 1, 10)
+            g.db.add(test)
+            g.db.commit()
+
             category = Category.query.filter(Category.id == 1).first()
             testisincategory = False
             for i in category.regression_tests:

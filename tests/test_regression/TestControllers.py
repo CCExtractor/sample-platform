@@ -275,12 +275,11 @@ class TestControllers(BaseTestCase):
             for i in category.regression_tests:
                 self.assertNotEqual(i.id,1)
             category = Category.query.filter(Category.id == 2).first()
-            testisincategory = False
             for i in category.regression_tests:
                 if i.id == 1:
-                    testisincategory = True
                     break
-            self.assertEqual(testisincategory,True)
+            else:
+                self.assertEqual(0,1)
 
     def test_edit_test_empty_erc(self):
         """
@@ -312,12 +311,11 @@ class TestControllers(BaseTestCase):
             g.db.commit()
 
             category = Category.query.filter(Category.id == 1).first()
-            testisincategory = False
             for i in category.regression_tests:
                 if i.id == 1:
-                    testisincategory = True
                     break
-            self.assertEqual(testisincategory,True)
+            else:
+                self.assertEqual(0,1)
             category = Category.query.filter(Category.id == 2).first()
             for i in category.regression_tests:
                 self.assertNotEqual(i.id,1)
@@ -371,9 +369,8 @@ class TestControllers(BaseTestCase):
             g.db.commit()
 
             category = Category.query.filter(Category.id == 1).first()
-            testisincategory = False
             for i in category.regression_tests:
                 if i.id == 1:
-                    testisincategory = True
                     break
-            self.assertEqual(testisincategory,True)
+            else:
+                self.assertEqual(0,1)

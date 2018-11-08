@@ -262,12 +262,13 @@ class TestControllers(BaseTestCase):
                 ))
             self.assertNotEqual(RegressionTest.query.filter(RegressionTest.command == "-demogorgans").first(),None)
 
-            test = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
-                           InputType.file, OutputType.file, 1, 10)
-            test2 = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
-                           InputType.file, OutputType.file, 2, 10)
-            g.db.add(test)
-            g.db.add(test2)
+            for _ in range(3):
+                test = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
+                               InputType.file, OutputType.file, 1, 10)
+                test2 = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
+                               InputType.file, OutputType.file, 2, 10)
+                g.db.add(test)
+                g.db.add(test2)
             g.db.commit()
 
             category = Category.query.filter(Category.id == 1).first()
@@ -301,12 +302,13 @@ class TestControllers(BaseTestCase):
                 ))
             self.assertEqual(RegressionTest.query.filter(RegressionTest.command == "-demogorgans").first(),None)
 
-            test = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
-                           InputType.file, OutputType.file, 1, 10)
-            test2 = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
-                           InputType.file, OutputType.file, 2, 10)
-            g.db.add(test)
-            g.db.add(test2)
+            for _ in range(3):
+                test = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
+                               InputType.file, OutputType.file, 1, 10)
+                test2 = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
+                               InputType.file, OutputType.file, 2, 10)
+                g.db.add(test)
+                g.db.add(test2)
             g.db.commit()
 
             category = Category.query.filter(Category.id == 1).first()
@@ -362,9 +364,10 @@ class TestControllers(BaseTestCase):
                 ))
             self.assertNotEqual(RegressionTest.query.filter(RegressionTest.command == "-demogorgans").first(),None)
 
-            test = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
-                           InputType.file, OutputType.file, 1, 10)
-            g.db.add(test)
+            for _ in range(3):
+                test = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
+                               InputType.file, OutputType.file, 1, 10)
+                g.db.add(test)
             g.db.commit()
 
             category = Category.query.filter(Category.id == 1).first()

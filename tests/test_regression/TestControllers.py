@@ -253,8 +253,12 @@ class TestControllers(BaseTestCase):
                            InputType.file, OutputType.file, 1, 10)
             test2 = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
                            InputType.file, OutputType.file, 2, 10)
+            category = Category.query.filter(Category.id == 1).first()
+            category2 = Category.query.filter(Category.id == 2).first()
             g.db.add(test)
             g.db.add(test2)
+            category.regression_tests.append(test)
+            category2.regression_tests.append(test)
         g.db.commit()
 
         with self.app.test_client() as c:
@@ -294,8 +298,12 @@ class TestControllers(BaseTestCase):
                            InputType.file, OutputType.file, 1, 10)
             test2 = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
                            InputType.file, OutputType.file, 2, 10)
+            category = Category.query.filter(Category.id == 1).first()
+            category2 = Category.query.filter(Category.id == 2).first()
             g.db.add(test)
             g.db.add(test2)
+            category.regression_tests.append(test)
+            category2.regression_tests.append(test)
         g.db.commit()
 
         with self.app.test_client() as c:
@@ -334,8 +342,12 @@ class TestControllers(BaseTestCase):
                            InputType.file, OutputType.file, 1, 10)
             test2 = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
                            InputType.file, OutputType.file, 2, 10)
+            category = Category.query.filter(Category.id == 1).first()
+            category2 = Category.query.filter(Category.id == 2).first()
             g.db.add(test)
             g.db.add(test2)
+            category.regression_tests.append(test)
+            category2.regression_tests.append(test)
         g.db.commit()
 
         with self.app.test_client() as c:
@@ -363,6 +375,8 @@ class TestControllers(BaseTestCase):
         for _ in range(3):
             test = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
                            InputType.file, OutputType.file, 1, 10)
+            category = Category.query.filter(Category.id == 1).first()
+            category.regression_tests.append(test)
             g.db.add(test)
         g.db.commit()
 
@@ -370,7 +384,7 @@ class TestControllers(BaseTestCase):
             response = c.post(
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
             response = c.post(
-                '/regression/test/1/edit', data=dict(
+                '/regression/test/2/edit', data=dict(
                     sample_id = 1,
                     command = "-demogorgans",
                     input_type = "file",
@@ -383,7 +397,7 @@ class TestControllers(BaseTestCase):
 
             category = Category.query.filter(Category.id == 1).first()
             for i in category.regression_tests:
-                if i.id == 1:
+                if i.id == 2:
                     break
             else:
                 self.assertEqual(0,1)

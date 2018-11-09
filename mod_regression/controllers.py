@@ -104,10 +104,7 @@ def test_edit(regression_id):
     if form.validate_on_submit():
         # removing test from its previous category
         category = Category.query.filter(Category.id == test.categories[0].id).first()
-        for i in category.regression_tests:
-            if i.id == test.id:
-                category.regression_tests.remove(i)
-                break
+        category.regression_tests.remove(test)
 
         # editing data
         test.sample_id = form.sample_id.data

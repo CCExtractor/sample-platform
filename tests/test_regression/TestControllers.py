@@ -247,6 +247,16 @@ class TestControllers(BaseTestCase):
         """
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
+
+        for _ in range(3):
+            test = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
+                           InputType.file, OutputType.file, 1, 10)
+            test2 = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
+                           InputType.file, OutputType.file, 2, 10)
+            g.db.add(test)
+            g.db.add(test2)
+        g.db.commit()
+
         with self.app.test_client() as c:
             response = c.post(
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
@@ -261,15 +271,6 @@ class TestControllers(BaseTestCase):
                     submit = True,
                 ))
             self.assertNotEqual(RegressionTest.query.filter(RegressionTest.command == "-demogorgans").first(),None)
-
-            for _ in range(3):
-                test = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
-                               InputType.file, OutputType.file, 1, 10)
-                test2 = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
-                               InputType.file, OutputType.file, 2, 10)
-                g.db.add(test)
-                g.db.add(test2)
-            g.db.commit()
 
             category = Category.query.filter(Category.id == 1).first()
             for i in category.regression_tests:
@@ -287,6 +288,16 @@ class TestControllers(BaseTestCase):
         """
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
+
+        for _ in range(3):
+            test = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
+                           InputType.file, OutputType.file, 1, 10)
+            test2 = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
+                           InputType.file, OutputType.file, 2, 10)
+            g.db.add(test)
+            g.db.add(test2)
+        g.db.commit()
+
         with self.app.test_client() as c:
             response = c.post(
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
@@ -300,15 +311,6 @@ class TestControllers(BaseTestCase):
                     submit = True,
                 ))
             self.assertEqual(RegressionTest.query.filter(RegressionTest.command == "-demogorgans").first(),None)
-
-            for _ in range(3):
-                test = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
-                               InputType.file, OutputType.file, 1, 10)
-                test2 = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
-                               InputType.file, OutputType.file, 2, 10)
-                g.db.add(test)
-                g.db.add(test2)
-            g.db.commit()
 
             category = Category.query.filter(Category.id == 1).first()
             for i in category.regression_tests:
@@ -326,6 +328,16 @@ class TestControllers(BaseTestCase):
         """
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
+
+        for _ in range(3):
+            test = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
+                           InputType.file, OutputType.file, 1, 10)
+            test2 = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
+                           InputType.file, OutputType.file, 2, 10)
+            g.db.add(test)
+            g.db.add(test2)
+        g.db.commit()
+
         with self.app.test_client() as c:
             response = c.post(
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
@@ -347,6 +359,13 @@ class TestControllers(BaseTestCase):
         """
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
+
+        for _ in range(3):
+            test = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
+                           InputType.file, OutputType.file, 1, 10)
+            g.db.add(test)
+        g.db.commit()
+
         with self.app.test_client() as c:
             response = c.post(
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
@@ -361,12 +380,6 @@ class TestControllers(BaseTestCase):
                     submit = True,
                 ))
             self.assertNotEqual(RegressionTest.query.filter(RegressionTest.command == "-demogorgans").first(),None)
-
-            for _ in range(3):
-                test = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
-                               InputType.file, OutputType.file, 1, 10)
-                g.db.add(test)
-            g.db.commit()
 
             category = Category.query.filter(Category.id == 1).first()
             for i in category.regression_tests:

@@ -120,7 +120,7 @@ def test_edit(regression_id):
 
         g.db.commit()
         flash('Regression Test Updated')
-        return redirect(url_for('.index'))
+        return redirect(url_for('.test_view',regression_id=regression_id))
     return {'form': form, 'regression_id': regression_id}
 
 

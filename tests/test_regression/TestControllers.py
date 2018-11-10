@@ -232,11 +232,125 @@ class TestControllers(BaseTestCase):
             response = c.post(
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
             response_regression = c.get('/regression/category/1/delete')
-            self.assertEqual(response_regression.status_code, 200)  
+            self.assertEqual(response_regression.status_code, 200)
             response = c.post(
                 '/regression/category/1/delete', data=dict(
                     hidden='yes',
                     submit=True
                 )
             )
-            self.assertEqual(response_regression.status_code, 200)  
+            self.assertEqual(response_regression.status_code, 200)
+
+    def test_edit_test(self):
+        """
+        Check it will edit a regression test
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/regression/test/2/edit', data=dict(
+                    sample_id = 1,
+                    command = "-demogorgans",
+                    input_type = "file",
+                    output_type = "file",
+                    category_id = 2,
+                    expected_rc = 25,
+                    submit = True,
+                ))
+            self.assertNotEqual(RegressionTest.query.filter(RegressionTest.command == "-demogorgans").first(),None)
+
+            category = Category.query.filter(Category.id == 1).first()
+            for i in category.regression_tests:
+                self.assertNotEqual(i.id,2)
+            category = Category.query.filter(Category.id == 2).first()
+            for i in category.regression_tests:
+                if i.id == 2:
+                    break
+            else:
+                self.assertEqual(0,1)
+
+    def test_edit_test_empty_erc(self):
+        """
+        Check it will not edit a regression test with empty Expected Runtime Code
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/regression/test/1/edit', data=dict(
+                    sample_id = 1,
+                    command = "-demogorgans",
+                    input_type = "file",
+                    output_type = "file",
+                    category_id = 2,
+                    submit = True,
+                ))
+            self.assertEqual(RegressionTest.query.filter(RegressionTest.command == "-demogorgans").first(),None)
+
+            category = Category.query.filter(Category.id == 1).first()
+            for i in category.regression_tests:
+                if i.id == 1:
+                    break
+            else:
+                self.assertEqual(0,1)
+            category = Category.query.filter(Category.id == 2).first()
+            for i in category.regression_tests:
+                self.assertNotEqual(i.id,1)
+
+    def test_edit_wrong_test(self):
+        """
+        Check it will throw 404 if trying to edit a regression test which doesn't exist
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response_regression = c.post(
+                '/regression/test/42/edit', data=dict(
+                    sample_id = 1,
+                    command = "-demogorgans",
+                    input_type = "file",
+                    output_type = "file",
+                    expected_rc = 25,
+                    category_id = 2,
+                    submit = True,
+                ))
+            self.assertEqual(response_regression.status_code, 404)
+
+    def test_edit_test_same_category(self):
+        """
+        Check it won't create problems edit a regression test and not changing its category
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/regression/test/2/edit', data=dict(
+                    sample_id = 1,
+                    command = "-demogorgans",
+                    input_type = "file",
+                    output_type = "file",
+                    category_id = 1,
+                    expected_rc = 25,
+                    submit = True,
+                ))
+            self.assertNotEqual(RegressionTest.query.filter(RegressionTest.command == "-demogorgans").first(),None)
+
+            category = Category.query.filter(Category.id == 1).first()
+            for i in category.regression_tests:
+                if i.id == 2:
+                    break
+            else:
+                self.assertEqual(0,1)

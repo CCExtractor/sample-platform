@@ -61,7 +61,7 @@ def test_view(regression_id):
     }
 
 
-@mod_regression.route('/test/<regression_id>/delete')
+@mod_regression.route('/test/<regression_id>/delete', methods=['GET', 'POST'])
 @template_renderer()
 @check_access_rights([Role.contributor, Role.admin])
 def test_delete(regression_id):

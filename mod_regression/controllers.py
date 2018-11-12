@@ -62,6 +62,7 @@ def test_view(regression_id):
 
 
 @mod_regression.route('/test/<regression_id>/delete')
+@template_renderer
 @check_access_rights([Role.contributor, Role.admin])
 def test_delete(regression_id):
     """
@@ -77,10 +78,18 @@ def test_delete(regression_id):
     if test is None:
         abort(404)
 
-    g.db.delete(test)
-    g.db.commit()
 
-    return redirect(url_for('.index'))
+    form = ConfirmationForm()
+
+    if form.validate_on_submit():
+        g.db.delete(test)
+        g.db.commit()
+        return redirect(url_for('.index'))
+
+    return {
+        'form': form,
+        'test': test
+    }
 
 
 @mod_regression.route('/test/<regression_id>/edit', methods=['GET', 'POST'])

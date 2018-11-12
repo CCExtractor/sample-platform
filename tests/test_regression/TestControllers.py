@@ -79,7 +79,7 @@ class TestControllers(BaseTestCase):
             response_regression = c.get('/regression/test/1/delete')
             self.assertEqual(response_regression.status_code, 200) 
             response = c.post(
-                '/regression/category/1/delete', data=dict(
+                '/regression/test/1/delete', data=dict(
                     hidden='yes',
                     submit=True
                 )

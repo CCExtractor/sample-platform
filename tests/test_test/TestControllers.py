@@ -66,7 +66,7 @@ class TestControllers(BaseTestCase):
             response = c.post(
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
             response = c.get('/test/stop_test/1')
-            self.assert403()
+            self.assert403(response)
 
     def test_get_json_data_throw_not_found_error(self):
         """

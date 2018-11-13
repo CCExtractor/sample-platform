@@ -154,3 +154,24 @@ class TestControllers(BaseTestCase):
             g.db.commit()
             response_regression = c.post('regression/category/1729/edit',data=dict(category_name="Sheldon", category_description="That\'s my spot", submit=True))
             self.assertEqual(response_regression.status_code, 404)
+
+    def test_if_sample_exists(self):
+        """
+        Check if the sample doesn't exist and will throw an error 404
+        """
+        response = self.app.test_client().get('regression/sample/1337') 
+        self.assertEqual(response.status_code, 404)
+
+    def test_if_test_regression_view_throws_a_not_found_error(self):
+        """
+        Check if the test doesn't exist and will throw an error 404
+        """
+        response = self.app.test_client().get('regression/test/1337/view') 
+        self.assertEqual(response.status_code, 404)
+
+    def test_if_test_toggle_view_throws_a_not_found_error(self):
+        """
+        Check if the text doesn't exist and will throw an error 404
+        """
+        response = self.app.test_client().get('regression/test/1337/toggle') 
+        self.assertEqual(response.status_code, 404)

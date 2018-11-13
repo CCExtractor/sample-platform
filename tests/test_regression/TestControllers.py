@@ -77,7 +77,14 @@ class TestControllers(BaseTestCase):
             response = c.post(
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
             response_regression = c.get('/regression/test/1/delete')
-            self.assertEqual(response_regression.status_code, 302) # 302 is code for redirection
+            self.assertEqual(response_regression.status_code, 200) 
+            response = c.post(
+                '/regression/test/1/delete', data=dict(
+                    hidden='yes',
+                    submit=True
+                )
+            )
+            self.assertEqual(response.status_code, 302) # 302 is for Redirection
 
     def test_add_category(self):
         """
@@ -239,7 +246,7 @@ class TestControllers(BaseTestCase):
                     submit=True
                 )
             )
-            self.assertEqual(response_regression.status_code, 200)
+            self.assertEqual(response.status_code, 302) # 302 Is for Redirection, 
 
     def test_edit_test(self):
         """

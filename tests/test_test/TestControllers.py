@@ -72,7 +72,7 @@ class TestControllers(BaseTestCase):
         """
         Test if get_json_data throws 
         """
-        response = c.get('/test/get_json_data/99999')
+        response = self.app.test_client().get('/test/get_json_data/99999')
         data = json.loads(response.text)
 
         self.assertEqual(data, {u'status': u'failure', u'error': u'Test not found'})

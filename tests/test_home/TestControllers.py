@@ -27,5 +27,4 @@ class TestControllers(BaseTestCase):
 
     		response = self.app.test_client().get('/')
     		self.assertEqual(response.status_code, 200)
-    		self.assertEqual(response.json['test_access'], 'True')
     		self.assert_template_used('home/index.html')

@@ -70,7 +70,7 @@ class TestControllers(BaseTestCase):
 
     def test_get_json_data_throw_not_found_error(self):
         """
-        Test if get_json_data throws 
+        Test if get_json_data throws Error 404
         """
         response = self.app.test_client().get('/test/get_json_data/99999')
         data = json.loads(response.text)

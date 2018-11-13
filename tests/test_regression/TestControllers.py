@@ -2,7 +2,7 @@ from tests.base import BaseTestCase
 from mod_auth.models import Role
 from mod_regression.models import RegressionTest, Category, InputType, OutputType
 from flask import g
-
+import json
 
 class TestControllers(BaseTestCase):
     def test_root(self):
@@ -380,6 +380,6 @@ class TestControllers(BaseTestCase):
             response_login = c.post(
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
             
-            response = self.app.test_client().get('regression/test/1337/toggle') 
+            response = c.get('regression/test/1337/toggle') 
             self.assertEqual(response.status_code, 404)
                 

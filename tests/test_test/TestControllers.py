@@ -2,7 +2,7 @@ from tests.base import BaseTestCase
 from mod_test.models import Test, TestPlatform
 from mod_regression.models import RegressionTest
 from mod_auth.models import Role
-
+import json
 
 class TestControllers(BaseTestCase):
     def test_root(self):
@@ -67,3 +67,13 @@ class TestControllers(BaseTestCase):
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
             response = c.get('/test/stop_test/1')
             self.assert403(response)
+
+    def test_get_json_data_throw_not_found_error(self):
+        """
+        Test if get_json_data throws 
+        """
+        response = c.get('/test/get_json_data/99999')
+        data = json.loads(response.text)
+
+        self.assertEqual(data, {u'status': u'failure', u'error': u'Test not found'})
+

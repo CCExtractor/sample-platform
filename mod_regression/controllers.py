@@ -61,7 +61,8 @@ def test_view(regression_id):
     }
 
 
-@mod_regression.route('/test/<regression_id>/delete')
+@mod_regression.route('/test/<regression_id>/delete', methods=['GET', 'POST'])
+@template_renderer()
 @check_access_rights([Role.contributor, Role.admin])
 def test_delete(regression_id):
     """
@@ -77,16 +78,59 @@ def test_delete(regression_id):
     if test is None:
         abort(404)
 
-    g.db.delete(test)
-    g.db.commit()
 
-    return redirect(url_for('.index'))
+    form = ConfirmationForm()
+
+    if form.validate_on_submit():
+        g.db.delete(test)
+        g.db.commit()
+        return redirect(url_for('.index'))
+
+    return {
+        'form': form,
+        'test': test
+    }
 
 
-@mod_regression.route('/test/<regression_id>/edit')
+@mod_regression.route('/test/<regression_id>/edit', methods=['GET', 'POST'])
+@template_renderer()
+@check_access_rights([Role.admin])
 def test_edit(regression_id):
-    # Edit the regression test
-    pass
+    """
+    Function  to edit regression test
+    param regression_id : The ID of the Regression Test
+    type regression_id : int
+    """
+
+    test = RegressionTest.query.filter(RegressionTest.id == regression_id).first()
+
+    if(test is None):
+        abort(404)
+
+    form = AddTestForm(request.form)
+    form.sample_id.choices = [(sam.id, sam.sha) for sam in Sample.query.all()]
+    form.category_id.choices = [(cat.id, cat.name) for cat in Category.query.all()]
+    if form.validate_on_submit():
+        # removing test from its previous category
+        category = Category.query.filter(Category.id == test.categories[0].id).first()
+        category.regression_tests.remove(test)
+
+        # editing data
+        test.sample_id = form.sample_id.data
+        test.command = form.command.data
+        test.category_id = form.category_id.data
+        test.expected_rc = form.expected_rc.data
+        test.input_type = InputType.from_string(form.input_type.data)
+        test.output_type = OutputType.from_string(form.output_type.data)
+
+        # adding test to its new category
+        category = Category.query.filter(Category.id == form.category_id.data).first()
+        category.regression_tests.append(test)
+
+        g.db.commit()
+        flash('Regression Test Updated')
+        return redirect(url_for('.test_view',regression_id=regression_id))
+    return {'form': form, 'regression_id': regression_id}
 
 
 @mod_regression.route('/test/<regression_id>/toggle')

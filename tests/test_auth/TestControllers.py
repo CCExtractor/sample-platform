@@ -2,7 +2,7 @@ import time
 
 from tests.base import BaseTestCase, signup_information
 from flask import url_for
-from mod_auth.controllers import generate_hmac_hash, test_github_token_validity
+from mod_auth.controllers import generate_hmac_hash, github_token_validity
 
 
 class TestSignUp(BaseTestCase):

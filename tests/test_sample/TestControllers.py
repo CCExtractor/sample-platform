@@ -65,11 +65,3 @@ class TestControllers(BaseTestCase):
         response = self.app.test_client().get('/sample/1')
         self.assertEqual(response.status_code, 200)
         self.assert_template_used('sample/sample_info.html')
-
-    def test_sample_id_not_existing(self):
-        """
-        Test if Sample Id would return 404 if not existing
-        """
-        response = self.app.test_client().get('/sample/1043')
-        self.assertEqual(response.status_code, 404)
-        self.assert_template_used('sample/sample_not_found.html')

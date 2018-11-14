@@ -84,3 +84,10 @@ class TestControllers(BaseTestCase):
         self.assertEqual(response.status_code, 404)
         self.assert_template_used('test/test_not_found.html')
 
+    def test_ccextractor_version_not_found(self):
+        """
+        Test View for CCExtractor Test if test won't be found
+        """
+        response = self.app.test_client().get('/test/ccextractor/0.8494')
+        self.assertEqual(response.status_code, 404)
+        self.assert_template_used('test/test_not_found.html')

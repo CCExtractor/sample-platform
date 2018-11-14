@@ -76,4 +76,11 @@ class TestControllers(BaseTestCase):
         self.assertEqual(response.json['status'], 'failure')
         self.assertEqual(response.json['error'], 'Test not found')
 
+    def test_get_nonexistent_test(self):
+        """
+        Test if it'll return a 404 on a non existent test
+        """
+        response = self.app.test_client().get('/test/99999')
+        self.assertEqual(response.status_code, 404)
+        self.assert_template_used('test/test_not_found.html')
 

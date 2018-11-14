@@ -396,4 +396,4 @@ class TestControllers(BaseTestCase):
         """
         response = self.app.test_client().get('/regression/sample/1')
         self.assertEqual(response.status_code, 200)
-        self.assert_context('sample', 'True')
+        self.assert_context('sample', '<Sample sample1>')

@@ -27,5 +27,5 @@ class TestControllers(BaseTestCase):
 
             response = c.get('/')
             self.assertEqual(response.status_code, 200)
-            self.assert_context('test_access', 'True')
+            self.assert_context('test_access', True)
             self.assert_template_used('home/index.html')

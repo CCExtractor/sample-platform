@@ -2,7 +2,7 @@ import time
 
 from tests.base import BaseTestCase, signup_information
 from flask import url_for
-from mod_auth.controllers import generate_hmac_hash
+from mod_auth.controllers import generate_hmac_hash, test_github_token_validity
 
 
 class TestSignUp(BaseTestCase):
@@ -108,3 +108,12 @@ class TestLogOut(BaseTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'You have been logged out', response.data)
         self.assert_template_used('auth/login.html')
+
+class Miscellaneous(BaseTestCase):
+
+    def test_github_token_validity(self):
+        """
+        Test the GitHub Token Validity Function
+        """
+        res = github_token_validity('token')
+        self.assertEqual(res, False)

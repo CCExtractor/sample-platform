@@ -1,6 +1,7 @@
 from tests.base import BaseTestCase
 from mod_auth.models import Role
-from mod_regression.models import RegressionTest, Category, InputType, OutputType, Sample
+from mod_regression.models import RegressionTest, Category, InputType, OutputType
+from mod_sample.models import Sample
 from flask import g
 import json
 

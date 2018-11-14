@@ -396,6 +396,6 @@ class TestControllers(BaseTestCase):
         Test if it'll return a valid sample        
         """
         response = self.app.test_client().get('/regression/sample/1')
-        sample = Sample.query.filter(Sample.id == sample_id).first()
+        sample = Sample.query.filter(Sample.id == 1).first()
         self.assertEqual(response.status_code, 200)
         self.assert_context('sample', sample)

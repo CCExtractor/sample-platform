@@ -1,6 +1,6 @@
 from tests.base import BaseTestCase
 from mod_auth.models import Role
-from mod_regression.models import RegressionTest, Category, InputType, OutputType
+from mod_regression.models import RegressionTest, Category, InputType, OutputType, Sample
 from flask import g
 import json
 
@@ -395,5 +395,6 @@ class TestControllers(BaseTestCase):
         Test if it'll return a valid sample        
         """
         response = self.app.test_client().get('/regression/sample/1')
+        sample = Sample.query.filter(Sample.id == sample_id).first()
         self.assertEqual(response.status_code, 200)
-        self.assert_context('sample', '<Sample sample1>')
+        self.assert_context('sample', sample)

@@ -25,7 +25,7 @@ class TestControllers(BaseTestCase):
             response_login = c.post(
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
 
-            response = self.app.test_client().get('/')
+            response = c.get('/')
             self.assertEqual(response.status_code, 200)
             self.assert_context('test_access', 'True')
             self.assert_template_used('home/index.html')

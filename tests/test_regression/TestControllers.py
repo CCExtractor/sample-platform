@@ -390,3 +390,10 @@ class TestControllers(BaseTestCase):
             response = c.get('regression/test/1337/toggle') 
             self.assertEqual(response.status_code, 404)
                 
+    def test_sample_view(self):
+        """
+        Test if it'll return a valid sample        
+        """
+        response = self.app.test_client().get('/regression/sample/1')
+        self.assertEqual(response.status_code, 200)
+        self.assert_context('sample', 'True')

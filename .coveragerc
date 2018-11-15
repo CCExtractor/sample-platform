@@ -4,7 +4,7 @@ omit =
     tests/*
     *__init__*
     config_sample.py 
-   	bootstrap_gunicorn.py 
+    bootstrap_gunicorn.py 
     
 [report]
 exclude_lines =

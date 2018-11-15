@@ -363,13 +363,6 @@ class TestControllers(BaseTestCase):
             else:
                 self.assertEqual(0,1)
 
-    def test_if_sample_exists(self):
-        """
-        Check if the sample doesn't exist and will throw an error 404
-        """
-        response = self.app.test_client().get('regression/sample/1337') 
-        self.assertEqual(response.status_code, 404)
-
     def test_if_test_regression_view_throws_a_not_found_error(self):
         """
         Check if the test doesn't exist and will throw an error 404

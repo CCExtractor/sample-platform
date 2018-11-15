@@ -78,7 +78,9 @@ def index():
             )
             # Show error if github fails to recognize commit
             response = requests.get(api_url)
-            if response.status_code == 404 or response.status_code == 422 :
+            if response.status_code == 500:
+                fork_test_form.commit_hash.errors.append('GitHub returned an Error!')
+            elif response.status_code != 200:
                 fork_test_form.commit_hash.errors.append('Wrong Commit Hash')
             else:
                 add_test_to_kvm(username, commit_hash, platforms, regression_tests)

@@ -69,7 +69,7 @@ def MockRequests(url, data=None):
                              'created_at': '2011-04-14T16:00:49Z',
                              'state': 'open'}, 201)
     else:
-        return MockResponse({}, 422)
+        return MockResponse({}, 404)
 
 
 signup_information = {'valid_email': 'someone@example.com',

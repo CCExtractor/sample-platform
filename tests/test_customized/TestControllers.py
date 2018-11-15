@@ -193,4 +193,4 @@ class TestControllers(BaseTestCase):
             self.assertEqual(response.status_code, 200)
             test = Test.query.filter(Test.id == 3).first()
             self.assertEqual(test,None)
-            self.assertIn("Wrong commit hash",str(response.data))
+            self.assertIn("Wrong Commit Hash",str(response.data))

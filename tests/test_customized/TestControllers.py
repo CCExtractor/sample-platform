@@ -179,6 +179,7 @@ class TestControllers(BaseTestCase):
             self.assertIn(2, regression_tests)
             self.assertNotIn(1, regression_tests)
 
+    @mock.patch('requests.get', side_effect=MockRequests)
     def test_customize_test_github_server_error(self, mock_user, mock_git, mock_requests):
         """
         Test in case github ever returns a 500 error

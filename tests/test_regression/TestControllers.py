@@ -32,13 +32,10 @@ class TestControllers(BaseTestCase):
             else:
                 self.assertEqual('True', response.json['active'])
 
-    def test_delete_if_will_abort_due_to_lack_of_permission(self):
-        """
-        This will test if it will abort on lack of permission
-        :return:
-        """
+    def test_regression_test_deletion_Without_login(self):
         response = self.app.test_client().get('/regression/test/9432/delete')
-        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(b'/account/login?next=regression.test_delete', response.data)
 
     def test_delete_if_will_throw_404(self):
         """
@@ -59,13 +56,10 @@ class TestControllers(BaseTestCase):
         :return:
         """
         # Create Valid Entry
-        from mod_regression.models import Category, RegressionTestOutput, InputType, OutputType
+        from mod_regression.models import InputType, OutputType
 
-        test = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
-                       InputType.file, OutputType.file, 3, 10)
-
+        test = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2', InputType.file, OutputType.file, 3, 10)
         g.db.add(test)
-
         g.db.commit()
 
         # Create Account to Delete Test
@@ -203,13 +197,10 @@ class TestControllers(BaseTestCase):
                 ))
             self.assertEqual(RegressionTest.query.filter(RegressionTest.id==3).first(),None)
 
-    def test_category_delete_if_will_abort_due_to_lack_of_permission(self):
-        """
-        This will test if it will abort on lack of permission
-        :return:
-        """
+    def test_category_deletion_without_login(self):
         response = self.app.test_client().get('/regression/category/9432/delete')
-        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(b'/account/login?next=regression.category_delete', response.data)
 
     def test_category_delete_if_will_throw_404(self):
         """

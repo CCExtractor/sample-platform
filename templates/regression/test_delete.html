@@ -10,7 +10,7 @@
             <p>Are you sure you want to delete this? This change is irreversible!</p>
         </div>
     </div>
-    <form method="post" name="confirmationForm" id="confirmationForm" action="{{ url_for('.category_delete',category_id=category_id) }}">
+    <form method="post" name="confirmationForm" id="confirmationForm" action="{{ url_for('.test_delete', regression_id=regression_id) }}">
         {{ form.csrf_token }}
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}

@@ -192,5 +192,5 @@ class TestControllers(BaseTestCase):
                                                             regression_test=[2]), follow_redirects=True)
             self.assertEqual(response.status_code, 200)
             test = Test.query.filter(Test.id == 3).first()
-            self.assertEqual(test,None) 
+            self.assertEqual(test,None)
             self.assertIn("Wrong commit hash",str(response.data))

@@ -204,10 +204,6 @@ class TestControllers(BaseTestCase):
             self.assertEqual(test, None)
             self.assertIn("GitHub returned an Error!", str(response.data))
 
-            # Validate if in db
-            regression_tests = test.get_customized_regressiontests()
-            self.assertIn(2, regression_tests)
-
     def test_customize_test_wrong_commit_hash(self, mock_user, mock_git, mock_requests):
         """
         Test in case if a wrong hash is submitted
@@ -235,7 +231,3 @@ class TestControllers(BaseTestCase):
             test = Test.query.filter(Test.id == 3).first()
             self.assertEqual(test, None)
             self.assertIn("Wrong Commit Hash", str(response.data))
-
-            # Validate if in db
-            regression_tests = test.get_customized_regressiontests()
-            self.assertIn(2, regression_tests)

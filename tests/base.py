@@ -68,6 +68,8 @@ def MockRequests(url, data=None):
                              'user': {'login': 'test_user'},
                              'created_at': '2011-04-14T16:00:49Z',
                              'state': 'open'}, 201)
+    elif url == "https://api.github.com/repos/todousername/todorepo/commits/randomhash":
+        return MockResponse({}, 500)
     else:
         return MockResponse({}, 404)
 

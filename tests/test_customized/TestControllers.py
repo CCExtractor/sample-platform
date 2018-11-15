@@ -202,7 +202,7 @@ class TestControllers(BaseTestCase):
             self.assertEqual(response.status_code, 200)
             test = Test.query.filter(Test.id == 3).first()
             self.assertEqual(test, None)
-            self.assertContext("GitHub returned an Error!", str(response.data))
+            self.assertIn("GitHub returned an Error!", str(response.data))
 
             # Validate if in db
             regression_tests = test.get_customized_regressiontests()
@@ -234,7 +234,7 @@ class TestControllers(BaseTestCase):
             self.assertEqual(response.status_code, 200)
             test = Test.query.filter(Test.id == 3).first()
             self.assertEqual(test, None)
-            self.assertContext("Wrong Commit Hash", str(response.data))
+            self.assertIn("Wrong Commit Hash", str(response.data))
 
             # Validate if in db
             regression_tests = test.get_customized_regressiontests()

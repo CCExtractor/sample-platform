@@ -181,7 +181,7 @@ class TestControllers(BaseTestCase):
 
     def test_customize_test_github_server_error(self, mock_user, mock_git, mock_requests):
         """
-        Test in case ever returns a 500 error
+        Test in case github ever returns a 500 error
         """
 
         import mod_customized.controllers
@@ -210,7 +210,7 @@ class TestControllers(BaseTestCase):
 
     def test_customize_test_wrong_commit_hash(self, mock_user, mock_git, mock_requests):
         """
-        Test in case ever returns a 500 error
+        Test in case if a wrong hash is submitted
         """
 
         import mod_customized.controllers
@@ -226,7 +226,7 @@ class TestControllers(BaseTestCase):
             response = c.post('/custom/', 
                 data=self.create_customize_form('SomeoneSendMeCleanAirPleaseIDontWanyMyIQToDecrease', ['linux'],
                                                             regression_test=[2]), follow_redirects=True)
-            
+
             # https://www.theguardian.com/environment/2018/aug/27/air-pollution-causes-huge-reduction-in-intelligence-study-reveals 
             # https://www.dw.com/en/skopje-welcome-to-europes-most-polluted-city/g-42083092
 

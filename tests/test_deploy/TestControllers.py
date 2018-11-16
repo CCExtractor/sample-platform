@@ -8,7 +8,7 @@ class TestControllers(BaseTestCase):
         """
         response = self.app.test_client().get('/deploy')
         self.assertEqual(response.status_code, 200)
-        self.assertIn(response.data, "OK")
+        self.assertIn(str(response.data), "OK")
 
     def test_headers_ping(self):
         """
@@ -19,7 +19,7 @@ class TestControllers(BaseTestCase):
             )
 
         self.assertEqual(response.status_code, 418)
-        self.assertEqual(response['msg'], "Hi!")
+        self.assertEqual(response.json['msg'], "Hi!")
 
     def test_headers_invalid_event(self):
         """
@@ -30,4 +30,4 @@ class TestControllers(BaseTestCase):
             )
 
         self.assertEqual(response.status_code, 418)
-        self.assertEqual(response['msg'], "Wrong event type")
+        self.assertEqual(response.json['msg'], "Wrong event type")

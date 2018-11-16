@@ -19,7 +19,7 @@ class TestControllers(BaseTestCase):
                 headers={'X-GitHub-Event': 'ping'}
             )
 
-        data = json.loads(response.data)
+        data = json.loads(str(response.data))
 
         self.assertEqual(response.status_code, 418)
         self.assertEqual(data['msg'], "Hi!")
@@ -32,7 +32,7 @@ class TestControllers(BaseTestCase):
                 headers={'X-GitHub-Event': 'Banana'}
             )
 
-        data = json.loads(response.data)
+        data = json.loads(str(response.data))
 
         self.assertEqual(response.status_code, 418)
         self.assertEqual(data['msg'], "Wrong event type")

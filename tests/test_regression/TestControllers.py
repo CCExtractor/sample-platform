@@ -382,3 +382,10 @@ class TestControllers(BaseTestCase):
         sample = Sample.query.filter(Sample.id == 1).first()
         self.assertEqual(response.status_code, 200)
         self.assert_context('sample', sample)
+
+    def test_sample_view_nonexistent(self):
+        """
+        Test if it'll return a valid sample        
+        """
+        response = self.app.test_client().get('/regression/sample/13423423')
+        self.assertEqual(response.status_code, 404)

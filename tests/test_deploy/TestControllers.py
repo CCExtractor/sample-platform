@@ -31,4 +31,4 @@ class TestControllers(BaseTestCase):
             )
 
         self.assertEqual(response.status_code, 418)
-        self.assertEqual(response.data, json.dumps({'msg': "Wrong event type"})
+        self.assertEqual(response.data, json.dumps({'msg': "Wrong event type"}))

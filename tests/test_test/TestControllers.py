@@ -2,7 +2,6 @@ from tests.base import BaseTestCase
 from mod_test.models import Test, TestPlatform
 from mod_regression.models import RegressionTest
 from mod_auth.models import Role
-import json
 
 class TestControllers(BaseTestCase):
     def test_root(self):

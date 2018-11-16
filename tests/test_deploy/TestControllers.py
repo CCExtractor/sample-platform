@@ -1,4 +1,5 @@
 from tests.base import BaseTestCase
+import json
 
 class TestControllers(BaseTestCase):
 
@@ -8,7 +9,7 @@ class TestControllers(BaseTestCase):
         """
         response = self.app.test_client().get('/deploy')
         self.assertEqual(response.status_code, 200)
-        self.assertIn(str(response.data), "OK")
+        self.assertIn("OK", str(response.data))
 
     def test_headers_ping(self):
         """

@@ -18,7 +18,7 @@ class TestControllers(BaseTestCase):
                 headers={'X-GitHub-Event': 'ping'}
             )
 
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 418)
         self.assertEqual(response['msg'], "Hi!")
 
     def test_headers_invalid_event(self):
@@ -29,5 +29,5 @@ class TestControllers(BaseTestCase):
                 headers={'X-GitHub-Event': 'Banana'}
             )
 
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 418)
         self.assertEqual(response['msg'], "Wrong event type")

@@ -20,7 +20,7 @@ class TestControllers(BaseTestCase):
             )
 
         self.assertEqual(response.status_code, 418)
-        self.assertIn("I'm a teapot", str(response.data))
+        self.assertIn("I\\\'m a teapot", str(response.data))
 
     def test_headers_invalid_event(self):
         """
@@ -31,4 +31,4 @@ class TestControllers(BaseTestCase):
             )
 
         self.assertEqual(response.status_code, 418)
-        self.assertIn("I'm a teapot", str(response.data))
+        self.assertIn("I\\\'m a teapot", str(response.data))

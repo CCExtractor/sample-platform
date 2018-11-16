@@ -8,7 +8,7 @@ class TestControllers(BaseTestCase):
         """
         response = self.app.test_client().get('/deploy')
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response, "OK")
+        self.assertIn(response.data, "OK")
 
     def test_headers_ping(self):
         """

@@ -14,7 +14,7 @@ class TestControllers(BaseTestCase):
         """
         Test The View by sending a ping request
         """
-        response = self.app.test_client().post('/deploy'
+        response = self.app.test_client().post('/deploy',
                 headers={'X-GitHub-Event': 'ping'}
             )
 
@@ -25,7 +25,7 @@ class TestControllers(BaseTestCase):
         """
         Test The View by sending an invalid event
         """
-        response = self.app.test_client().post('/deploy'
+        response = self.app.test_client().post('/deploy',
                 headers={'X-GitHub-Event': 'Banana'}
             )
 

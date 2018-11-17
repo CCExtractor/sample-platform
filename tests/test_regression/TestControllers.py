@@ -1,8 +1,8 @@
 from tests.base import BaseTestCase
 from mod_auth.models import Role
 from mod_regression.models import RegressionTest, Category, InputType, OutputType
+from mod_sample.models import Sample
 from flask import g
-
 
 class TestControllers(BaseTestCase):
     def test_root(self):
@@ -155,7 +155,7 @@ class TestControllers(BaseTestCase):
             g.db.commit()
             response_regression = c.post('regression/category/1729/edit',data=dict(category_name="Sheldon", category_description="That's my spot", submit=True))
             self.assertEqual(response_regression.status_code, 404)
-
+        
     def test_add_test(self):
         """
         Check it will add a regression test
@@ -352,3 +352,40 @@ class TestControllers(BaseTestCase):
                     break
             else:
                 self.assertEqual(0,1)
+
+    def test_if_test_regression_view_throws_a_not_found_error(self):
+        """
+        Check if the test doesn't exist and will throw an error 404
+        """
+        response = self.app.test_client().get('regression/test/1337/view') 
+        self.assertEqual(response.status_code, 404)
+
+    def test_if_test_toggle_view_throws_a_not_found_error(self):
+        """
+        Check if the test toggle doesn't exist and will throw an error 404
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+
+        with self.app.test_client() as c:
+            response_login = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            
+            response = c.get('regression/test/1337/toggle') 
+            self.assertEqual(response.status_code, 404)
+                
+    def test_sample_view(self):
+        """
+        Test if it'll return a valid sample        
+        """
+        response = self.app.test_client().get('/regression/sample/1')
+        sample = Sample.query.filter(Sample.id == 1).first()
+        self.assertEqual(response.status_code, 200)
+        self.assert_context('sample', sample)
+
+    def test_sample_view_nonexistent(self):
+        """
+        Test if it'll return a valid sample        
+        """
+        response = self.app.test_client().get('/regression/sample/13423423')
+        self.assertEqual(response.status_code, 404)

@@ -24,6 +24,7 @@ def before_app_request():
         'route': 'regression.index'
     }
 
+
 @mod_regression.route('/')
 @template_renderer()
 def index():
@@ -63,6 +64,7 @@ def test_view(regression_id):
 
 @mod_regression.route('/test/<regression_id>/delete', methods=['GET', 'POST'])
 @template_renderer()
+@login_required
 @check_access_rights([Role.contributor, Role.admin])
 def test_delete(regression_id):
     """
@@ -78,23 +80,24 @@ def test_delete(regression_id):
     if test is None:
         abort(404)
 
-
     form = ConfirmationForm()
 
     if form.validate_on_submit():
         g.db.delete(test)
         g.db.commit()
+        flash('Regression Test Deleted')
         return redirect(url_for('.index'))
 
     return {
         'form': form,
-        'test': test
+        'regression_id': regression_id
     }
 
 
 @mod_regression.route('/test/<regression_id>/edit', methods=['GET', 'POST'])
 @template_renderer()
-@check_access_rights([Role.admin])
+@login_required
+@check_access_rights([Role.contributor, Role.admin])
 def test_edit(regression_id):
     """
     Function  to edit regression test
@@ -134,7 +137,8 @@ def test_edit(regression_id):
 
 
 @mod_regression.route('/test/<regression_id>/toggle')
-@check_access_rights([Role.admin])
+@login_required
+@check_access_rights([Role.contributor, Role.admin])
 def toggle_active_status(regression_id):
     # Change active status of the regression test
     regression_test = RegressionTest.query.filter(RegressionTest.id == regression_id).first()
@@ -156,7 +160,8 @@ def test_result(regression_id):
 
 @mod_regression.route('/test/new', methods=['GET', 'POST'])
 @template_renderer()
-@check_access_rights([Role.admin])
+@login_required
+@check_access_rights([Role.contributor, Role.admin])
 def test_add():
     """
     Function to add a regression test
@@ -179,6 +184,7 @@ def test_add():
 
 @mod_regression.route('/category/<category_id>/delete', methods=['GET', 'POST'])
 @template_renderer()
+@login_required
 @check_access_rights([Role.contributor, Role.admin])
 def category_delete(category_id):
     """
@@ -207,7 +213,8 @@ def category_delete(category_id):
 
 @mod_regression.route('/category/<category_id>/edit', methods=['GET', 'POST'])
 @template_renderer()
-@check_access_rights([Role.admin])
+@login_required
+@check_access_rights([Role.contributor, Role.admin])
 def category_edit(category_id):
     """
     Function  to edit regression test category
@@ -229,9 +236,11 @@ def category_edit(category_id):
         return redirect(url_for('.index'))
     return {'form': form, 'category_id': category_id}
 
+
 @mod_regression.route('/category_add', methods=['GET', 'POST'])
 @template_renderer()
-@check_access_rights([Role.admin])
+@login_required
+@check_access_rights([Role.contributor, Role.admin])
 def category_add():
     """
     Function to add a regression test category

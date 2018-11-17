@@ -3,7 +3,6 @@ from mod_test.models import Test, TestPlatform
 from mod_regression.models import RegressionTest
 from mod_auth.models import Role
 
-
 class TestControllers(BaseTestCase):
     def test_root(self):
         response = self.app.test_client().get('/test/')
@@ -67,3 +66,27 @@ class TestControllers(BaseTestCase):
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
             response = c.get('/test/stop_test/1')
             self.assert403(response)
+
+    def test_get_json_data_throw_not_found_error(self):
+        """
+        Test if get_json_data throws Error 404
+        """
+        response = self.app.test_client().get('/test/get_json_data/99999')
+        self.assertEqual(response.json['status'], 'failure')
+        self.assertEqual(response.json['error'], 'Test not found')
+
+    def test_get_nonexistent_test(self):
+        """
+        Test if it'll return a 404 on a non existent test
+        """
+        response = self.app.test_client().get('/test/99999')
+        self.assertEqual(response.status_code, 404)
+        self.assert_template_used('test/test_not_found.html')
+
+    def test_ccextractor_version_not_found(self):
+        """
+        Test View for CCExtractor Test if test won't be found
+        """
+        response = self.app.test_client().get('/test/ccextractor/0.8494')
+        self.assertEqual(response.status_code, 404)
+        self.assert_template_used('test/test_not_found.html')

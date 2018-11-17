@@ -97,7 +97,7 @@ def test_delete(regression_id):
 @mod_regression.route('/test/<regression_id>/edit', methods=['GET', 'POST'])
 @template_renderer()
 @login_required
-@check_access_rights([Role.admin])
+@check_access_rights([Role.contributor, Role.admin])
 def test_edit(regression_id):
     """
     Function  to edit regression test
@@ -138,7 +138,7 @@ def test_edit(regression_id):
 
 @mod_regression.route('/test/<regression_id>/toggle')
 @login_required
-@check_access_rights([Role.admin])
+@check_access_rights([Role.contributor, Role.admin])
 def toggle_active_status(regression_id):
     # Change active status of the regression test
     regression_test = RegressionTest.query.filter(RegressionTest.id == regression_id).first()
@@ -161,7 +161,7 @@ def test_result(regression_id):
 @mod_regression.route('/test/new', methods=['GET', 'POST'])
 @template_renderer()
 @login_required
-@check_access_rights([Role.admin])
+@check_access_rights([Role.contributor, Role.admin])
 def test_add():
     """
     Function to add a regression test
@@ -214,7 +214,7 @@ def category_delete(category_id):
 @mod_regression.route('/category/<category_id>/edit', methods=['GET', 'POST'])
 @template_renderer()
 @login_required
-@check_access_rights([Role.admin])
+@check_access_rights([Role.contributor, Role.admin])
 def category_edit(category_id):
     """
     Function  to edit regression test category
@@ -240,7 +240,7 @@ def category_edit(category_id):
 @mod_regression.route('/category_add', methods=['GET', 'POST'])
 @template_renderer()
 @login_required
-@check_access_rights([Role.admin])
+@check_access_rights([Role.contributor, Role.admin])
 def category_add():
     """
     Function to add a regression test category

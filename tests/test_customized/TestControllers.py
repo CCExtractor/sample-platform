@@ -220,11 +220,8 @@ class TestControllers(BaseTestCase):
                 data=self.create_login_form_data(self.user.email, self.user.password))
 
             response = c.post('/custom/', 
-                data=self.create_customize_form('SomeoneSendMeCleanAirPleaseIDontWanyMyIQToDecrease', ['linux'],
+                data=self.create_customize_form('SomeoneSendMeCleanAirPlease', ['linux'],
                                                             regression_test=[2]), follow_redirects=True)
-
-            # https://www.theguardian.com/environment/2018/aug/27/air-pollution-causes-huge-reduction-in-intelligence-study-reveals 
-            # https://www.dw.com/en/skopje-welcome-to-europes-most-polluted-city/g-42083092
 
             # Validate if View Works
             self.assertEqual(response.status_code, 200)

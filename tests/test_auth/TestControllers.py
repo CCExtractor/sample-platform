@@ -173,4 +173,4 @@ class ManageAccount(BaseTestCase):
                     email="invalid@gg"
                 ))
             user = User.query.filter(User.email == "invalid@gg").first()
-            self.assertEqual(user, None)                   
+            self.assertEqual(user, None)            

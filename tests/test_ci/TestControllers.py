@@ -3,6 +3,7 @@ from tests.base import BaseTestCase
 from mod_test.models import Test, TestPlatform, TestType
 from mod_regression.models import RegressionTest
 from mod_customized.models import CustomizedTest
+from mod_ci.models import BlockedUsers
 from mod_auth.models import Role
 from importlib import reload
 from flask import g
@@ -202,4 +203,76 @@ class TestControllers(BaseTestCase):
                 '        Lorem Ipsum sit dolor amet...\n        ',
                 'subject': 'GitHub Issue #matejmecka', 'to': 'ccextractor-dev@googlegroups.com'
             }
-)
+        )
+
+
+    def test_add_blocked_users(self):
+        """
+        Check it will add blocked user
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/blocked_users', data=dict(user_id=1, comment="Bad user", add=True))
+            self.assertNotEqual(BlockedUsers.query.filter(BlockedUsers.comment=="Bad user").first(),None)
+
+    def test_add_blocked_users_wrong_id(self):
+        """
+        Check it will not add blocked users with wrong id
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/blocked_users', data=dict(user_id=0, comment="Bad user", add=True))
+            self.assertEqual(BlockedUsers.query.filter(BlockedUsers.comment=="Bad user").first(),None)
+
+    def test_add_blocked_users_empty_id(self):
+        """
+        Check it will not add blocked users with empty id
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/blocked_users', data=dict(comment="Bad user", add=True))
+            self.assertEqual(BlockedUsers.query.filter(BlockedUsers.comment=="Bad user").first(),None)
+
+    def test_remove_blocked_users(self):
+        """
+        Check it will remove blocked users
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            blocked_user = BlockedUsers(1,"Bad user")
+            g.db.add(blocked_user)
+            g.db.commit()
+            self.assertNotEqual(BlockedUsers.query.filter(BlockedUsers.comment=="Bad user").first(),None)
+            response = c.post(
+                '/blocked_users', data=dict(user_id=1, remove=True))
+            self.assertEqual(BlockedUsers.query.filter(BlockedUsers.comment=="Bad user").first(),None)
+
+    def test_remove_blocked_users_wrong_id(self):
+        """
+        Check it will not remove blocked users with wrong id
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/blocked_users', data=dict(user_id=7355608, remove=True))
+            with c.session_transaction() as session:
+                flash_message = dict(session['_flashes']).get('message')
+            self.assertEqual(flash_message,"No such user in Blacklist")        

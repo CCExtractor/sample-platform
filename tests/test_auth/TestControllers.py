@@ -138,6 +138,7 @@ class ManageAccount(BaseTestCase):
                 ))
             user = User.query.filter(User.name == "T1duS").first()
             self.assertNotEqual(user, None)
+            self.assertIn("Settings saved", str(response.data))
 
     def test_edit_email(self):
         """
@@ -156,6 +157,7 @@ class ManageAccount(BaseTestCase):
                 ))
             user = User.query.filter(User.email == "valid@gmail.com").first()
             self.assertNotEqual(user, None)
+            self.assertIn("Settings saved", str(response.data))
 
     def test_edit_invalid_email(self):
         """
@@ -173,4 +175,5 @@ class ManageAccount(BaseTestCase):
                     email="invalid@gg"
                 ))
             user = User.query.filter(User.email == "invalid@gg").first()
-            self.assertEqual(user, None)            
+            self.assertEqual(user, None)
+            self.assertNotIn("Settings saved", str(response.data))

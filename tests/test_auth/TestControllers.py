@@ -177,3 +177,4 @@ class ManageAccount(BaseTestCase):
             user = User.query.filter(User.email == "invalid@gg").first()
             self.assertEqual(user, None)
             self.assertNotIn("Settings saved", str(response.data))
+            self.assertIn("entered value is not a valid email address", str(response.data))

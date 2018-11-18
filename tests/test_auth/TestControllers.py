@@ -138,3 +138,39 @@ class ManageAccount(BaseTestCase):
                 ))
             user = User.query.filter(User.name == "T1duS").first()
             self.assertNotEqual(user, None)
+
+    def test_edit_email(self):
+        """
+        Tests if user email is edited
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/account/manage',data=dict(
+                    current_password=self.user.password,
+                    name=self.user.name,
+                    email="valid@gmail.com"
+                ))
+            user = User.query.filter(User.email == "valid@gmail.com").first()
+            self.assertNotEqual(user, None)
+
+    def test_edit_invalid_email(self):
+        """
+        Test for editing an invalid email
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/account/manage',data=dict(
+                    current_password=self.user.password,
+                    name=self.user.name,
+                    email="invalid@gg"
+                ))
+            user = User.query.filter(User.email == "invalid@gg").first()
+            self.assertEqual(user, None)                   

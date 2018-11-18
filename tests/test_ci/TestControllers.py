@@ -217,10 +217,10 @@ class TestControllers(BaseTestCase):
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
             response = c.post(
                 '/blocked_users', data=dict(user_id=1, comment="Bad user", add=True))
-            self.assertNotEqual(BlockedUsers.query.filter(BlockedUsers.user_id==1).first(),None)
+            self.assertNotEqual(BlockedUsers.query.filter(BlockedUsers.user_id==1).first(), None)
             with c.session_transaction() as session:
                 flash_message = dict(session['_flashes']).get('message')
-            self.assertEqual(flash_message,"User blocked successfully.")
+            self.assertEqual(flash_message, "User blocked successfully.")
 
     def test_add_blocked_users_wrong_id(self):
         """
@@ -233,8 +233,8 @@ class TestControllers(BaseTestCase):
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
             response = c.post(
                 '/blocked_users', data=dict(user_id=0, comment="Bad user", add=True))
-            self.assertEqual(BlockedUsers.query.filter(BlockedUsers.comment=="Bad user").first(),None)
-            self.assertIn("GitHub User ID not filled in",str(response.data))
+            self.assertEqual(BlockedUsers.query.filter(BlockedUsers.comment=="Bad user").first(), None)
+            self.assertIn("GitHub User ID not filled in", str(response.data))
 
     def test_add_blocked_users_empty_id(self):
         """
@@ -247,8 +247,8 @@ class TestControllers(BaseTestCase):
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
             response = c.post(
                 '/blocked_users', data=dict(comment="Bad user", add=True))
-            self.assertEqual(BlockedUsers.query.filter(BlockedUsers.user_id==None).first(),None)
-            self.assertIn("GitHub User ID not filled in",str(response.data))
+            self.assertEqual(BlockedUsers.query.filter(BlockedUsers.user_id==None).first(), None)
+            self.assertIn("GitHub User ID not filled in", str(response.data))
 
     def test_add_blocked_users_already_exists(self):
         """
@@ -259,14 +259,14 @@ class TestControllers(BaseTestCase):
         with self.app.test_client() as c:
             response = c.post(
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
-            blocked_user = BlockedUsers(1,"Bad user")
+            blocked_user = BlockedUsers(1, "Bad user")
             g.db.add(blocked_user)
             g.db.commit()
             response = c.post(
                 '/blocked_users', data=dict(user_id=1, comment="Bad user", add=True))
             with c.session_transaction() as session:
                 flash_message = dict(session['_flashes']).get('message')
-            self.assertEqual(flash_message,"User already blocked.")
+            self.assertEqual(flash_message, "User already blocked.")
 
     def test_remove_blocked_users(self):
         """
@@ -277,16 +277,16 @@ class TestControllers(BaseTestCase):
         with self.app.test_client() as c:
             response = c.post(
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
-            blocked_user = BlockedUsers(1,"Bad user")
+            blocked_user = BlockedUsers(1, "Bad user")
             g.db.add(blocked_user)
             g.db.commit()
-            self.assertNotEqual(BlockedUsers.query.filter(BlockedUsers.comment=="Bad user").first(),None)
+            self.assertNotEqual(BlockedUsers.query.filter(BlockedUsers.comment=="Bad user").first(), None)
             response = c.post(
                 '/blocked_users', data=dict(user_id=1, remove=True))
-            self.assertEqual(BlockedUsers.query.filter(BlockedUsers.user_id==1).first(),None)
+            self.assertEqual(BlockedUsers.query.filter(BlockedUsers.user_id==1).first(), None)
             with c.session_transaction() as session:
                 flash_message = dict(session['_flashes']).get('message')
-            self.assertEqual(flash_message,"User removed successfully.")
+            self.assertEqual(flash_message, "User removed successfully.")
 
     def test_remove_blocked_users_wrong_id(self):
         """

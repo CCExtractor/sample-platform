@@ -131,7 +131,7 @@ class ManageAccount(BaseTestCase):
             response = c.post(
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
             response = c.post(
-                '/account/manage',data=dict(
+                '/account/manage', data=dict(
                     current_password=self.user.password,
                     name="T1duS",
                     email=self.user.email
@@ -150,7 +150,7 @@ class ManageAccount(BaseTestCase):
             response = c.post(
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
             response = c.post(
-                '/account/manage',data=dict(
+                '/account/manage', data=dict(
                     current_password=self.user.password,
                     name=self.user.name,
                     email="valid@gmail.com"
@@ -169,7 +169,7 @@ class ManageAccount(BaseTestCase):
             response = c.post(
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
             response = c.post(
-                '/account/manage',data=dict(
+                '/account/manage', data=dict(
                     current_password=self.user.password,
                     name=self.user.name,
                     email="invalid@gg"

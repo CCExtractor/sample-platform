@@ -208,7 +208,7 @@ class TestControllers(BaseTestCase):
 
     def test_add_blocked_users(self):
         """
-        Check it will add blocked user
+        Check adding a user to block list.
         """
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
@@ -217,11 +217,14 @@ class TestControllers(BaseTestCase):
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
             response = c.post(
                 '/blocked_users', data=dict(user_id=1, comment="Bad user", add=True))
-            self.assertNotEqual(BlockedUsers.query.filter(BlockedUsers.comment=="Bad user").first(),None)
+            self.assertNotEqual(BlockedUsers.query.filter(BlockedUsers.user_id==1).first(),None)
+            with c.session_transaction() as session:
+                flash_message = dict(session['_flashes']).get('message')
+            self.assertEqual(flash_message,"User blocked successfully.")  
 
     def test_add_blocked_users_wrong_id(self):
         """
-        Check it will not add blocked users with wrong id
+        CCheck adding invalid user id to block list.
         """
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
@@ -234,7 +237,7 @@ class TestControllers(BaseTestCase):
 
     def test_add_blocked_users_empty_id(self):
         """
-        Check it will not add blocked users with empty id
+        Check adding blank user id to block list.
         """
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
@@ -243,11 +246,12 @@ class TestControllers(BaseTestCase):
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
             response = c.post(
                 '/blocked_users', data=dict(comment="Bad user", add=True))
-            self.assertEqual(BlockedUsers.query.filter(BlockedUsers.comment=="Bad user").first(),None)
+            self.assertEqual(BlockedUsers.query.filter(BlockedUsers.user_id==None).first(),None)
+            self.assertIn("GitHub User ID not filled in",str(response.data)) 
 
     def test_add_blocked_users_already_exists(self):
         """
-        Check it will show message when an already blocked user is added to the blocked users list
+        Check adding existing blocked user again.
         """
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
@@ -265,7 +269,7 @@ class TestControllers(BaseTestCase):
 
     def test_remove_blocked_users(self):
         """
-        Check it will remove blocked users
+        Check removing user from block list.
         """
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
@@ -278,11 +282,14 @@ class TestControllers(BaseTestCase):
             self.assertNotEqual(BlockedUsers.query.filter(BlockedUsers.comment=="Bad user").first(),None)
             response = c.post(
                 '/blocked_users', data=dict(user_id=1, remove=True))
-            self.assertEqual(BlockedUsers.query.filter(BlockedUsers.comment=="Bad user").first(),None)
+            self.assertEqual(BlockedUsers.query.filter(BlockedUsers.user_id==1).first(),None)
+            with c.session_transaction() as session:
+                flash_message = dict(session['_flashes']).get('message')
+            self.assertEqual(flash_message,"User removed successfully.")
 
     def test_remove_blocked_users_wrong_id(self):
         """
-        Check it will not remove blocked users with wrong id
+        Check removing non existing id from block list.
         """
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
@@ -293,4 +300,17 @@ class TestControllers(BaseTestCase):
                 '/blocked_users', data=dict(user_id=7355608, remove=True))
             with c.session_transaction() as session:
                 flash_message = dict(session['_flashes']).get('message')
-            self.assertEqual(flash_message,"No such user in Blacklist")        
+            self.assertEqual(flash_message,"No such user in Blacklist")   
+
+    def test_remove_blocked_users_empty_id(self):
+        """
+        Check removing blank user id from block list.
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/blocked_users', data=dict(remove=True))
+            self.assertIn("GitHub User ID not filled in",str(response.data))                  

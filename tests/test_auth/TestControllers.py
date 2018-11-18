@@ -123,7 +123,7 @@ class ManageAccount(BaseTestCase):
 
     def test_edit_username(self):
         """
-        Tests if username is edited
+        Test editing user's name.
         """
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
@@ -142,7 +142,7 @@ class ManageAccount(BaseTestCase):
 
     def test_edit_email(self):
         """
-        Tests if user email is edited
+        Test editing user's email address.
         """
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
@@ -161,7 +161,7 @@ class ManageAccount(BaseTestCase):
 
     def test_edit_invalid_email(self):
         """
-        Test for editing an invalid email
+        Test editing user's email with invalid email address.
         """
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)

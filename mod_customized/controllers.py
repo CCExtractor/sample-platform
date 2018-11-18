@@ -79,7 +79,7 @@ def index():
             # Show error if github fails to recognize commit
             response = requests.get(api_url)
             if response.status_code == 500:
-                fork_test_form.commit_hash.errors.append('GitHub returned an Error!')
+                fork_test_form.commit_hash.errors.append('Error contacting Github')
             elif response.status_code != 200:
                 fork_test_form.commit_hash.errors.append('Wrong Commit Hash')
             else:

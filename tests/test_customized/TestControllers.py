@@ -200,8 +200,6 @@ class TestControllers(BaseTestCase):
 
             # Validate if View Works
             self.assertEqual(response.status_code, 200)
-            test = Test.query.filter(Test.id == 3).first()
-            self.assertEqual(test, None)
             self.assertIn("Error contacting Github", str(response.data))
 
     def test_customize_test_wrong_commit_hash(self, mock_user, mock_git, mock_requests):
@@ -225,6 +223,4 @@ class TestControllers(BaseTestCase):
 
             # Validate if View Works
             self.assertEqual(response.status_code, 200)
-            test = Test.query.filter(Test.id == 3).first()
-            self.assertEqual(test, None)
             self.assertIn("Wrong Commit Hash", str(response.data))

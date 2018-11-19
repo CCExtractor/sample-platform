@@ -194,7 +194,7 @@ class TestControllers(BaseTestCase):
             response_login = c.post('/account/login', 
                 data=self.create_login_form_data(self.user.email, self.user.password))
 
-            # Base.py: Line 71
+            # Base.py: MockRequests
             response = c.post('/custom/', 
                 data=self.create_customize_form('mockWillReturn500', ['linux'],
                                                             regression_test=[2]), follow_redirects=True) 

@@ -191,6 +191,4 @@ class TestControllers(BaseTestCase):
                 '/custom/', data=self.create_customize_form('hellofromtheotherside', ['linux'],
                                                             regression_test=[2]), follow_redirects=True)
             self.assertEqual(response.status_code, 200)
-            test = Test.query.filter(Test.id == 3).first()
-            self.assertEqual(test,None)
             self.assertIn("Wrong Commit Hash",str(response.data))

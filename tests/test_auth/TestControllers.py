@@ -186,7 +186,7 @@ class ManageAccount(BaseTestCase):
         """
         user = namedtuple('user', 'name password email github_token')
         self.user = user(name="test", password="test123",
-                         email="test@example.com", github_token="abcdefgh")
+                         email="test@example.com", github_token="GG")
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
         with self.app.test_client() as c:

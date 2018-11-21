@@ -1,7 +1,8 @@
 import time
 
+from collections import namedtuple
 from tests.base import BaseTestCase, signup_information
-from flask import url_for
+from flask import g, url_for
 from mod_auth.models import Role, User
 from mod_auth.controllers import generate_hmac_hash, github_token_validity
 
@@ -178,3 +179,25 @@ class ManageAccount(BaseTestCase):
             self.assertEqual(user, None)
             self.assertNotIn("Settings saved", str(response.data))
             self.assertIn("entered value is not a valid email address", str(response.data))
+
+    def test_github_redirect(self):
+        """
+        Test editing account where github token is not null
+        """
+        user = namedtuple('user', 'name password email github_token')
+        self.user = user(name="test", password="test123",
+                         email="test@example.com", github_token="abcdefgh")
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/account/manage', data=dict(
+                    current_password=self.user.password,
+                    name="T1duS",
+                    email=self.user.email
+                ))
+            user = User.query.filter(User.name == "T1duS").first()
+            self.assertNotEqual(user, None)
+            self.assertIn("Settings saved", str(response.data))

@@ -1,5 +1,5 @@
 from mock import mock
-from tests.base import BaseTestCase
+from tests.base import BaseTestCase, MockRequests
 from mod_test.models import Test, TestPlatform, TestType
 from mod_regression.models import RegressionTest
 from mod_customized.models import CustomizedTest
@@ -8,7 +8,7 @@ from mod_auth.models import Role
 from importlib import reload
 from flask import g
 
-
+@mock.patch('requests.get', side_effect=MockRequests)
 class TestControllers(BaseTestCase):
     @mock.patch('github.GitHub')
     def test_comments_successfully_in_passed_pr_test(self, git_mock):

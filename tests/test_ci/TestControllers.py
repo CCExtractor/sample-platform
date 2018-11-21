@@ -8,7 +8,6 @@ from mod_auth.models import Role
 from importlib import reload
 from flask import g
 
-@mock.patch('requests.get', side_effect=MockRequests)
 class TestControllers(BaseTestCase):
     @mock.patch('github.GitHub')
     def test_comments_successfully_in_passed_pr_test(self, git_mock):
@@ -205,8 +204,8 @@ class TestControllers(BaseTestCase):
             }
         )
 
-
-    def test_add_blocked_users(self):
+    @mock.patch('requests.get', side_effect=MockRequests)
+    def test_add_blocked_users(self, mock_request):
         """
         Check adding a user to block list.
         """
@@ -222,7 +221,8 @@ class TestControllers(BaseTestCase):
                 flash_message = dict(session['_flashes']).get('message')
             self.assertEqual(flash_message, "User blocked successfully.")
 
-    def test_add_blocked_users_wrong_id(self):
+    @mock.patch('requests.get', side_effect=MockRequests)
+    def test_add_blocked_users_wrong_id(self, mock_request):
         """
         Check adding invalid user id to block list.
         """
@@ -236,7 +236,8 @@ class TestControllers(BaseTestCase):
             self.assertEqual(BlockedUsers.query.filter(BlockedUsers.user_id == 0).first(), None)
             self.assertIn("GitHub User ID not filled in", str(response.data))
 
-    def test_add_blocked_users_empty_id(self):
+    @mock.patch('requests.get', side_effect=MockRequests)
+    def test_add_blocked_users_empty_id(self, mock_request):
         """
         Check adding blank user id to block list.
         """
@@ -250,7 +251,8 @@ class TestControllers(BaseTestCase):
             self.assertEqual(BlockedUsers.query.filter(BlockedUsers.user_id == None).first(), None)
             self.assertIn("GitHub User ID not filled in", str(response.data))
 
-    def test_add_blocked_users_already_exists(self):
+    @mock.patch('requests.get', side_effect=MockRequests)
+    def test_add_blocked_users_already_exists(self, mock_request):
         """
         Check adding existing blocked user again.
         """
@@ -268,7 +270,8 @@ class TestControllers(BaseTestCase):
                 flash_message = dict(session['_flashes']).get('message')
             self.assertEqual(flash_message, "User already blocked.")
 
-    def test_remove_blocked_users(self):
+    @mock.patch('requests.get', side_effect=MockRequests)
+    def test_remove_blocked_users(self, mock_request):
         """
         Check removing user from block list.
         """
@@ -288,7 +291,8 @@ class TestControllers(BaseTestCase):
                 flash_message = dict(session['_flashes']).get('message')
             self.assertEqual(flash_message, "User removed successfully.")
 
-    def test_remove_blocked_users_wrong_id(self):
+    @mock.patch('requests.get', side_effect=MockRequests)
+    def test_remove_blocked_users_wrong_id(self, mock_request):
         """
         Check removing non existing id from block list.
         """
@@ -303,7 +307,8 @@ class TestControllers(BaseTestCase):
                 flash_message = dict(session['_flashes']).get('message')
             self.assertEqual(flash_message, "No such user in Blacklist")
 
-    def test_remove_blocked_users_empty_id(self):
+    @mock.patch('requests.get', side_effect=MockRequests)
+    def test_remove_blocked_users_empty_id(self, mock_request):
         """
         Check removing blank user id from block list.
         """

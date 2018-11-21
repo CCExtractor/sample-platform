@@ -1,8 +1,8 @@
 import time
 
+from flask import g, url_for
 from collections import namedtuple
 from tests.base import BaseTestCase, signup_information
-from flask import g, url_for
 from mod_auth.models import Role, User
 from mod_auth.controllers import generate_hmac_hash, github_token_validity
 

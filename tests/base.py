@@ -244,13 +244,14 @@ class BaseTestCase(TestCase):
         g.db.add_all(test_result_files)
         g.db.commit()
 
-    def create_user_with_role(self, user, email, password, role):
+    def create_user_with_role(self, user, email, password, role, github_token=None):
         """
         Create a user with specified user details and role.
         """
         from flask import g
         user = User(self.user.name, email=self.user.email,
                     password=User.generate_hash(self.user.password), role=role)
+        user.github_token=github_token
         g.db.add(user)
         g.db.commit()
 

@@ -224,7 +224,7 @@ class TestControllers(BaseTestCase):
 
     def test_add_blocked_users_wrong_id(self):
         """
-        CCheck adding invalid user id to block list.
+        Check adding invalid user id to block list.
         """
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
@@ -233,7 +233,7 @@ class TestControllers(BaseTestCase):
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
             response = c.post(
                 '/blocked_users', data=dict(user_id=0, comment="Bad user", add=True))
-            self.assertEqual(BlockedUsers.query.filter(BlockedUsers.comment == "Bad user").first(), None)
+            self.assertEqual(BlockedUsers.query.filter(BlockedUsers.user_id == 0).first(), None)
             self.assertIn("GitHub User ID not filled in", str(response.data))
 
     def test_add_blocked_users_empty_id(self):

@@ -250,8 +250,7 @@ class BaseTestCase(TestCase):
         """
         from flask import g
         user = User(self.user.name, email=self.user.email,
-                    password=User.generate_hash(self.user.password), role=role)
-        user.github_token=github_token
+                    password=User.generate_hash(self.user.password), role=role, github_token=github_token)
         g.db.add(user)
         g.db.commit()
 

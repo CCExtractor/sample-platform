@@ -31,7 +31,7 @@ class User(Base):
     password = Column(String(255), unique=False, nullable=False)
     role = Column(Role.db_type())
 
-    def __init__(self, name, role=Role.user, email=None, password=''):
+    def __init__(self, name, role=Role.user, email=None, password='', github_token=None):
         """
         Parametrized constructor for the User model
 
@@ -50,6 +50,7 @@ class User(Base):
         self.email = email
         self.password = password
         self.role = role
+        self.github_token = github_token
 
     def __repr__(self):
         """

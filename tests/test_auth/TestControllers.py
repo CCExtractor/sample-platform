@@ -1,7 +1,8 @@
 import time
 
-from tests.base import BaseTestCase, signup_information
 from flask import url_for
+from tests.base import BaseTestCase, signup_information
+from mod_auth.models import Role, User
 from mod_auth.controllers import generate_hmac_hash, github_token_validity
 
 
@@ -117,3 +118,82 @@ class Miscellaneous(BaseTestCase):
         """
         res = github_token_validity('token')
         self.assertEqual(res, False)
+
+class ManageAccount(BaseTestCase):
+
+    def test_edit_username(self):
+        """
+        Test editing user's name.
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/account/manage', data=dict(
+                    current_password=self.user.password,
+                    name="T1duS",
+                    email=self.user.email
+                ))
+            user = User.query.filter(User.name == "T1duS").first()
+            self.assertNotEqual(user, None)
+            self.assertIn("Settings saved", str(response.data))
+
+    def test_edit_email(self):
+        """
+        Test editing user's email address.
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/account/manage', data=dict(
+                    current_password=self.user.password,
+                    name=self.user.name,
+                    email="valid@gmail.com"
+                ))
+            user = User.query.filter(User.email == "valid@gmail.com").first()
+            self.assertNotEqual(user, None)
+            self.assertIn("Settings saved", str(response.data))
+
+    def test_edit_invalid_email(self):
+        """
+        Test editing user's email with invalid email address.
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/account/manage', data=dict(
+                    current_password=self.user.password,
+                    name=self.user.name,
+                    email="invalid@gg"
+                ))
+            user = User.query.filter(User.email == "invalid@gg").first()
+            self.assertEqual(user, None)
+            self.assertNotIn("Settings saved", str(response.data))
+            self.assertIn("entered value is not a valid email address", str(response.data))
+
+    def test_github_redirect(self):
+        """
+        Test editing account where github token is not null
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin, self.user.github_token)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/account/manage', data=dict(
+                    current_password=self.user.password,
+                    name="T1duS",
+                    email=self.user.email
+                ))
+            user = User.query.filter(User.name == "T1duS").first()
+            self.assertNotEqual(user, None)
+            self.assertIn("Settings saved", str(response.data))

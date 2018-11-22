@@ -1,12 +1,12 @@
 from mock import mock
-from tests.base import BaseTestCase
+from tests.base import BaseTestCase, MockRequests
 from mod_test.models import Test, TestPlatform, TestType
 from mod_regression.models import RegressionTest
 from mod_customized.models import CustomizedTest
+from mod_ci.models import BlockedUsers
 from mod_auth.models import Role
 from importlib import reload
 from flask import g
-
 
 class TestControllers(BaseTestCase):
     @mock.patch('github.GitHub')
@@ -202,4 +202,121 @@ class TestControllers(BaseTestCase):
                 '        Lorem Ipsum sit dolor amet...\n        ',
                 'subject': 'GitHub Issue #matejmecka', 'to': 'ccextractor-dev@googlegroups.com'
             }
-)
+        )
+
+    @mock.patch('requests.get', side_effect=MockRequests)
+    def test_add_blocked_users(self, mock_request):
+        """
+        Check adding a user to block list.
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/blocked_users', data=dict(user_id=1, comment="Bad user", add=True))
+            self.assertNotEqual(BlockedUsers.query.filter(BlockedUsers.user_id == 1).first(), None)
+            with c.session_transaction() as session:
+                flash_message = dict(session['_flashes']).get('message')
+            self.assertEqual(flash_message, "User blocked successfully.")
+
+    @mock.patch('requests.get', side_effect=MockRequests)
+    def test_add_blocked_users_wrong_id(self, mock_request):
+        """
+        Check adding invalid user id to block list.
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/blocked_users', data=dict(user_id=0, comment="Bad user", add=True))
+            self.assertEqual(BlockedUsers.query.filter(BlockedUsers.user_id == 0).first(), None)
+            self.assertIn("GitHub User ID not filled in", str(response.data))
+
+    @mock.patch('requests.get', side_effect=MockRequests)
+    def test_add_blocked_users_empty_id(self, mock_request):
+        """
+        Check adding blank user id to block list.
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/blocked_users', data=dict(comment="Bad user", add=True))
+            self.assertEqual(BlockedUsers.query.filter(BlockedUsers.user_id == None).first(), None)
+            self.assertIn("GitHub User ID not filled in", str(response.data))
+
+    @mock.patch('requests.get', side_effect=MockRequests)
+    def test_add_blocked_users_already_exists(self, mock_request):
+        """
+        Check adding existing blocked user again.
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            blocked_user = BlockedUsers(1, "Bad user")
+            g.db.add(blocked_user)
+            g.db.commit()
+            response = c.post(
+                '/blocked_users', data=dict(user_id=1, comment="Bad user", add=True))
+            with c.session_transaction() as session:
+                flash_message = dict(session['_flashes']).get('message')
+            self.assertEqual(flash_message, "User already blocked.")
+
+    @mock.patch('requests.get', side_effect=MockRequests)
+    def test_remove_blocked_users(self, mock_request):
+        """
+        Check removing user from block list.
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            blocked_user = BlockedUsers(1, "Bad user")
+            g.db.add(blocked_user)
+            g.db.commit()
+            self.assertNotEqual(BlockedUsers.query.filter(BlockedUsers.comment == "Bad user").first(), None)
+            response = c.post(
+                '/blocked_users', data=dict(user_id=1, remove=True))
+            self.assertEqual(BlockedUsers.query.filter(BlockedUsers.user_id == 1).first(), None)
+            with c.session_transaction() as session:
+                flash_message = dict(session['_flashes']).get('message')
+            self.assertEqual(flash_message, "User removed successfully.")
+
+    @mock.patch('requests.get', side_effect=MockRequests)
+    def test_remove_blocked_users_wrong_id(self, mock_request):
+        """
+        Check removing non existing id from block list.
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/blocked_users', data=dict(user_id=7355608, remove=True))
+            with c.session_transaction() as session:
+                flash_message = dict(session['_flashes']).get('message')
+            self.assertEqual(flash_message, "No such user in Blacklist")
+
+    @mock.patch('requests.get', side_effect=MockRequests)
+    def test_remove_blocked_users_empty_id(self, mock_request):
+        """
+        Check removing blank user id from block list.
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/blocked_users', data=dict(remove=True))
+            self.assertIn("GitHub User ID not filled in", str(response.data))

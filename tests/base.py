@@ -57,17 +57,21 @@ def load_config(file):
             }
 
 
-def MockRequests(url, data=None):
+def MockRequests(url, data=None, timeout=None):
     if url == "https://api.github.com/repos/test/test_repo/commits/abcdef":
-        return MockResponse({}, 200)
+        return MockResponse({}, 200)    
     elif url == "https://api.github.com/user":
         return MockResponse({"login": "test"}, 200)
+    elif "https://api.github.com/user" in url:
+        return MockResponse({"login": url.split("/")[-1]}, 200)
     elif url == "https://api.github.com/repos/test_owner/test_repo/issues":
         return MockResponse({'number': 1,
                              'title': 'test title',
                              'user': {'login': 'test_user'},
                              'created_at': '2011-04-14T16:00:49Z',
                              'state': 'open'}, 201)
+    elif url == "https://api.github.com/repos/test/test_repo/commits/mockWillReturn500":
+        return MockResponse({}, 500)
     else:
         return MockResponse({}, 404)
 
@@ -244,13 +248,13 @@ class BaseTestCase(TestCase):
         g.db.add_all(test_result_files)
         g.db.commit()
 
-    def create_user_with_role(self, user, email, password, role):
+    def create_user_with_role(self, user, email, password, role, github_token=None):
         """
         Create a user with specified user details and role.
         """
         from flask import g
         user = User(self.user.name, email=self.user.email,
-                    password=User.generate_hash(self.user.password), role=role)
+                    password=User.generate_hash(self.user.password), role=role, github_token=github_token)
         g.db.add(user)
         g.db.commit()
 

@@ -17,7 +17,7 @@ from database import Base, DeclEnum
 regressionTestLinkTable = Table(
     'regression_test_category',
     Base.metadata,
-    Column('regression_id', Integer, ForeignKey('regression_test.id', onupdate='CASCADE', ondelete='CASCADE')),
+    Column('regression_id', Integer, ForeignKey('regression_test.id', onupdate='CASCADE', ondelete="RESTRICT")),
     Column('category_id', Integer, ForeignKey('category.id', onupdate='CASCADE', ondelete='RESTRICT'))
 )
 
@@ -129,7 +129,7 @@ class RegressionTestOutput(Base):
     __tablename__ = 'regression_test_output'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
-    regression_id = Column(Integer, ForeignKey('regression_test.id', onupdate='CASCADE', ondelete='CASCADE'))
+    regression_id = Column(Integer, ForeignKey('regression_test.id', onupdate='CASCADE', ondelete="RESTRICT"))
     regression_test = relationship('RegressionTest', back_populates='output_files')
     correct = Column(Text())
     correct_extension = Column(String(64), nullable=False)  # contains the .

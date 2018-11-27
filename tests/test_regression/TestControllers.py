@@ -56,13 +56,9 @@ class TestControllers(BaseTestCase):
         Check it will delete the test
         :return:
         """
-        # Create Valid Entry
-        from mod_regression.models import InputType, OutputType
-
-        test = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2', InputType.file, OutputType.file, 3, 10)
-        g.db.add(test)
-        g.db.commit()
-        customized_test = CustomizedTest(1,1)
+        customized_test = CustomizedTest(test_id=1, regression_id=1)
+        g.db.add(customized_test)
+        customized_test = CustomizedTest(test_id=1, regression_id=2)
         g.db.add(customized_test)
         g.db.commit()
 
@@ -74,15 +70,16 @@ class TestControllers(BaseTestCase):
         with self.app.test_client() as c:
             response = c.post(
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
-            response_regression = c.get('/regression/test/1/delete')
+            response_regression = c.get('/regression/test/2/delete')
             self.assertEqual(response_regression.status_code, 200) 
             response = c.post(
-                '/regression/test/1/delete', data=dict(
+                '/regression/test/2/delete', data=dict(
                     hidden='yes',
                     submit=True
                 )
             )
             self.assertEqual(response.status_code, 302) # 302 is for Redirection
+            self.assertEqual(RegressionTest.query.filter(RegressionTest.id==2).first(), None)
 
     def test_add_category(self):
         """

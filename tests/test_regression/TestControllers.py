@@ -4,6 +4,7 @@ from mod_regression.models import RegressionTest, Category, InputType, OutputTyp
 from mod_customized.models import CustomizedTest
 from mod_test.models import Test
 from mod_sample.models import Sample
+from mod_customized.models import CustomizedTest
 from flask import g
 
 class TestControllers(BaseTestCase):

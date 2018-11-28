@@ -45,7 +45,7 @@ class CustomizedTest(Base):
     id = Column(Integer, primary_key=True)
     test_id = Column(Integer, ForeignKey(Test.id, onupdate="CASCADE", ondelete="RESTRICT"))
     test = relationship('Test', back_populates='customized_tests')
-    regression_id = Column(Integer, ForeignKey(RegressionTest.id, onupdate='CASCADE', ondelete="RESTRICT"))
+    regression_id = Column(Integer, ForeignKey(RegressionTest.id, onupdate='CASCADE', ondelete='CASCADE'))
     regression_test = relationship('RegressionTest', uselist=False)
 
     def __init__(self, test_id, regression_id):

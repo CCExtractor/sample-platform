@@ -1,10 +1,7 @@
 from tests.base import BaseTestCase
 from mod_auth.models import Role
 from mod_regression.models import RegressionTest, Category, InputType, OutputType
-from mod_customized.models import CustomizedTest
-from mod_test.models import Test
 from mod_sample.models import Sample
-from mod_customized.models import CustomizedTest
 from flask import g
 
 class TestControllers(BaseTestCase):
@@ -59,11 +56,10 @@ class TestControllers(BaseTestCase):
         :return:
         """
         # Create Valid Entry
+        from mod_regression.models import InputType, OutputType
+
         test = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2', InputType.file, OutputType.file, 3, 10)
         g.db.add(test)
-        g.db.commit()
-        customized_test = CustomizedTest(1,1)
-        g.db.add(customized_test)
         g.db.commit()
 
         # Create Account to Delete Test

@@ -25,7 +25,7 @@ samples and associated test results.
 An installation guideline can be found here:
 [installation guide](install/installation.md).
 
-## migration
+## Migration
 
 For migration, see here,
 [migration guide](alembic/README).

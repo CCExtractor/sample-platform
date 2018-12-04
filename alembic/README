@@ -1,1 +1,6 @@
 Generic single-database configuration.
+
+# Usage
+
+To do database migration, simply type
+`alembic upgrade head`

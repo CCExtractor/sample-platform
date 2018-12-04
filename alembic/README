@@ -2,5 +2,8 @@ Generic single-database configuration.
 
 # Usage
 
+For adding a table, update [env.py](env.py) and import the table class.
+
 To do database migration, simply type
 `alembic upgrade head`
+

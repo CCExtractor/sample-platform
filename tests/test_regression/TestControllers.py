@@ -71,7 +71,7 @@ class TestControllers(BaseTestCase):
             response = c.post(
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
             response_regression = c.get('/regression/test/1/delete')
-            self.assertEqual(response_regression.status_code, 200) 
+            self.assertEqual(response_regression.status_code, 200)
             response = c.post(
                 '/regression/test/1/delete', data=dict(
                     hidden='yes',
@@ -79,6 +79,34 @@ class TestControllers(BaseTestCase):
                 )
             )
             self.assertEqual(response.status_code, 302) # 302 is for Redirection
+
+    def test_delete_v2(self):
+        """
+        Check it will delete the CustomizedTest linked with the RegressionTest when
+        deleting the RegressionTest
+        """
+
+        customized_test = CustomizedTest(test_id=1, regression_id=1)
+        g.db.add(customized_test)
+        g.db.commit()
+        
+        # Create Account to Delete Test
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+
+        # Delete Test
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/regression/test/1/delete', data=dict(
+                    hidden='yes',
+                    submit=True
+                )
+            )
+            print(response.data)
+            self.assertEqual(RegressionTest.query.filter(RegressionTest.id==1).first(), None)
+            self.assertEqual(CustomizedTest.query.filter(CustomizedTest.regression_id==1).first(), None)
 
     def test_add_category(self):
         """
@@ -155,7 +183,7 @@ class TestControllers(BaseTestCase):
             g.db.commit()
             response_regression = c.post('regression/category/1729/edit',data=dict(category_name="Sheldon", category_description="That's my spot", submit=True))
             self.assertEqual(response_regression.status_code, 404)
-        
+
     def test_add_test(self):
         """
         Check it will add a regression test
@@ -237,7 +265,7 @@ class TestControllers(BaseTestCase):
                     submit=True
                 )
             )
-            self.assertEqual(response.status_code, 302) # 302 Is for Redirection, 
+            self.assertEqual(response.status_code, 302) # 302 Is for Redirection,
 
     def test_edit_test(self):
         """
@@ -357,7 +385,7 @@ class TestControllers(BaseTestCase):
         """
         Check if the test doesn't exist and will throw an error 404
         """
-        response = self.app.test_client().get('regression/test/1337/view') 
+        response = self.app.test_client().get('regression/test/1337/view')
         self.assertEqual(response.status_code, 404)
 
     def test_if_test_toggle_view_throws_a_not_found_error(self):
@@ -370,13 +398,13 @@ class TestControllers(BaseTestCase):
         with self.app.test_client() as c:
             response_login = c.post(
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
-            
-            response = c.get('regression/test/1337/toggle') 
+
+            response = c.get('regression/test/1337/toggle')
             self.assertEqual(response.status_code, 404)
-                
+
     def test_sample_view(self):
         """
-        Test if it'll return a valid sample        
+        Test if it'll return a valid sample
         """
         response = self.app.test_client().get('/regression/sample/1')
         sample = Sample.query.filter(Sample.id == 1).first()
@@ -385,7 +413,7 @@ class TestControllers(BaseTestCase):
 
     def test_sample_view_nonexistent(self):
         """
-        Test if it'll return a valid sample        
+        Test if it'll return a valid sample
         """
         response = self.app.test_client().get('/regression/sample/13423423')
         self.assertEqual(response.status_code, 404)

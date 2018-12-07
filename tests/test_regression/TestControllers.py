@@ -86,10 +86,11 @@ class TestControllers(BaseTestCase):
         deleting the RegressionTest
         """
 
+        # Add customized test linked with regression test
         customized_test = CustomizedTest(test_id=1, regression_id=1)
         g.db.add(customized_test)
         g.db.commit()
-        
+
         # Create Account to Delete Test
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
@@ -104,7 +105,6 @@ class TestControllers(BaseTestCase):
                     submit=True
                 )
             )
-            print(response.data)
             self.assertEqual(RegressionTest.query.filter(RegressionTest.id==1).first(), None)
             self.assertEqual(CustomizedTest.query.filter(CustomizedTest.regression_id==1).first(), None)
 

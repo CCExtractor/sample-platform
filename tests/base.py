@@ -101,7 +101,7 @@ class BaseTestCase(TestCase):
         self.app.preprocess_request()
         g.db = create_session(
             self.app.config['DATABASE_URI'], drop_tables=True)
-        g.db.execute('pragma foreign_keys=on')
+        g.db.execute('pragma foreign_keys=on') # Enable Foreign for unit tests
         commit_name_linux = 'fetch_commit_' + TestPlatform.linux.value
         commit_name_windows = 'fetch_commit_' + TestPlatform.windows.value
         general_data = [GeneralData('last_commit', '1978060bf7d2edd119736ba3ba88341f3bec3323'),

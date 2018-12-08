@@ -54,12 +54,13 @@ class TestControllers(BaseTestCase):
 
     def test_delete(self):
         """
-        Check it will delete the test
-        :return:
+        Check it will delete RegressionTest as well as the Customized test
+        linked with it
         """
-        # Create Valid Entry
-        test = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2', InputType.file, OutputType.file, 3, 10)
-        g.db.add(test)
+
+        # Add customized test linked with regression test
+        customized_test = CustomizedTest(test_id=1, regression_id=1)
+        g.db.add(customized_test)
         g.db.commit()
 
         # Create Account to Delete Test
@@ -79,32 +80,6 @@ class TestControllers(BaseTestCase):
                 )
             )
             self.assertEqual(response.status_code, 302) # 302 is for Redirection
-
-    def test_delete_v2(self):
-        """
-        Check it will delete the CustomizedTest linked with the RegressionTest when
-        deleting the RegressionTest
-        """
-
-        # Add customized test linked with regression test
-        customized_test = CustomizedTest(test_id=1, regression_id=1)
-        g.db.add(customized_test)
-        g.db.commit()
-
-        # Create Account to Delete Test
-        self.create_user_with_role(
-            self.user.name, self.user.email, self.user.password, Role.admin)
-
-        # Delete Test
-        with self.app.test_client() as c:
-            response = c.post(
-                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
-            response = c.post(
-                '/regression/test/1/delete', data=dict(
-                    hidden='yes',
-                    submit=True
-                )
-            )
             self.assertEqual(RegressionTest.query.filter(RegressionTest.id==1).first(), None)
             self.assertEqual(CustomizedTest.query.filter(CustomizedTest.regression_id==1).first(), None)
 

@@ -1,10 +1,12 @@
 from mock import mock
 from tests.base import BaseTestCase, MockRequests
+from mod_home.models import CCExtractorVersion, GeneralData
 from mod_test.models import Test, TestPlatform, TestType
 from mod_regression.models import RegressionTest
 from mod_customized.models import CustomizedTest
 from mod_ci.models import BlockedUsers
 from mod_auth.models import Role
+from werkzeug.datastructures import Headers
 from importlib import reload
 from flask import g
 
@@ -320,3 +322,120 @@ class TestControllers(BaseTestCase):
             response = c.post(
                 '/blocked_users', data=dict(remove=True))
             self.assertIn("GitHub User ID not filled in", str(response.data))
+
+    @mock.patch('requests.get', side_effect=MockRequests)
+    def test_webhook_wrong_url(self, mock_request):
+        """
+        Check webhook fails when ping with wrong url
+        """
+        import json
+        with self.app.test_client() as c:
+            data = {'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': '0.0.1'}}
+            headers = Headers([('X-GitHub-Event', 'ping'),
+                               ('X-Github-Delivery', '72d3162e-cc78-11e3-81ab-4c9367dc0958'),
+                               ('X-Hub-Signature', 'sha1=7d38cdd689735b008b3c702edd92eea23791c5f6'),
+                               ('User-Agent', 'GitHub-Hookshot/044aadd'),
+                               ('Content-Type', 'application/json'),
+                               ('Content-Length', 6615)
+                              ])
+            # non github ip address
+            wsgi_environment = {'REMOTE_ADDR': '0.0.0.0'}
+            response = c.post(
+                '/start-ci', environ_overrides=wsgi_environment,
+                data=json.dumps(data), headers=headers)
+            self.assertNotEqual(response.status_code, 200)
+
+    @mock.patch('requests.get', side_effect=MockRequests)
+    def test_webhook_ping(self, mock_request):
+        """
+        Check webhook release update CCExtractor Version
+        """
+        import json
+        with self.app.test_client() as c:
+            data = {'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': '0.0.1'}}
+            headers = Headers([('X-GitHub-Event', 'ping'),
+                               ('X-Github-Delivery', '72d3162e-cc78-11e3-81ab-4c9367dc0958'),
+                               ('X-Hub-Signature', 'sha1=7d38cdd689735b008b3c702edd92eea23791c5f6'),
+                               ('User-Agent', 'GitHub-Hookshot/044aadd'),
+                               ('Content-Type', 'application/json'),
+                               ('Content-Length', 6615)
+                              ])
+            # one of ip address from github webhook
+            wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
+            response = c.post(
+                '/start-ci', environ_overrides=wsgi_environment,
+                data=json.dumps(data), headers=headers)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.data, b'{"msg": "Hi!"}')
+ 
+    @mock.patch('requests.get', side_effect=MockRequests)
+    def test_webhook_release(self, mock_request):
+        """
+        Check webhook release update CCExtractor Version
+        """
+        import json
+        with self.app.test_client() as c:
+            # Full Release with version with 2.1
+            data = {'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': 'v2.1'}}
+            sig = self.generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
+            headers = Headers([('X-GitHub-Event', 'release'),
+                               ('X-Github-Delivery', '72d3162e-cc78-11e3-81ab-4c9367dc0958'),
+                               ('X-Hub-Signature', ('sha1={0}').format(sig)),
+                               ('User-Agent', 'GitHub-Hookshot/044aadd'),
+                               ('Content-Type', 'application/json'),
+                               ('Content-Length', 6615)
+                              ])
+            # one of ip address from github webhook
+            wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
+            last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
+            # abcdefgh is the new commit after previous version defined in base.py
+            last_commit.value = 'abcdefgh'
+            g.db.commit()
+            response = c.post(
+                '/start-ci', environ_overrides=wsgi_environment,
+                data=json.dumps(data), headers=headers)
+            last_release = CCExtractorVersion.query.order_by(CCExtractorVersion.released.desc()).first()
+            self.assertEqual(last_release.version, '2.1')
+
+    @mock.patch('requests.get', side_effect=MockRequests)
+    def test_webhook_prerelease(self, mock_request):
+        """
+        Check webhook release update CCExtractor Version
+        """
+        import json
+        with self.app.test_client() as c:
+            # Full Release with version with 2.1
+            data = {'release': {'prerelease': True, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': 'v2.1'}}
+            sig = self.generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
+            headers = Headers([('X-GitHub-Event', 'release'),
+                               ('X-Github-Delivery', '72d3162e-cc78-11e3-81ab-4c9367dc0958'),
+                               ('X-Hub-Signature', ('sha1={0}').format(sig)),
+                               ('User-Agent', 'GitHub-Hookshot/044aadd'),
+                               ('Content-Type', 'application/json'),
+                               ('Content-Length', 6615)
+                              ])
+            # one of ip address from github webhook
+            wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
+            last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
+            # abcdefgh is the new commit after previous version defined in base.py
+            last_commit.value = 'abcdefgh'
+            g.db.commit()
+            response = c.post(
+                '/start-ci', environ_overrides=wsgi_environment,
+                data=json.dumps(data), headers=headers)
+            last_release = CCExtractorVersion.query.order_by(CCExtractorVersion.released.desc()).first()
+            self.assertNotEqual(last_release.version, '2.1')
+
+    def generate_signature(self, data, private_key):
+        """
+        Generate signature token of hook request
+
+        :param data: Signature's data
+        :param private_key: Signature's token
+        """
+        import hashlib
+        import hmac
+        algorithm = hashlib.__dict__.get('sha1')
+        encoded_key = bytes(private_key, 'latin-1')
+        mac = hmac.new(encoded_key, msg=data, digestmod=algorithm)
+        return mac.hexdigest()

@@ -648,18 +648,18 @@ def start_ci():
 
         elif event == "release":
             release_data = payload['release']
-            release_type = payload['prerelease']
+            prerelease = release_data['prerelease']
             # checking whether it is meant for production
-            if release_type is False:
+            if prerelease:
                 g.log.debug("error, release event meant for pre-release")
-                return
             else:
-                release_version = payload['tag_name']
+                release_version = release_data['tag_name']
                 # Github recommends adding v to the version
                 if release_version[0] == 'v':
                     release_version = release_version[1:]
-                release_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
-                release = CCExtractorVersion(release_data, release_version, release_commit)
+                release_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first().value
+                release_date = release_data['published_at']
+                release = CCExtractorVersion(release_version, release_date, release_commit)
                 g.db.add(release)
                 g.db.commit()
                 # adding test corresponding to last commit to the baseline regression results

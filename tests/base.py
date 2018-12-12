@@ -72,6 +72,13 @@ def MockRequests(url, data=None, timeout=None):
                              'state': 'open'}, 201)
     elif url == "https://api.github.com/repos/test/test_repo/commits/mockWillReturn500":
         return MockResponse({}, 500)
+    elif url == "https://api.github.com/meta":
+        return MockResponse({'verifiable_password_authentication': True,
+                             'github_services_sha': 'abcdefg',
+                             'hooks': [
+                                 '192.30.252.0/22',
+                                 '185.199.108.0/22'
+                             ]}, 200)
     else:
         return MockResponse({}, 404)
 

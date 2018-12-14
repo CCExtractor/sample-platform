@@ -59,7 +59,7 @@ def load_config(file):
 
 def MockRequests(url, data=None, timeout=None):
     if url == "https://api.github.com/repos/test/test_repo/commits/abcdef":
-        return MockResponse({}, 200)    
+        return MockResponse({}, 200)
     elif url == "https://api.github.com/user":
         return MockResponse({"login": "test"}, 200)
     elif "https://api.github.com/user" in url:
@@ -108,6 +108,7 @@ class BaseTestCase(TestCase):
         self.app.preprocess_request()
         g.db = create_session(
             self.app.config['DATABASE_URI'], drop_tables=True)
+        g.db.execute('pragma foreign_keys=on') # Enable Foreign for unit tests
         commit_name_linux = 'fetch_commit_' + TestPlatform.linux.value
         commit_name_windows = 'fetch_commit_' + TestPlatform.windows.value
         general_data = [GeneralData('last_commit', '1978060bf7d2edd119736ba3ba88341f3bec3323'),
@@ -122,13 +123,19 @@ class BaseTestCase(TestCase):
                                                                    repo=g.github['repository'])
         fork = Fork(fork_url)
         g.db.add(fork)
+        g.db.commit()
+        dummy_user = User(signup_information['existing_user_name'], signup_information['existing_user_role'],
+                          signup_information['existing_user_email'], signup_information['existing_user_pwd'])
+        g.db.add(dummy_user)
+        g.db.commit()
         test = [
             Test(TestPlatform.linux, TestType.pull_request,
                  1, 'master', '1978060bf7d2edd119736ba3ba88341f3bec3323', 1),
             Test(TestPlatform.linux, TestType.pull_request,
-                 2, 'master', 'abcdefgh', 1)
+                 1, 'master', 'abcdefgh', 1)
         ]
         g.db.add_all(test)
+        g.db.commit()
         categories = [
             Category('Broken', 'Samples that are broken'),
             Category('DVB', 'Samples that contain DVB subtitles'),
@@ -137,22 +144,27 @@ class BaseTestCase(TestCase):
             Category('General', 'General regression samples')
         ]
         g.db.add_all(categories)
+        g.db.commit()
         samples = [
             Sample('sample1', 'ts', 'sample1'),
             Sample('sample2', 'ts', 'sample2')
         ]
         g.db.add_all(samples)
+        g.db.commit()
         upload = [
             Upload(1, 1, 1, Platform.windows),
             Upload(1, 2, 1, Platform.linux)
         ]
         g.db.add_all(upload)
+        g.db.commit()
         regression_tests = [
             RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
                            InputType.file, OutputType.file, 3, 10),
             RegressionTest(2, '-autoprogram -out=ttxt -latin1 -ucla',
                            InputType.file, OutputType.file, 1, 10)
         ]
+        g.db.add_all(regression_tests)
+        g.db.commit()
         categories[0].regression_tests.append(regression_tests[0])
         categories[2].regression_tests.append(regression_tests[1])
         regression_test_outputs = [
@@ -160,6 +172,7 @@ class BaseTestCase(TestCase):
             RegressionTestOutput(2, 'sample_out2', '.srt', '')
         ]
         g.db.add_all(regression_test_outputs)
+        g.db.commit()
         test_result_progress = [
             TestProgress(1, TestStatus.preparation, "Test 1 preperation"),
             TestProgress(1, TestStatus.building, "Test 1 building"),
@@ -171,6 +184,7 @@ class BaseTestCase(TestCase):
             TestProgress(2, TestStatus.completed, "Test 2 completed")
         ]
         g.db.add_all(test_result_progress)
+        g.db.commit()
         test_results = [
             TestResult(1, 1, 200, 0, 0),
             TestResult(1, 2, 601, 0, 0),
@@ -178,6 +192,7 @@ class BaseTestCase(TestCase):
             TestResult(2, 2, 601, 0, 0)
         ]
         g.db.add_all(test_results)
+        g.db.commit()
         test_result_files = [
             TestResultFile(1, 1, 1, 'sample_out1'),
             TestResultFile(1, 2, 2, 'sample_out2'),
@@ -185,9 +200,6 @@ class BaseTestCase(TestCase):
             TestResultFile(2, 2, 2, 'sample_out2', 'out2')
         ]
         g.db.add_all(test_result_files)
-        dummy_user = User(signup_information['existing_user_name'], signup_information['existing_user_role'],
-                          signup_information['existing_user_email'], signup_information['existing_user_pwd'])
-        g.db.add(dummy_user)
         g.db.commit()
         forbidden_mime = ForbiddenMimeType('application/javascript')
         forbidden_ext = [

@@ -1,6 +1,8 @@
 from tests.base import BaseTestCase
 from mod_auth.models import Role
 from mod_regression.models import RegressionTest, Category, InputType, OutputType
+from mod_customized.models import CustomizedTest
+from mod_test.models import Test
 from mod_sample.models import Sample
 from flask import g
 
@@ -52,14 +54,13 @@ class TestControllers(BaseTestCase):
 
     def test_delete(self):
         """
-        Check it will delete the test
-        :return:
+        Check it will delete RegressionTest as well as the Customized test
+        linked with it
         """
-        # Create Valid Entry
-        from mod_regression.models import InputType, OutputType
 
-        test = RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2', InputType.file, OutputType.file, 3, 10)
-        g.db.add(test)
+        # Add customized test linked with regression test
+        customized_test = CustomizedTest(test_id=1, regression_id=1)
+        g.db.add(customized_test)
         g.db.commit()
 
         # Create Account to Delete Test
@@ -79,6 +80,8 @@ class TestControllers(BaseTestCase):
                 )
             )
             self.assertEqual(response.status_code, 302) # 302 is for Redirection
+            self.assertEqual(RegressionTest.query.filter(RegressionTest.id==1).first(), None)
+            self.assertEqual(CustomizedTest.query.filter(CustomizedTest.regression_id==1).first(), None)
 
     def test_add_category(self):
         """

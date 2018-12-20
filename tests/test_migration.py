@@ -31,8 +31,3 @@ class TestMigrate(BaseTestCase):
         with patch.object(sys, 'argv', testargs):
             manager.run()
             mock_exit.assert_called_with(0)
-        from database import Base
-        # testargs = ["python3 db_manage.py", "db", "upgrade"]
-        # with patch.object(sys, 'argv', testargs):
-        #     manager.run()
-        #     mock_exit.assert_called_with(0)

@@ -76,7 +76,7 @@ class TestControllers(BaseTestCase):
                                                       mock_rmtree, mock_libvirt, mock_repo, mock_git):
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.tester)
-        self.create_fork_for_test_case("own-fork-commit", TestPlatform.linux)
+        self.create_forktest("own-fork-commit", TestPlatform.linux)
         import mod_ci.cron
         import mod_ci.controllers
         reload(mod_ci.cron)
@@ -109,7 +109,7 @@ class TestControllers(BaseTestCase):
     def test_customize_tests_run_on_fork_if_remote_exist(self, mock_etree, mock_open,
                                                          mock_rmtree, mock_libvirt, mock_repo, mock_git):
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.tester)
-        self.create_fork_for_test_case("own-fork-commit", TestPlatform.linux)
+        self.create_forktest("own-fork-commit", TestPlatform.linux)
         import mod_ci.cron
         import mod_ci.controllers
         reload(mod_ci.cron)
@@ -143,7 +143,7 @@ class TestControllers(BaseTestCase):
                                                               mock_rmtree, mock_libvirt, mock_repo, mock_git):
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.tester)
-        self.create_fork_for_test_case("own-fork-commit", TestPlatform.linux, regression_tests=[2])
+        self.create_forktest("own-fork-commit", TestPlatform.linux, regression_tests=[2])
         import mod_ci.cron
         import mod_ci.controllers
         reload(mod_ci.cron)

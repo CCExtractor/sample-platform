@@ -1,5 +1,3 @@
-from unittest import TestLoader
-
 from tests.base import BaseTestCase
 from mod_test.models import Test, TestPlatform, TestProgress, TestStatus, TestResult, TestResultFile
 from mod_regression.models import RegressionTest
@@ -11,10 +9,10 @@ class TestControllers(BaseTestCase):
     def create_completed_regression_t_entries(test_id, regression_tests):
         from flask import g
         test_result_progress = [
-            TestProgress(test_id, TestStatus.preparation, ("Test {0} preperation").format(test_id)),
-            TestProgress(test_id, TestStatus.building, ("Test {0} building").format(test_id)),
-            TestProgress(test_id, TestStatus.testing, ("Test {0} testing").format(test_id)),
-            TestProgress(test_id, TestStatus.completed, ("Test {0} completed").format(test_id)),
+            TestProgress(test_id, TestStatus.preparation, "Test {0} preparation".format(test_id)),
+            TestProgress(test_id, TestStatus.building, "Test {0} building".format(test_id)),
+            TestProgress(test_id, TestStatus.testing, "Test {0} testing".format(test_id)),
+            TestProgress(test_id, TestStatus.completed, "Test {0} completed".format(test_id)),
         ]
         g.db.add_all(test_result_progress)
         test_results = [

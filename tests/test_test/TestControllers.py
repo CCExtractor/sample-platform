@@ -39,7 +39,7 @@ class TestControllers(BaseTestCase):
     def test_customize_test_loads(self):
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.tester)
-        self.create_fork_for_test("own-fork-commit", TestPlatform.linux, regression_tests=[2])
+        self.create_fork_for_test_case("own-fork-commit", TestPlatform.linux, regression_tests=[2])
         self.create_completed_test(3, [2])
         response = self.app.test_client().get('/test/3')
         self.assertEqual(response.status_code, 200)
@@ -51,7 +51,7 @@ class TestControllers(BaseTestCase):
     def test_restart_with_permission(self):
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.tester)
-        self.create_fork_for_test("own-fork-commit", TestPlatform.linux, regression_tests=[2])
+        self.create_fork_for_test_case("own-fork-commit", TestPlatform.linux, regression_tests=[2])
         self.create_completed_test(3, [2])
         with self.app.test_client() as c:
             response = c.post(
@@ -72,7 +72,7 @@ class TestControllers(BaseTestCase):
     def test_stop_with_permission(self):
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.tester)
-        self.create_fork_for_test("own-fork-commit", TestPlatform.linux, regression_tests=[2])
+        self.create_fork_for_test_case("own-fork-commit", TestPlatform.linux, regression_tests=[2])
         with self.app.test_client() as c:
             response = c.post(
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))

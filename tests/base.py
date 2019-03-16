@@ -242,7 +242,7 @@ class BaseTestCase(TestCase):
             'add': True
         }
 
-    def create_fork_for_test(self, commit_hash, platform, regression_tests=None):
+    def create_fork_for_test_case(self, commit_hash, platform, regression_tests=None):
         """
         Create a test on fork based on commit and platform
         """

@@ -6,7 +6,7 @@ from mod_auth.models import Role
 
 class TestControllers(BaseTestCase):
     @staticmethod
-    def create_completed_test(test_id, regression_tests):
+    def create_completed_regression_test_entries(test_id, regression_tests):
         from flask import g
         test_result_progress = [
             TestProgress(test_id, TestStatus.preparation, ("Test {0} preperation").format(test_id)),
@@ -40,7 +40,7 @@ class TestControllers(BaseTestCase):
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.tester)
         self.create_forktest("own-fork-commit", TestPlatform.linux, regression_tests=[2])
-        self.create_completed_test(3, [2])
+        self.create_completed_regression_test_entries(3, [2])
         response = self.app.test_client().get('/test/3')
         self.assertEqual(response.status_code, 200)
         self.assert_template_used('test/by_id.html')
@@ -52,7 +52,7 @@ class TestControllers(BaseTestCase):
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.tester)
         self.create_forktest("own-fork-commit", TestPlatform.linux, regression_tests=[2])
-        self.create_completed_test(3, [2])
+        self.create_completed_regression_test_entries(3, [2])
         with self.app.test_client() as c:
             response = c.post(
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))

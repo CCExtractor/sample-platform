@@ -1,6 +1,7 @@
 from tests.base import BaseTestCase
 from mod_auth.models import Role
 
+
 class TestControllers(BaseTestCase):
 
     def test_root(self):

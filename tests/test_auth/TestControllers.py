@@ -110,6 +110,7 @@ class TestLogOut(BaseTestCase):
         self.assertIn(b'You have been logged out', response.data)
         self.assert_template_used('auth/login.html')
 
+
 class Miscellaneous(BaseTestCase):
 
     def test_github_token_validity(self):
@@ -118,6 +119,7 @@ class Miscellaneous(BaseTestCase):
         """
         res = github_token_validity('token')
         self.assertEqual(res, False)
+
 
 class ManageAccount(BaseTestCase):
 

@@ -1,7 +1,7 @@
 from io import BytesIO
 from flask import url_for
 from mock import mock
-from tests.base import BaseTestCase, MockRequests
+from tests.base import BaseTestCase, mock_api_request_github
 from mod_auth.models import Role
 from mod_upload.models import QueuedSample
 from mod_sample.models import Sample, Issue
@@ -52,7 +52,7 @@ class TestControllers(BaseTestCase):
             self.assertEqual(queued_sample.filename, saved_filename)
             self.assertEqual(queued_sample.extension, '.ts')
 
-    @mock.patch('requests.Session.post', side_effect=MockRequests)
+    @mock.patch('requests.Session.post', side_effect=mock_api_request_github)
     @mock.patch('os.rename')
     @mock.patch('git.Repo')
     def test_process(self, mock_repo, mock_rename, mock_post):

@@ -7,8 +7,7 @@ from flask import g
 from database import create_session
 from mod_home.models import GeneralData, CCExtractorVersion
 from mod_auth.models import User, Role
-from mod_test.models import Test, Fork, TestType, TestPlatform, TestResult, \
-    TestResultFile, TestProgress, TestStatus
+from mod_test.models import Test, Fork, TestType, TestPlatform, TestResult, TestResultFile, TestProgress, TestStatus
 from mod_regression.models import Category, RegressionTestOutput, RegressionTest, InputType, OutputType
 from mod_sample.models import Sample, ForbiddenMimeType, ForbiddenExtension
 from mod_customized.models import CustomizedTest, TestFork
@@ -36,28 +35,29 @@ def load_config(file):
     with open(key_paths['secret_csrf_path'], 'rb') as secret_csrf_file:
         secret_csrf = secret_csrf_file.read()
 
-    return {'Testing': True,
-            'DATABASE_URI': 'sqlite:///:memory:',
-            'WTF_CSRF_ENABLED': False,
-            'SQLALCHEMY_POOL_SIZE': 1,
-            'GITHUB_DEPLOY_KEY': 'test_deploy',
-            'GITHUB_CI_KEY': 'test_ci',
-            'GITHUB_TOKEN': '',
-            'GITHUB_BOT': '',
-            'GITHUB_OWNER': 'test_owner',
-            'GITHUB_REPOSITORY': 'test_repo',
-            'HMAC_KEY': 'test_key',
-            'MIN_PWD_LEN': '10',
-            'MAX_PWD_LEN': '500',
-            'SAMPLE_REPOSITORY': 'temp',
-            'KVM_LINUX_NAME': 'linux-test',
-            'KVM_WINDOWS_NAME': 'window-test',
-            'SECRET_KEY': secret_key,
-            'CSRF_SESSION_KEY': secret_csrf
-            }
+    return {
+        'Testing': True,
+        'DATABASE_URI': 'sqlite:///:memory:',
+        'WTF_CSRF_ENABLED': False,
+        'SQLALCHEMY_POOL_SIZE': 1,
+        'GITHUB_DEPLOY_KEY': 'test_deploy',
+        'GITHUB_CI_KEY': 'test_ci',
+        'GITHUB_TOKEN': '',
+        'GITHUB_BOT': '',
+        'GITHUB_OWNER': 'test_owner',
+        'GITHUB_REPOSITORY': 'test_repo',
+        'HMAC_KEY': 'test_key',
+        'MIN_PWD_LEN': '10',
+        'MAX_PWD_LEN': '500',
+        'SAMPLE_REPOSITORY': 'temp',
+        'KVM_LINUX_NAME': 'linux-test',
+        'KVM_WINDOWS_NAME': 'window-test',
+        'SECRET_KEY': secret_key,
+        'CSRF_SESSION_KEY': secret_csrf
+    }
 
 
-def MockRequests(url, data=None, timeout=None):
+def mock_api_request_github(url, data=None, timeout=None):
     if url == "https://api.github.com/repos/test/test_repo/commits/abcdef":
         return MockResponse({}, 200)
     elif url == "https://api.github.com/user":
@@ -79,16 +79,18 @@ def MockRequests(url, data=None, timeout=None):
                                  '192.30.252.0/22',
                                  '185.199.108.0/22'
                              ]}, 200)
-    else:
-        return MockResponse({}, 404)
+
+    return MockResponse({}, 404)
 
 
-signup_information = {'valid_email': 'someone@example.com',
-                      'existing_user_email': 'dummy@example.com',
-                      'existing_user_name': 'dummy',
-                      'existing_user_pwd': 'dummy_pwd',
-                      'existing_user_role': Role.user
-                      }
+# TODO: replace this with something smarter
+signup_information = {
+    'valid_email': 'someone@example.com',
+    'existing_user_email': 'dummy@example.com',
+    'existing_user_name': 'dummy',
+    'existing_user_pwd': 'dummy_pwd',
+    'existing_user_role': Role.user
+}
 
 
 class BaseTestCase(TestCase):
@@ -108,34 +110,37 @@ class BaseTestCase(TestCase):
         self.app.preprocess_request()
         g.db = create_session(
             self.app.config['DATABASE_URI'], drop_tables=True)
-        g.db.execute('pragma foreign_keys=on') # Enable Foreign for unit tests
-        commit_name_linux = 'fetch_commit_' + TestPlatform.linux.value
-        commit_name_windows = 'fetch_commit_' + TestPlatform.windows.value
-        general_data = [GeneralData('last_commit', '1978060bf7d2edd119736ba3ba88341f3bec3323'),
-                        GeneralData(commit_name_linux,
-                                    '1978060bf7d2edd119736ba3ba88341f3bec3323'),
-                        GeneralData(commit_name_windows, '1978060bf7d2edd119736ba3ba88341f3bec3323')]
+        # enable Foreign keys for unit tests
+        g.db.execute('pragma foreign_keys=on')
+
+        general_data = [
+            GeneralData('last_commit', '1978060bf7d2edd119736ba3ba88341f3bec3323'),
+            GeneralData('fetch_commit_' + TestPlatform.linux.value, '1978060bf7d2edd119736ba3ba88341f3bec3323'),
+            GeneralData('fetch_commit_' + TestPlatform.windows.value, '1978060bf7d2edd119736ba3ba88341f3bec3323')
+        ]
         g.db.add_all(general_data)
-        self.ccextractor_version = CCExtractorVersion('1.2.3', '2013-02-27T19:35:32Z',
-                                                      '1978060bf7d2edd119736ba3ba88341f3bec3323')
+
+        self.ccextractor_version = CCExtractorVersion(
+            '1.2.3', '2013-02-27T19:35:32Z', '1978060bf7d2edd119736ba3ba88341f3bec3323')
         g.db.add(self.ccextractor_version)
-        fork_url = ('https://github.com/{user}/{repo}.git').format(user=g.github['repository_owner'],
-                                                                   repo=g.github['repository'])
-        fork = Fork(fork_url)
+
+        fork = Fork('https://github.com/{user}/{repo}.git'.format(user=g.github['repository_owner'],
+                                                                  repo=g.github['repository']))
         g.db.add(fork)
         g.db.commit()
+
         dummy_user = User(signup_information['existing_user_name'], signup_information['existing_user_role'],
                           signup_information['existing_user_email'], signup_information['existing_user_pwd'])
         g.db.add(dummy_user)
         g.db.commit()
+
         test = [
-            Test(TestPlatform.linux, TestType.pull_request,
-                 1, 'master', '1978060bf7d2edd119736ba3ba88341f3bec3323', 1),
-            Test(TestPlatform.linux, TestType.pull_request,
-                 1, 'master', 'abcdefgh', 1)
+            Test(TestPlatform.linux, TestType.pull_request, 1, 'master', '1978060bf7d2edd119736ba3ba88341f3bec3323', 1),
+            Test(TestPlatform.linux, TestType.pull_request, 1, 'master', 'abcdefgh', 1)
         ]
         g.db.add_all(test)
         g.db.commit()
+
         categories = [
             Category('Broken', 'Samples that are broken'),
             Category('DVB', 'Samples that contain DVB subtitles'),
@@ -145,12 +150,14 @@ class BaseTestCase(TestCase):
         ]
         g.db.add_all(categories)
         g.db.commit()
+
         samples = [
             Sample('sample1', 'ts', 'sample1'),
             Sample('sample2', 'ts', 'sample2')
         ]
         g.db.add_all(samples)
         g.db.commit()
+
         upload = [
             Upload(1, 1, 1, Platform.windows),
             Upload(1, 2, 1, Platform.linux)
@@ -158,13 +165,12 @@ class BaseTestCase(TestCase):
         g.db.add_all(upload)
         g.db.commit()
         regression_tests = [
-            RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2',
-                           InputType.file, OutputType.file, 3, 10),
-            RegressionTest(2, '-autoprogram -out=ttxt -latin1 -ucla',
-                           InputType.file, OutputType.file, 1, 10)
+            RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2', InputType.file, OutputType.file, 3, 10),
+            RegressionTest(2, '-autoprogram -out=ttxt -latin1 -ucla', InputType.file, OutputType.file, 1, 10)
         ]
         g.db.add_all(regression_tests)
         g.db.commit()
+
         categories[0].regression_tests.append(regression_tests[0])
         categories[2].regression_tests.append(regression_tests[1])
         regression_test_outputs = [
@@ -173,6 +179,7 @@ class BaseTestCase(TestCase):
         ]
         g.db.add_all(regression_test_outputs)
         g.db.commit()
+
         test_result_progress = [
             TestProgress(1, TestStatus.preparation, "Test 1 preperation"),
             TestProgress(1, TestStatus.building, "Test 1 building"),
@@ -185,6 +192,7 @@ class BaseTestCase(TestCase):
         ]
         g.db.add_all(test_result_progress)
         g.db.commit()
+
         test_results = [
             TestResult(1, 1, 200, 0, 0),
             TestResult(1, 2, 601, 0, 0),
@@ -193,6 +201,7 @@ class BaseTestCase(TestCase):
         ]
         g.db.add_all(test_results)
         g.db.commit()
+
         test_result_files = [
             TestResultFile(1, 1, 1, 'sample_out1'),
             TestResultFile(1, 2, 2, 'sample_out2'),
@@ -201,6 +210,7 @@ class BaseTestCase(TestCase):
         ]
         g.db.add_all(test_result_files)
         g.db.commit()
+
         forbidden_mime = ForbiddenMimeType('application/javascript')
         forbidden_ext = [
             ForbiddenExtension('js'),
@@ -210,27 +220,34 @@ class BaseTestCase(TestCase):
         g.db.add_all(forbidden_ext)
         g.db.commit()
 
-    def create_login_form_data(self, email, password) -> dict:
+    @staticmethod
+    def create_login_form_data(email, password) -> dict:
         """
         Creates the form data for a login event.
         :return: A dictionary containing the name, password and submit fields.
         """
         return {'email': email, 'password': password, 'submit': True}
 
-    def create_customize_form(self, commit_hash, platform, commit_select=['', ''], regression_test=[1, 2]):
-        return {'commit_hash': commit_hash,
-                'commit_select': commit_select,
-                'platform': platform,
-                'regression_test': regression_test,
-                'add': True}
+    @staticmethod
+    def create_customize_form(commit_hash, platform, commit_select=None, regression_test=None):
+        if regression_test is None:
+            regression_test = [1, 2]
+        if commit_select is None:
+            commit_select = ['', '']
+        return {
+            'commit_hash': commit_hash,
+            'commit_select': commit_select,
+            'platform': platform,
+            'regression_test': regression_test,
+            'add': True
+        }
 
-    def create_forktest(self, commit_hash, platform, regression_tests=None):
+    def create_fork_for_test(self, commit_hash, platform, regression_tests=None):
         """
         Create a test on fork based on commit and platform
         """
         from flask import g
-        fork_url = ('https://github.com/{user}/{repo}.git').format(
-            user=self.user.name, repo=g.github['repository'])
+        fork_url = 'https://github.com/{user}/{repo}.git'.format(user=self.user.name, repo=g.github['repository'])
         fork = Fork(fork_url)
         g.db.add(fork)
         g.db.commit()
@@ -247,26 +264,6 @@ class BaseTestCase(TestCase):
                 g.db.add(customized_test)
                 g.db.commit()
 
-    def complete_forktest(self, test_id, regression_tests):
-        from flask import g
-        test_result_progress = [
-            TestProgress(test_id, TestStatus.preparation, ("Test {0} preperation").format(test_id)),
-            TestProgress(test_id, TestStatus.building, ("Test {0} building").format(test_id)),
-            TestProgress(test_id, TestStatus.testing, ("Test {0} testing").format(test_id)),
-            TestProgress(test_id, TestStatus.completed, ("Test {0} completed").format(test_id)),
-        ]
-        g.db.add_all(test_result_progress)
-        test_results = [
-            TestResult(test_id, regression_test, 200, 0, 0) for regression_test in regression_tests
-        ]
-        g.db.add_all(test_results)
-        test_result_files = [
-            TestResultFile(test_id, regression_test, regression_test, 'sample_output')
-            for regression_test in regression_tests
-        ]
-        g.db.add_all(test_result_files)
-        g.db.commit()
-
     def create_user_with_role(self, user, email, password, role, github_token=None):
         """
         Create a user with specified user details and role.
@@ -277,7 +274,8 @@ class BaseTestCase(TestCase):
         g.db.add(user)
         g.db.commit()
 
-    def create_random_string(self, length=32):
+    @staticmethod
+    def create_random_string(length=32):
         import random
         import string
         random_string = ''.join([random.choice(string.ascii_letters + string.digits) for n in range(length)])

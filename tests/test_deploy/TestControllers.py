@@ -1,6 +1,7 @@
 from tests.base import BaseTestCase
 import json
 
+
 class TestControllers(BaseTestCase):
 
     def test_root(self):
@@ -15,9 +16,7 @@ class TestControllers(BaseTestCase):
         """
         Test The View by sending a ping request
         """
-        response = self.app.test_client().post('/deploy',
-                headers={'X-GitHub-Event': 'ping'}
-            )
+        response = self.app.test_client().post('/deploy', headers={'X-GitHub-Event': 'ping'})
 
         self.assertEqual(response.status_code, 418)
         self.assertIn("I\\\'m a teapot", str(response.data))
@@ -26,9 +25,7 @@ class TestControllers(BaseTestCase):
         """
         Test The View by sending an invalid event
         """
-        response = self.app.test_client().post('/deploy',
-                headers={'X-GitHub-Event': 'Banana'}
-            )
+        response = self.app.test_client().post('/deploy', headers={'X-GitHub-Event': 'Banana'})
 
         self.assertEqual(response.status_code, 418)
         self.assertIn("I\\\'m a teapot", str(response.data))

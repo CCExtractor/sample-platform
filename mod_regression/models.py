@@ -90,7 +90,7 @@ class RegressionTest(Base):
         Parametrized constructor for the RegressionTest model
 
         :param sample_id: The value of the 'name' field of RegressionTest model
-        :type sample_id: str
+        :type sample_id: int
         :param command: The value of the 'command' field of RegressionTest model
         :type command: str
         :param input_type: The value of the 'input_type' field of RegressionTest model

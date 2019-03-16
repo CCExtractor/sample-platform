@@ -1,5 +1,5 @@
 from mock import mock
-from tests.base import BaseTestCase, MockRequests
+from tests.base import BaseTestCase, mock_api_request_github
 from mod_home.models import CCExtractorVersion, GeneralData
 from mod_test.models import Test, TestPlatform, TestType
 from mod_regression.models import RegressionTest
@@ -9,6 +9,7 @@ from mod_auth.models import Role
 from werkzeug.datastructures import Headers
 from importlib import reload
 from flask import g
+
 
 class TestControllers(BaseTestCase):
     @mock.patch('github.GitHub')
@@ -75,7 +76,7 @@ class TestControllers(BaseTestCase):
                                                       mock_rmtree, mock_libvirt, mock_repo, mock_git):
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.tester)
-        self.create_forktest("own-fork-commit", TestPlatform.linux)
+        self.create_fork_for_test("own-fork-commit", TestPlatform.linux)
         import mod_ci.cron
         import mod_ci.controllers
         reload(mod_ci.cron)
@@ -95,8 +96,7 @@ class TestControllers(BaseTestCase):
         pull_info = GitPullInfo(flags=0)
         origin.pull.return_value = [pull_info]
         cron()
-        fork_url = ('https://github.com/{user}/{repo}.git').format(
-                user=self.user.name, repo=g.github['repository'])
+        fork_url = 'https://github.com/{user}/{repo}.git'.format(user=self.user.name, repo=g.github['repository'])
         repo.create_remote.assert_called_with('fork_2', url=fork_url)
         repo.create_head.assert_called_with('CI_Branch', origin.refs.master)
 
@@ -108,9 +108,8 @@ class TestControllers(BaseTestCase):
     @mock.patch('lxml.etree')
     def test_customize_tests_run_on_fork_if_remote_exist(self, mock_etree, mock_open,
                                                          mock_rmtree, mock_libvirt, mock_repo, mock_git):
-        self.create_user_with_role(
-            self.user.name, self.user.email, self.user.password, Role.tester)
-        self.create_forktest("own-fork-commit", TestPlatform.linux)
+        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.tester)
+        self.create_fork_for_test("own-fork-commit", TestPlatform.linux)
         import mod_ci.cron
         import mod_ci.controllers
         reload(mod_ci.cron)
@@ -132,8 +131,6 @@ class TestControllers(BaseTestCase):
         pull_info = GitPullInfo(flags=0)
         origin.pull.return_value = [pull_info]
         cron()
-        fork_url = ('https://github.com/{user}/{repo}.git').format(
-                user=self.user.name, repo=g.github['repository'])
         repo.remote.assert_called_with('fork_2')
 
     @mock.patch('github.GitHub')
@@ -146,7 +143,7 @@ class TestControllers(BaseTestCase):
                                                               mock_rmtree, mock_libvirt, mock_repo, mock_git):
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.tester)
-        self.create_forktest("own-fork-commit", TestPlatform.linux, regression_tests=[2])
+        self.create_fork_for_test("own-fork-commit", TestPlatform.linux, regression_tests=[2])
         import mod_ci.cron
         import mod_ci.controllers
         reload(mod_ci.cron)
@@ -206,7 +203,7 @@ class TestControllers(BaseTestCase):
             }
         )
 
-    @mock.patch('requests.get', side_effect=MockRequests)
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_add_blocked_users(self, mock_request):
         """
         Check adding a user to block list.
@@ -223,7 +220,7 @@ class TestControllers(BaseTestCase):
                 flash_message = dict(session['_flashes']).get('message')
             self.assertEqual(flash_message, "User blocked successfully.")
 
-    @mock.patch('requests.get', side_effect=MockRequests)
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_add_blocked_users_wrong_id(self, mock_request):
         """
         Check adding invalid user id to block list.
@@ -238,7 +235,7 @@ class TestControllers(BaseTestCase):
             self.assertEqual(BlockedUsers.query.filter(BlockedUsers.user_id == 0).first(), None)
             self.assertIn("GitHub User ID not filled in", str(response.data))
 
-    @mock.patch('requests.get', side_effect=MockRequests)
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_add_blocked_users_empty_id(self, mock_request):
         """
         Check adding blank user id to block list.
@@ -250,10 +247,10 @@ class TestControllers(BaseTestCase):
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
             response = c.post(
                 '/blocked_users', data=dict(comment="Bad user", add=True))
-            self.assertEqual(BlockedUsers.query.filter(BlockedUsers.user_id == None).first(), None)
+            self.assertEqual(BlockedUsers.query.filter(BlockedUsers.user_id.is_(None)).first(), None)
             self.assertIn("GitHub User ID not filled in", str(response.data))
 
-    @mock.patch('requests.get', side_effect=MockRequests)
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_add_blocked_users_already_exists(self, mock_request):
         """
         Check adding existing blocked user again.
@@ -272,7 +269,7 @@ class TestControllers(BaseTestCase):
                 flash_message = dict(session['_flashes']).get('message')
             self.assertEqual(flash_message, "User already blocked.")
 
-    @mock.patch('requests.get', side_effect=MockRequests)
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_remove_blocked_users(self, mock_request):
         """
         Check removing user from block list.
@@ -293,7 +290,7 @@ class TestControllers(BaseTestCase):
                 flash_message = dict(session['_flashes']).get('message')
             self.assertEqual(flash_message, "User removed successfully.")
 
-    @mock.patch('requests.get', side_effect=MockRequests)
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_remove_blocked_users_wrong_id(self, mock_request):
         """
         Check removing non existing id from block list.
@@ -309,7 +306,7 @@ class TestControllers(BaseTestCase):
                 flash_message = dict(session['_flashes']).get('message')
             self.assertEqual(flash_message, "No such user in Blacklist")
 
-    @mock.patch('requests.get', side_effect=MockRequests)
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_remove_blocked_users_empty_id(self, mock_request):
         """
         Check removing blank user id from block list.
@@ -323,7 +320,7 @@ class TestControllers(BaseTestCase):
                 '/blocked_users', data=dict(remove=True))
             self.assertIn("GitHub User ID not filled in", str(response.data))
 
-    @mock.patch('requests.get', side_effect=MockRequests)
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_wrong_url(self, mock_request):
         """
         Check webhook fails when ping with wrong url
@@ -340,7 +337,7 @@ class TestControllers(BaseTestCase):
                 data=json.dumps(data), headers=headers)
             self.assertNotEqual(response.status_code, 200)
 
-    @mock.patch('requests.get', side_effect=MockRequests)
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_ping(self, mock_request):
         """
         Check webhook release update CCExtractor Version
@@ -358,7 +355,7 @@ class TestControllers(BaseTestCase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.data, b'{"msg": "Hi!"}')
  
-    @mock.patch('requests.get', side_effect=MockRequests)
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_release(self, mock_request):
         """
         Check webhook release update CCExtractor Version
@@ -381,7 +378,7 @@ class TestControllers(BaseTestCase):
             last_release = CCExtractorVersion.query.order_by(CCExtractorVersion.released.desc()).first()
             self.assertEqual(last_release.version, '2.1')
 
-    @mock.patch('requests.get', side_effect=MockRequests)
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_prerelease(self, mock_request):
         """
         Check webhook release update CCExtractor Version
@@ -404,7 +401,8 @@ class TestControllers(BaseTestCase):
             last_release = CCExtractorVersion.query.order_by(CCExtractorVersion.released.desc()).first()
             self.assertNotEqual(last_release.version, '2.1')
 
-    def generate_signature(self, data, private_key):
+    @staticmethod
+    def generate_signature(data, private_key):
         """
         Generate signature token of hook request
 
@@ -418,19 +416,20 @@ class TestControllers(BaseTestCase):
         mac = hmac.new(encoded_key, msg=data, digestmod=algorithm)
         return mac.hexdigest()
 
-    def generate_git_api_header(self, event, sig):
+    @staticmethod
+    def generate_git_api_header(event, sig):
         """
-        Create header for Github API Request
+        Create header for Github API Request, based on header information from https://developer.github.com/webhooks/.
+
         :param event: Name of the event type that triggered the delivery.
         :param sig: The HMAC hex digest of the response body. The HMAC hex digest is generated
                     using the sha1 hash function and the secret as the HMAC key.
         """
-        # Header information from https://developer.github.com/webhooks/
-        headers = Headers([('X-GitHub-Event', event),
-                           ('X-Github-Delivery', '72d3162e-cc78-11e3-81ab-4c9367dc0958'),
-                           ('X-Hub-Signature', ('sha1={0}').format(sig)),
-                           ('User-Agent', 'GitHub-Hookshot/044aadd'),
-                           ('Content-Type', 'application/json'),
-                           ('Content-Length', 6615)
-                          ])
-        return headers
+        return Headers([
+            ('X-GitHub-Event', event),
+            ('X-Github-Delivery', '72d3162e-cc78-11e3-81ab-4c9367dc0958'),
+            ('X-Hub-Signature', 'sha1={0}'.format(sig)),
+            ('User-Agent', 'GitHub-Hookshot/044aadd'),
+            ('Content-Type', 'application/json'),
+            ('Content-Length', 6615)
+        ])

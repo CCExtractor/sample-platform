@@ -341,7 +341,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         fork_url = test.fork.github
         if not check_main_repo(fork_url):
             existing_remote = [remote.name for remote in repo.remotes]
-            remote = ('fork_{id}').format(id=fork_id)
+            remote = 'fork_{id}'.format(id=fork_id)
             if remote in existing_remote:
                 origin = repo.remote(remote)
             else:
@@ -466,8 +466,9 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     """
     from run import log
 
-    fork = Fork.query.filter(Fork.github.like(("%/{owner}/{repo}.git").format(owner=g.github['repository_owner'],
-                                                                              repo=g.github['repository']))).first()
+    fork = Fork.query.filter(
+        Fork.github.like("%/{owner}/{repo}.git".format(owner=g.github['repository_owner'], repo=g.github['repository']))
+    ).first()
 
     if test_type == TestType.pull_request:
         branch = "pull_request"
@@ -971,9 +972,11 @@ def comment_pr(test_id, state, pr_nr, platform):
 
     :param test_id: The identity of Test whose report will be uploaded
     :type test_id: str
-    :crash: whether test results in crash or not
-    :type: boolean
-    :pr_nr: PR number to which test commit is related and comment will be uploaded
+    :param state: The state of the PR.
+    :type state: Status
+    :param pr_nr: PR number to which test commit is related and comment will be uploaded
+    :type: str
+    :param platform
     :type: str
     """
     from run import app, log

@@ -3,13 +3,15 @@ import html
 
 index = dict()  # for optimization
 
+
 def zip_(ls):
     return ''.join(ls)
 
+
 # compress words and digits to one list
 def compress(s):
-    rez = re.split('(\W)', s)
-    return rez
+    return re.split(r'(\W)', s)
+
 
 # equality factor
 def eq(a, b, same_regions=None, delta_a=0, delta_b=0):
@@ -65,6 +67,7 @@ def eq(a, b, same_regions=None, delta_a=0, delta_b=0):
 
     return index[zip_(a)][zip_(b)]
 
+
 # processing one line
 def _process(test_result, correct, suffix_id):
     test_result = html.escape(test_result)
@@ -116,6 +119,7 @@ def _process(test_result, correct, suffix_id):
             html_correct += '</div>'
     html_correct += ''.join(cr_compr[idx:])
     return '<div class="diff-div-text">' + html_test + '</div>', '<div class="diff-div-text">' + html_correct + '</div>'
+
 
 # return generated difference in HTML formatted table
 def get_html_diff(test_correct_lines, test_res_lines):

@@ -2,6 +2,7 @@ import unittest
 
 from mod_test.nicediff.diff import get_html_diff
 
+
 class TestDiff(unittest.TestCase):
     def test_if_same_diff_generated(self):
         expected_sub = ['1\n', '00:00:12,340 --> 00:00:15,356\n', 'May the fourth be with you!\n']

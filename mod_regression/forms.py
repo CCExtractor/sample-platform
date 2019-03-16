@@ -4,6 +4,7 @@ from wtforms.validators import DataRequired, Email, ValidationError, NumberRange
 from mod_sample.models import Sample
 from mod_regression.models import InputType, OutputType, Category
 
+
 class AddCategoryForm(FlaskForm):
     """
     Flask form to Add Category
@@ -11,6 +12,7 @@ class AddCategoryForm(FlaskForm):
     category_name = StringField("Category Name", [DataRequired(message="Category name can't be empty")])
     category_description = StringField("Description")
     submit = SubmitField("Add Category")
+
 
 class AddTestForm(FlaskForm):
     """
@@ -31,13 +33,13 @@ class AddTestForm(FlaskForm):
         choices=[(o.value, o.description) for o in OutputType]
     )
     category_id = SelectField("Category", coerce=int)
-    expected_rc = IntegerField("Expected Runtime Code",
-        [DataRequired(message="Expected Runtime Code can't be empty")])
+    expected_rc = IntegerField("Expected Runtime Code", [DataRequired(message="Expected Runtime Code can't be empty")])
     submit = SubmitField("Add Regression Test")
+
 
 class ConfirmationForm(FlaskForm):
     """
     Flask Form Used for Asking Confirmations
     """
-    confirm = HiddenField('nesho', default='yes') # nesho = something
+    confirm = HiddenField('confirm', default='yes')
     submit = SubmitField('Confirm')

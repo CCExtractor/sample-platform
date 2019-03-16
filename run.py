@@ -53,9 +53,9 @@ def install_secret_keys(application, secret_session='secret_key', secret_csrf='s
     except IOError:
         traceback.print_exc()
         print('Error: No secret key. Create it with:')
-        if not os.path.isdir(os.path.dirname(session_file)):
-            print('mkdir -p', os.path.dirname(session_file))
-        print('head -c 24 /dev/urandom >', session_file)
+        if not os.path.isdir(os.path.dirname(session_file_path)):
+            print('mkdir -p', os.path.dirname(session_file_path))
+        print('head -c 24 /dev/urandom >', session_file_path)
         do_exit = True
 
     try:
@@ -63,9 +63,9 @@ def install_secret_keys(application, secret_session='secret_key', secret_csrf='s
             application.config['CSRF_SESSION_KEY'] = csrf_file.read()
     except IOError:
         print('Error: No secret CSRF key. Create it with:')
-        if not os.path.isdir(os.path.dirname(csrf_file)):
-            print('mkdir -p', os.path.dirname(csrf_file))
-        print('head -c 24 /dev/urandom >', csrf_file)
+        if not os.path.isdir(os.path.dirname(csrf_file_path)):
+            print('mkdir -p', os.path.dirname(csrf_file_path))
+        print('head -c 24 /dev/urandom >', csrf_file_path)
         do_exit = True
 
     if do_exit:

@@ -132,7 +132,7 @@ def test_edit(regression_id):
 
         g.db.commit()
         flash('Regression Test Updated')
-        return redirect(url_for('.test_view',regression_id=regression_id))
+        return redirect(url_for('.test_view', regression_id=regression_id))
     return {'form': form, 'regression_id': regression_id}
 
 
@@ -171,9 +171,13 @@ def test_add():
     form.category_id.choices = [(cat.id, cat.name) for cat in Category.query.all()]
     if form.validate_on_submit():
         new_test = RegressionTest(
-            sample_id=form.sample_id.data, command=form.command.data,
-            category_id=form.category_id.data, expected_rc=form.expected_rc.data,
-            input_type=InputType.from_string(form.input_type.data), output_type=OutputType.from_string(form.output_type.data))
+            sample_id=form.sample_id.data,
+            command=form.command.data,
+            category_id=form.category_id.data,
+            expected_rc=form.expected_rc.data,
+            input_type=InputType.from_string(form.input_type.data),
+            output_type=OutputType.from_string(form.output_type.data)
+        )
         g.db.add(new_test)
         category = Category.query.filter(Category.id == form.category_id.data).first()
         category.regression_tests.append(new_test)

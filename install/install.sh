@@ -11,7 +11,7 @@ clear
 date=$(date +%Y-%m-%d-%H-%M)
 install_log="${dir}/PlatformInstall_${date}_log.txt"
 echo "Welcome to the CCExtractor platform installer!"
-if [[ $EUID -ne 0 ]]
+if [[ "$EUID" -ne 0 ]]
     then
         echo "You must be a root user to install CCExtractor platform." 2>&1
         exit -1

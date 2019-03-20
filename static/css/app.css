@@ -124,8 +124,8 @@ input[type="checkbox"]:disabled +  label span::before {
     }
 }
 @media only screen and (max-width: 400px) {
-	ol.progtrckr li {
-		font-size: smaller;
+    ol.progtrckr li {
+        font-size: smaller;
     }
 }
 ol.progtrckr {
@@ -135,17 +135,17 @@ ol.progtrckr {
     table-layout: fixed;
     width: 100%;
     margin: 0 0 2em;
-	min-width: 400px;
+    min-width: 400px;
 }
 ol.progtrckr li {
-	display: inline-block;
+    display: inline-block;
     text-align: center;
     line-height: 3em;
 }
 @-moz-document url-prefix() {
-	ol.progtrckr li {
-		margin: 0 -2px 0px -3px;
-	}
+    ol.progtrckr li {
+        margin: 0 -2px 0px -3px;
+    }
 }
 
 ol.progtrckr[data-progtrckr-steps="2"] li { width: 49%; }
@@ -217,16 +217,7 @@ ol.progtrckr li.progtrckr-running.error::before {
 ol.progtrckr li.progtrckr-running.error {
     border-color: red;
 }
-/*
-@media only screen and (max-width: 400px) {
-    ol.progtrckr li {
-        display: table-cell;
-    }
-    ol.progtrckr li::before {
-       bottom: -3.8em;
-    }
-}
-*/
+
 .category-header {
     cursor: pointer;
 }

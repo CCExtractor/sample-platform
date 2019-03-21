@@ -135,7 +135,7 @@ ol.progtrckr {
     table-layout: fixed;
     width: 100%;
     margin: 0 0 2em;
-    min-width: 400px;
+    min-width: 20em;
 }
 ol.progtrckr li {
     display: inline-block;

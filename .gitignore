@@ -40,3 +40,4 @@ coverage_report/
 
 #virtualenv
 venv/
+.vscode/

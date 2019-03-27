@@ -1,6 +1,7 @@
 [run]
 branch = True
 omit =
+    install/*
     tests/*
     *__init__*
     config_sample.py 

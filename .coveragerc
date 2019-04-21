@@ -17,6 +17,8 @@ exclude_lines =
     pass
     # Ignore main code
     if __name__ == .__main__.:
+    # Ignore the __repr__ function since it's nowhere used other than for represantation
+    def __repr__
 
 [html]
 directory = coverage_report

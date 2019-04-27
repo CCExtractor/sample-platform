@@ -7,6 +7,9 @@ name = "pypi"
 flask-testing = "*"
 mock = "*"
 pep8 = "*"
+nosetests = "*"
+codecov = "*"
+nose-cov = "*"
 
 [packages]
 flask = "*"

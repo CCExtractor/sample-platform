@@ -15,5 +15,3 @@ lxml
 pytz
 tzlocal
 libvirt-python; sys_platform != 'win32'
-codecov
-nose-cov

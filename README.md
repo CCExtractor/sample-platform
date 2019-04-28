@@ -30,6 +30,21 @@ An installation guideline can be found here:
 All information with regards to contributing can be found here:
 [contributors guide](.github/CONTRIBUTING.md).
 
+## Testing
+
+Sample-platform is regularly tested via Travis CI.
+
+We use `nosetests` to manage testing and it can be run locally as follows:
+
+```bash
+pipenv shell --three        # make virtual environment
+pipenv shell install --dev  # install development dependencies
+pipenv run nosetests --with-cov --cov-config .coveragerc
+
+```
+
+NOTE: The tests must be run after successful installation and set-up of sample-platform to give accurate results.
+
 ## Security
 
 Even though many precautions have been taken to ensure that this software is

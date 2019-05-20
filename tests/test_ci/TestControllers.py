@@ -183,25 +183,31 @@ class TestControllers(BaseTestCase):
         self.assertNotIn(1, customized_test)
 
     @mock.patch('mailer.Mailer')
-    def test_inform_mailing_list(self, mock_email):
+    @mock.patch('mod_ci.controllers.get_html_issue_body')
+    def test_inform_mailing_list(self, mock_get_html_issue_body, mock_email):
         """
         Test the inform_mailing_list function
         """
         from mod_ci.controllers import inform_mailing_list
-        from mailer import Mailer
 
+        mock_get_html_issue_body.return_value = """2430 - Some random string\n\n
+                     Link to Issue: https://www.github.com/test_owner/test_repo/issues/matejmecka\n\n
+                     Some random string(https://github.com/Some random string)\n\n\n
+                     Lorem Ipsum sit dolor amet...\n        """
         email = inform_mailing_list(mock_email, "matejmecka", "2430", "Some random string",
                                     "Lorem Ipsum sit dolor amet...")
 
         mock_email.send_simple_message.assert_called_once_with(
             {
-                'text': '2430 - Some random string\n\n'
-                '        Link to Issue: https://www.github.com/test_owner/test_repo/issues/matejmecka\n\n'
-                '        Some random string(https://github.com/Some random string)\n\n\n'
-                '        Lorem Ipsum sit dolor amet...\n        ',
-                'subject': 'GitHub Issue #matejmecka', 'to': 'ccextractor-dev@googlegroups.com'
+                'to': 'ccextractor-dev@googlegroups.com',
+                'subject': 'GitHub Issue #matejmecka',
+                'html': """2430 - Some random string\n\n
+                     Link to Issue: https://www.github.com/test_owner/test_repo/issues/matejmecka\n\n
+                     Some random string(https://github.com/Some random string)\n\n\n
+                     Lorem Ipsum sit dolor amet...\n        """
             }
         )
+        mock_get_html_issue_body.assert_called_once()
 
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_add_blocked_users(self, mock_request):

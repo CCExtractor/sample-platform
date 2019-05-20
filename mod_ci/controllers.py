@@ -528,7 +528,7 @@ def inform_mailing_list(mailer, id, title, author, body):
 def get_html_issue_body(title, author, body, issue_number, url):
     """
     curates a HTML formatted body
-   
+
     :param title: title of the issue
     :type title: str
     :param author: author of the issue

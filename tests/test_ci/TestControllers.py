@@ -219,11 +219,7 @@ class TestControllers(BaseTestCase):
 
         title = "[BUG] Test Title"
         author = "abcxyz"
-        body = ("**strong_text**<br/>*em_text*\n\n"
-                "- [list_with_link](www.example.com)\n"
-                "- [X] checkbox_list with_code\n\n"
-                "`code`\n\n"
-                "> quote")
+        body = "i'm issue body"
         issue_number = 1
         url = "www.example.com"
 

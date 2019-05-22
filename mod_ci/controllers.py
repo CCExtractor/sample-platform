@@ -542,7 +542,9 @@ def get_html_issue_body(title, author, body, issue_number, url):
     :return: email body in html format
     :rtype: str
     """
-    html_issue_body = markdown(body, extras=["target-blank-links", "task_list"])
+    from run import app
+
+    html_issue_body = markdown(body, extras=["target-blank-links", "task_list", "code-friendly"])
     template = app.jinja_env.get_or_select_template("email/new_issue.txt")
     html_email_body = template.render(title=title, author=author, body=html_issue_body, url=url)
     return html_email_body

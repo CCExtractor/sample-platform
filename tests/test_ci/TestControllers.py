@@ -210,7 +210,8 @@ class TestControllers(BaseTestCase):
         mock_get_html_issue_body.assert_called_once()
 
     @staticmethod
-    def test_get_html_issue_body():
+    @mock.patch('mod_ci.controllers.markdown')
+    def test_get_html_issue_body(mock_markdown):
         """
         Test the get_html_issue_body for correct email formatting
         """
@@ -226,21 +227,9 @@ class TestControllers(BaseTestCase):
         issue_number = 1
         url = "www.example.com"
 
-        expected_html_issue_body = ("[BUG] Test Title - abcxyz<br/>\n"
-                                    "Link to Issue: www.example.com<br/>\n"
-                                    """<a href="https://github.com/abcxyz">abcxyz</a><br/><br/>\n"""
-                                    "<p><strong>strong_text</strong><br/><em>em_text</em></p>\n\n"
-                                    "<ul>\n"
-                                    """<li><a target="_blank" href="www.example.com">list_with_link</a></li>\n"""
-                                    "<li>[X] checkbox_list with_code</li>\n"
-                                    "</ul>\n\n"
-                                    "<p><code>code</code></p>\n\n"
-                                    "<blockquote>\n"
-                                    "  <p>quote</p>\n"
-                                    "</blockquote>\n")
-        received_html_issue_body = get_html_issue_body(title, author, body, issue_number, url)
+        get_html_issue_body(title, author, body, issue_number, url)
 
-        assert received_html_issue_body == expected_html_issue_body, "wrong issue html [formatted] email returned"
+        mock_markdown.assert_called_once_with(body, extras=["target-blank-links", "task_list", "code-friendly"])
 
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_add_blocked_users(self, mock_request):

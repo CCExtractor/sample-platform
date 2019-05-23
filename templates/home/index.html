@@ -20,7 +20,7 @@
                 {% endif %}
             </ul>
             <h4>Development information</h4>
-            <p>Last official release: <a target="_blank" href="http://sourceforge.net/projects/ccextractor/files/ccextractor/{{ ccx_last_release.version }}/">{{ ccx_last_release.version }}</a> (release date: {{ ccx_last_release.released }}). Regression tests for this version are available here: <a href="{{ url_for("test.ccextractor_version", ccx_version=ccx_last_release.version) }}">regression tests</a></p>
+            <p>Last official release: <a target="_blank" href="https://github.com/CCExtractor/ccextractor/releases/tag/v{{ ccx_last_release.version }}">{{ ccx_last_release.version }}</a> (release date: {{ ccx_last_release.released }}). Regression tests for this version are available here: <a href="{{ url_for("test.ccextractor_version", ccx_version=ccx_last_release.version) }}">regression tests</a></p>
             <p>Latest GitHub commit: <a target="_blank" href="https://github.com/CCExtractor/ccextractor/commit/{{ ccx_latest_commit }}">{{ ccx_latest_commit }}</a>. View the <a href="{{ url_for("test.by_commit", commit_hash=ccx_latest_commit) }}">regression tests</a>.</p>
         </div>
         <div class="column medium-3">

@@ -25,6 +25,7 @@ from sqlalchemy.sql import label
 from sqlalchemy.sql.functions import count
 from werkzeug.utils import secure_filename
 from pymysql.err import IntegrityError
+from markdown2 import markdown
 
 from decorators import template_renderer, get_menu_entries
 from mod_auth.controllers import login_required, check_access_rights
@@ -520,13 +521,33 @@ def inform_mailing_list(mailer, id, title, author, body):
     mailer.send_simple_message({
         "to": "ccextractor-dev@googlegroups.com",
         "subject": subject,
-        "text": """{title} - {author}\n
-        Link to Issue: {url}\n
-        {author}(https://github.com/{author})\n\n
-        {body}
-        """.format(title=title, author=author, body=body, issue_number=id, url=url)
+        "html": get_html_issue_body(title=title, author=author, body=body, url=url)
     })
 
+
+def get_html_issue_body(title, author, body, issue_number, url):
+    """
+    curates a HTML formatted body
+
+    :param title: title of the issue
+    :type title: str
+    :param author: author of the issue
+    :type author: str
+    :param body: content of the isse
+    :type body: str
+    :param issue_number: issue number
+    :type issue_number: int
+    :param url: link to the issue
+    :type url: str
+    :return: email body in html format
+    :rtype: str
+    """
+    from run import app
+
+    html_issue_body = markdown(body, extras=["target-blank-links", "task_list", "code-friendly"])
+    template = app.jinja_env.get_or_select_template("email/new_issue.txt")
+    html_email_body = template.render(title=title, author=author, body=html_issue_body, url=url)
+    return html_email_body
 
 @mod_ci.route('/start-ci', methods=['GET', 'POST'])
 @request_from_github()

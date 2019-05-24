@@ -28,6 +28,7 @@ pytz = "*"
 tzlocal = "*"
 libvirt-python = {version = "*",sys_platform = "!= 'win32'"}
 SQLAlchemy = "*"
+markdown2 = "*"
 
 [requires]
 python_version = "3.6"

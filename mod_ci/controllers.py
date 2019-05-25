@@ -521,7 +521,7 @@ def inform_mailing_list(mailer, id, title, author, body):
     mailer.send_simple_message({
         "to": "ccextractor-dev@googlegroups.com",
         "subject": subject,
-        "html": get_html_issue_body(title=title, author=author, body=body, url=url)
+        "html": get_html_issue_body(title=title, author=author, body=body, issue_number=id, url=url)
     })
 
 

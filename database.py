@@ -89,24 +89,23 @@ class EnumSymbol(object):
 class EnumMeta(type):
     """Generate new DeclEnum classes."""
 
-    def __init__(cls, classname, bases, dict_):
+    def __init__(self, classname, bases, dict_):
         """Initilize EnumMeta with class, name, value and description."""
-        cls._reg = reg = cls._reg.copy()
+        self._reg = reg = self._reg.copy()
         for k, v in dict_.items():
             if isinstance(v, tuple):
-                sym = reg[v[0]] = EnumSymbol(cls, k, *v)
-                setattr(cls, k, sym)
-        return type.__init__(cls, classname, bases, dict_)
+                sym = reg[v[0]] = EnumSymbol(self, k, *v)
+                setattr(self, k, sym)
+        return type.__init__(self, classname, bases, dict_)
 
-    @classmethod
-    def __iter__(cls):
+    def __iter__(self):
         """
         Provide iterator for the class.
 
         :return: iterator
         :rtype: iter
         """
-        return iter(cls._reg.values())
+        return iter(self._reg.values())
 
 
 class DeclEnum(object, metaclass=EnumMeta):

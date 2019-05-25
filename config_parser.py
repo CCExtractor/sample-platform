@@ -1,9 +1,11 @@
+"""parses configuration for the flask application, makes use of inbuilt method."""
+
 from werkzeug.utils import import_string
 
 
 def parse_config(obj):
     """
-    Parses given config either from a file or from an object. Method borrowed from Flask.
+    Parse given config either from a file or from an object. Method borrowed from Flask.
 
     :param obj: The config to parse.
     :type obj: any

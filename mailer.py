@@ -1,10 +1,10 @@
+"""handles the mailing operations across the app."""
+
 import requests
 
 
 class Mailer:
-    """
-    Sends a mail through the Mailgun API
-    """
+    """Send a mail through the Mailgun API."""
 
     auth = None
     api_url = None
@@ -12,7 +12,7 @@ class Mailer:
 
     def __init__(self, domain, api_key, sender_name):
         """
-        Constructor for the Mailer class
+        Initialize the Mailer class.
 
         :param domain: Domain name of the sender
         :type domain: str
@@ -27,7 +27,7 @@ class Mailer:
 
     def send_simple_message(self, data):
         """
-        Sends a message 
+        Send a message.
 
         :param data: A dict consisting of the data for email
         :type data: dict

@@ -1,12 +1,12 @@
+"""manages configuring logging for the app."""
+
 import logging
 import logging.handlers
 import os
 
 
 class LogConfiguration:
-    """
-    This class handles common logging options for the entire project
-    """
+    """handle common logging options for the entire project."""
 
     def __init__(self, folder, filename, debug=False):
         # create console handler
@@ -26,13 +26,33 @@ class LogConfiguration:
 
     @property
     def file_logger(self):
+        """
+        Get file logger.
+
+        :return: file logger
+        :rtype: logging.handlers.RotatingFileHandler
+        """
         return self._fileLogger
 
     @property
     def console_logger(self):
+        """
+        Get console logger.
+
+        :return: console logger
+        :rtype: logging.StreamHandler
+        """
         return self._consoleLogger
 
     def create_logger(self, name):
+        """
+        Create new logger for the app.
+
+        :param name: name for the logger
+        :type name: str
+        :return: logger
+        :rtype: logging.Logger
+        """
         logger = logging.getLogger(name)
         logger.setLevel(logging.DEBUG)
         # add the handlers to the logger

@@ -1,3 +1,5 @@
+"""handles database session and data-type across app."""
+
 import re
 from abc import ABCMeta
 
@@ -8,9 +10,8 @@ from sqlalchemy.sql.sqltypes import SchemaType, Enum, TypeDecorator
 
 
 class DeclarativeABCMeta(DeclarativeMeta, ABCMeta):
-    """
-    Empty class to create a mixin between DeclarativeMeta and ABCMeta
-    """
+    """Empty class to create a mixin between DeclarativeMeta and ABCMeta."""
+
     pass
 
 
@@ -21,8 +22,7 @@ db_engine = None
 
 def create_session(db_string, drop_tables=False):
     """
-    Creates a new DB session using the scoped_session that SQLAlchemy
-    provides.
+    Create a new DB session using the scoped_session that SQLAlchemy provides.
 
     :param db_string: The connection string.
     :type db_string: str
@@ -49,11 +49,10 @@ def create_session(db_string, drop_tables=False):
 
 
 class EnumSymbol(object):
-    """
-    Define a fixed symbol tied to a parent class.
-    """
+    """Define a fixed symbol tied to a parent class."""
 
     def __init__(self, cls_, name, value, description):
+        """Initilize EnumSymbol with class, name, value and description."""
         self.cls_ = cls_
         self.name = name
         self.value = value
@@ -62,42 +61,69 @@ class EnumSymbol(object):
     def __reduce__(self):
         """
         Allow unpickling to return the symbol linked to the DeclEnum class.
+
+        :return: method and object reference to unpickle with
+        :rtype: method, (class, attribute)
         """
         return getattr, (self.cls_, self.name)
 
     def __iter__(self):
+        """
+        Provide iterator for the class.
+
+        :return: iterator
+        :rtype: iter
+        """
         return iter([self.value, self.description])
 
     def __repr__(self):
+        """
+        Define object representation when used with display method such as print.
+
+        :return: object representation
+        :rtype: str
+        """
         return "<{name}>".format(name=self.name)
 
 
 class EnumMeta(type):
-    """
-    Generate new DeclEnum classes.
-    """
+    """Generate new DeclEnum classes."""
 
-    def __init__(cls, classname, bases, dict_):
-        cls._reg = reg = cls._reg.copy()
+    def __init__(self, classname, bases, dict_):
+        """Initilize EnumMeta with class, name, value and description."""
+        self._reg = reg = self._reg.copy()
         for k, v in dict_.items():
             if isinstance(v, tuple):
-                sym = reg[v[0]] = EnumSymbol(cls, k, *v)
-                setattr(cls, k, sym)
-        return type.__init__(cls, classname, bases, dict_)
+                sym = reg[v[0]] = EnumSymbol(self, k, *v)
+                setattr(self, k, sym)
+        return type.__init__(self, classname, bases, dict_)
 
-    def __iter__(cls):
-        return iter(cls._reg.values())
+    def __iter__(self):
+        """
+        Provide iterator for the class.
+
+        :return: iterator
+        :rtype: iter
+        """
+        return iter(self._reg.values())
 
 
 class DeclEnum(object, metaclass=EnumMeta):
-    """
-    Declarative enumeration.
-    """
+    """Declarative enumeration."""
 
     _reg = {}
 
     @classmethod
     def from_string(cls, value):
+        """
+        Get value from _reg dict of the class.
+
+        :param value: dict key
+        :type value: string
+        :raises ValueError: if value is not a valid key
+        :return: dict element for key value
+        :rtype: dynamic
+        """
         try:
             return cls._reg[value]
         except KeyError:
@@ -105,33 +131,45 @@ class DeclEnum(object, metaclass=EnumMeta):
 
     @classmethod
     def values(cls):
+        """
+        Get list of keys for the _reg dict of the class.
+
+        :return: list of dictionary keys
+        :rtype: set
+        """
         return cls._reg.keys()
 
     @classmethod
     def db_type(cls):
+        """Get type of database."""
         return DeclEnumType(cls)
 
 
 class DeclEnumType(SchemaType, TypeDecorator):
-        def __init__(self, enum):
-            self.enum = enum
-            self.impl = Enum(
-                *enum.values(),
-                name="ck{0}".format(re.sub('([A-Z])', lambda m: "_" + m.group(1).lower(), enum.__name__))
-            )
+    """Declarative enumeration type."""
 
-        def _set_table(self, table, column):
-            self.impl._set_table(table, column)
+    def __init__(self, enum):
+        self.enum = enum
+        self.impl = Enum(
+            *enum.values(),
+            name="ck{0}".format(re.sub('([A-Z])', lambda m: "_" + m.group(1).lower(), enum.__name__))
+        )
 
-        def copy(self):
-            return DeclEnumType(self.enum)
+    def _set_table(self, table, column):
+        self.impl._set_table(table, column)
 
-        def process_bind_param(self, value, dialect):
-            if value is None:
-                return None
-            return value.value
+    def copy(self):
+        """Get enumeration type of self."""
+        return DeclEnumType(self.enum)
 
-        def process_result_value(self, value, dialect):
-            if value is None:
-                return None
-            return self.enum.from_string(value.strip())
+    def process_bind_param(self, value, dialect):
+        """Get process bind parameter."""
+        if value is None:
+            return None
+        return value.value
+
+    def process_result_value(self, value, dialect):
+        """Get process result value."""
+        if value is None:
+            return None
+        return self.enum.from_string(value.strip())

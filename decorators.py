@@ -1,3 +1,5 @@
+"""define decorators for use across app."""
+
 from datetime import date
 from functools import wraps
 from flask import request, g, render_template
@@ -5,7 +7,7 @@ from flask import request, g, render_template
 
 def get_menu_entries(user, title, icon, access=None, route='', all_entries=None):
     """
-    Parses a given set of entries and checks which ones the user can access.
+    Parse a given set of entries and checks which ones the user can access.
 
     :param access: Grant access to these roles. Empty means public access.
     :type access: list[str]
@@ -62,7 +64,7 @@ def get_menu_entries(user, title, icon, access=None, route='', all_entries=None)
 
 def template_renderer(template=None, status=200):
     """
-    Decorator to render a template.
+    Decorate to render a template.
 
     :param template: The template if it's not equal to the name of the endpoint.
     :type template: str

@@ -1,8 +1,6 @@
 """
-mod_auth Models
-===================
-In this module, we are trying to maintain all database models used
-for authentication.
+Maintain all the database models used in authentication.
+
 List of models corresponding to mysql tables: ['User' => 'user']
 """
 
@@ -15,6 +13,8 @@ from database import Base, DeclEnum
 
 
 class Role(DeclEnum):
+    """Roles available for users."""
+
     admin = "admin", "Admin"
     user = "user", "User"
     contributor = "contributor", "Contributor"
@@ -22,6 +22,8 @@ class Role(DeclEnum):
 
 
 class User(Base):
+    """Model for an user."""
+
     __tablename__ = 'user'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
@@ -33,7 +35,7 @@ class User(Base):
 
     def __init__(self, name, role=Role.user, email=None, password='', github_token=None):
         """
-        Parametrized constructor for the User model
+        Parametrized constructor for the User model.
 
         :param name: The value of the 'name' field of User model
         :type name: str
@@ -54,7 +56,6 @@ class User(Base):
 
     def __repr__(self):
         """
-        Representation function
         Represent a User Model by its 'name' Field.
 
         :return str(name): Returns the string containing 'name' field
@@ -66,7 +67,7 @@ class User(Base):
     @staticmethod
     def generate_hash(password):
         """
-        Generates a Hash value for a password
+        Generate a Hash value for a password.
 
         :param password: The password to be hashed
         :type password: str
@@ -79,7 +80,7 @@ class User(Base):
     @staticmethod
     def create_random_password(length=16):
         """
-        Creates a random password of default length 16
+        Create a random password of default length 16.
 
         :param length: If parameter is passed, length will be the parameter.
         16 by default
@@ -93,7 +94,7 @@ class User(Base):
 
     def is_password_valid(self, password):
         """
-        Checks the validity of the password
+        Check the validity of the password.
 
         :param password: The password to be validated
         :type password: str
@@ -104,7 +105,7 @@ class User(Base):
 
     def update_password(self, new_password):
         """
-        Updates the password to a new one
+        Update the password to a new one.
 
         :param new_password: The new password to be updated
         :type new_password: str
@@ -114,7 +115,7 @@ class User(Base):
     @property
     def is_admin(self):
         """
-        Verifies if a User is the admin
+        Verify if an User is a admin.
 
         :return : Checks if User has an admin role
         :rtype: boolean
@@ -123,7 +124,7 @@ class User(Base):
 
     def has_role(self, name):
         """
-        Checks whether the User has a particular role
+        Check whether the User has a particular role.
 
         :param name: Role of the user
         :type name: str

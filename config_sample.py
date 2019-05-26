@@ -1,3 +1,5 @@
+"""auto-generated module, using install.sh, to store configuration for the app."""
+
 # For manual installation, fill in the fields below. If you are using
 # install.sh, the config.py should have been generated for you.
 APPLICATION_ROOT = None

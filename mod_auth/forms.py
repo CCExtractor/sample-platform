@@ -1,3 +1,5 @@
+"""contains all the forms related to authentication and account functionality."""
+
 from flask_wtf import FlaskForm
 from wtforms import PasswordField, StringField, SubmitField, SelectField
 from wtforms.fields.html5 import EmailField
@@ -8,7 +10,7 @@ from mod_auth.models import User, Role
 
 def unique_username(form, field):
     """
-    Check if a user already exists with this name
+    Check if a user already exists with this name.
 
     :param form: The form which is being passed in
     :type form: Form
@@ -22,7 +24,7 @@ def unique_username(form, field):
 
 def valid_password(form, field):
     """
-    Function to check for validity of a password
+    Check for validity of a password.
 
     :param form: The form which is being passed in
     :type form: Form
@@ -44,7 +46,7 @@ def valid_password(form, field):
 
 def email_not_in_use(has_user_field=False):
     """
-    Function to check if the passed email is already in use.
+    Check if the passed email is already in use.
 
     :param has_user_field : Whether an email has an existing User (False by
     default)
@@ -62,7 +64,7 @@ def email_not_in_use(has_user_field=False):
 
 def role_id_is_valid(form, field):
     """
-    Checks for validity of User's Role
+    Check for validity of User's Role.
 
     :param form: The form which is being passed in
     :type form: Form
@@ -75,9 +77,8 @@ def role_id_is_valid(form, field):
 
 
 class LoginForm(FlaskForm):
-    """
-    The form rendered when a User has to enter Log in credentials
-    """
+    """Render form for User to enter Log in credentials."""
+
     email = EmailField('Email', [
         DataRequired(message='Email address is not filled in'),
         Email(message='Entered value is not a valid email address')
@@ -87,9 +88,8 @@ class LoginForm(FlaskForm):
 
 
 class SignupForm(FlaskForm):
-    """
-    Sign up form for new Users.
-    """
+    """Sign up form for new Users."""
+
     email = EmailField('Email', [
         DataRequired(message='Email address is not filled in'),
         Email(message='Entered value is not a valid email address')
@@ -98,24 +98,21 @@ class SignupForm(FlaskForm):
 
 
 class DeactivationForm(FlaskForm):
-    """
-    Deactivate existing account
-    """
+    """Deactivate existing account."""
+
     submit = SubmitField('Deactivate account')
 
 
 class RoleChangeForm(FlaskForm):
-    """
-    Changing the Role
-    """
+    """Change the Role."""
+
     role = SelectField('Select a role', [DataRequired(message='Role is not filled in.')], coerce=str)
     submit = SubmitField('Change role')
 
 
 class CompleteSignupForm(FlaskForm):
-    """
-    The Complete Sign up form for new users.
-    """
+    """Complete Sign up form for new users."""
+
     name = StringField('Name', [DataRequired(message='Name is not filled in.')])
     password = PasswordField('Password', [DataRequired(message='Password is not filled in.'), valid_password])
     password_repeat = PasswordField('Repeat password', [DataRequired(message='Repeated password is not filled in.')])
@@ -124,7 +121,7 @@ class CompleteSignupForm(FlaskForm):
     @staticmethod
     def validate_password_repeat(form, field):
         """
-        Validates if the repeated password is the same as 'password'
+        Validate if the repeated password is the same as 'password'.
 
         :param form: The form which is being passed in
         :type form: CompleteSignupForm
@@ -136,9 +133,8 @@ class CompleteSignupForm(FlaskForm):
 
 
 class AccountForm(FlaskForm):
-    """
-    Form for editing current Account
-    """
+    """Form for editing current Account."""
+
     def __init__(self, formdata=None, obj=None, prefix='', *args, **kwargs):
         super(AccountForm, self).__init__(formdata=formdata, obj=obj, prefix=prefix, *args, **kwargs)
         self.user = obj
@@ -157,8 +153,7 @@ class AccountForm(FlaskForm):
     @staticmethod
     def validate_current_password(form, field):
         """
-        Validates current password entered with the password stored in
-        database
+        Validate current password entered with the password stored in database.
 
         :param form: The form which is being passed in
         :type form: AccountForm
@@ -174,7 +169,7 @@ class AccountForm(FlaskForm):
     @staticmethod
     def validate_new_password(form, field):
         """
-        Validates the new password entered
+        Validate the new password entered.
 
         :param form: The form which is being passed in
         :type form: AccountForm
@@ -189,7 +184,7 @@ class AccountForm(FlaskForm):
     @staticmethod
     def validate_new_password_repeat(form, field):
         """
-        Validates new password repeat and checks if it matches 'new_password'
+        Validate new password repeat and checks if it matches 'new_password'.
 
         :param form: The form which is being passed in
         :type form: AccountForm
@@ -206,9 +201,8 @@ class AccountForm(FlaskForm):
 
 
 class ResetForm(FlaskForm):
-    """
-    Form for resetting password
-    """
+    """Form for resetting password."""
+
     email = EmailField('Email', [
         DataRequired(message='Email address is not filled in'),
         Email(message='Entered value is not a valid email address')
@@ -217,9 +211,8 @@ class ResetForm(FlaskForm):
 
 
 class CompleteResetForm(FlaskForm):
-    """
-    Resetting password after clicking on the link in the email
-    """
+    """Reset password form after clicking on the link in the email."""
+
     password = PasswordField('Password', [DataRequired(message='Password is not filled in.'), valid_password])
     password_repeat = PasswordField('Repeat password', [DataRequired(message='Repeated password is not filled in.')])
     submit = SubmitField('Reset password')
@@ -227,7 +220,7 @@ class CompleteResetForm(FlaskForm):
     @staticmethod
     def validate_password_repeat(form, field):
         """
-        Validates new password repeat and checks if it matches 'password'
+        Validate new password repeat and checks if it matches 'password'.
 
         :param form: The form which is being passed in
         :type form: CompleteResetForm

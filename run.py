@@ -1,3 +1,5 @@
+"""provides driver function for running the app."""
+
 from __future__ import print_function
 
 import os
@@ -76,8 +78,17 @@ if 'TESTING' not in os.environ or os.environ['TESTING'] == 'False':
     install_secret_keys(app)
 
 
-# Expose submenu method for jinja templates
 def sub_menu_open(menu_entries, active_route):
+    """
+    Expose submenu method for jinja templates.
+
+    :param menu_entries: list of menu entry
+    :type menu_entries: List
+    :param active_route: current active flask route
+    :type active_route: str
+    :return: True if route in menu_entry and is the active_route, False otherwise
+    :rtype: bool
+    """
     for menu_entry in menu_entries:
         if 'route' in menu_entry and menu_entry['route'] == active_route:
             return True
@@ -88,12 +99,29 @@ app.jinja_env.globals.update(sub_menu_open=sub_menu_open)
 app.jinja_env.add_extension('jinja2.ext.loopcontrols')
 
 
-# Add datetime format filter
 def date_time_format(value, fmt='%Y-%m-%d %H:%M:%S'):
+    """
+    Add datetime format filter.
+
+    :param value: date
+    :type value: datetime
+    :param fmt: format for the returned string, defaults to '%Y-%m-%d %H:%M:%S'
+    :type fmt: str, optional
+    :return: string representing date-time in given format
+    :rtype: str
+    """
     return value.strftime(fmt)
 
 
 def get_github_issue_link(issue_id):
+    """
+    Get github issue link from issue_id.
+
+    :param issue_id: id of the github issue
+    :type issue_id: int
+    :return: URL to the github issue
+    :rtype: str
+    """
     return 'https://www.github.com/{org}/{repo}/issues/{id}'.format(
         org=config.get('GITHUB_OWNER', ''),
         repo=config.get('GITHUB_REPOSITORY', ''),
@@ -102,6 +130,14 @@ def get_github_issue_link(issue_id):
 
 
 def filename(filepath):
+    """
+    Get filename from full filepath.
+
+    :param filepath: full path of the file
+    :type filepath: str
+    :return: filename
+    :rtype: str
+    """
     return os.path.basename(filepath)
 
 
@@ -111,6 +147,7 @@ app.jinja_env.filters['filename'] = filename
 
 
 class RegexConverter(BaseConverter):
+    """Establish class to handle Regex routes."""
 
     def __init__(self, url_map, *items):
         super(RegexConverter, self).__init__(url_map)
@@ -124,12 +161,14 @@ app.url_map.converters['regex'] = RegexConverter
 @app.errorhandler(404)
 @template_renderer('404.html', 404)
 def not_found(error):
+    """Handle not found error in non-existing routes."""
     return
 
 
 @app.errorhandler(500)
 @template_renderer('500.html', 500)
 def internal_error(error):
+    """Handle internal server error."""
     log.debug('500 error: {err}'.format(err=error))
     log.debug('Stacktrace:')
     log.debug(traceback.format_exc())
@@ -139,6 +178,7 @@ def internal_error(error):
 @app.errorhandler(403)
 @template_renderer('403.html', 403)
 def forbidden(error):
+    """Handle unauthorized and forbidden access error."""
     user_name = 'Guest' if g.user is None else g.user.name
     user_role = 'Guest' if g.user is None else g.user.role.value
     log.debug('{u} (role: {r}) tried to access {page}'.format(u=user_name, r=user_role, page=error.description))
@@ -151,6 +191,7 @@ def forbidden(error):
 
 @app.before_request
 def before_request():
+    """Set up app before first request to the app."""
     g.menu_entries = {}
     g.db = create_session(app.config['DATABASE_URI'])
     g.mailer = Mailer(
@@ -162,6 +203,14 @@ def before_request():
 
 
 def get_github_config(config):
+    """
+    Get configuration keys for GitHub API.
+
+    :param config: app config
+    :type config: Config Class
+    :return: key-value dictionary of required GitHub keys
+    :rtype: dict
+    """
     return {
         'deploy_key': config.get('GITHUB_DEPLOY_KEY', ''),
         'ci_key': config.get('GITHUB_CI_KEY', ''),
@@ -174,6 +223,7 @@ def get_github_config(config):
 
 @app.teardown_appcontext
 def teardown(exception):
+    """Free database connection at app closing."""
     db = g.get('db', None)
     if db is not None:
         db.remove()

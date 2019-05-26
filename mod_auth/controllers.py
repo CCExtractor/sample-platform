@@ -1,8 +1,4 @@
-"""
-mod_auth Controller
-===================
-This module contains all the logic related to authentication and account functionality.
-"""
+"""contains all the logic related to authentication and account functionality."""
 
 from functools import wraps
 import hmac
@@ -25,6 +21,7 @@ mod_auth = Blueprint('auth', __name__)
 
 @mod_auth.before_app_request
 def before_app_request():
+    """Run before the request to app is made."""
     user_id = session.get('user_id', 0)
     g.user = User.query.filter(User.id == user_id).first()
     g.menu_entries['auth'] = {
@@ -45,9 +42,7 @@ def before_app_request():
 
 
 def login_required(f):
-    """
-    Decorator that redirects to the login page if a user is not logged in.
-    """
+    """Decorate the function to redirect to the login page if a user is not logged in."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if g.user is None:
@@ -60,7 +55,7 @@ def login_required(f):
 
 def check_access_rights(roles=None, parent_route=None):
     """
-    Decorator that checks if a user can access the page.
+    Decorate the function to check if a user can access the page.
 
     :param roles: A list of roles that can access the page.
     :type roles: list[str]
@@ -91,6 +86,12 @@ def check_access_rights(roles=None, parent_route=None):
 
 
 def send_reset_email(usr):
+    """
+    Send account recovery mail to the user.
+
+    :param usr: user from the database
+    :type usr: models.User
+    """
     from run import app
     expires = int(time.time()) + 86400
     content_to_hash = "{id}|{expiry}|{passwd}".format(id=usr.id, expiry=expires, passwd=usr.password)
@@ -110,9 +111,9 @@ def send_reset_email(usr):
 
 def github_token_validity(token):
     """
-    Check token validity by calling Github V3 APIs
-    :param token: The value of 'github_token' stored in the user
-        model
+    Check token validity by calling Github V3 APIs.
+
+    :param token: The value of 'github_token' stored in the user model
     :type token: str
     :return True/False: Returns whether token is valid or not
     :rtype: bool
@@ -131,6 +132,8 @@ def github_token_validity(token):
 @mod_auth.route('/github_redirect', methods=['GET', 'POST'])
 def github_redirect():
     """
+    Create redirect URL if no github token found.
+
     Generate Redirect url to the Github page to take user permisssion
     only when there is no github token stored for that user session.
     """
@@ -149,6 +152,12 @@ def github_redirect():
 
 
 def fetch_username_from_token():
+    """
+    Get username from the Github token.
+
+    :return: username
+    :rtype: str
+    """
     import json
     user = User.query.filter(User.id == g.user.id).first()
     if user.github_token is None:
@@ -168,9 +177,7 @@ def fetch_username_from_token():
 @mod_auth.route('/github_callback', methods=['GET', 'POST'])
 @template_renderer()
 def github_callback():
-    """
-    Callback function to access the token and store it in database to for further functionalities.
-    """
+    """Access the token and store it in database to for further functionalities."""
     from run import config
     if 'code' in request.args:
         """
@@ -204,9 +211,7 @@ def github_callback():
 @mod_auth.route('/login', methods=['GET', 'POST'])
 @template_renderer()
 def login():
-    """
-    route for handling the login page
-    """
+    """Route for handling the login page."""
     form = LoginForm(request.form)
     # fetching redirect_location from the request
     redirect_location = request.args.get('next', '')
@@ -231,6 +236,12 @@ def login():
 @mod_auth.route('/reset', methods=['GET', 'POST'])
 @template_renderer()
 def reset():
+    """
+    Provide form for resetting account.
+
+    :return: form to reset
+    :rtype: forms.ResetForm
+    """
     form = ResetForm(request.form)
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data).first()
@@ -247,6 +258,16 @@ def reset():
 @mod_auth.route('/reset/<int:uid>/<int:expires>/<mac>', methods=['GET', 'POST'])
 @template_renderer()
 def complete_reset(uid, expires, mac):
+    """
+    Complete process of account reset.
+
+    :param uid: user id
+    :type uid: int
+    :param expires: integer representing time after which the link expires
+    :type expires: int
+    :param mac: message authentication code
+    :type mac: str
+    """
     from run import app
     # Check if time expired
     now = int(time.time())
@@ -290,9 +311,7 @@ def complete_reset(uid, expires, mac):
 @mod_auth.route('/signup', methods=['GET', 'POST'])
 @template_renderer()
 def signup():
-    """
-    route for handling the signup page
-    """
+    """Route for handling the signup page."""
     from run import app
     form = SignupForm(request.form)
     if form.validate_on_submit():
@@ -333,6 +352,16 @@ def signup():
                 methods=['GET', 'POST'])
 @template_renderer()
 def complete_signup(email, expires, mac):
+    """
+    Complete user signup.
+
+    :param email: email address of the user
+    :type email: str
+    :param expires: integer representing time after which the link expires
+    :type expires: int
+    :param mac: message authentication code
+    :type mac: str
+    """
     from run import app
     # Check if time expired
     now = int(time.time())
@@ -379,9 +408,16 @@ def complete_signup(email, expires, mac):
 
 
 def generate_hmac_hash(key, data):
-    # Accepts key and data in any format and encodes it into bytes
-    # With python 3.6, hmac accepts these encoded key and messages
-    # Returns cryptographic hash of data combined with key
+    """
+    Accept key and data in any format and encodes it into bytes.
+
+    :param key: HMAC hash key
+    :type key: str
+    :param data: content to be hashed separated by '|'
+    :type data: str
+    :return: cryptographic hash of data combined with key
+    :rtype: str
+    """
     encoded_key = bytes(key, 'latin-1')
     encoded_data = bytes(data, 'latin-1')
     return hmac.new(encoded_key, encoded_data, hashlib.sha256).hexdigest()
@@ -390,7 +426,11 @@ def generate_hmac_hash(key, data):
 @mod_auth.route('/logout')
 @template_renderer()
 def logout():
-    # Destroy session variable
+    """
+    Destroy session variable.
+
+    Return user to the login page.
+    """
     session.pop('user_id', None)
     flash('You have been logged out', 'success')
     return redirect(url_for('.login'))
@@ -400,9 +440,7 @@ def logout():
 @login_required
 @template_renderer()
 def manage():
-    """
-    Function to edit or access account details
-    """
+    """Allow editing or accessing account details."""
     from run import app
     form = AccountForm(request.form, g.user)
     if form.validate_on_submit():
@@ -449,6 +487,12 @@ def manage():
 @check_access_rights([Role.admin])
 @template_renderer()
 def users():
+    """
+    Get list of all users.
+
+    :return: list of all users in a dictionary
+    :rtype: dict
+    """
     return {
         'users': User.query.order_by(User.name.asc()).all()
     }
@@ -458,8 +502,17 @@ def users():
 @login_required
 @template_renderer()
 def user(uid):
+    """
+    View user and samples provided by the user.
+
+    Only give access if the uid matches the user, or if the user is an admin.
+
+    :param uid: id of the user
+    :type uid: int
+    :return: user view and samples if valid response, appropriate error otherwise
+    :rtype: dynamic
+    """
     from mod_upload.models import Upload
-    # Only give access if the uid matches the user, or if the user is an admin
     if g.user.id == uid or g.user.role == Role.admin:
         usr = User.query.filter_by(id=uid).first()
         if usr is not None:
@@ -478,7 +531,16 @@ def user(uid):
 @check_access_rights([Role.admin])
 @template_renderer()
 def reset_user(uid):
-    # Only give access if the uid matches the user, or if the user is an admin
+    """
+    Reset user password by admin.
+
+    Only give access if the uid matches the user, or if the user is an admin.
+
+    :param uid: id of the user
+    :type uid: int
+    :return: user view if valid response, appropriate error otherwise
+    :rtype: dynamic
+    """
     if g.user.id == uid or g.user.role == Role.admin:
         usr = User.query.filter_by(id=uid).first()
         if usr is not None:
@@ -496,6 +558,14 @@ def reset_user(uid):
 @check_access_rights([Role.admin])
 @template_renderer()
 def role(uid):
+    """
+    View and change user's role.
+
+    :param uid: id of the user
+    :type uid: int
+    :return: role form and user view if valid response, appropriate error otherwise
+    :rtype: dynamic
+    """
     usr = User.query.filter_by(id=uid).first()
     if usr is not None:
         form = RoleChangeForm(request.form)
@@ -517,7 +587,16 @@ def role(uid):
 @login_required
 @template_renderer()
 def deactivate(uid):
-    # Only give access if the uid matches the user, or if the user is an admin
+    """
+    Deactivate user account.
+
+    Only give access if the uid matches the user, or if the user is an admin
+
+    :param uid: id of the user
+    :type uid: int
+    :return: DeactivationForm and user view if valid response, appropriate error otherwise
+    :rtype: dynamic
+    """
     if g.user.id == uid or g.user.role == Role.admin:
         usr = User.query.filter_by(id=uid).first()
         if usr is not None:

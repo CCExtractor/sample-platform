@@ -1,9 +1,4 @@
-"""
-mod_ci Controllers
-===================
-In this module, we are trying to maintain all functionality related
-running virtual machines, starting and tracking tests.
-"""
+"""maintains all functionality related running virtual machines, starting and tracking tests."""
 
 import hashlib
 import json
@@ -48,6 +43,8 @@ mod_ci = Blueprint('ci', __name__)
 
 
 class Status:
+    """Define different states for the tests."""
+
     PENDING = "pending"
     SUCCESS = "success"
     ERROR = "error"
@@ -56,9 +53,7 @@ class Status:
 
 @mod_ci.before_app_request
 def before_app_request():
-    """
-    Function that organizes menu content such as Platform management
-    """
+    """Organize menu content such as Platform management before request."""
     config_entries = get_menu_entries(
         g.user, 'Platform mgmt', 'cog', [], '', [
             {'title': 'Maintenance', 'icon': 'wrench', 'route': 'ci.show_maintenance', 'access': [Role.admin]},
@@ -73,8 +68,9 @@ def before_app_request():
 
 def start_platform(db, repository, delay=None):
     """
-    Function to check whether there is already running test for which it check the kvm progress and if no running test
-    then it start a new test.
+    Check whether there is already running test.
+
+    It check the kvm progress and if no running test then it start a new test.
     """
     from run import config, log
 
@@ -96,9 +92,7 @@ def start_platform(db, repository, delay=None):
 
 
 def start_new_test(db, repository, delay):
-    """
-    Function to start a new test based on kvm table.
-    """
+    """Start a new test based on kvm table."""
     from run import log
 
     finished_tests = db.query(TestProgress.test_id).filter(
@@ -119,12 +113,36 @@ def start_new_test(db, repository, delay):
 
 
 def kvm_processor_linux(db, repository, delay):
+    """
+    Get Kernel-based Linux Virtual Machine.
+
+    :param db: database connection
+    :type db: sqlalchemy.orm.scoped_session
+    :param repository: repository to run tests on
+    :type repository: str
+    :param delay: time delay after which to start kvm processor
+    :type delay: int
+    :return: null
+    :rtype: null
+    """
     from run import config
     kvm_name = config.get('KVM_LINUX_NAME', '')
     return kvm_processor(db, kvm_name, TestPlatform.linux, repository, delay)
 
 
 def kvm_processor_windows(db, repository, delay):
+    """
+    Get Kernel-based Windows Virtual Machine.
+
+    :param db: database connection
+    :type db: sqlalchemy.orm.scoped_session
+    :param repository: repository to run tests on
+    :type repository: str
+    :param delay: time delay after which to start kvm processor
+    :type delay: int
+    :return: null
+    :rtype: null
+    """
     from run import config
     kvm_name = config.get('KVM_WINDOWS_NAME', '')
     return kvm_processor(db, kvm_name, TestPlatform.windows, repository, delay)
@@ -132,11 +150,23 @@ def kvm_processor_windows(db, repository, delay):
 
 def kvm_processor(db, kvm_name, platform, repository, delay):
     """
-    Checks whether there is no already running same kvm.
+    Check whether there is no already running same kvm.
+
     Checks whether machine is in maintenance mode or not
     Launch kvm if not used by any other test
     Creates testing xml files to test the change in main repo.
     Creates clone with separate branch and merge pr into it.
+
+    :param db: database connection
+    :type db: sqlalchemy.orm.scoped_session
+    :param kvm_name: name for the kvm
+    :type kvm_name: str
+    :param platform: operating system
+    :type platform: str
+    :param repository: repository to run tests on
+    :type repository: str
+    :param delay: time delay after which to start kvm processor
+    :type delay: int
     """
     from run import config, log, app, get_github_config
 
@@ -448,7 +478,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
 
 def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     """
-    Function to store test details into Test model for each platform, and post the status to GitHub.
+    Store test details into Test model for each platform, and post the status to GitHub.
 
     :param db: Database connection.
     :type db: sqlalchemy.orm.scoped_session
@@ -503,7 +533,8 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
 
 def inform_mailing_list(mailer, id, title, author, body):
     """
-    Function that gets called when a issue is opened via the Webhook.
+    Send mail to subscribed users when a issue is opened via the Webhook.
+
     :param mailer: The mailer instance
     :type mailer: Mailer
     :param id: ID of the Issue Opened
@@ -527,7 +558,7 @@ def inform_mailing_list(mailer, id, title, author, body):
 
 def get_html_issue_body(title, author, body, issue_number, url):
     """
-    curates a HTML formatted body
+    Curate a HTML formatted body for the issue mail.
 
     :param title: title of the issue
     :type title: str
@@ -553,7 +584,10 @@ def get_html_issue_body(title, author, body, issue_number, url):
 @request_from_github()
 def start_ci():
     """
-    Gets called when the webhook on GitHub is triggered. Reaction to the next events need to be processed
+    Perform various actions when the Github webhook is triggered.
+
+    Reaction to the next events need to be processed
+
     (after verification):
         - Ping (for fun)
         - Push
@@ -708,14 +742,14 @@ def start_ci():
 
 def update_build_badge(status, test):
     """
-    Build status badge for current test to be displayed on sample-platform.ccextractor.org
+    Build status badge for current test to be displayed on sample-platform.
 
     :param status: current testing status
     :type status: str
     :param test: current commit that is tested
     :type test: Test
-    :return: Nothing.
-    :rtype: None
+    :return: null
+    :rtype: null
     """
     if test.test_type == TestType.commit and check_main_repo(test.fork.github):
         parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -989,7 +1023,7 @@ def progress_reporter(test_id, token):
 
 def comment_pr(test_id, state, pr_nr, platform):
     """
-    Upload the test report to the github PR as comment
+    Upload the test report to the github PR as comment.
 
     :param test_id: The identity of Test whose report will be uploaded
     :type test_id: str
@@ -1059,6 +1093,12 @@ def comment_pr(test_id, state, pr_nr, platform):
 @check_access_rights([Role.admin])
 @template_renderer('ci/maintenance.html')
 def show_maintenance():
+    """
+    Get list of Virtual Machines under maintenance.
+
+    :return: platforms in maintenance
+    :rtype: dict
+    """
     return {
         'platforms': MaintenanceMode.query.all()
     }
@@ -1069,95 +1109,106 @@ def show_maintenance():
 @check_access_rights([Role.admin])
 @template_renderer()
 def blocked_users():
-        """
-        Method to render the blocked_users template.
-        This returns a list of all currently blacklisted users.
-        Also defines processing of forms to add/remove users from blacklist.
-        When a user is added to blacklist, removes queued tests on any PR by the user.
-        """
-        blocked_users = BlockedUsers.query.order_by(BlockedUsers.user_id)
+    """
+    Render the blocked_users template.
 
-        # Initialize usernames dictionary
-        usernames = {u.user_id: 'Error, cannot get username' for u in blocked_users}
-        for key in usernames.keys():
-            # Fetch usernames from GitHub API
-            try:
-                api_url = requests.get('https://api.github.com/user/{}'.format(key), timeout=10)
-                userdata = api_url.json()
-                # Set values to the actual usernames if no errors
-                usernames[key] = userdata['login']
-            except requests.exceptions.RequestException:
-                break
+    This returns a list of all currently blacklisted users.
+    Also defines processing of forms to add/remove users from blacklist.
+    When a user is added to blacklist, removes queued tests on any PR by the user.
+    """
+    blocked_users = BlockedUsers.query.order_by(BlockedUsers.user_id)
 
-        # Define addUserForm processing
-        add_user_form = AddUsersToBlacklist()
-        if add_user_form.add.data and add_user_form.validate_on_submit():
-            if BlockedUsers.query.filter_by(user_id=add_user_form.user_id.data).first() is not None:
-                flash('User already blocked.')
-                return redirect(url_for('.blocked_users'))
+    # Initialize usernames dictionary
+    usernames = {u.user_id: 'Error, cannot get username' for u in blocked_users}
+    for key in usernames.keys():
+        # Fetch usernames from GitHub API
+        try:
+            api_url = requests.get('https://api.github.com/user/{}'.format(key), timeout=10)
+            userdata = api_url.json()
+            # Set values to the actual usernames if no errors
+            usernames[key] = userdata['login']
+        except requests.exceptions.RequestException:
+            break
 
-            blocked_user = BlockedUsers(add_user_form.user_id.data, add_user_form.comment.data)
-            g.db.add(blocked_user)
-            g.db.commit()
-            flash('User blocked successfully.')
+    # Define addUserForm processing
+    add_user_form = AddUsersToBlacklist()
+    if add_user_form.add.data and add_user_form.validate_on_submit():
+        if BlockedUsers.query.filter_by(user_id=add_user_form.user_id.data).first() is not None:
+            flash('User already blocked.')
+            return redirect(url_for('.blocked_users'))
 
-            try:
-                # Remove any queued pull request from blocked user
-                gh = GitHub(access_token=g.github['bot_token'])
-                repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
-                # Getting all pull requests by blocked user on the repo
-                pulls = repository.pulls.get()
-                for pull in pulls:
-                    if pull['user']['id'] != add_user_form.user_id.data:
+        blocked_user = BlockedUsers(add_user_form.user_id.data, add_user_form.comment.data)
+        g.db.add(blocked_user)
+        g.db.commit()
+        flash('User blocked successfully.')
+
+        try:
+            # Remove any queued pull request from blocked user
+            gh = GitHub(access_token=g.github['bot_token'])
+            repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
+            # Getting all pull requests by blocked user on the repo
+            pulls = repository.pulls.get()
+            for pull in pulls:
+                if pull['user']['id'] != add_user_form.user_id.data:
+                    continue
+                tests = Test.query.filter(Test.pr_nr == pull['number']).all()
+                for test in tests:
+                    # Add canceled status only if the test hasn't started yet
+                    if len(test.progress) > 0:
                         continue
-                    tests = Test.query.filter(Test.pr_nr == pull['number']).all()
-                    for test in tests:
-                        # Add canceled status only if the test hasn't started yet
-                        if len(test.progress) > 0:
-                            continue
-                        progress = TestProgress(test.id, TestStatus.canceled, "PR closed", datetime.datetime.now())
-                        g.db.add(progress)
-                        g.db.commit()
-                        try:
-                            repository.statuses(test.commit).post(
-                                state=Status.FAILURE,
-                                description="Tests canceled since user blacklisted",
-                                context="CI - {name}".format(name=test.platform.value),
-                                target_url=url_for('test.by_id', test_id=test.id, _external=True)
-                            )
-                        except ApiError as a:
-                            g.log.error('Got an exception while posting to GitHub! Message: {message}'.format(
-                                message=a.message))
-            except ApiError as a:
-                g.log.error('Pull Requests of Blocked User could not be fetched: {res}'.format(res=a.response))
+                    progress = TestProgress(test.id, TestStatus.canceled, "PR closed", datetime.datetime.now())
+                    g.db.add(progress)
+                    g.db.commit()
+                    try:
+                        repository.statuses(test.commit).post(
+                            state=Status.FAILURE,
+                            description="Tests canceled since user blacklisted",
+                            context="CI - {name}".format(name=test.platform.value),
+                            target_url=url_for('test.by_id', test_id=test.id, _external=True)
+                        )
+                    except ApiError as a:
+                        g.log.error('Got an exception while posting to GitHub! Message: {message}'.format(
+                            message=a.message))
+        except ApiError as a:
+            g.log.error('Pull Requests of Blocked User could not be fetched: {res}'.format(res=a.response))
 
+        return redirect(url_for('.blocked_users'))
+
+    # Define removeUserForm processing
+    remove_user_form = RemoveUsersFromBlacklist()
+    if remove_user_form.remove.data and remove_user_form.validate_on_submit():
+        blocked_user = BlockedUsers.query.filter_by(user_id=remove_user_form.user_id.data).first()
+        if blocked_user is None:
+            flash('No such user in Blacklist')
             return redirect(url_for('.blocked_users'))
 
-        # Define removeUserForm processing
-        remove_user_form = RemoveUsersFromBlacklist()
-        if remove_user_form.remove.data and remove_user_form.validate_on_submit():
-            blocked_user = BlockedUsers.query.filter_by(user_id=remove_user_form.user_id.data).first()
-            if blocked_user is None:
-                flash('No such user in Blacklist')
-                return redirect(url_for('.blocked_users'))
+        g.db.delete(blocked_user)
+        g.db.commit()
+        flash('User removed successfully.')
+        return redirect(url_for('.blocked_users'))
 
-            g.db.delete(blocked_user)
-            g.db.commit()
-            flash('User removed successfully.')
-            return redirect(url_for('.blocked_users'))
-
-        return{
-            'addUserForm': add_user_form,
-            'removeUserForm': remove_user_form,
-            'blocked_users': blocked_users,
-            'usernames': usernames
-        }
+    return{
+        'addUserForm': add_user_form,
+        'removeUserForm': remove_user_form,
+        'blocked_users': blocked_users,
+        'usernames': usernames
+    }
 
 
 @mod_ci.route('/toggle_maintenance/<platform>/<status>')
 @login_required
 @check_access_rights([Role.admin])
 def toggle_maintenance(platform, status):
+    """
+    Toggle maintenance mode for a platform.
+
+    :param platform: name of the platform
+    :type platform: str
+    :param status: current maintenance status
+    :type status: str
+    :return: success response if successful, failure response otherwise
+    :rtype: JSON
+    """
     result = 'failed'
     message = 'Platform Not found'
     try:
@@ -1182,6 +1233,14 @@ def toggle_maintenance(platform, status):
 
 @mod_ci.route('/maintenance-mode/<platform>')
 def in_maintenance_mode(platform):
+    """
+    Check if platform in maintenance mode.
+
+    :param platform: name of the platform
+    :type platform: str
+    :return: status of the platform
+    :rtype: str
+    """
     try:
         platform = TestPlatform.from_string(platform)
     except ValueError:
@@ -1199,7 +1258,8 @@ def in_maintenance_mode(platform):
 
 def check_main_repo(repo_url):
     """
-    Check whether the repo_url links to the main repository or not
+    Check whether the repo_url links to the main repository or not.
+
     :param repo_url: url of fork/main repository of the user
     :type repo_url: str
     :return: checks whether url of main repo is same or not
@@ -1212,6 +1272,12 @@ def check_main_repo(repo_url):
 
 
 def add_customized_regression_tests(test_id):
+    """
+    Run custom regression tests.
+
+    :param test_id: id of the test
+    :type test_id: int
+    """
     active_regression_tests = RegressionTest.query.filter(RegressionTest.active == 1).all()
     for regression_test in active_regression_tests:
         customized_test = CustomizedTest(test_id, regression_test.id)

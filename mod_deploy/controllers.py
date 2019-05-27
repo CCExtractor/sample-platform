@@ -1,9 +1,4 @@
-"""
-mod_deploy Controllers
-===================
-In this module, we are trying to maintain github hooks based
-on automatic deploy.
-"""
+"""contain methods to maintain github hooks based on automatic deploy."""
 import hashlib
 import hmac
 import json
@@ -21,10 +16,9 @@ mod_deploy = Blueprint('deploy', __name__)
 
 
 def request_from_github(abort_code=418):
+    """Provide decorator to handle request from github on the webhook."""
     def decorator(f):
-        """
-        Decorator that checks if a request is a GitHub hook request
-        """
+        """Decorate the function to check if a request is a GitHub hook request."""
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if request.method != 'POST':
@@ -66,8 +60,11 @@ def is_valid_signature(x_hub_signature, data, private_key):
     Re-check if the GitHub hook request got valid signature.
 
     :param x_hub_signature: Signature to check
+    :type x_hub_signature: str
     :param data: Signature's data
+    :type data: bytearray
     :param private_key: Signature's token
+    :type private_key: str
     """
     hash_algorithm, github_signature = x_hub_signature.split('=', 1)
     algorithm = hashlib.__dict__.get(hash_algorithm)
@@ -79,9 +76,7 @@ def is_valid_signature(x_hub_signature, data, private_key):
 @mod_deploy.route('/deploy', methods=['GET', 'POST'])
 @request_from_github()
 def deploy():
-    """
-    Deploy the GitHub request to the test platform
-    """
+    """Deploy the GitHub request to the test platform."""
     from run import app
     if request.method != 'POST':
         return 'OK'

@@ -1,4 +1,6 @@
 #!/usr/bin/python
+"""handle cron logic for CI platform."""
+
 import sys
 from os import path
 
@@ -7,6 +9,7 @@ sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 
 def cron():
+    """Script to run from cron for Sampleplatform."""
     from mod_ci.controllers import start_platform
     from run import config, log
     from database import create_session

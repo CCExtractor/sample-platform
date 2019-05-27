@@ -1,8 +1,5 @@
-"""
-mod_customized Controllers
-===================
-In this module, users can test their fork branch with customized set of regression tests
-"""
+"""logic to allow users to test their fork branch with customized set of regression tests."""
+
 from flask import Blueprint, g, request, redirect, url_for, flash
 from github import GitHub, ApiError
 from datetime import datetime, timedelta
@@ -23,6 +20,7 @@ mod_customized = Blueprint('custom', __name__)
 
 @mod_customized.before_app_request
 def before_app_request():
+    """Run before app request to ready menu items."""
     if g.user is not None:
         g.menu_entries['custom'] = {
             'title': 'Customize Test',
@@ -38,11 +36,12 @@ def before_app_request():
 @template_renderer()
 def index():
     """
-        Display a form to allow users to run tests.
-        User can enter commit or select the commit from their repo that are not more than 30 days old.
-        User can customized test based on selected regression tests and platforms.
-        Also Display list of customized tests started by user.
-        User will be redirected to the same page on submit.
+    Display a form to allow users to run tests.
+
+    User can enter commit or select the commit from their repo that are not more than 30 days old.
+    User can customized test based on selected regression tests and platforms.
+    Also Display list of customized tests started by user.
+    User will be redirected to the same page on submit.
     """
     fork_test_form = TestForkForm(request.form)
     username = fetch_username_from_token()
@@ -105,6 +104,7 @@ def index():
 def add_test_to_kvm(username, commit_hash, platforms, regression_tests):
     """
     Create new tests and add it to CustomizedTests based on parameters.
+
     :param username: git username required to find fork
     :type username: str
     :param commit_hash: commit hash of the repo user selected to run test

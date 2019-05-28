@@ -1,9 +1,4 @@
-"""
-mod_home Controllers
-===================
-In this module, we are trying to maintain all functionalities
-running on homepage.
-"""
+"""maintains all functionalities running on homepage."""
 from flask import Blueprint, g
 
 from decorators import template_renderer
@@ -15,6 +10,7 @@ mod_home = Blueprint('home', __name__)
 
 @mod_home.before_app_request
 def before_app_request():
+    """Curate menu entries before app request."""
     g.menu_entries['home'] = {
         'title': 'Home',
         'icon': 'home',
@@ -25,6 +21,7 @@ def before_app_request():
 @mod_home.route('/', methods=['GET', 'POST'])
 @template_renderer()
 def index():
+    """Render index home page."""
     last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first().value
     last_release = CCExtractorVersion.query.order_by(CCExtractorVersion.released.desc()).first()
     test_access = False
@@ -40,4 +37,5 @@ def index():
 @mod_home.route('/about')
 @template_renderer()
 def about():
+    """Render about page."""
     return {}

@@ -1,11 +1,13 @@
 """
-mod_home Models
-===================
-In this module, we are trying to maintain database regarding general
-information such as version, released date, commit about main
-repository (CCExtractor) and other general data.
-List of models corresponding to mysql tables: ['CCExtractorVersion' =>
- 'ccextractor_version','GeneralData' => 'general_data']
+Maintains database models regarding general information.add()
+
+Includes version, released date, commit about main repository (CCExtractor).
+
+List of models corresponding to mysql tables:
+    [
+        'CCExtractorVersion' => 'ccextractor_version',
+        'GeneralData' => 'general_data'
+    ]
 """
 from sqlalchemy import Column, Integer, String, Text, Date
 
@@ -14,6 +16,8 @@ from datetime import datetime
 
 
 class CCExtractorVersion(Base):
+    """Model to manage CCExtractor version and release data."""
+
     __tablename__ = 'ccextractor_version'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
@@ -23,7 +27,7 @@ class CCExtractorVersion(Base):
 
     def __init__(self, version, released, commit):
         """
-        Parametrized constructor for the CCExtractorVersion model
+        Parametrized constructor for the CCExtractorVersion model.
 
         :param version: The value of the 'version' field of
          CCExtractorVersion model
@@ -41,7 +45,6 @@ class CCExtractorVersion(Base):
 
     def __repr__(self):
         """
-        Representation function
         Represent a CCExtractorVersion Model by its 'version' Field.
 
         :return str(version): Returns the string containing
@@ -52,6 +55,8 @@ class CCExtractorVersion(Base):
 
 
 class GeneralData(Base):
+    """Model to manage general data."""
+
     __tablename__ = 'general_data'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
@@ -60,7 +65,7 @@ class GeneralData(Base):
 
     def __init__(self, key, value):
         """
-        Parametrized constructor for the GeneralData model
+        Parametrized constructor for the GeneralData model.
 
         :param key: The value of the 'key' field of
          GeneralData model
@@ -74,7 +79,6 @@ class GeneralData(Base):
 
     def __repr__(self):
         """
-        Representation function
         Represent a GeneralData Model by its 'key' and 'value' Field.
 
         :return str(key,version): Returns the string containing

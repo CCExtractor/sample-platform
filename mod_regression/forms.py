@@ -1,3 +1,5 @@
+"""Maintain forms related to CRUD operations on regression tests."""
+
 from flask_wtf import FlaskForm
 from wtforms import Form, StringField, SubmitField, SelectField, validators, IntegerField, HiddenField
 from wtforms.validators import DataRequired, Email, ValidationError, NumberRange
@@ -6,18 +8,16 @@ from mod_regression.models import InputType, OutputType, Category
 
 
 class AddCategoryForm(FlaskForm):
-    """
-    Flask form to Add Category
-    """
+    """Flask form to Add Category."""
+
     category_name = StringField("Category Name", [DataRequired(message="Category name can't be empty")])
     category_description = StringField("Description")
     submit = SubmitField("Add Category")
 
 
 class AddTestForm(FlaskForm):
-    """
-    Flask form to Add Regression Test
-    """
+    """Flask form to Add Regression Test."""
+
     sample_id = SelectField("Sample", coerce=int)
     command = StringField("Command")
     input_type = SelectField(
@@ -38,8 +38,7 @@ class AddTestForm(FlaskForm):
 
 
 class ConfirmationForm(FlaskForm):
-    """
-    Flask Form Used for Asking Confirmations
-    """
+    """Flask Form Used for Asking Confirmations."""
+
     confirm = HiddenField('confirm', default='yes')
     submit = SubmitField('Confirm')

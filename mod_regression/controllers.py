@@ -1,9 +1,5 @@
-"""
-mod_regression Controllers
-===================
-In this module, we are trying to create, update, edit, delete and
-other various operations on regression tests.
-"""
+"""Maintain logic to perform CRUD operations on regression tests."""
+
 from flask import Blueprint, g, abort, jsonify, abort, redirect, url_for, request, flash
 
 from decorators import template_renderer
@@ -18,6 +14,7 @@ mod_regression = Blueprint('regression', __name__)
 
 @mod_regression.before_app_request
 def before_app_request():
+    """Curate menu entries before app request."""
     g.menu_entries['regression'] = {
         'title': 'Regression tests',
         'icon': 'industry',
@@ -28,6 +25,7 @@ def before_app_request():
 @mod_regression.route('/')
 @template_renderer()
 def index():
+    """Display all regression tests."""
     return {
         'tests': RegressionTest.query.all(),
         'categories': Category.query.order_by(Category.name.asc()).all()
@@ -37,6 +35,14 @@ def index():
 @mod_regression.route('/sample/<sample_id>')
 @template_renderer()
 def by_sample(sample_id):
+    """
+    Display regression tests based on the given sample.
+
+    :param sample_id: id of the sample
+    :type sample_id: int
+    :return: regression tests of the sample
+    :rtype: dict
+    """
     # Show all regression tests for sample
     sample = Sample.query.filter(Sample.id == sample_id).first()
     if sample is None:
@@ -51,7 +57,14 @@ def by_sample(sample_id):
 @mod_regression.route('/test/<regression_id>/view')
 @template_renderer()
 def test_view(regression_id):
-    # Show a single regression test
+    """
+    Show a single regression test.
+
+    :param regression_id: id of the regression test
+    :type regression_id: int
+    :return: Regression test
+    :rtype: dict
+    """
     test = RegressionTest.query.filter(RegressionTest.id == regression_id).first()
 
     if test is None:
@@ -68,10 +81,12 @@ def test_view(regression_id):
 @check_access_rights([Role.contributor, Role.admin])
 def test_delete(regression_id):
     """
-    Delete the regression test
+    Delete the regression test.
+
+    Requires contributor or admin role.
 
     :param regression_id: The ID of the Regression Test
-    :type int
+    :type regression_id: int
     :return: Redirect
     """
     # Show a Single Test
@@ -100,11 +115,13 @@ def test_delete(regression_id):
 @check_access_rights([Role.contributor, Role.admin])
 def test_edit(regression_id):
     """
-    Function  to edit regression test
+    Edit regression test.
+
+    Requires contributor or admin role.
+
     param regression_id : The ID of the Regression Test
     type regression_id : int
     """
-
     test = RegressionTest.query.filter(RegressionTest.id == regression_id).first()
 
     if(test is None):
@@ -140,7 +157,14 @@ def test_edit(regression_id):
 @login_required
 @check_access_rights([Role.contributor, Role.admin])
 def toggle_active_status(regression_id):
-    # Change active status of the regression test
+    """
+    Change active status of the regression test.
+
+    :param regression_id: id of the regression test
+    :type regression_id: int
+    :return: response of status toggle
+    :rtype: dict
+    """
     regression_test = RegressionTest.query.filter(RegressionTest.id == regression_id).first()
     if regression_test is None:
         abort(404)
@@ -154,7 +178,7 @@ def toggle_active_status(regression_id):
 
 @mod_regression.route('/test/<regression_id>/results')
 def test_result(regression_id):
-    # View the output files of the regression test
+    """View the output files of the regression test."""
     pass
 
 
@@ -164,7 +188,10 @@ def test_result(regression_id):
 @check_access_rights([Role.contributor, Role.admin])
 def test_add():
     """
-    Function to add a regression test
+    Add a regression test.
+
+    :return: form to add regression test
+    :rtype: dict
     """
     form = AddTestForm(request.form)
     form.sample_id.choices = [(sam.id, sam.sha) for sam in Sample.query.all()]
@@ -192,12 +219,13 @@ def test_add():
 @check_access_rights([Role.contributor, Role.admin])
 def category_delete(category_id):
     """
-    Delete the category
-    :param category_id: The ID of the Category
-    :type int
-    :return: Redirect
-    """
+    Delete the category.
 
+    :param category_id: The ID of the Category
+    :type category_id: int
+    :return: form and category
+    :rtype: dict
+    """
     category = Category.query.filter(Category.id == category_id).first()
 
     if category is None:
@@ -221,11 +249,13 @@ def category_delete(category_id):
 @check_access_rights([Role.contributor, Role.admin])
 def category_edit(category_id):
     """
-    Function  to edit regression test category
-    param category_id : The ID of the Regression Test Category
-    type category_id : int
-    """
+    Edit regression test category.
 
+    :param category_id: The ID of the Regression Test Category
+    :type category_id: int
+    :return: form and category id
+    :rtype: dict
+    """
     test = Category.query.filter(Category.id == category_id).first()
 
     if(test is None):
@@ -247,7 +277,10 @@ def category_edit(category_id):
 @check_access_rights([Role.contributor, Role.admin])
 def category_add():
     """
-    Function to add a regression test category
+    Add a regression test category.
+
+    :return: form to add category
+    :rtype: dict
     """
     form = AddCategoryForm(request.form)
     if form.validate():

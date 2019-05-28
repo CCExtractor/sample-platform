@@ -1,12 +1,14 @@
 """
-mod_regression Models
-===================
-In this module, we are trying to maintain database regarding various
-regression tests, categories, storing output of tests.
-List of models corresponding to mysql tables: ['Category' => 'category',
-'RegressionTest' => 'regression_test', 'RegressionTestOutput' =>
-'regression_test_output']
+Maintain database models regarding various regression tests, categories, storing output of tests.
+
+List of models corresponding to mysql tables:
+    [
+        'Category' => 'category',
+        'RegressionTest' => 'regression_test',
+        'RegressionTestOutput' => 'regression_test_output'
+    ]
 """
+
 from sqlalchemy import Boolean
 from sqlalchemy import Column, Integer, String, Text, ForeignKey
 from sqlalchemy import Table
@@ -23,6 +25,8 @@ regressionTestLinkTable = Table(
 
 
 class Category(Base):
+    """Model to store categories of regression tests."""
+
     __tablename__ = 'category'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
@@ -32,13 +36,11 @@ class Category(Base):
 
     def __init__(self, name, description):
         """
-        Parametrized constructor for the Category model
+        Parametrized constructor for the Category model.
 
-        :param name: The value of the 'name' field of
-         Category model
+        :param name: The value of the 'name' field of Category model
         :type name: str
-        :param description: The value of the 'description' field
-         of Category model
+        :param description: The value of the 'description' field of Category model
         :type description: str
         """
         self.name = name
@@ -46,7 +48,6 @@ class Category(Base):
 
     def __repr__(self):
         """
-        Representation function
         Represent a Category Model by its 'name' Field.
 
         :return: Returns the string containing 'name' field of the Category model
@@ -56,12 +57,16 @@ class Category(Base):
 
 
 class InputType(DeclEnum):
+    """Enumerator types for input."""
+
     file = "file", "File"
     stdin = "stdin", "Stdin"
     udp = "udp", "UDP"
 
 
 class OutputType(DeclEnum):
+    """Enumerator types for input."""
+
     file = "file", "File"
     null = "null", "Null"
     tcp = "tcp", "TCP"
@@ -72,6 +77,8 @@ class OutputType(DeclEnum):
 
 
 class RegressionTest(Base):
+    """Model to store regression tests."""
+
     __tablename__ = 'regression_test'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
@@ -87,7 +94,7 @@ class RegressionTest(Base):
 
     def __init__(self, sample_id, command, input_type, output_type, category_id, expected_rc, active=True):
         """
-        Parametrized constructor for the RegressionTest model
+        Parametrized constructor for the RegressionTest model.
 
         :param sample_id: The value of the 'name' field of RegressionTest model
         :type sample_id: int
@@ -115,17 +122,17 @@ class RegressionTest(Base):
 
     def __repr__(self):
         """
-        Representation function
         Represent a RegressionTest Model by its 'id' Field.
 
         :return: Returns the string containing 'id' field of the RegressionTest model
         :rtype: str
         """
-
         return '<RegressionTest {id}>'.format(id=self.id)
 
 
 class RegressionTestOutput(Base):
+    """Model to store output of regression test."""
+
     __tablename__ = 'regression_test_output'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
@@ -138,7 +145,7 @@ class RegressionTestOutput(Base):
 
     def __init__(self, regression_id, correct, correct_extension, expected_filename, ignore=False):
         """
-        Parametrized constructor for the RegressionTestOutput model
+        Parametrized constructor for the RegressionTestOutput model.
 
         :param regression_id: The value of the 'regression_id' field of RegressionTestOutput model
         :type regression_id: int
@@ -159,7 +166,6 @@ class RegressionTestOutput(Base):
 
     def __repr__(self):
         """
-        Representation function
         Represent a RegressionTestOutput Model by its 'id' Field.
 
         :return: Returns the string containing 'id' field of the RegressionTestOutput model.
@@ -170,7 +176,7 @@ class RegressionTestOutput(Base):
     @property
     def filename_correct(self):
         """
-        Return the filename of a particular regression output
+        Return the filename of a particular regression output.
 
         :return: String containing name and particular extension
         :rtype: str
@@ -179,7 +185,7 @@ class RegressionTestOutput(Base):
 
     def filename_expected(self, sample_hash):
         """
-        Return expected filename
+        Return expected filename.
 
         :param sample_hash: sample_hash of RegressionTestOutput
         :type name: str
@@ -189,4 +195,12 @@ class RegressionTestOutput(Base):
         return "{sha}{extra}{ext}".format(sha=sample_hash, extra=self.expected_filename, ext=self.correct_extension)
 
     def create_correct_filename(self, name):
+        """
+        Create correct filename.
+
+        :param name: name of the file
+        :type name: str
+        :return: correct file name with extension
+        :rtype: str
+        """
         return "{name}{ext}".format(name=name, ext=self.correct_extension)

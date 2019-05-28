@@ -1,11 +1,10 @@
 """
-mod_customized Models
-===================
-In this module, we are trying to maintain database regarding tests run
-by users.
+Maintain models for database operations regarding custom tests run by users.
+
 List of models corresponding to mysql tables: ['TestFork' => 'test_fork',
                                                'CustomizedTest' => 'customized_test']
 """
+
 from sqlalchemy import Column, Integer, ForeignKey
 from sqlalchemy.orm import relationship
 
@@ -16,6 +15,8 @@ from mod_auth.models import User
 
 
 class TestFork(Base):
+    """Model to manage custom [set of] test by user."""
+
     __tablename__ = 'test_fork'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
@@ -26,7 +27,7 @@ class TestFork(Base):
 
     def __init__(self, user_id, test_id):
         """
-        Parametrized constructor for the CCExtractorVersion model
+        Parametrized constructor for the CCExtractorVersion model.
 
         :param user_id: The value of the 'user_id' field of
          TestFork model
@@ -40,6 +41,8 @@ class TestFork(Base):
 
 
 class CustomizedTest(Base):
+    """Store custom tests pertaining to a test."""
+
     __tablename__ = 'customized_test'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
@@ -50,13 +53,13 @@ class CustomizedTest(Base):
 
     def __init__(self, test_id, regression_id):
         """
-        Parametrized constructor for the CustomizedTest model
+        Parametrized constructor for the CustomizedTest model.
 
         :param test_id: The value of the 'test_id' field of
-         CustomizedTest model
+            CustomizedTest model
         :type test_id: int
         :param regression_id: The value of the 'regression_id' field of
-         CustomizedTest model
+            CustomizedTest model
         :type regression_id: int
         """
         self.test_id = test_id

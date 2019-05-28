@@ -9,6 +9,7 @@ mock = "*"
 pep8 = "*"
 codecov = "*"
 nose-cov = "*"
+pydocstyle = "*"
 
 [packages]
 flask = "*"

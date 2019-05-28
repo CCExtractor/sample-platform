@@ -1,10 +1,11 @@
 """
-mod_ci Models
-===================
-In this module, we are trying to maintain all database related virtual
-machines and their status.
-List of models corresponding to mysql tables: ['Kvm' => 'kvm',
- 'Maintenance mode' => 'maintenance_mode']
+Maintain all database related virtual machines and their status.
+
+List of models corresponding to mysql tables:
+[
+    'Kvm' => 'kvm',
+    'Maintenance mode' => 'maintenance_mode'
+]
 """
 
 import datetime
@@ -16,6 +17,8 @@ from mod_test.models import Test, TestPlatform
 
 
 class BlockedUsers(Base):
+    """Model to maintain blocker users."""
+
     __tablename__ = 'blocked_users'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     # user_id refers to the ID from https://api.github.com/users/your_username
@@ -27,11 +30,14 @@ class BlockedUsers(Base):
         self.comment = comment
 
     def __repr__(self):
+        """Represent  blocked users with id and comment."""
         return "<BlockedUsers(user_id='{id}', comment='{comment}')>".format(
             id=self.user_id, comment=self.comment)
 
 
 class Kvm(Base):
+    """Model to store KVMs."""
+
     __tablename__ = 'kvm'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     name = Column(String(64), primary_key=True)
@@ -41,7 +47,7 @@ class Kvm(Base):
 
     def __init__(self, name, test_id, timestamp=None):
         """
-        Parametrized constructor for the Kvm model
+        Parametrized constructor for the Kvm model.
 
         :param name: The value of the 'name' field of Kvm model
         :type name: str
@@ -59,7 +65,6 @@ class Kvm(Base):
 
     def __repr__(self):
         """
-        Representation function
         Represent a Kvm Model by its 'test_id' Field.
 
         :return str(test_id): Returns the string containing
@@ -70,6 +75,8 @@ class Kvm(Base):
 
 
 class MaintenanceMode(Base):
+    """Model to maintain maitenance status of platforms."""
+
     __tablename__ = 'maintenance_mode'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
@@ -78,7 +85,7 @@ class MaintenanceMode(Base):
 
     def __init__(self, platform, mode):
         """
-        Parametrized constructor for the MaintenanceMode model
+        Parametrized constructor for the MaintenanceMode model.
 
         :param platform: The value of the 'platform' field of
          MaintenanceMode model
@@ -91,7 +98,6 @@ class MaintenanceMode(Base):
 
     def __repr__(self):
         """
-        Representation function
         Represent a MaintenanceMode Model by its platform and status Field.
 
         :return str(platform, status): Returns the string containing

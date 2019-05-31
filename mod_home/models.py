@@ -1,5 +1,5 @@
 """
-Maintains database models regarding general information.add()
+Maintains database models regarding general information.
 
 Includes version, released date, commit about main repository (CCExtractor).
 

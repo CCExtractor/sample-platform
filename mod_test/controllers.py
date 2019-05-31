@@ -1,9 +1,4 @@
-"""
-mod_test Controller
-===================
-In this module, we are trying to find all tests, their progress and details
-of individual test.
-"""
+"""Logic to find all tests, their progress and details of individual test."""
 
 import os
 
@@ -26,6 +21,7 @@ mod_test = Blueprint('test', __name__)
 
 
 class TestNotFoundException(Exception):
+    """Custom exception handler for handling test not found."""
 
     def __init__(self, message):
         Exception.__init__(self)
@@ -34,6 +30,7 @@ class TestNotFoundException(Exception):
 
 @mod_test.before_app_request
 def before_app_request():
+    """Curate menu items before app request."""
     g.menu_entries['tests'] = {
         'title': 'Test results',
         'icon': 'flask',
@@ -44,6 +41,7 @@ def before_app_request():
 @mod_test.errorhandler(TestNotFoundException)
 @template_renderer('test/test_not_found.html', 404)
 def not_found(error):
+    """Show error page when page not found."""
     return {
         'message': error.message
     }
@@ -52,6 +50,7 @@ def not_found(error):
 @mod_test.route('/')
 @template_renderer()
 def index():
+    """Show index page for tests."""
     fork = Fork.query.filter(Fork.github.like(("%/{owner}/{repo}.git").format(owner=g.github['repository_owner'],
                                                                               repo=g.github['repository']))).first()
     return {
@@ -63,7 +62,7 @@ def index():
 
 def get_data_for_test(test, title=None):
     """
-    Retrieves the data for a single test, with an optional title.
+    Retrieve the data for a single test, with an optional title.
 
     :param test: The test to retrieve the data for.
     :type test: Test
@@ -80,6 +79,7 @@ def get_data_for_test(test, title=None):
     hours = 0
     minutes = 0
     queued_tests = 0
+
     """
     evaluating estimated time if the test is still in queue
     estimated time = (number of tests already in queue + 1) * (average time of that platform)
@@ -171,12 +171,12 @@ def get_data_for_test(test, title=None):
 @mod_test.route('/get_json_data/<test_id>')
 def get_json_data(test_id):
     """
-    Retrieves the status of a test id and returns it in JSON format.
+    Retrieve the status of a test id and returns it in JSON format.
 
     :param test_id: The id of the test to retrieve data for.
     :type test_id: int
     :return: A JSON structure that holds the data about this test.
-    :rtype: Any
+    :rtype: dict
     """
     test = Test.query.filter(Test.id == test_id).first()
     if test is None:
@@ -202,6 +202,15 @@ def get_json_data(test_id):
 @mod_test.route('/<test_id>')
 @template_renderer()
 def by_id(test_id):
+    """
+    Show specific test.
+
+    :param test_id: id of the test
+    :type test_id: int
+    :raises TestNotFoundException: when test id is not found
+    :return: data for given test id
+    :rtype: dict
+    """
     test = Test.query.filter(Test.id == test_id).first()
     if test is None:
         raise TestNotFoundException('Test with id {id} does not exist'.format(id=test_id))
@@ -212,7 +221,18 @@ def by_id(test_id):
 @mod_test.route('/ccextractor/<ccx_version>')
 @template_renderer('test/by_id.html')
 def ccextractor_version(ccx_version):
-    # Look up the hash, find a test for it and redirect
+    """
+    Provide tests for a particular version of CCExtractor.
+
+    Look up the hash, find a test for it and redirect.
+
+    :param ccx_version: version of the CCExtractor
+    :type ccx_version: str
+    :raises TestNotFoundException: when no test is found
+    :raises TestNotFoundException: when wrong version is provided
+    :return: test data
+    :rtype: dict
+    """
     version = CCExtractorVersion.query.filter(CCExtractorVersion.version == ccx_version).first()
 
     if version is not None:
@@ -231,7 +251,17 @@ def ccextractor_version(ccx_version):
 @mod_test.route('/commit/<commit_hash>')
 @template_renderer('test/by_id.html')
 def by_commit(commit_hash):
-    # Look up the hash, find a test for it and redirect
+    """
+    Provide tests for a particular commit of CCExtractor.
+
+    Look up the hash, find a test for it and redirect.
+
+    :param ccx_version: commit hash
+    :type ccx_version: str
+    :raises TestNotFoundException: when no test is found for the commit
+    :return: test data
+    :rtype: dict
+    """
     test = Test.query.filter(Test.commit == commit_hash).first()
 
     if test is None:
@@ -243,6 +273,15 @@ def by_commit(commit_hash):
 @mod_test.route('/master/<platform>')
 @template_renderer('test/by_id.html')
 def latest_commit_info(platform):
+    """
+    Provide tests for the latest commit of CCExtractor for a particular platform.
+
+    :param platform: platform
+    :type platform: enum, ["windows", "linux"]
+    :raises TestNotFoundException: when no test is found for latest commit
+    :return: test data
+    :rtype: dict
+    """
     try:
         platform = TestPlatform.from_string(platform)
     except ValueError:
@@ -259,6 +298,18 @@ def latest_commit_info(platform):
 
 @mod_test.route('/diff/<test_id>/<regression_test_id>/<output_id>')
 def generate_diff(test_id, regression_test_id, output_id):
+    """
+    Generate diff for output and expected result.
+
+    :param test_id: id of the test
+    :type test_id: int
+    :param regression_test_id: id of the regression test
+    :type regression_test_id: int
+    :param output_id: id of the generated output
+    :type output_id: int
+    :return: html diff
+    :rtype: html
+    """
     from run import config
     if request.is_xhr:
         # Fetch test
@@ -278,6 +329,16 @@ def generate_diff(test_id, regression_test_id, output_id):
 
 
 def serve_file_download(file_name, content_type='application/octet-stream'):
+    """
+    Endpoint to serve file download.
+
+    :param file_name: name of the file
+    :type file_name: str
+    :param content_type: content type of the file, defaults to 'application/octet-stream'
+    :type content_type: str, optional
+    :return: response, the file download
+    :rtype: Flask response
+    """
     from run import config
 
     file_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'LogFiles', file_name)
@@ -294,6 +355,16 @@ def serve_file_download(file_name, content_type='application/octet-stream'):
 
 @mod_test.route('/log-files/<test_id>')
 def download_build_log_file(test_id):
+    """
+    Serve download of build log.
+
+    :param test_id: id of the test
+    :type test_id: int
+    :raises TestNotFoundException: when build log not found
+    :raises TestNotFoundException: when test id is not found
+    :return: build log text file
+    :rtype: Flask response
+    """
     from run import config
     test = Test.query.filter(Test.id == test_id).first()
 
@@ -316,6 +387,7 @@ def download_build_log_file(test_id):
 def restart_test(test_id):
     """
     Admin or Test User can restart the running or finished test.
+
     :param test_id: Test ID of the test which user want to restart
     :type test_id: int
     """
@@ -337,6 +409,7 @@ def restart_test(test_id):
 def stop_test(test_id):
     """
     Admin or Test User can stop the running test.
+
     :param test_id: Test ID of the test which user want to stop
     :type test_id: int
     """

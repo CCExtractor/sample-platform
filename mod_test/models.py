@@ -1,11 +1,13 @@
 """
-mod_test Models
-===================
-In this module, we are trying to maintain all models used
-for storing Test information, progress and report.
-List of models corresponding to mysql tables: ['Fork' => 'fork',
- 'TestProgress' => 'test_progress', 'TestResult' => 'test_result',
- 'TestResultFile' => 'test_result_file']
+Maintain all models used for storing Test information, progress and report.
+
+List of models corresponding to mysql tables:
+    [
+        'Fork' => 'fork',
+        'TestProgress' => 'test_progress',
+        'TestResult' => 'test_result',
+        'TestResultFile' => 'test_result_file'
+    ]
 """
 
 import datetime
@@ -24,16 +26,22 @@ from mod_regression.models import RegressionTest
 
 
 class TestPlatform(DeclEnum):
+    """Enum to specify system platforms."""
+
     linux = "linux", "Linux"
     windows = "windows", "Windows"
 
 
 class TestType(DeclEnum):
+    """Enum to specify type of test."""
+
     commit = "commit", "Commit"
     pull_request = "pr", "Pull Request"
 
 
 class TestStatus(DeclEnum):
+    """Enum to specify test status."""
+
     preparation = "preparation", "Preparation"
     building = "building", "Building"
     testing = "testing", "Testing"
@@ -42,6 +50,14 @@ class TestStatus(DeclEnum):
 
     @staticmethod
     def progress_step(inst):
+        """
+        Get progress step of the test.
+
+        :param inst: index of stage to get
+        :type inst: int
+        :return: name of the stage
+        :rtype: enum
+        """
         try:
             return TestStatus.stages().index(inst)
         except ValueError:
@@ -49,11 +65,19 @@ class TestStatus(DeclEnum):
 
     @staticmethod
     def stages():
+        """
+        Define stages for the test.
+
+        :return: stages available for test
+        :rtype: list
+        """
         return [TestStatus.preparation, TestStatus.building,
                 TestStatus.testing, TestStatus.completed]
 
 
 class Fork(Base):
+    """Model to store and manage fork."""
+
     __tablename__ = 'fork'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
@@ -64,18 +88,23 @@ class Fork(Base):
         self.github = github
 
     def __repr__(self):
+        """Represent fork with fork id."""
         return '<Fork {id}>'.format(id=self.id)
 
     @property
     def github_url(self):
+        """Get github url of the fork."""
         return self.github.replace('.git', '')
 
     @property
     def github_name(self):
+        """Get github name of the fork's user."""
         return self.github_url.replace('https://github.com/', '')
 
 
 class Test(Base):
+    """Model to store and manage test."""
+    
     __tablename__ = 'test'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
@@ -93,7 +122,7 @@ class Test(Base):
 
     def __init__(self, platform, test_type, fork_id, branch, commit, pr_nr=0, token=None):
         """
-        Parametrized constructor for the Test model
+        Parametrized constructor for the Test model.
 
         :param platform: The value of the 'platform' field of Test model
         :type platform: TestPlatform
@@ -123,7 +152,6 @@ class Test(Base):
 
     def __repr__(self):
         """
-        Representation function
         Represent a Test Model by its 'id' Field.
 
         :return: Returns the string containing 'id' field of the Test model
@@ -134,7 +162,7 @@ class Test(Base):
     @property
     def finished(self):
         """
-        Verifies if a Test is finished
+        Verify if a Test is finished.
 
         :return: Checks if Test is completed or cancelled
         :rtype: boolean
@@ -146,7 +174,7 @@ class Test(Base):
     @property
     def failed(self):
         """
-        Verifies if a Test is failed
+        Verify if a Test failed.
 
         :return: Checks if Test is canceled
         :rtype: boolean
@@ -158,7 +186,7 @@ class Test(Base):
     @property
     def github_link(self):
         """
-        Generate github link to view the pr or commit
+        Generate github link to view the pr or commit.
 
         :return: url
         :rtype: str
@@ -174,7 +202,7 @@ class Test(Base):
 
     def progress_data(self):
         """
-        Generate progress report for the Test Model
+        Generate progress report for the Test Model.
 
         :return: progress, stages, start and end time of Test Model
         :rtype: dict
@@ -209,7 +237,7 @@ class Test(Base):
     @staticmethod
     def create_token(length=64):
         """
-        Creates a random token for a given length (default: 64).
+        Create a random token for a given length (default: 64).
 
         :param length: The length of the created token.
         :type length: int
@@ -222,7 +250,8 @@ class Test(Base):
 
     def get_customized_regressiontests(self):
         """
-        Output all customized regression ids of the test
+        Output all customized regression ids of the test.
+
         return: Regression IDs
         rtype: list
         """
@@ -235,6 +264,8 @@ class Test(Base):
 
 
 class TestProgress(Base):
+    """Model to store and manage test progress."""
+    
     __tablename__ = 'test_progress'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
@@ -246,7 +277,7 @@ class TestProgress(Base):
 
     def __init__(self, test_id, status, message, timestamp=None):
         """
-        Parametrized constructor for the TestProgress model
+        Parametrized constructor for the TestProgress model.
 
         :param test_id: The value of the 'test_id' field of TestProgress model
         :type test_id: int
@@ -273,7 +304,6 @@ class TestProgress(Base):
 
     def __repr__(self):
         """
-        Representation function
         Represent a TestProgress Model by its 'id' and 'status' Field.
 
         :return: Returns the string containing 'id' and 'status' field of the Test model
@@ -283,13 +313,13 @@ class TestProgress(Base):
 
     @orm.reconstructor
     def may_the_timezone_be_with_it(self):
-        """
-        Localize the timestamp to utc
-        """
+        """Localize the timestamp to utc."""
         self.timestamp = pytz.utc.localize(self.timestamp, is_dst=None)
 
 
 class TestResult(Base):
+    """Model to store and manage test result."""
+
     __tablename__ = 'test_result'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     test_id = Column(Integer, ForeignKey('test.id', onupdate="CASCADE", ondelete="CASCADE"), primary_key=True)
@@ -304,7 +334,7 @@ class TestResult(Base):
 
     def __init__(self, test_id, regression_test_id, runtime, exit_code, expected_rc):
         """
-        Parametrized constructor for the TestResult model
+        Parametrized constructor for the TestResult model.
 
         :param test_id: The value of the 'test_id' field of TestResult model
         :type test_id: int
@@ -325,7 +355,6 @@ class TestResult(Base):
 
     def __repr__(self):
         """
-        Representation function
         Represent a TestResult Model by its 'test_id','expected_rc', 'regression_test_id' and 'status' Field.
 
         :return: Returns the string containing the 'id' , 'exit_code', 'regression_test_id', 'expected_rc',
@@ -342,6 +371,8 @@ class TestResult(Base):
 
 
 class TestResultFile(Base):
+    """Model to store and manage test result file."""
+    
     __tablename__ = 'test_result_file'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     test_id = Column(Integer, ForeignKey('test.id', onupdate="CASCADE", ondelete="CASCADE"), primary_key=True)
@@ -359,7 +390,7 @@ class TestResultFile(Base):
 
     def __init__(self, test_id, regression_test_id, regression_test_output_id, expected, got=None):
         """
-        Parametrized constructor for the TestResultFile model
+        Parametrized constructor for the TestResultFile model.
 
         :param test_id: The value of the 'test_id' field of TestResultFile model
         :type test_id: int
@@ -380,9 +411,9 @@ class TestResultFile(Base):
 
     def __repr__(self):
         """
-        Representation function
-        Represent a TestResultFile Model by its 'test_id',
-         'regression_test_id', 'regression_test_output_id' and 'got' Field.
+        Represent a TestResultFile.
+
+        Represent a TestResultFile Model by its 'test_id', 'regression_test_id', 'regression_test_output_id' and 'got' Field.
 
         :return: Returns the string containing the 'id' , 'regression_test_id', 'regression_test_output_id', 'got'
         field of the TestResultFile model
@@ -397,7 +428,7 @@ class TestResultFile(Base):
 
     def generate_html_diff(self, base_path):
         """
-        Generate diff between correct and test regression_test_output
+        Generate diff between correct and test regression_test_output.
 
         :param base_path: The base path for the files location.
         :type base_path: str

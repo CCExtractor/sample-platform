@@ -104,7 +104,7 @@ class Fork(Base):
 
 class Test(Base):
     """Model to store and manage test."""
-    
+
     __tablename__ = 'test'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
@@ -265,7 +265,7 @@ class Test(Base):
 
 class TestProgress(Base):
     """Model to store and manage test progress."""
-    
+
     __tablename__ = 'test_progress'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
@@ -372,7 +372,7 @@ class TestResult(Base):
 
 class TestResultFile(Base):
     """Model to store and manage test result file."""
-    
+
     __tablename__ = 'test_result_file'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     test_id = Column(Integer, ForeignKey('test.id', onupdate="CASCADE", ondelete="CASCADE"), primary_key=True)
@@ -413,7 +413,8 @@ class TestResultFile(Base):
         """
         Represent a TestResultFile.
 
-        Represent a TestResultFile Model by its 'test_id', 'regression_test_id', 'regression_test_output_id' and 'got' Field.
+        Represent a TestResultFile Model by its 'test_id', 'regression_test_id', 
+        'regression_test_output_id' and 'got' Field.
 
         :return: Returns the string containing the 'id' , 'regression_test_id', 'regression_test_output_id', 'got'
         field of the TestResultFile model

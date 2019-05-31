@@ -1,7 +1,7 @@
 """
 Maintain all models used for storing Test information, progress and report.
 
-List of models corresponding to mysql tables: 
+List of models corresponding to mysql tables:
     [
         'Upload' => 'upload',
         'QueuedSample' => 'upload_queue',
@@ -79,7 +79,7 @@ class Upload(Base):
 
 class QueuedSample(Base):
     """Model to manage and store sample queue."""
-    
+
     __tablename__ = 'upload_queue'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)

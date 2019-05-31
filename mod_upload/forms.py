@@ -1,3 +1,5 @@
+"""Maintain forms to perform CRUD operations on uploads and related database."""
+
 import os
 import magic
 import mimetypes
@@ -12,6 +14,8 @@ from mod_upload.models import Platform
 
 
 class UploadForm(FlaskForm):
+    """Form to make a new sample upload."""
+
     accept = '.ts, .txt, .srt, .png, video/*'
 
     file = FileField('File to upload', [DataRequired(message='No file was provided.')], render_kw={'accept': accept})
@@ -19,6 +23,17 @@ class UploadForm(FlaskForm):
 
     @staticmethod
     def validate_file(form, field):
+        """
+        Validate sample being uploaded.
+
+        :param form: form data
+        :type form: UploadForm
+        :param field: field to validate
+        :type field: form field
+        :raises ValidationError: when extension is not allowed
+        :raises ValidationError: when mimetype is not allowed
+        :raises ValidationError: when extension not provided and not supported
+        """
         # File cannot end with a forbidden extension
         filename, file_extension = os.path.splitext(field.data.filename)
         if len(file_extension) > 0:
@@ -40,10 +55,14 @@ class UploadForm(FlaskForm):
 
 
 class DeleteQueuedSampleForm(FlaskForm):
+    """Form to delete a queued sample."""
+
     submit = SubmitField('Delete queued file')
 
 
 class CommonSampleForm(FlaskForm):
+    """Form to submit common sample data."""
+
     notes = TextAreaField('Notes', [DataRequired(message='Notes are not filled in')])
     parameters = TextAreaField('Parameters', [DataRequired(message='Parameters are not filled in')])
     platform = SelectField(
@@ -59,10 +78,21 @@ class CommonSampleForm(FlaskForm):
 
     @staticmethod
     def validate_version(form, field):
+        """
+        Validate CCExtractor version.
+
+        :param form: form data
+        :type form: CommonSampleForms
+        :param field: field to validate
+        :type field: form field
+        :raises ValidationError: when invalid version selected
+        """
         version = CCExtractorVersion.query.filter(CCExtractorVersion.id == field.data).first()
         if version is None:
             raise ValidationError('Invalid version selected')
 
 
 class FinishQueuedSampleForm(CommonSampleForm):
+    """Form to finalize sample queue."""
+
     submit = SubmitField('Finalize sample')

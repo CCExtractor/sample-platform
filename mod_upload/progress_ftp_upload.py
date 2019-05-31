@@ -1,4 +1,6 @@
 #!/usr/bin/python
+"""Maintain logic to show upload progress."""
+
 import sys
 from os import path
 # Need to append server root path to ensure we can import the necessary files.
@@ -6,6 +8,14 @@ sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 
 def process(database, file_to_process):
+    """
+    Call ftp upload method.
+
+    :param database: database
+    :type database: database cursor
+    :param file_to_process: path of file to upload
+    :type file_to_process: str
+    """
     from mod_upload.controllers import upload_ftp
     from run import log
     log.debug("Calling the FTP upload method from the controller!")

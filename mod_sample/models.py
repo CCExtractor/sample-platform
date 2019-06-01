@@ -111,7 +111,7 @@ class ExtraFile(Base):
         :rtype: str
         """
         extension = ("." + self.extension) if len(self.extension) > 0 else ""
-        return "{sha}_{id}{extension}".format(sha=self.sample.sha, id=self.id,  extension=extension)
+        return "{sha}_{id}{extension}".format(sha=self.sample.sha, id=self.id, extension=extension)
 
 
 class ForbiddenExtension(Base):

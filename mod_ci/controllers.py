@@ -243,7 +243,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         "%/{owner}/{repo}.git".format(owner=github_config['repository_owner'], repo=github_config['repository'])
     )).first()
     test = Test.query.filter(
-            Test.id.notin_(finished_tests), Test.platform == platform, Test.fork_id == fork.id
+        Test.id.notin_(finished_tests), Test.platform == platform, Test.fork_id == fork.id
     ).order_by(Test.id.asc()).first()
 
     if test is None:
@@ -394,7 +394,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
         log.info("[{platform}] Pull from remote returned no new data...".format(platform=platform))
     if pull_info[0].flags > 128:
         log.critical("[{platform}] Didn't pull any information from remote: {flags}!".format(
-                platform=platform, flags=pull_info[0].flags))
+            platform=platform, flags=pull_info[0].flags))
         return
 
     # Delete the test branch if it exists, and recreate
@@ -580,6 +580,7 @@ def get_html_issue_body(title, author, body, issue_number, url):
     html_email_body = template.render(title=title, author=author, body=html_issue_body, url=url)
     return html_email_body
 
+
 @mod_ci.route('/start-ci', methods=['GET', 'POST'])
 @request_from_github()
 def start_ci():
@@ -722,15 +723,15 @@ def start_ci():
                 test = Test.query.filter(and_(Test.commit == release_commit,
                                          Test.platform == TestPlatform.linux)).first()
                 test_result_file = g.db.query(TestResultFile).filter(
-                                    TestResultFile.test_id == test.id).subquery()
+                    TestResultFile.test_id == test.id).subquery()
                 test_result = g.db.query(TestResult).filter(
-                                    TestResult.test_id == test.id).subquery()
+                    TestResult.test_id == test.id).subquery()
                 g.db.query(RegressionTestOutput.correct).filter(
-                                    and_(RegressionTestOutput.regression_id == test_result_file.c.regression_test_id,
-                                         test_result_file.c.got is not None)).values(test_result_file.c.got)
+                    and_(RegressionTestOutput.regression_id == test_result_file.c.regression_test_id,
+                         test_result_file.c.got is not None)).values(test_result_file.c.got)
                 g.db.query(RegressionTest.expected_rc).filter(
-                                RegressionTest.id == test_result.c.regression_test_id
-                                ).values(test_result.c.expected_rc)
+                    RegressionTest.id == test_result.c.regression_test_id
+                ).values(test_result.c.expected_rc)
                 g.db.commit()
 
         else:
@@ -1036,24 +1037,24 @@ def comment_pr(test_id, state, pr_nr, platform):
     """
     from run import app, log
     regression_testid_passed = g.db.query(TestResult.regression_test_id).outerjoin(
-                                TestResultFile, TestResult.test_id == TestResultFile.test_id).filter(
-                                TestResult.test_id == test_id,
-                                TestResult.expected_rc == TestResult.exit_code,
-                                or_(
-                                    TestResult.exit_code != 0,
-                                    and_(TestResult.exit_code == 0,
-                                         TestResult.regression_test_id == TestResultFile.regression_test_id,
-                                         TestResultFile.got.is_(None)
-                                         ),
-                                    and_(
-                                         RegressionTestOutput.regression_id == TestResult.regression_test_id,
-                                         RegressionTestOutput.ignore.is_(True),
-                                            ))).subquery()
+        TestResultFile, TestResult.test_id == TestResultFile.test_id).filter(
+        TestResult.test_id == test_id,
+        TestResult.expected_rc == TestResult.exit_code,
+        or_(
+            TestResult.exit_code != 0,
+            and_(TestResult.exit_code == 0,
+                 TestResult.regression_test_id == TestResultFile.regression_test_id,
+                 TestResultFile.got.is_(None)
+                 ),
+            and_(
+                RegressionTestOutput.regression_id == TestResult.regression_test_id,
+                RegressionTestOutput.ignore.is_(True),
+            ))).subquery()
     passed = g.db.query(label('category_id', Category.id), label(
         'success', count(regressionTestLinkTable.c.regression_id))).filter(
             regressionTestLinkTable.c.regression_id.in_(regression_testid_passed),
             Category.id == regressionTestLinkTable.c.category_id).group_by(
-                 regressionTestLinkTable.c.category_id).subquery()
+            regressionTestLinkTable.c.category_id).subquery()
     tot = g.db.query(label('category', Category.name), label('total', count(regressionTestLinkTable.c.regression_id)),
                      label('success', passed.c.success)).outerjoin(
         passed, passed.c.category_id == Category.id).filter(
@@ -1083,7 +1084,7 @@ def comment_pr(test_id, state, pr_nr, platform):
         else:
             repository.issues().comments(comment_id).post(body=message)
         log.debug('Github PR Comment ID {comment} Uploaded for Test_id: {test_id}'.format(
-                comment=comment_id, test_id=test_id))
+            comment=comment_id, test_id=test_id))
     except Exception as e:
         log.error('Github PR Comment Failed for Test_id: {test_id} with Exception {e}'.format(test_id=test_id, e=e))
 

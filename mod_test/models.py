@@ -413,7 +413,7 @@ class TestResultFile(Base):
         """
         Represent a TestResultFile.
 
-        Represent a TestResultFile Model by its 'test_id', 'regression_test_id', 
+        Represent a TestResultFile Model by its 'test_id', 'regression_test_id',
         'regression_test_output_id' and 'got' Field.
 
         :return: Returns the string containing the 'id' , 'regression_test_id', 'regression_test_output_id', 'got'

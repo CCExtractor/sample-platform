@@ -180,7 +180,7 @@ class TestControllers(BaseTestCase):
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.tester)
 
         with self.app.test_client() as c:
-            c.post('/account/login',  data=self.create_login_form_data(self.user.email, self.user.password))
+            c.post('/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
 
             response = c.post(
                 '/custom/', data=self.create_customize_form('mockWillReturn500', ['linux'], regression_test=[2]),

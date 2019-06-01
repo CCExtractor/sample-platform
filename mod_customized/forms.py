@@ -22,5 +22,5 @@ class TestForkForm(FlaskForm):
     platform = MultiCheckboxField('Platform', validators=[DataRequired()], choices=[(
         platform, platform) for platform in TestPlatform.values()])
     regression_test = MultiCheckboxField('Regression Test', validators=[DataRequired(
-                        message='Please add one or more Regression Tests')], coerce=int)
+        message='Please add one or more Regression Tests')], coerce=int)
     add = SubmitField('Run Test')

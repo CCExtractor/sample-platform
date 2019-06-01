@@ -11,7 +11,7 @@ import mimetypes
 import shutil
 import requests
 
-from flask import Blueprint, g, make_response, render_template, request,  redirect, url_for, flash
+from flask import Blueprint, g, make_response, render_template, request, redirect, url_for, flash
 from werkzeug.utils import secure_filename
 
 from decorators import template_renderer, get_menu_entries

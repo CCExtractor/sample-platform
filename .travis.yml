@@ -13,6 +13,7 @@ install:
   - sudo apt-get install libvirt-dev
   - pip install codecov
   - pip install nose-cov
+  - pip install pycodestyle
   - pip install -r requirements.txt
   - pip install Flask-Testing
   - pip install blinker

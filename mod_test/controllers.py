@@ -176,7 +176,7 @@ def get_json_data(test_id):
     :param test_id: The id of the test to retrieve data for.
     :type test_id: int
     :return: A JSON structure that holds the data about this test.
-    :rtype: dict
+    :rtype: JSON dict
     """
     test = Test.query.filter(Test.id == test_id).first()
     if test is None:

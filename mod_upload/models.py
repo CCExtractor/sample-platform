@@ -1,12 +1,15 @@
 """
-mod_upload Models
-===================
-In this module, we are trying to maintain all models used
-for storing Test information, progress and report.
-List of models corresponding to mysql tables: ['Upload' => 'upload',
- 'QueuedSample' => 'upload_queue', 'UploadLog' => 'upload_log',
- 'FTPCredentials' => 'ftpd']
+Maintain all models used for storing Test information, progress and report.
+
+List of models corresponding to mysql tables:
+    [
+        'Upload' => 'upload',
+        'QueuedSample' => 'upload_queue',
+        'UploadLog' => 'upload_log',
+        'FTPCredentials' => 'ftpd'
+    ]
 """
+
 import string
 
 from sqlalchemy import Column, Integer, String, Text, ForeignKey
@@ -16,6 +19,8 @@ from database import Base, DeclEnum
 
 
 class Platform(DeclEnum):
+    """Enum for platform data."""
+
     linux = "linux", "Linux"
     windows = "windows", "Windows"
     mac = "mac", "Mac"
@@ -23,6 +28,8 @@ class Platform(DeclEnum):
 
 
 class Upload(Base):
+    """Model to manage and store upload."""
+
     __tablename__ = 'upload'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
@@ -38,7 +45,7 @@ class Upload(Base):
 
     def __init__(self, user_id, sample_id, version_id, platform, parameters='', notes=''):
         """
-        Parametrized constructor for the Upload model
+        Parametrized constructor for the Upload model.
 
         :param user_id: The value of the 'user_id' field of Upload model
         :type user_id: int
@@ -62,7 +69,6 @@ class Upload(Base):
 
     def __repr__(self):
         """
-        Representation function
         Represent a Upload Model by its 'id' Field.
 
         :return: Returns the string containing 'id' field of the Upload model
@@ -72,6 +78,8 @@ class Upload(Base):
 
 
 class QueuedSample(Base):
+    """Model to manage and store sample queue."""
+
     __tablename__ = 'upload_queue'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
@@ -84,7 +92,7 @@ class QueuedSample(Base):
 
     def __init__(self, sha, extension, original_name, user_id):
         """
-        Parametrized constructor for the QueuedSample model
+        Parametrized constructor for the QueuedSample model.
 
         :param sha: The value of the 'sha' field of QueuedSample model
         :type sha: str
@@ -103,7 +111,7 @@ class QueuedSample(Base):
     @property
     def filename(self):
         """
-        Return filename with the format sha.extension
+        Return filename with the format sha.extension.
 
         :return: Returns the string containing 'sha' and 'extension' field of the QueuedSample model
         :rtype: str
@@ -112,6 +120,8 @@ class QueuedSample(Base):
 
 
 class UploadLog(Base):
+    """Model to maintain upload logs."""
+
     __tablename__ = 'upload_log'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     id = Column(Integer, primary_key=True)
@@ -121,7 +131,7 @@ class UploadLog(Base):
 
     def __init__(self, message, user_id):
         """
-        Parametrized constructor for the UploadLog model
+        Parametrized constructor for the UploadLog model.
 
         :param message: The value of the 'message' field of UploadLog model
         :type message: str
@@ -133,11 +143,15 @@ class UploadLog(Base):
 
 
 class FTPActive(DeclEnum):
+    """Enum to set FTP status."""
+
     disabled = '0', 'Disabled'
     enabled = '1', 'Enabled'
 
 
 class FTPCredentials(Base):
+    """Model to manage and store FTP credential."""
+
     __tablename__ = 'ftpd'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     user_id = Column(Integer, ForeignKey('user.id', onupdate="CASCADE", ondelete="RESTRICT"), primary_key=True)
@@ -156,7 +170,7 @@ class FTPCredentials(Base):
     def __init__(self, user_id, user_name=None, status=FTPActive.enabled, password=None, home_directory=None,
                  ip_access="*", quota_files=20):
         """
-        Parametrized constructor for the FTPCredentials model
+        Parametrized constructor for the FTPCredentials model.
 
         :param user_id: The value of the 'user_id' field of FTPCredentials model
         :type user_id: int
@@ -193,7 +207,7 @@ class FTPCredentials(Base):
     @staticmethod
     def _create_random_string(length=16):
         """
-        Creates a random string with a given length (a default of 16).
+        Create a random string with a given length (a default of 16).
 
         :param length: The length of the random string to create.
         :type length: int

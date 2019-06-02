@@ -1,0 +1,4 @@
+[pycodestyle]
+count = True
+max-line-length = 120
+exclude=TestDiff.py     # excluding TestDiff since it tests html output and has long lines

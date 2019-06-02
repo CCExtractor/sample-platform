@@ -1,9 +1,4 @@
-"""
-mod_sample Controllers
-===================
-In this module, we are trying to fetch sample inforation,
-uploading, editing, deleting sample.
-"""
+"""Logic to fetch sample information, uploading, editing, deleting sample."""
 
 import os
 import json
@@ -31,6 +26,7 @@ mod_sample = Blueprint('sample', __name__)
 
 @mod_sample.before_app_request
 def before_app_request():
+    """Curate menu items before app request."""
     g.menu_entries['samples'] = {
         'title': 'Sample info',
         'icon': 'object-group',
@@ -39,6 +35,7 @@ def before_app_request():
 
 
 class SampleNotFoundException(Exception):
+    """Custom exception triggered when sample not found."""
 
     def __init__(self, message):
         Exception.__init__(self)
@@ -46,7 +43,14 @@ class SampleNotFoundException(Exception):
 
 
 def display_sample_info(sample):
-    # Fetching the media info
+    """
+    Fetch the media info.
+
+    :param sample: sample entry from the database
+    :type sample: Model Sample
+    :return: sample information if successful
+    :rtype: dict
+    """
     try:
         media_info_fetcher = MediaInfoFetcher(sample)
         media_info = media_info_fetcher.get_media_info()
@@ -123,6 +127,7 @@ def display_sample_info(sample):
 @mod_sample.errorhandler(SampleNotFoundException)
 @template_renderer('sample/sample_not_found.html', 404)
 def not_found(error):
+    """Display sample not found page."""
     return {
         'message': error.message
     }
@@ -131,6 +136,7 @@ def not_found(error):
 @mod_sample.route('/')
 @template_renderer()
 def index():
+    """Fetch all samples and display sample's index page."""
     return {
         'samples': Sample.query.all()
     }
@@ -139,6 +145,15 @@ def index():
 @mod_sample.route('/<regex("[0-9]+"):sample_id>')
 @template_renderer('sample/sample_info.html')
 def sample_by_id(sample_id):
+    """
+    Fetch sample information and display page.
+
+    :param sample_id: id of the sample
+    :type sample_id: int
+    :raises SampleNotFoundException: when sample id is not found
+    :return: sample information if successful
+    :rtype: dict
+    """
     sample = Sample.query.filter(Sample.id == sample_id).first()
     if sample is not None:
         return display_sample_info(sample)
@@ -149,6 +164,15 @@ def sample_by_id(sample_id):
 @mod_sample.route('/<regex("[A-Za-z0-9]+"):sample_hash>')
 @template_renderer('sample/sample_info.html')
 def sample_by_hash(sample_hash):
+    """
+    Fetch sample by hash.
+
+    :param sample_hash: hash of the sample
+    :type sample_hash: str
+    :raises SampleNotFoundException: when sample hash is incorrect
+    :return: sample info if successful
+    :rtype: dict
+    """
     sample = Sample.query.filter(Sample.sha == sample_hash).first()
     if sample is not None:
         return display_sample_info(sample)
@@ -157,6 +181,18 @@ def sample_by_hash(sample_hash):
 
 
 def serve_file_download(file_name, sub_folder='', content_type='application/octet-stream'):
+    """
+    Serve sample file for download.
+
+    :param file_name: name of the sample file
+    :type file_name: str
+    :param sub_folder: name of the subfolder, defaults to ''
+    :type sub_folder: str, optional
+    :param content_type: type of the content, defaults to 'application/octet-stream'
+    :type content_type: str, optional
+    :return: sample file
+    :rtype: Flask response
+    """
     from run import config
 
     file_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'TestFiles', sub_folder, file_name)
@@ -172,6 +208,15 @@ def serve_file_download(file_name, sub_folder='', content_type='application/octe
 
 @mod_sample.route('/download/<sample_id>')
 def download_sample(sample_id):
+    """
+    Download sample file.
+
+    :param sample_id: id of the sample file
+    :type sample_id: int
+    :raises SampleNotFoundException: when sample id is not found
+    :return: sample file
+    :rtype: Flask response
+    """
     sample = Sample.query.filter(Sample.id == sample_id).first()
     if sample is not None:
         return serve_file_download(sample.filename)
@@ -181,6 +226,15 @@ def download_sample(sample_id):
 
 @mod_sample.route('/download/<sample_id>/media-info')
 def download_sample_media_info(sample_id):
+    """
+    Download sample file's media information as XML.
+
+    :param sample_id: id of the sample file
+    :type sample_id: int
+    :raises SampleNotFoundException: when sample id is not found
+    :return: sample file's media info file
+    :rtype: Flask response
+    """
     from run import config
     sample = Sample.query.filter(Sample.id == sample_id).first()
 
@@ -198,6 +252,18 @@ def download_sample_media_info(sample_id):
 
 @mod_sample.route('/download/<sample_id>/additional/<additional_id>')
 def download_sample_additional(sample_id, additional_id):
+    """
+    Download sample file's additional files and information.
+
+    :param sample_id: id of the sample
+    :type sample_id: int
+    :param additional_id: id of the additional file
+    :type additional_id: int
+    :raises SampleNotFoundException: when additional file id is not found
+    :raises SampleNotFoundException: when sample id is not found
+    :return: sample's additional information file
+    :rtype: Flask response
+    """
     sample = Sample.query.filter(Sample.id == sample_id).first()
     if sample is not None:
         # Fetch additional info
@@ -214,6 +280,15 @@ def download_sample_additional(sample_id, additional_id):
 @check_access_rights([Role.admin])
 @template_renderer()
 def edit_sample(sample_id):
+    """
+    Edit sample, required admin role.
+
+    :param sample_id: id of the sample
+    :type sample_id: int
+    :raises SampleNotFoundException: when sample id is not found
+    :return: form to edit sample
+    :rtype: dict
+    """
     sample = Sample.query.filter(Sample.id == sample_id).first()
 
     if sample is not None:
@@ -252,6 +327,15 @@ def edit_sample(sample_id):
 @check_access_rights([Role.admin])
 @template_renderer()
 def delete_sample(sample_id):
+    """
+    Delete sample, required admin role.
+
+    :param sample_id: id of the sample
+    :type sample_id: int
+    :raises SampleNotFoundException: when sample id is not found
+    :return: form to edit sample
+    :rtype: dict
+    """
     from run import config
     sample = Sample.query.filter(Sample.id == sample_id).first()
     if sample is not None:
@@ -281,6 +365,17 @@ def delete_sample(sample_id):
 @check_access_rights([Role.admin])
 @template_renderer()
 def delete_sample_additional(sample_id, additional_id):
+    """
+    Delete sample's additional, required admin role.
+
+    :param sample_id: id of the sample
+    :type sample_id: int
+    :param additional_id: id of the sample's additional
+    :type additiona_id: int
+    :raises SampleNotFoundException: when sample id is not found
+    :return: form to edit sample
+    :rtype: dict
+    """
     from run import config
     sample = Sample.query.filter(Sample.id == sample_id).first()
     if sample is not None:

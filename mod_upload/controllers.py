@@ -1,10 +1,5 @@
-"""
-mod_upload Controllers
-===================
-In this module, we are trying to add functionality regarding upload
-and finalizing of samples through html or ftp. Reporting issues along
-with submitting sample
-"""
+"""Maintain logic regarding upload and finalizing of samples through html or ftp."""
+
 import base64
 import hashlib
 import json
@@ -16,7 +11,7 @@ import mimetypes
 import shutil
 import requests
 
-from flask import Blueprint, g, make_response, render_template, request,  redirect, url_for, flash
+from flask import Blueprint, g, make_response, render_template, request, redirect, url_for, flash
 from werkzeug.utils import secure_filename
 
 from decorators import template_renderer, get_menu_entries
@@ -33,6 +28,7 @@ mod_upload = Blueprint('upload', __name__)
 
 
 class QueuedSampleNotFoundException(Exception):
+    """Custom exception handler for queued sample not found."""
 
     def __init__(self, message):
         Exception.__init__(self)
@@ -41,6 +37,7 @@ class QueuedSampleNotFoundException(Exception):
 
 @mod_upload.before_app_request
 def before_app_request():
+    """Curate menu items before request."""
     g.menu_entries['upload'] = {
         'title': 'Upload',
         'icon': 'upload',
@@ -61,6 +58,7 @@ def before_app_request():
 @mod_upload.errorhandler(QueuedSampleNotFoundException)
 @template_renderer('upload/queued_sample_not_found.html', 404)
 def not_found(error):
+    """Display not found template."""
     return {
         'message': error.message
     }
@@ -70,6 +68,7 @@ def not_found(error):
 @login_required
 @template_renderer()
 def index():
+    """Display index page for queued samples."""
     return {
         'queue': QueuedSample.query.filter(QueuedSample.user_id == g.user.id).all(),
         'messages': UploadLog.query.filter(UploadLog.user_id == g.user.id).order_by(UploadLog.id.desc()).all()
@@ -81,6 +80,7 @@ def index():
 @check_access_rights([Role.admin])
 @template_renderer()
 def index_admin():
+    """Show index page for admin."""
     return {
         'queue': QueuedSample.query.all(),
         'messages': UploadLog.query.order_by(UploadLog.id.desc()).all()
@@ -126,6 +126,7 @@ def make_github_issue(title, body=None, labels=None):
 @login_required
 @template_renderer()
 def ftp_index():
+    """Root for ftp connection."""
     from run import config
 
     credentials = FTPCredentials.query.filter(FTPCredentials.user_id == g.user.id).first()
@@ -146,6 +147,7 @@ def ftp_index():
 @mod_upload.route('/ftp/filezilla')
 @login_required
 def ftp_filezilla():
+    """Root for filezilla ftp connection."""
     from run import config
 
     credentials = FTPCredentials.query.filter(FTPCredentials.user_id == g.user.id).first()
@@ -176,6 +178,7 @@ def ftp_filezilla():
 @login_required
 @template_renderer()
 def upload():
+    """Make new upload."""
     from run import config
     form = UploadForm()
     if form.validate_on_submit():
@@ -207,7 +210,7 @@ def upload():
 @template_renderer()
 def process_id(upload_id):
     """
-    Process the sample that is uploaded to the platform
+    Process the sample that is uploaded to the platform.
 
     :param upload_id: The identity of uploaded file that will be processed
     :type upload_id: str
@@ -319,7 +322,15 @@ def process_id(upload_id):
 @login_required
 @template_renderer()
 def link_id(upload_id):
-    # Fetch upload id
+    """
+    View sample with upload id.
+
+    :param upload_id: upload id of the sample
+    :type upload_id: int
+    :raises QueuedSampleNotFoundException: when upload id is not found
+    :return: samples and queued samples with given upload id
+    :rtype: dict
+    """
     queued_sample = QueuedSample.query.filter(QueuedSample.id == upload_id).first()
     if queued_sample is not None:
         if queued_sample.user_id == g.user.id:
@@ -338,7 +349,17 @@ def link_id(upload_id):
 @mod_upload.route('/link/<upload_id>/<sample_id>')
 @login_required
 def link_id_confirm(upload_id, sample_id):
-    # Fetch upload id
+    """
+    Confirm link for upload id and sample id.
+
+    :param upload_id: upload id
+    :type upload_id: int
+    :param sample_id: sample id
+    :type sample_id: int
+    :raises QueuedSampleNotFoundException: when upload id is not found
+    :return: redirect to index
+    :rtype: Flask redirect
+    """
     queued_sample = QueuedSample.query.filter(QueuedSample.id == upload_id).first()
     sample = Sample.query.filter(Sample.id == sample_id).first()
     if queued_sample is not None and sample is not None:
@@ -354,6 +375,15 @@ def link_id_confirm(upload_id, sample_id):
 @login_required
 @template_renderer()
 def delete_id(upload_id):
+    """
+    Delete upload with given id.
+
+    :param upload_id: upload id
+    :type upload_id: int
+    :raises QueuedSampleNotFoundException: when upload id not found
+    :return: form to delete upload and queued samples.
+    :rtype: dict
+    """
     from run import config
     # Fetch upload id
     queued_sample = QueuedSample.query.filter(QueuedSample.id == upload_id).first()
@@ -381,7 +411,7 @@ def delete_id(upload_id):
 
 def create_hash_for_sample(file_path):
     """
-    Creates the has for given file.
+    Create the hash for given file.
 
     :param file_path: The path to the file that needs to be hashed.
     :type file_path: str
@@ -398,7 +428,7 @@ def create_hash_for_sample(file_path):
 
 def sample_already_uploaded(file_hash):
     """
-    Checks if a given file hash is already present in the database.
+    Check if a given file hash is already present in the database.
 
     :param file_hash: The file hash that needs to be checked.
     :type file_hash: str
@@ -413,7 +443,8 @@ def sample_already_uploaded(file_hash):
 
 def add_sample_to_queue(file_hash, temp_path, user_id, db):
     """
-    Adds a sample to the queue.
+    Add a sample to the queue.
+
     :param file_hash: The hash of the file
     :type file_hash: str
     :param temp_path: The current location of the file
@@ -442,6 +473,14 @@ def add_sample_to_queue(file_hash, temp_path, user_id, db):
 
 
 def upload_ftp(db, path):
+    """
+    Make a FTP upload.
+
+    :param db: database
+    :type db: database cursor
+    :param path: path to sample file
+    :type path: str
+    """
     from run import log, config
     temp_path = str(path)
     path_parts = temp_path.split(os.path.sep)

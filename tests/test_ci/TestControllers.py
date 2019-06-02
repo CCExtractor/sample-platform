@@ -378,7 +378,7 @@ class TestControllers(BaseTestCase):
                 data=json.dumps(data), headers=headers)
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.data, b'{"msg": "Hi!"}')
- 
+
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_release(self, mock_request):
         """

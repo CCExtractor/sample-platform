@@ -59,7 +59,7 @@ class CompleteSignUp(BaseTestCase):
         self.existing_user_hash = generate_hmac_hash(self.app.config.get('HMAC_KEY', ''), content_to_hash)
 
     def test_if_link_expired(self):
-        response = self.complete_signup(signup_information['valid_email'], self.time_of_hash+3600, self.hash)
+        response = self.complete_signup(signup_information['valid_email'], self.time_of_hash + 3600, self.hash)
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'The request to complete the registration was invalid.', response.data)
 

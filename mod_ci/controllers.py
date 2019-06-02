@@ -704,6 +704,7 @@ def start_ci():
                 g.db.commit()
 
         elif event == "release":
+            g.log.debug("release update triggered")
             release_data = payload['release']
             prerelease = release_data['prerelease']
             # checking whether it is meant for production
@@ -714,11 +715,13 @@ def start_ci():
                 # Github recommends adding v to the version
                 if release_version[0] == 'v':
                     release_version = release_version[1:]
+                g.log.debug("latest release version is " + str(release_version))
                 release_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first().value
                 release_date = release_data['published_at']
                 release = CCExtractorVersion(release_version, release_date, release_commit)
                 g.db.add(release)
                 g.db.commit()
+                g.log.info("successfully updated release version")
                 # adding test corresponding to last commit to the baseline regression results
                 test = Test.query.filter(and_(Test.commit == release_commit,
                                          Test.platform == TestPlatform.linux)).first()
@@ -733,6 +736,7 @@ def start_ci():
                     RegressionTest.id == test_result.c.regression_test_id
                 ).values(test_result.c.expected_rc)
                 g.db.commit()
+                g.log.info("successfully added tests for latest release!")
 
         else:
             # Unknown type

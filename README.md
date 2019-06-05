@@ -43,7 +43,9 @@ pipenv run nosetests --with-cov --cov-config .coveragerc
 
 ```
 
-## Documentation Using DocStrings
+## Etiquettes Testing
+
+### DocStrings
 
 Sample-platform uses docstrings heavily to document modules and methods.
 
@@ -54,6 +56,19 @@ followed the style before sending a PR.
 pipenv shell --three    # if not inside pipenv shell already
 pipenv install --dev    # if first time running dev-dependencies
 pydocstyle ./          # check all .py files with pydocstyle
+```
+
+### Imports
+
+We use `isort` to introduce a style on how imports should be made.
+
+Please check your imports before making a commit using the following commands.
+
+```bash
+pipenv shell --three    # if not inside pipenv shell already
+pipenv install --dev    # if first time running dev-dependencies
+isort --rc --diff .     # see proposed changes without applying them
+isort -rc --atomic .    # apply changes to import order without breaking syntax
 ```
 
 NOTE: The tests must be run after successful installation and set-up of sample-platform to give accurate results.

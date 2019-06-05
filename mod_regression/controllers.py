@@ -1,12 +1,14 @@
 """Maintain logic to perform CRUD operations on regression tests."""
 
-from flask import Blueprint, g, abort, jsonify, abort, redirect, url_for, request, flash
+from flask import (Blueprint, abort, flash, g, jsonify, redirect, request,
+                   url_for)
 
 from decorators import template_renderer
-from mod_auth.controllers import login_required, check_access_rights
+from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role
-from mod_regression.models import Category, RegressionTest, InputType, OutputType
 from mod_regression.forms import AddCategoryForm, AddTestForm, ConfirmationForm
+from mod_regression.models import (Category, InputType, OutputType,
+                                   RegressionTest)
 from mod_sample.models import Sample
 
 mod_regression = Blueprint('regression', __name__)

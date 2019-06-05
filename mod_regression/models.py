@@ -9,9 +9,8 @@ List of models corresponding to mysql tables:
     ]
 """
 
-from sqlalchemy import Boolean
-from sqlalchemy import Column, Integer, String, Text, ForeignKey
-from sqlalchemy import Table
+from sqlalchemy import (Boolean, Column, ForeignKey, Integer, String, Table,
+                        Text)
 from sqlalchemy.orm import relationship
 
 from database import Base, DeclEnum

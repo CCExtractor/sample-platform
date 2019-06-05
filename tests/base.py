@@ -1,17 +1,20 @@
 import os
-
 from collections import namedtuple
 from unittest import mock
-from flask_testing import TestCase
+
 from flask import g
+from flask_testing import TestCase
+
 from database import create_session
-from mod_home.models import GeneralData, CCExtractorVersion
-from mod_auth.models import User, Role
-from mod_test.models import Test, Fork, TestType, TestPlatform, TestResult, TestResultFile, TestProgress, TestStatus
-from mod_regression.models import Category, RegressionTestOutput, RegressionTest, InputType, OutputType
-from mod_sample.models import Sample, ForbiddenMimeType, ForbiddenExtension
+from mod_auth.models import Role, User
 from mod_customized.models import CustomizedTest, TestFork
-from mod_upload.models import Upload, Platform
+from mod_home.models import CCExtractorVersion, GeneralData
+from mod_regression.models import (Category, InputType, OutputType,
+                                   RegressionTest, RegressionTestOutput)
+from mod_sample.models import ForbiddenExtension, ForbiddenMimeType, Sample
+from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
+                             TestResult, TestResultFile, TestStatus, TestType)
+from mod_upload.models import Platform, Upload
 
 
 def generate_keys():

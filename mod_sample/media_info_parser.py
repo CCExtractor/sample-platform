@@ -1,13 +1,12 @@
 """Contains classes and methods to parse media info from samples."""
 
 import os
-
+import subprocess
 import sys
 from collections import OrderedDict
 
-from lxml import etree
-import subprocess
 import xmltodict
+from lxml import etree
 
 
 class InvalidMediaInfoError(Exception):

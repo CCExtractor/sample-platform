@@ -4,9 +4,9 @@ import re
 from abc import ABCMeta
 
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base, DeclarativeMeta
+from sqlalchemy.ext.declarative import DeclarativeMeta, declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker
-from sqlalchemy.sql.sqltypes import SchemaType, Enum, TypeDecorator
+from sqlalchemy.sql.sqltypes import Enum, SchemaType, TypeDecorator
 
 
 class DeclarativeABCMeta(DeclarativeMeta, ABCMeta):
@@ -111,7 +111,7 @@ class EnumMeta(type):
 class DeclEnum(object, metaclass=EnumMeta):
     """Declarative enumeration."""
 
-    _reg = {}
+    _reg = {}   # type: dict
 
     @classmethod
     def from_string(cls, value):

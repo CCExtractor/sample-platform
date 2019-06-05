@@ -1,5 +1,6 @@
-from tests.base import BaseTestCase
 import json
+
+from tests.base import BaseTestCase
 
 
 class TestControllers(BaseTestCase):

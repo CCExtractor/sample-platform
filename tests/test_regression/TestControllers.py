@@ -1,10 +1,12 @@
-from tests.base import BaseTestCase
-from mod_auth.models import Role
-from mod_regression.models import RegressionTest, Category, InputType, OutputType
-from mod_customized.models import CustomizedTest
-from mod_test.models import Test
-from mod_sample.models import Sample
 from flask import g
+
+from mod_auth.models import Role
+from mod_customized.models import CustomizedTest
+from mod_regression.models import (Category, InputType, OutputType,
+                                   RegressionTest)
+from mod_sample.models import Sample
+from mod_test.models import Test
+from tests.base import BaseTestCase
 
 
 class TestControllers(BaseTestCase):

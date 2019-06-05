@@ -11,18 +11,17 @@ List of models corresponding to mysql tables:
 """
 
 import datetime
-import pytz
 import os
 import string
 
-from sqlalchemy import (Column, Integer, String, Text, ForeignKey,
-                        DateTime, orm)
+import pytz
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, orm
 from sqlalchemy.orm import relationship
 from tzlocal import get_localzone
 
 from database import Base, DeclEnum
-from mod_test.nicediff import diff
 from mod_regression.models import RegressionTest
+from mod_test.nicediff import diff
 
 
 class TestPlatform(DeclEnum):

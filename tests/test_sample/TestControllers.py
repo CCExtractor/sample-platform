@@ -1,10 +1,12 @@
-from mock import mock
 from importlib import reload
-from tests.base import BaseTestCase
-from mod_sample.models import Sample
+
+from flask import g
+from mock import mock
+
 from mod_home.models import CCExtractorVersion
 from mod_sample.media_info_parser import InvalidMediaInfoError
-from flask import g
+from mod_sample.models import Sample
+from tests.base import BaseTestCase
 
 
 def raise_media_exception():

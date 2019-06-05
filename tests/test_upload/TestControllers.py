@@ -1,12 +1,13 @@
-from io import BytesIO
-from flask import url_for
-from mock import mock
-from tests.base import BaseTestCase, mock_api_request_github
-from mod_auth.models import Role
-from mod_upload.models import QueuedSample
-from mod_sample.models import Sample, Issue
-from flask import g
 from importlib import reload
+from io import BytesIO
+
+from flask import g, url_for
+from mock import mock
+
+from mod_auth.models import Role
+from mod_sample.models import Issue, Sample
+from mod_upload.models import QueuedSample
+from tests.base import BaseTestCase, mock_api_request_github
 
 
 class TestControllers(BaseTestCase):

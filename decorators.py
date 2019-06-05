@@ -2,7 +2,8 @@
 
 from datetime import date
 from functools import wraps
-from flask import request, g, render_template
+
+from flask import g, render_template, request
 
 
 def get_menu_entries(user, title, icon, access=None, route='', all_entries=None):

@@ -1,10 +1,12 @@
 """contains forms related to creating customized tests."""
 
 from flask_wtf import FlaskForm
-from wtforms import widgets, StringField, SubmitField, SelectMultipleField, RadioField
+from wtforms import (RadioField, SelectMultipleField, StringField, SubmitField,
+                     widgets)
 from wtforms.validators import DataRequired, url
-from mod_test.models import TestPlatform
+
 from mod_regression.models import RegressionTest
+from mod_test.models import TestPlatform
 
 
 class MultiCheckboxField(SelectMultipleField):

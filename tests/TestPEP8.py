@@ -6,7 +6,6 @@ import pycodestyle
 
 from .base import BaseTestCase
 
-
 PROJ_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 

@@ -1,6 +1,6 @@
-from tests.base import BaseTestCase
-
 from markdown2 import markdown
+
+from tests.base import BaseTestCase
 
 
 class TestMarkdown(BaseTestCase):

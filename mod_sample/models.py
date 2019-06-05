@@ -1,10 +1,11 @@
 """Maintain database models regarding various sample, ExtraFile, ForbiddenExtension, ForbiddenMimeType, Issue."""
 
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime
+from datetime import datetime
+
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from database import Base, DeclEnum
-from datetime import datetime
 
 
 class Sample(Base):
@@ -88,7 +89,7 @@ class ExtraFile(Base):
         return '<Sample extra for {id}>'.format(id=self.sample_id)
 
     @property
-    def short_name(self, length=5):
+    def short_name(self, length=5):     # type: ignore
         """
         Return the short name of an additional file.
 

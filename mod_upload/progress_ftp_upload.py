@@ -3,6 +3,7 @@
 
 import sys
 from os import path
+
 # Need to append server root path to ensure we can import the necessary files.
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 

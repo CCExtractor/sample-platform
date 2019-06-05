@@ -11,6 +11,9 @@ codecov = "*"
 nose-cov = "*"
 pydocstyle = "*"
 pycodestyle = "*"
+isort = "*"
+dodgy = "*"
+mypy = "*"
 
 [packages]
 flask = "*"

@@ -1,7 +1,7 @@
-import re
 import html
+import re
 
-index = dict()  # for optimization
+index = dict()  # type: dict # for optimization
 
 
 def zip_(ls):

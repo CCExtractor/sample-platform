@@ -1,11 +1,11 @@
 """Maintain forms to perform CRUD operations on uploads and related database."""
 
-import os
-import magic
 import mimetypes
+import os
 
+import magic
 from flask_wtf import FlaskForm
-from wtforms import FileField, SubmitField, TextAreaField, SelectField
+from wtforms import FileField, SelectField, SubmitField, TextAreaField
 from wtforms.validators import DataRequired, ValidationError
 
 from mod_home.models import CCExtractorVersion

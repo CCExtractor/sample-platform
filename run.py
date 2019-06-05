@@ -26,7 +26,7 @@ from mod_test.controllers import mod_test
 from mod_upload.controllers import mod_upload
 
 app = Flask(__name__)
-app.wsgi_app = ProxyFix(app.wsgi_app)
+app.wsgi_app = ProxyFix(app.wsgi_app)   # type: ignore
 # Load config
 config = parse_config('config')
 app.config.from_mapping(config)
@@ -251,7 +251,7 @@ if __name__ == '__main__':
     if len(key) == 0 or len(cert) == 0:
         ssl_context = 'adhoc'
     else:
-        ssl_context = (cert, key)
+        ssl_context = (cert, key)   # type: ignore
 
     server_name = app.config.get('0.0.0.0')
     port = app.config.get('SERVER_PORT', 443)

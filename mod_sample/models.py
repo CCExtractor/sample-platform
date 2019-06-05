@@ -89,7 +89,7 @@ class ExtraFile(Base):
         return '<Sample extra for {id}>'.format(id=self.sample_id)
 
     @property
-    def short_name(self, length=5):
+    def short_name(self, length=5): #type: ignore
         """
         Return the short name of an additional file.
 

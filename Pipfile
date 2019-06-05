@@ -13,6 +13,7 @@ pydocstyle = "*"
 pycodestyle = "*"
 isort = "*"
 dodgy = "*"
+mypy = "*"
 
 [packages]
 flask = "*"

@@ -42,3 +42,4 @@ coverage_report/
 venv/
 .vscode/
 .idea/
+.mypy_cache/

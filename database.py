@@ -111,7 +111,7 @@ class EnumMeta(type):
 class DeclEnum(object, metaclass=EnumMeta):
     """Declarative enumeration."""
 
-    _reg = {}
+    _reg = {}   # type: dict
 
     @classmethod
     def from_string(cls, value):

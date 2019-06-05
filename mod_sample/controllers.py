@@ -318,7 +318,7 @@ def edit_sample(sample_id):
             'form': form
         }
 
-        raise SampleNotFoundException('Sample with id {id} not found'.format(id=sample_id))
+    raise SampleNotFoundException('Sample with id {id} not found'.format(id=sample_id))
 
 
 @mod_sample.route('/delete/<sample_id>', methods=['GET', 'POST'])

@@ -12,6 +12,7 @@ nose-cov = "*"
 pydocstyle = "*"
 pycodestyle = "*"
 isort = "*"
+dodgy = "*"
 
 [packages]
 flask = "*"

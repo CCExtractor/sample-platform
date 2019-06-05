@@ -17,12 +17,14 @@ install:
   - pip install pydocstyle
   - pip install dodgy
   - pip install isort
+  - pip install mypy
   - pip install -r requirements.txt
   - pip install Flask-Testing
   - pip install blinker
 script:
-  - dodgy
   - nosetests --nocapture --with-cov --cov-config .coveragerc
+  - dodgy
+  - mypy mod_*
   - pydocstyle --config=./.pydocstylerc
   - isort -rc --check-only
 after_success:

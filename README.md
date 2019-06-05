@@ -71,7 +71,17 @@ isort --rc --diff .     # see proposed changes without applying them
 isort -rc --atomic .    # apply changes to import order without breaking syntax
 ```
 
-NOTE: The tests must be run after successful installation and set-up of sample-platform to give accurate results.
+### Static Typing
+
+We use `mypy` to introduce a static typing.
+
+Please check your code for static typing violations using the following commands.
+
+```bash
+pipenv shell --three    # if not inside pipenv shell already
+pipenv install --dev    # if first time running dev-dependencies
+mypy mod_*
+```
 
 ## Security
 

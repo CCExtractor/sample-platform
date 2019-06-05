@@ -3,26 +3,28 @@
 import base64
 import hashlib
 import json
-import os
-import traceback
-import magic
 import mimetypes
-
+import os
 import shutil
-import requests
+import traceback
 
-from flask import Blueprint, g, make_response, render_template, request, redirect, url_for, flash
+import magic
+import requests
+from flask import (Blueprint, flash, g, make_response, redirect,
+                   render_template, request, url_for)
+from git import GitCommandError, InvalidGitRepositoryError, Repo
 from werkzeug.utils import secure_filename
 
-from decorators import template_renderer, get_menu_entries
-from git import Repo, InvalidGitRepositoryError, GitCommandError
-from mod_auth.controllers import login_required, check_access_rights
+from decorators import get_menu_entries, template_renderer
+from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role, User
 from mod_home.models import CCExtractorVersion
-from mod_sample.models import Sample, ForbiddenExtension, ForbiddenMimeType, Issue
-from mod_upload.forms import UploadForm, DeleteQueuedSampleForm, \
-    FinishQueuedSampleForm
-from .models import Upload, QueuedSample, UploadLog, FTPCredentials, Platform
+from mod_sample.models import (ForbiddenExtension, ForbiddenMimeType, Issue,
+                               Sample)
+from mod_upload.forms import (DeleteQueuedSampleForm, FinishQueuedSampleForm,
+                              UploadForm)
+
+from .models import FTPCredentials, Platform, QueuedSample, Upload, UploadLog
 
 mod_upload = Blueprint('upload', __name__)
 

@@ -1,23 +1,22 @@
 """Logic to fetch sample information, uploading, editing, deleting sample."""
 
-import os
 import json
-import requests
+import os
 from operator import and_
 
-from flask import Blueprint, make_response, request, redirect, url_for, g
+import requests
+from flask import Blueprint, g, make_response, redirect, request, url_for
 
 from decorators import template_renderer
-from mod_auth.controllers import login_required, check_access_rights
+from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role
 from mod_home.models import CCExtractorVersion, GeneralData
 from mod_regression.models import RegressionTest
-from mod_sample.forms import EditSampleForm, DeleteSampleForm, \
-    DeleteAdditionalSampleForm
-from mod_sample.media_info_parser import MediaInfoFetcher, \
-    InvalidMediaInfoError
-
-from mod_sample.models import Sample, ExtraFile, ForbiddenExtension, Issue
+from mod_sample.forms import (DeleteAdditionalSampleForm, DeleteSampleForm,
+                              EditSampleForm)
+from mod_sample.media_info_parser import (InvalidMediaInfoError,
+                                          MediaInfoFetcher)
+from mod_sample.models import ExtraFile, ForbiddenExtension, Issue, Sample
 from mod_test.models import Test, TestResult, TestResultFile
 from mod_upload.models import Platform
 

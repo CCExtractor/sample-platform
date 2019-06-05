@@ -9,10 +9,11 @@ List of models corresponding to mysql tables:
         'GeneralData' => 'general_data'
     ]
 """
-from sqlalchemy import Column, Integer, String, Text, Date
+from datetime import datetime
+
+from sqlalchemy import Column, Date, Integer, String, Text
 
 from database import Base, DeclEnum
-from datetime import datetime
 
 
 class CCExtractorVersion(Base):

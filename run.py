@@ -17,13 +17,13 @@ from log_configuration import LogConfiguration
 from mailer import Mailer
 from mod_auth.controllers import mod_auth
 from mod_ci.controllers import mod_ci
+from mod_customized.controllers import mod_customized
 from mod_deploy.controllers import mod_deploy
 from mod_home.controllers import mod_home
 from mod_regression.controllers import mod_regression
 from mod_sample.controllers import mod_sample
 from mod_test.controllers import mod_test
 from mod_upload.controllers import mod_upload
-from mod_customized.controllers import mod_customized
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app)

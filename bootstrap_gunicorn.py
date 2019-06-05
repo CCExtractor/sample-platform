@@ -1,7 +1,6 @@
 """starts gunicorn server with appropriate arguments and options in a new process."""
 
 import subprocess
-
 from os import path
 
 current_dir = path.dirname(path.abspath(__file__))

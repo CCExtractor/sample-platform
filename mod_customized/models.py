@@ -5,13 +5,13 @@ List of models corresponding to mysql tables: ['TestFork' => 'test_fork',
                                                'CustomizedTest' => 'customized_test']
 """
 
-from sqlalchemy import Column, Integer, ForeignKey
+from sqlalchemy import Column, ForeignKey, Integer
 from sqlalchemy.orm import relationship
 
 from database import Base
-from mod_test.models import Test
-from mod_regression.models import RegressionTest
 from mod_auth.models import User
+from mod_regression.models import RegressionTest
+from mod_test.models import Test
 
 
 class TestFork(Base):

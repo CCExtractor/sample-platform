@@ -1,7 +1,8 @@
-from tests.base import BaseTestCase
-from mod_test.models import Test, TestPlatform, TestProgress, TestStatus, TestResult, TestResultFile
-from mod_regression.models import RegressionTest
 from mod_auth.models import Role
+from mod_regression.models import RegressionTest
+from mod_test.models import (Test, TestPlatform, TestProgress, TestResult,
+                             TestResultFile, TestStatus)
+from tests.base import BaseTestCase
 
 
 class TestControllers(BaseTestCase):

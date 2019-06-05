@@ -1,12 +1,14 @@
+from importlib import reload
+
+from flask import g
 from mock import mock
 from sqlalchemy import and_
-from importlib import reload
-from flask import g
-from tests.base import BaseTestCase, mock_api_request_github
+
 from mod_auth.models import Role
-from mod_test.models import Fork, Test, TestPlatform
-from mod_regression.models import RegressionTest
 from mod_customized.models import TestFork
+from mod_regression.models import RegressionTest
+from mod_test.models import Fork, Test, TestPlatform
+from tests.base import BaseTestCase, mock_api_request_github
 
 
 def return_git_user():

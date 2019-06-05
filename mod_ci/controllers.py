@@ -1,40 +1,41 @@
 """maintains all functionality related running virtual machines, starting and tracking tests."""
 
+import datetime
 import hashlib
 import json
 import os
 import shutil
 import sys
-import requests
-
-import datetime
-
-from flask import Blueprint, request, abort, g, url_for, jsonify, flash, redirect
-from git import Repo, InvalidGitRepositoryError, GitCommandError
-from github import GitHub, ApiError
 from multiprocessing import Process
+
+import requests
+from flask import (Blueprint, abort, flash, g, jsonify, redirect, request,
+                   url_for)
+from git import GitCommandError, InvalidGitRepositoryError, Repo
+from github import ApiError, GitHub
 from lxml import etree
-from sqlalchemy import and_, or_
-from sqlalchemy import func
+from markdown2 import markdown
+from pymysql.err import IntegrityError
+from sqlalchemy import and_, func, or_
 from sqlalchemy.sql import label
 from sqlalchemy.sql.functions import count
 from werkzeug.utils import secure_filename
-from pymysql.err import IntegrityError
-from markdown2 import markdown
 
-from decorators import template_renderer, get_menu_entries
-from mod_auth.controllers import login_required, check_access_rights
-from mod_ci.models import Kvm, MaintenanceMode, BlockedUsers
-from mod_ci.forms import AddUsersToBlacklist, RemoveUsersFromBlacklist
-from mod_deploy.controllers import request_from_github, is_valid_signature
-from mod_home.models import GeneralData
-from mod_regression.models import Category, RegressionTestOutput, RegressionTest, regressionTestLinkTable
-from mod_auth.models import Role
-from mod_home.models import CCExtractorVersion
-from mod_sample.models import Issue
-from mod_test.models import TestType, Test, TestStatus, TestProgress, Fork, TestPlatform, TestResultFile, TestResult
-from mod_customized.models import CustomizedTest
+from decorators import get_menu_entries, template_renderer
 from mailer import Mailer
+from mod_auth.controllers import check_access_rights, login_required
+from mod_auth.models import Role
+from mod_ci.forms import AddUsersToBlacklist, RemoveUsersFromBlacklist
+from mod_ci.models import BlockedUsers, Kvm, MaintenanceMode
+from mod_customized.models import CustomizedTest
+from mod_deploy.controllers import is_valid_signature, request_from_github
+from mod_home.models import CCExtractorVersion, GeneralData
+from mod_regression.models import (Category, RegressionTest,
+                                   RegressionTestOutput,
+                                   regressionTestLinkTable)
+from mod_sample.models import Issue
+from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
+                             TestResult, TestResultFile, TestStatus, TestType)
 
 if sys.platform.startswith("linux"):
     import libvirt

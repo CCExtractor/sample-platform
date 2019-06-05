@@ -1,19 +1,19 @@
 """contains all the logic related to authentication and account functionality."""
 
-from functools import wraps
-import hmac
 import hashlib
+import hmac
 import time
-import requests
+from functools import wraps
 
-from flask import Blueprint, g, request, flash, session, redirect, url_for, \
-    abort
+import requests
+from flask import (Blueprint, abort, flash, g, redirect, request, session,
+                   url_for)
 from pyisemail import is_email
 
-from decorators import template_renderer, get_menu_entries
-from mod_auth.forms import LoginForm, AccountForm, SignupForm, \
-    CompleteSignupForm, ResetForm, CompleteResetForm, DeactivationForm, \
-    RoleChangeForm
+from decorators import get_menu_entries, template_renderer
+from mod_auth.forms import (AccountForm, CompleteResetForm, CompleteSignupForm,
+                            DeactivationForm, LoginForm, ResetForm,
+                            RoleChangeForm, SignupForm)
 from mod_auth.models import Role, User
 
 mod_auth = Blueprint('auth', __name__)

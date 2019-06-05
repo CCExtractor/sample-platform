@@ -1,7 +1,7 @@
 """contains forms related to continuous integration operations."""
 
 from flask_wtf import FlaskForm
-from wtforms import IntegerField, SubmitField, StringField
+from wtforms import IntegerField, StringField, SubmitField
 from wtforms.validators import DataRequired
 
 

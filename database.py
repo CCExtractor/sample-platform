@@ -4,9 +4,9 @@ import re
 from abc import ABCMeta
 
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base, DeclarativeMeta
+from sqlalchemy.ext.declarative import DeclarativeMeta, declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker
-from sqlalchemy.sql.sqltypes import SchemaType, Enum, TypeDecorator
+from sqlalchemy.sql.sqltypes import Enum, SchemaType, TypeDecorator
 
 
 class DeclarativeABCMeta(DeclarativeMeta, ABCMeta):

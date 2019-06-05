@@ -1,10 +1,11 @@
 """Maintain database models regarding various sample, ExtraFile, ForbiddenExtension, ForbiddenMimeType, Issue."""
 
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime
+from datetime import datetime
+
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from database import Base, DeclEnum
-from datetime import datetime
 
 
 class Sample(Base):

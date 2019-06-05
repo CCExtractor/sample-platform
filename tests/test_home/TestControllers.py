@@ -1,5 +1,5 @@
-from tests.base import BaseTestCase
 from mod_auth.models import Role
+from tests.base import BaseTestCase
 
 
 class TestControllers(BaseTestCase):

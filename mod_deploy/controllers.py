@@ -4,13 +4,13 @@ import hmac
 import json
 import subprocess
 from functools import wraps
+from ipaddress import ip_address, ip_network
+from os import path
+from shutil import copyfile
 
 import requests
-from flask import Blueprint, request, abort, g
-from git import Repo, InvalidGitRepositoryError
-from ipaddress import ip_address, ip_network
-from shutil import copyfile
-from os import path
+from flask import Blueprint, abort, g, request
+from git import InvalidGitRepositoryError, Repo
 
 mod_deploy = Blueprint('deploy', __name__)
 

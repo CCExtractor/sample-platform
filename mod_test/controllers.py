@@ -1,22 +1,25 @@
 """Logic to find all tests, their progress and details of individual test."""
 
 import os
+from datetime import datetime
 
-from flask import Blueprint, g, abort, make_response, request, jsonify, redirect, url_for
+from flask import (Blueprint, abort, g, jsonify, make_response, redirect,
+                   request, url_for)
+from github import GitHub
 from sqlalchemy import and_, func
 from sqlalchemy.sql import label
+
 from decorators import template_renderer
-from mod_auth.controllers import login_required, check_access_rights
-from mod_home.models import CCExtractorVersion
-from mod_regression.models import Category, regressionTestLinkTable, \
-    RegressionTestOutput
-from mod_test.models import Fork, Test, TestProgress, TestResult, TestResultFile, TestType, TestPlatform, TestStatus
-from mod_home.models import GeneralData
+from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role
 from mod_ci.models import Kvm
 from mod_customized.models import CustomizedTest, TestFork
-from datetime import datetime
-from github import GitHub
+from mod_home.models import CCExtractorVersion, GeneralData
+from mod_regression.models import (Category, RegressionTestOutput,
+                                   regressionTestLinkTable)
+from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
+                             TestResult, TestResultFile, TestStatus, TestType)
+
 mod_test = Blueprint('test', __name__)
 
 

@@ -1,14 +1,16 @@
-from mock import mock
-from tests.base import BaseTestCase, mock_api_request_github
-from mod_home.models import CCExtractorVersion, GeneralData
-from mod_test.models import Test, TestPlatform, TestType
-from mod_regression.models import RegressionTest
-from mod_customized.models import CustomizedTest
-from mod_ci.models import BlockedUsers
-from mod_auth.models import Role
-from werkzeug.datastructures import Headers
 from importlib import reload
+
 from flask import g
+from mock import mock
+from werkzeug.datastructures import Headers
+
+from mod_auth.models import Role
+from mod_ci.models import BlockedUsers
+from mod_customized.models import CustomizedTest
+from mod_home.models import CCExtractorVersion, GeneralData
+from mod_regression.models import RegressionTest
+from mod_test.models import Test, TestPlatform, TestType
+from tests.base import BaseTestCase, mock_api_request_github
 
 
 class TestControllers(BaseTestCase):

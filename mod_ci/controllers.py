@@ -707,12 +707,18 @@ def start_ci():
         elif event == "release":
             g.log.debug("release update triggered")
             release_data = payload['release']
-            prerelease = release_data['prerelease']
+            action = payload['action']
+            release_version = release_data['tag_name']
             # checking whether it is meant for production
-            if prerelease:
+            if action == "prereleased":
                 g.log.debug("error, release event meant for pre-release")
-            else:
-                release_version = release_data['tag_name']
+            elif action in ["deleted", "unpublished"]:
+                # code to perform when deleted
+                pass
+            elif action == "edited":
+                # code to perform when updated
+                pass
+            elif action == "published":
                 # Github recommends adding v to the version
                 if release_version[0] == 'v':
                     release_version = release_version[1:]
@@ -738,6 +744,8 @@ def start_ci():
                 ).values(test_result.c.expected_rc)
                 g.db.commit()
                 g.log.info("successfully added tests for latest release!")
+            else:
+                g.log.warning("unsupported release action: {action}".format(action=action))
 
         else:
             # Unknown type

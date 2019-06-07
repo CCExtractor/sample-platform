@@ -705,7 +705,7 @@ def start_ci():
                 g.db.commit()
 
         elif event == "release":
-            g.log.debug("release update triggered")
+            g.log.debug("release webhook triggered")
             release_data = payload['release']
             action = payload['action']
             release_version = release_data['tag_name']
@@ -713,23 +713,34 @@ def start_ci():
             if action == "prereleased":
                 g.log.debug("error, release event meant for pre-release")
             elif action in ["deleted", "unpublished"]:
-                # code to perform when deleted
-                pass
-            elif action == "edited":
-                # code to perform when updated
-                pass
-            elif action == "published":
+                # below code assumes that only one entry per release is present
+                g.log.debug("received delete/uplublished action")
+                release = CCExtractorVersion.query.filter_by(version=release_version).first()
+                g.db.delete(release)
+                g.db.commit()
+                g.log.info("succesfully deleted release {release_version} on {action} action".format(
+                    release_version = release_version,
+                    action = action
+                ))
+            elif action in ["edited", "published"]:
                 # Github recommends adding v to the version
                 if release_version[0] == 'v':
                     release_version = release_version[1:]
                 g.log.debug("latest release version is " + str(release_version))
                 release_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first().value
                 release_date = release_data['published_at']
-                release = CCExtractorVersion(release_version, release_date, release_commit)
-                g.db.add(release)
+                if action == "edited":
+                    # below code assumes that only one entry per release is present
+                    release = CCExtractorVersion.query.filter_by(version=release_version).first()
+                    release.released = release_date
+                    release.commit = release_commit
+                else:
+                    release = CCExtractorVersion(release_version, release_date, release_commit)
+                    g.db.add(release)
                 g.db.commit()
                 g.log.info("successfully updated release version")
                 # adding test corresponding to last commit to the baseline regression results
+                # this is not altered when a release is deleted or unpulished since it's based on commit
                 test = Test.query.filter(and_(Test.commit == release_commit,
                                          Test.platform == TestPlatform.linux)).first()
                 test_result_file = g.db.query(TestResultFile).filter(

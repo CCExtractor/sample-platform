@@ -408,6 +408,62 @@ class TestControllers(BaseTestCase):
             self.assertEqual(last_release.version, '2.1')
 
     @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_release_edited(self, mock_request):
+        """
+        Check webhook action "edited" updates the specified version.
+        """
+        import json
+        from datetime import datetime
+        with self.app.test_client() as c:
+            release = CCExtractorVersion('2.1', '2018-05-30T20:18:44Z', 'abcdefgh')
+            g.db.add(release)
+            g.db.commit()
+            # Full Release with version with 2.1
+            data = {'action': 'edited',
+                    'release': {'prerelease': False, 'published_at': '2018-06-30T20:18:44Z', 'tag_name': 'v2.1'}}
+            sig = self.generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
+            headers = self.generate_git_api_header('release', sig)
+            # one of ip address from github webhook
+            wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
+            last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
+            # abcdefgh is the new commit after previous version defined in base.py
+            last_commit.value = 'abcdefgh'
+            g.db.commit()
+            response = c.post(
+                '/start-ci', environ_overrides=wsgi_environment,
+                data=json.dumps(data), headers=headers)
+            last_release = CCExtractorVersion.query.filter_by(version='2.1').first()
+            self.assertEqual(last_release.released,
+                             datetime.strptime('2018-06-30T20:18:44Z', '%Y-%m-%dT%H:%M:%SZ').date())
+
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_release_deleted(self, mock_request):
+        """
+        Check    def add_CCExversion(self, c, version='v2.1', commit='abcdefgh', released='2018-05-30T20:18:44Z'):
+        """
+        import json
+        with self.app.test_client() as c:
+            release = CCExtractorVersion('2.1', '2018-05-30T20:18:44Z', 'abcdefgh')
+            g.db.add(release)
+            g.db.commit()
+            # Delete full release with version with 2.1
+            data = {'action': 'deleted',
+                    'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': 'v2.1'}}
+            sig = self.generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
+            headers = self.generate_git_api_header('release', sig)
+            # one of ip address from github webhook
+            wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
+            last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
+            # abcdefgh is the new commit after previous version defined in base.py
+            last_commit.value = 'abcdefgh'
+            g.db.commit()
+            response = c.post(
+                '/start-ci', environ_overrides=wsgi_environment,
+                data=json.dumps(data), headers=headers)
+            last_release = CCExtractorVersion.query.order_by(CCExtractorVersion.released.desc()).first()
+            self.assertNotEqual(last_release.version, '2.1')
+
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_prerelease(self, mock_request):
         """
         Check webhook release update CCExtractor Version

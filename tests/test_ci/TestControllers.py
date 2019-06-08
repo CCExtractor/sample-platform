@@ -353,7 +353,8 @@ class TestControllers(BaseTestCase):
         """
         import json
         with self.app.test_client() as c:
-            data = {'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': '0.0.1'}}
+            data = {'action': 'published',
+                    'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': '0.0.1'}}
             sig = self.generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
             headers = self.generate_git_api_header('ping', sig)
             # non github ip address
@@ -370,7 +371,8 @@ class TestControllers(BaseTestCase):
         """
         import json
         with self.app.test_client() as c:
-            data = {'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': '0.0.1'}}
+            data = {'action': 'published',
+                    'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': '0.0.1'}}
             sig = self.generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
             headers = self.generate_git_api_header('ping', sig)
             # one of ip address from github webhook
@@ -389,7 +391,8 @@ class TestControllers(BaseTestCase):
         import json
         with self.app.test_client() as c:
             # Full Release with version with 2.1
-            data = {'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': 'v2.1'}}
+            data = {'action': 'published',
+                    'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': 'v2.1'}}
             sig = self.generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
             headers = self.generate_git_api_header('release', sig)
             # one of ip address from github webhook
@@ -412,7 +415,8 @@ class TestControllers(BaseTestCase):
         import json
         with self.app.test_client() as c:
             # Full Release with version with 2.1
-            data = {'release': {'prerelease': True, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': 'v2.1'}}
+            data = {'action': 'prereleased',
+                    'release': {'prerelease': True, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': 'v2.1'}}
             sig = self.generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
             headers = self.generate_git_api_header('release', sig)
             # one of ip address from github webhook

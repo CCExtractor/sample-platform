@@ -27,10 +27,10 @@ install:
   - pip install Flask-Testing
   - pip install blinker
 script:
-  - nosetests --nocapture --with-cov --cov-config .coveragerc
   - dodgy
   - mypy mod_*
   - pydocstyle --config=./.pydocstylerc
   - isort -rc --check-only
+  - nosetests --nocapture --with-cov --cov-config .coveragerc
 after_success:
   - codecov

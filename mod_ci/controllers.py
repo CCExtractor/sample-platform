@@ -719,8 +719,8 @@ def start_ci():
                 g.db.delete(release)
                 g.db.commit()
                 g.log.info("succesfully deleted release {release_version} on {action} action".format(
-                    release_version = release_version,
-                    action = action
+                    release_version=release_version,
+                    action=action
                 ))
             elif action in ["edited", "published"]:
                 # Github recommends adding v to the version

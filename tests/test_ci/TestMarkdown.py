@@ -107,7 +107,6 @@ class TestMarkdown(BaseTestCase):
                           """I'm a task</li>\n</ul>\n""")
 
         html_test1 = markdown(mkdown_test1, extras=["task_list"])
-        print(html_test1)
 
         assert expected_test1 == html_test1, "no target attribute added to anchor tag"
 

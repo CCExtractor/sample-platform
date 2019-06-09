@@ -2,11 +2,16 @@
 
 from datetime import date
 from functools import wraps
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from flask import g, render_template, request
 
+from database import EnumSymbol
+from mod_auth.models import User
 
-def get_menu_entries(user, title, icon, access=None, route='', all_entries=None):
+
+def get_menu_entries(user: Optional[User], title: str, icon: str, access: Optional[List] = None, route: str = '',
+                     all_entries: Optional[List[Dict[str, Union[str, List[EnumSymbol]]]]] = None) -> Dict[Any, Any]:
     """
     Parse a given set of entries and checks which ones the user can access.
 
@@ -29,7 +34,7 @@ def get_menu_entries(user, title, icon, access=None, route='', all_entries=None)
         all_entries = []
     if access is None:
         access = []
-    result = {
+    result: Dict[Any, Any] = {
         'title': title,
         'icon': icon
     }
@@ -63,7 +68,7 @@ def get_menu_entries(user, title, icon, access=None, route='', all_entries=None)
     return result if passed else {}
 
 
-def template_renderer(template=None, status=200):
+def template_renderer(template: Optional[str] = None, status: int = 200) -> Callable:
     """
     Decorate to render a template.
 

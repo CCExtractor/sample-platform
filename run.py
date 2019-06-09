@@ -5,10 +5,13 @@ from __future__ import print_function
 import os
 import sys
 import traceback
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from flask import Flask, g
 from werkzeug.contrib.fixers import ProxyFix
-from werkzeug.routing import BaseConverter
+from werkzeug.exceptions import Forbidden, InternalServerError, NotFound
+from werkzeug.routing import BaseConverter, Map
 
 from config_parser import parse_config
 from database import create_session
@@ -36,19 +39,22 @@ except KeyError:
     app.config['DEBUG'] = False
 
 # Init logger
-log_configuration = LogConfiguration(app.root_path, 'platform', app.config['DEBUG'])
+log_configuration = LogConfiguration(app.root_path,        # type: ignore # type error skipped since flask
+                                     'platform',           # now gives as Str but not yet updated in mypy
+                                     app.config['DEBUG'])  # https://github.com/python/typeshed/issues/2791
 log = log_configuration.create_logger("Platform")
 
 
-def install_secret_keys(application, secret_session='secret_key', secret_csrf='secret_csrf'):
+def install_secret_keys(application: Flask, secret_session: str = 'secret_key',
+                        secret_csrf: str = 'secret_csrf') -> None:
     """
     Configure the SECRET_KEY from a file in the instance directory.
 
     If the file does not exist, print instructions to create it from a shell with a random key, then exit.
     """
     do_exit = False
-    session_file_path = os.path.join(application.root_path, secret_session)
-    csrf_file_path = os.path.join(application.root_path, secret_csrf)
+    session_file_path = os.path.join(application.root_path, secret_session)  # type: ignore # same issue as L42
+    csrf_file_path = os.path.join(application.root_path, secret_csrf)        # type: ignore # same issue as L42
     try:
         with open(session_file_path, 'rb') as session_file:
             application.config['SECRET_KEY'] = session_file.read()
@@ -78,7 +84,7 @@ if 'TESTING' not in os.environ or os.environ['TESTING'] == 'False':
     install_secret_keys(app)
 
 
-def sub_menu_open(menu_entries, active_route):
+def sub_menu_open(menu_entries: List[Dict[str, str]], active_route: str) -> bool:
     """
     Expose submenu method for jinja templates.
 
@@ -99,7 +105,7 @@ app.jinja_env.globals.update(sub_menu_open=sub_menu_open)
 app.jinja_env.add_extension('jinja2.ext.loopcontrols')
 
 
-def date_time_format(value, fmt='%Y-%m-%d %H:%M:%S'):
+def date_time_format(value: datetime, fmt: str = '%Y-%m-%d %H:%M:%S') -> str:
     """
     Add datetime format filter.
 
@@ -113,7 +119,7 @@ def date_time_format(value, fmt='%Y-%m-%d %H:%M:%S'):
     return value.strftime(fmt)
 
 
-def get_github_issue_link(issue_id):
+def get_github_issue_link(issue_id: int) -> str:
     """
     Get github issue link from issue_id.
 
@@ -129,7 +135,7 @@ def get_github_issue_link(issue_id):
     )
 
 
-def filename(filepath):
+def filename(filepath: str) -> str:
     """
     Get filename from full filepath.
 
@@ -149,7 +155,7 @@ app.jinja_env.filters['filename'] = filename
 class RegexConverter(BaseConverter):
     """Establish class to handle Regex routes."""
 
-    def __init__(self, url_map, *items):
+    def __init__(self, url_map: Map, *items: Any) -> None:
         super(RegexConverter, self).__init__(url_map)
         self.regex = items[0]
 
@@ -160,14 +166,14 @@ app.url_map.converters['regex'] = RegexConverter
 
 @app.errorhandler(404)
 @template_renderer('404.html', 404)
-def not_found(error):
+def not_found(error: NotFound):
     """Handle not found error in non-existing routes."""
     return
 
 
 @app.errorhandler(500)
 @template_renderer('500.html', 500)
-def internal_error(error):
+def internal_error(error: InternalServerError):
     """Handle internal server error."""
     log.debug('500 error: {err}'.format(err=error))
     log.debug('Stacktrace:')
@@ -177,7 +183,7 @@ def internal_error(error):
 
 @app.errorhandler(403)
 @template_renderer('403.html', 403)
-def forbidden(error):
+def forbidden(error: Forbidden) -> Dict[str, str]:
     """Handle unauthorized and forbidden access error."""
     user_name = 'Guest' if g.user is None else g.user.name
     user_role = 'Guest' if g.user is None else g.user.role.value
@@ -190,7 +196,7 @@ def forbidden(error):
 
 
 @app.before_request
-def before_request():
+def before_request() -> None:
     """Set up app before first request to the app."""
     g.menu_entries = {}
     g.db = create_session(app.config['DATABASE_URI'])
@@ -202,7 +208,7 @@ def before_request():
     g.github = get_github_config(app.config)
 
 
-def get_github_config(config):
+def get_github_config(config: Dict[str, str]) -> Dict[str, str]:
     """
     Get configuration keys for GitHub API.
 
@@ -222,7 +228,7 @@ def get_github_config(config):
 
 
 @app.teardown_appcontext
-def teardown(exception):
+def teardown(exception: Optional[Exception]):
     """Free database connection at app closing."""
     db = g.get('db', None)
     if db is not None:

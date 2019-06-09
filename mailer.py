@@ -1,6 +1,9 @@
 """handles the mailing operations across the app."""
 
+from typing import Dict
+
 import requests
+from requests.models import Response
 
 
 class Mailer:
@@ -10,7 +13,7 @@ class Mailer:
     api_url = None
     sender = None
 
-    def __init__(self, domain, api_key, sender_name):
+    def __init__(self, domain: str, api_key: str, sender_name: str) -> None:
         """
         Initialize the Mailer class.
 
@@ -25,7 +28,7 @@ class Mailer:
         self.api_url = "https://api.mailgun.net/v3/{domain}".format(domain=domain)
         self.sender = "{sender} <noreply@{domain}>".format(sender=sender_name, domain=domain)
 
-    def send_simple_message(self, data):
+    def send_simple_message(self, data: Dict) -> Response:
         """
         Send a message.
 

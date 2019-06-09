@@ -1,11 +1,15 @@
 """handles database session and data-type across app."""
+from __future__ import annotations
 
 import re
 from abc import ABCMeta
+from typing import Any, Dict, Iterator, Tuple, Type, Union
 
 from sqlalchemy import create_engine
+from sqlalchemy.dialects.sqlite.pysqlite import SQLiteDialect_pysqlite
 from sqlalchemy.ext.declarative import DeclarativeMeta, declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker
+from sqlalchemy.sql.schema import Column, Table
 from sqlalchemy.sql.sqltypes import Enum, SchemaType, TypeDecorator
 
 
@@ -20,7 +24,7 @@ Base.query = None
 db_engine = None
 
 
-def create_session(db_string, drop_tables=False):
+def create_session(db_string: str, drop_tables: bool = False) -> scoped_session:
     """
     Create a new DB session using the scoped_session that SQLAlchemy provides.
 
@@ -51,14 +55,14 @@ def create_session(db_string, drop_tables=False):
 class EnumSymbol(object):
     """Define a fixed symbol tied to a parent class."""
 
-    def __init__(self, cls_, name, value, description):
+    def __init__(self, cls_: Any, name: str, value: str, description: str) -> None:
         """Initilize EnumSymbol with class, name, value and description."""
         self.cls_ = cls_
         self.name = name
         self.value = value
         self.description = description
 
-    def __reduce__(self):
+    def __reduce__(self) -> Tuple[Any, Tuple[Any, str]]:
         """
         Allow unpickling to return the symbol linked to the DeclEnum class.
 
@@ -67,7 +71,7 @@ class EnumSymbol(object):
         """
         return getattr, (self.cls_, self.name)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator:
         """
         Provide iterator for the class.
 
@@ -76,7 +80,7 @@ class EnumSymbol(object):
         """
         return iter([self.value, self.description])
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Define object representation when used with display method such as print.
 
@@ -89,8 +93,10 @@ class EnumSymbol(object):
 class EnumMeta(type):
     """Generate new DeclEnum classes."""
 
-    def __init__(self, classname, bases, dict_):
+    def __init__(self, classname: str, bases: Union[Tuple[Type[DeclEnum]], Tuple[Type[object]]],
+                 dict_: Dict[str, Union[str, Tuple[str, str], classmethod, staticmethod]]) -> None:
         """Initilize EnumMeta with class, name, value and description."""
+        self._reg: Dict
         self._reg = reg = self._reg.copy()
         for k, v in dict_.items():
             if isinstance(v, tuple):
@@ -98,7 +104,7 @@ class EnumMeta(type):
                 setattr(self, k, sym)
         return type.__init__(self, classname, bases, dict_)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator:
         """
         Provide iterator for the class.
 
@@ -111,10 +117,10 @@ class EnumMeta(type):
 class DeclEnum(object, metaclass=EnumMeta):
     """Declarative enumeration."""
 
-    _reg = {}   # type: dict
+    _reg: Dict = {}
 
     @classmethod
-    def from_string(cls, value):
+    def from_string(cls, value: str) -> EnumSymbol:
         """
         Get value from _reg dict of the class.
 
@@ -140,7 +146,7 @@ class DeclEnum(object, metaclass=EnumMeta):
         return cls._reg.keys()
 
     @classmethod
-    def db_type(cls):
+    def db_type(cls) -> DeclEnumType:
         """Get type of database."""
         return DeclEnumType(cls)
 
@@ -148,27 +154,27 @@ class DeclEnum(object, metaclass=EnumMeta):
 class DeclEnumType(SchemaType, TypeDecorator):
     """Declarative enumeration type."""
 
-    def __init__(self, enum):
+    def __init__(self, enum: Any) -> None:
         self.enum = enum
         self.impl = Enum(
             *enum.values(),
             name="ck{0}".format(re.sub('([A-Z])', lambda m: "_" + m.group(1).lower(), enum.__name__))
         )
 
-    def _set_table(self, table, column):
+    def _set_table(self, table: Column, column: Table) -> None:
         self.impl._set_table(table, column)
 
-    def copy(self):
+    def copy(self) -> DeclEnumType:
         """Get enumeration type of self."""
         return DeclEnumType(self.enum)
 
-    def process_bind_param(self, value, dialect):
+    def process_bind_param(self, value: EnumSymbol, dialect: SQLiteDialect_pysqlite) -> str:
         """Get process bind parameter."""
         if value is None:
             return None
         return value.value
 
-    def process_result_value(self, value, dialect):
+    def process_result_value(self, value: str, dialect: SQLiteDialect_pysqlite) -> EnumSymbol:
         """Get process result value."""
         if value is None:
             return None

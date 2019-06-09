@@ -1,3 +1,4 @@
+dist: xenial
 language: python
 python:
   - 3.4
@@ -30,9 +31,10 @@ install:
   - pip install blinker
 script:
   - dodgy
-  - mypy mod_*
-  - pydocstyle --config=./.pydocstylerc
   - isort -rc --check-only
+  - pydocstyle --config=./.pydocstylerc
+  - mypy mod_*
+  - pycodestyle ./ --config=./.pycodestylerc
   - nosetests --nocapture --with-cov --cov-config .coveragerc
 after_success:
   - codecov

@@ -43,9 +43,26 @@ pipenv run nosetests --with-cov --cov-config .coveragerc
 
 ```
 
-## Etiquettes Testing
+## Etiquettes
 
-### DocStrings
+We follow certain etiquettes which include docstrings, annotation, import sorting etc.
+
+### Setup
+
+The operations listed below are only for developers. The tools used below can be installed at once as,
+
+```bash
+pipenv shell --three    # if not inside pipenv shell already
+pipenv install --dev    # if first time running dev-dependencies
+```
+
+If you are adding a new module which will be required just by developers, use below commands.
+
+```bash
+pipenv install --dev [MODULE_NAME]
+```
+
+### DocStrings Testing
 
 Sample-platform uses docstrings heavily to document modules and methods.
 
@@ -55,7 +72,7 @@ followed the style before sending a PR.
 ```bash
 pipenv shell --three    # if not inside pipenv shell already
 pipenv install --dev    # if first time running dev-dependencies
-pydocstyle ./          # check all .py files with pydocstyle
+pydocstyle ./           # check all .py files with pydocstyle
 ```
 
 ### Imports
@@ -71,7 +88,32 @@ isort --rc --diff .     # see proposed changes without applying them
 isort -rc --atomic .    # apply changes to import order without breaking syntax
 ```
 
-### Static Typing
+### Generate Typing And Annotations
+
+We use `MonkeyType` to generate typing for our code. It is a simple tool that [semi] automates the
+process of generating annotations using runtime trace.
+
+To generate typing for your code, follow the below procedure.
+
+NOTE: You **must have written unit-tests for the new code** in order to add annotations using MonkeyType.
+
+```bash
+monkeytype run `TESTING=True nosetests /path/to/new.py/file:ClassName`     # classname where new tests added
+monkeytype apply module.name                                               # apply the suggested changes
+isort -rc --atmoic /path/to/new.py/file                                    # sort the imports
+mypy /path/to/new.py/file                                                  # fix the errors reported by mypy
+git diff /path/to/new.py/file                                              # manually check the file for errors
+```
+
+Only once the above procedure is finished for all new files, one should commit the changes.
+
+References to know more:
+
+- To know about static typing: https://realpython.com/python-type-checking/#annotations
+- To know about MonkeyType: https://instagram-engineering.com/let-your-code-type-hint-itself-introducing-open-source-monkeytype-a855c7284881
+- MyPy Cheatsheet for TypeHints: https://mypy.readthedocs.io/en/latest/cheat_sheet_py3.html
+
+### Static Typing Test
 
 We use `mypy` to introduce a static typing.
 

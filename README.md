@@ -39,8 +39,7 @@ We use `nosetests` to manage testing and it can be run locally as follows:
 ```bash
 pipenv shell --three        # make virtual environment
 pipenv install --dev        # install development dependencies
-pipenv run nosetests --with-cov --cov-config .coveragerc
-
+TESTING=True pipenv run nosetests --with-cov --cov-config .coveragerc
 ```
 
 ## Etiquettes
@@ -70,8 +69,6 @@ We use `pydocstyle` to oversee the docstring format and etiquettes. Please run t
 followed the style before sending a PR.
 
 ```bash
-pipenv shell --three    # if not inside pipenv shell already
-pipenv install --dev    # if first time running dev-dependencies
 pydocstyle ./           # check all .py files with pydocstyle
 ```
 
@@ -82,8 +79,6 @@ We use `isort` to introduce a style on how imports should be made.
 Please check your imports before making a commit using the following commands.
 
 ```bash
-pipenv shell --three    # if not inside pipenv shell already
-pipenv install --dev    # if first time running dev-dependencies
 isort --rc --diff .     # see proposed changes without applying them
 isort -rc --atomic .    # apply changes to import order without breaking syntax
 ```
@@ -120,8 +115,6 @@ We use `mypy` to introduce a static typing.
 Please check your code for static typing violations using the following commands.
 
 ```bash
-pipenv shell --three    # if not inside pipenv shell already
-pipenv install --dev    # if first time running dev-dependencies
 mypy mod_*
 ```
 

@@ -43,3 +43,4 @@ venv/
 .vscode/
 .idea/
 .mypy_cache/
+monkeytype.sqlite3

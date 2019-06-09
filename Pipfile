@@ -15,6 +15,9 @@ isort = "*"
 dodgy = "*"
 mypy = "*"
 blinker = "*"
+monkeytype = "*"
+pytype = "*"
+merge-pyi = "*"
 
 [packages]
 flask = "*"
@@ -35,9 +38,6 @@ tzlocal = "*"
 libvirt-python = {version = "*",sys_platform = "!= 'win32'"}
 SQLAlchemy = "*"
 markdown2 = "*"
-monkeytype = "*"
-pytype = "*"
-merge-pyi = "*"
 
 [requires]
 python_version = "3.7"

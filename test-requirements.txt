@@ -1,0 +1,9 @@
+codecov
+nose-cov
+pycodestyle
+pydocstyle
+dodgy
+isort
+mypy
+Flask-Testing
+blinker

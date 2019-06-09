@@ -19,16 +19,8 @@ env:
 
 install:
   - sudo apt-get install libvirt-dev
-  - pip install codecov
-  - pip install nose-cov
-  - pip install pycodestyle
-  - pip install pydocstyle
-  - pip install dodgy
-  - pip install isort
-  - pip install mypy
+  - pip install -r test-requirements.txt
   - pip install -r requirements.txt
-  - pip install Flask-Testing
-  - pip install blinker
 script:
   - dodgy
   - isort -rc --check-only

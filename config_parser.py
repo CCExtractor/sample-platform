@@ -1,9 +1,11 @@
 """parses configuration for the flask application, makes use of inbuilt method."""
 
+from typing import Any, Dict
+
 from werkzeug.utils import import_string
 
 
-def parse_config(obj):
+def parse_config(obj: str) -> Dict[Any, Any]:
     """
     Parse given config either from a file or from an object. Method borrowed from Flask.
 

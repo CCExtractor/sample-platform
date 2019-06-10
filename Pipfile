@@ -15,6 +15,9 @@ isort = "*"
 dodgy = "*"
 mypy = "*"
 blinker = "*"
+monkeytype = "*"
+pytype = "*"
+merge-pyi = "*"
 
 [packages]
 flask = "*"
@@ -37,4 +40,4 @@ SQLAlchemy = "*"
 markdown2 = "*"
 
 [requires]
-python_version = "3.6"
+python_version = "3.7"

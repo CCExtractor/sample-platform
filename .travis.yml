@@ -1,14 +1,12 @@
+dist: xenial
 language: python
 python:
-  - 3.4
-  - 3.5
-  - 3.6
+  - 3.7
   - nightly
-
 matrix:
   # allow failing builds on specified python versions
   allow_failures:
-    - python: 3.4
+    - python: nightly
 
 # environment variables
 env:
@@ -16,21 +14,14 @@ env:
 
 install:
   - sudo apt-get install libvirt-dev
-  - pip install codecov
-  - pip install nose-cov
-  - pip install pycodestyle
-  - pip install pydocstyle
-  - pip install dodgy
-  - pip install isort
-  - pip install mypy
+  - pip install -r test-requirements.txt
   - pip install -r requirements.txt
-  - pip install Flask-Testing
-  - pip install blinker
 script:
   - dodgy
-  - mypy mod_*
-  - pydocstyle --config=./.pydocstylerc
   - isort -rc --check-only
+  - pydocstyle --config=./.pydocstylerc
+  - mypy mod_*
+  - pycodestyle ./ --config=./.pycodestylerc
   - nosetests --nocapture --with-cov --cov-config .coveragerc
 after_success:
   - codecov

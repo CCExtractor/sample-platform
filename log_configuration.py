@@ -3,12 +3,15 @@
 import logging
 import logging.handlers
 import os
+from logging import Logger, StreamHandler
+from logging.handlers import RotatingFileHandler
+from typing import Union
 
 
 class LogConfiguration:
     """handle common logging options for the entire project."""
 
-    def __init__(self, folder, filename, debug=False):
+    def __init__(self, folder: str, filename: str, debug: bool = False) -> None:
         # create console handler
         self._consoleLogger = logging.StreamHandler()
         self._consoleLogger.setFormatter(logging.Formatter('[%(levelname)s] %(message)s'))
@@ -25,7 +28,7 @@ class LogConfiguration:
         self._fileLogger.setFormatter(formatter)
 
     @property
-    def file_logger(self):
+    def file_logger(self) -> RotatingFileHandler:
         """
         Get file logger.
 
@@ -35,7 +38,7 @@ class LogConfiguration:
         return self._fileLogger
 
     @property
-    def console_logger(self):
+    def console_logger(self) -> StreamHandler:
         """
         Get console logger.
 
@@ -44,7 +47,7 @@ class LogConfiguration:
         """
         return self._consoleLogger
 
-    def create_logger(self, name):
+    def create_logger(self, name: str) -> Logger:
         """
         Create new logger for the app.
 

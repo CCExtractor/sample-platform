@@ -12,6 +12,7 @@ scanner:
 
 pycodestyle:
     max-line-length: 120  # Default PEP8 is 79, but allow 120 because a lot of people use wider screens nowadays...
+    ignore: E701          # We now use the syntax `x: int = 9` in typing
 
 only_mention_files_with_errors: True
 descending_issues_order: False

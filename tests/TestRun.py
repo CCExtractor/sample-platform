@@ -1,10 +1,9 @@
 import os
 import tempfile
-import unittest
 
 from mock import mock
 
-from tests.base import provide_file_at_root
+from tests.base import BaseTestCase, provide_file_at_root
 
 
 class mock_application:
@@ -14,7 +13,7 @@ class mock_application:
         self.root_path = ''
 
 
-class TestRun(unittest.TestCase):
+class TestRun(BaseTestCase):
 
     def test_install_secret_keys_files_present(self):
         secrets = tempfile.NamedTemporaryFile()

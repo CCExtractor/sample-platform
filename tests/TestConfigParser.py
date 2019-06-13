@@ -1,13 +1,12 @@
 import json
-import unittest
 
 from mock import mock
 
 from config_parser import parse_config
-from tests.base import provide_file_at_root
+from tests.base import BaseTestCase, provide_file_at_root
 
 
-class TestConfigParser(unittest.TestCase):
+class TestConfigParser(BaseTestCase):
     def test_parse_config(self):
         file_config = "TEST = 'run'"
         expected_config = {'TEST': 'run'}

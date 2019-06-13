@@ -9,13 +9,13 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from flask import Flask, g
+from flask_migrate import Migrate
 from werkzeug.contrib.fixers import ProxyFix
 from werkzeug.exceptions import Forbidden, InternalServerError, NotFound
 from werkzeug.routing import BaseConverter, Map
-from flask_migrate import Migrate
 
 from config_parser import parse_config
-from database import create_session, Base
+from database import Base, create_session
 from decorators import template_renderer
 from log_configuration import LogConfiguration
 from mailer import Mailer
@@ -40,7 +40,7 @@ except KeyError:
     app.config['DEBUG'] = False
 
 # embed flask-migrate in the app itself
-app.config['SQLALCHEMY_DATABASE_URI'] = app.config['DATABASE_URI']    
+app.config['SQLALCHEMY_DATABASE_URI'] = app.config['DATABASE_URI']
 Migrate(app, Base)
 
 # Init logger

@@ -25,6 +25,37 @@ samples and associated test results.
 An installation guideline can be found here:
 [installation guide](install/installation.md).
 
+## Database Migrations
+
+Sample-Platform uses flask-migrate to handle database migrations.
+
+#### First Time With Flask-Migrate
+
+If this is the first time that flask-migrate is being installed or run alongside existing database, use the 
+following command to create a head stamp in your database:
+
+```bash
+flask db stamp head
+```
+
+#### Applying Schema Update On Existing Database
+
+It is recommeneded to perform Database upgrades, whenever database schema is updated, using the below commands:
+
+```bash
+flask db upgrade
+```
+
+#### Updating Schema
+
+Whenever a database model's schema is update, run the following command to generate migrations for it.
+
+```bash
+flask db migrate
+```
+
+**NOTE: For the above commands to work, `FLASK_APP=/path/to/run.py` should be set in the environment variables.**
+
 ## Contributing
 
 All information with regards to contributing can be found here:

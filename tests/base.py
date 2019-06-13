@@ -19,13 +19,15 @@ from mod_upload.models import Platform, Upload
 
 
 @contextmanager
-def provide_file_at_root(file_name):
+def provide_file_at_root(file_name, to_write=None):
     """
-    Provide file with name file_name at application root
+    Provide file with name file_name at application root.
     """
-    # generating config.py to make `run.py` execute
+    if to_write is None:
+        to_write = "DATABASE_URI = 'sqlite:///:memory:'"
+
     with open(file_name, 'w+') as f:
-        f.write("DATABASE_URI = 'sqlite:///:memory:'")
+        f.write(to_write)
     yield
     os.remove(file_name)
 

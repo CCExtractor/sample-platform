@@ -1,5 +1,6 @@
 import os
 from collections import namedtuple
+from contextlib import contextmanager
 from unittest import mock
 
 from flask import g
@@ -15,6 +16,18 @@ from mod_sample.models import ForbiddenExtension, ForbiddenMimeType, Sample
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
                              TestResult, TestResultFile, TestStatus, TestType)
 from mod_upload.models import Platform, Upload
+
+
+@contextmanager
+def provide_file_at_root(file_name):
+    """
+    Provide file with name file_name at application root
+    """
+    # generating config.py to make `run.py` execute
+    with open(file_name, 'w+') as f:
+        f.write("DATABASE_URI = 'sqlite:///:memory:'")
+    yield
+    os.remove(file_name)
 
 
 def generate_keys():

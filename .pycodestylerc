@@ -1,5 +1,5 @@
 [pycodestyle]
 count = True
 max-line-length = 120
-exclude=TestDiff.py
+exclude=TestDiff.py,migrations
 ignore = E701

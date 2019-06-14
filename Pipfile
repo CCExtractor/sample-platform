@@ -38,6 +38,7 @@ tzlocal = "*"
 libvirt-python = {version = "*",sys_platform = "!= 'win32'"}
 SQLAlchemy = "*"
 markdown2 = "*"
+flask-migrate = "*"
 
 [requires]
 python_version = "3.7"

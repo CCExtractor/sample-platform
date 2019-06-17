@@ -10,7 +10,8 @@ from mod_customized.models import CustomizedTest
 from mod_home.models import CCExtractorVersion, GeneralData
 from mod_regression.models import RegressionTest
 from mod_test.models import Test, TestPlatform, TestType
-from tests.base import BaseTestCase, mock_api_request_github
+from tests.base import (BaseTestCase, generate_git_api_header,
+                        generate_signature, mock_api_request_github)
 
 
 class TestControllers(BaseTestCase):
@@ -355,8 +356,8 @@ class TestControllers(BaseTestCase):
         with self.app.test_client() as c:
             data = {'action': 'published',
                     'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': '0.0.1'}}
-            sig = self.generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
-            headers = self.generate_git_api_header('ping', sig)
+            sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
+            headers = generate_git_api_header('ping', sig)
             # non github ip address
             wsgi_environment = {'REMOTE_ADDR': '0.0.0.0'}
             response = c.post(
@@ -373,8 +374,8 @@ class TestControllers(BaseTestCase):
         with self.app.test_client() as c:
             data = {'action': 'published',
                     'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': '0.0.1'}}
-            sig = self.generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
-            headers = self.generate_git_api_header('ping', sig)
+            sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
+            headers = generate_git_api_header('ping', sig)
             # one of ip address from github webhook
             wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
             response = c.post(
@@ -393,8 +394,8 @@ class TestControllers(BaseTestCase):
             # Full Release with version with 2.1
             data = {'action': 'published',
                     'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': 'v2.1'}}
-            sig = self.generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
-            headers = self.generate_git_api_header('release', sig)
+            sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
+            headers = generate_git_api_header('release', sig)
             # one of ip address from github webhook
             wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
             last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
@@ -421,8 +422,8 @@ class TestControllers(BaseTestCase):
             # Full Release with version with 2.1
             data = {'action': 'edited',
                     'release': {'prerelease': False, 'published_at': '2018-06-30T20:18:44Z', 'tag_name': 'v2.1'}}
-            sig = self.generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
-            headers = self.generate_git_api_header('release', sig)
+            sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
+            headers = generate_git_api_header('release', sig)
             # one of ip address from github webhook
             wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
             last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
@@ -449,8 +450,8 @@ class TestControllers(BaseTestCase):
             # Delete full release with version with 2.1
             data = {'action': 'deleted',
                     'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': 'v2.1'}}
-            sig = self.generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
-            headers = self.generate_git_api_header('release', sig)
+            sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
+            headers = generate_git_api_header('release', sig)
             # one of ip address from github webhook
             wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
             last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
@@ -473,8 +474,8 @@ class TestControllers(BaseTestCase):
             # Full Release with version with 2.1
             data = {'action': 'prereleased',
                     'release': {'prerelease': True, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': 'v2.1'}}
-            sig = self.generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
-            headers = self.generate_git_api_header('release', sig)
+            sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
+            headers = generate_git_api_header('release', sig)
             # one of ip address from github webhook
             wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
             last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
@@ -486,36 +487,3 @@ class TestControllers(BaseTestCase):
                 data=json.dumps(data), headers=headers)
             last_release = CCExtractorVersion.query.order_by(CCExtractorVersion.released.desc()).first()
             self.assertNotEqual(last_release.version, '2.1')
-
-    @staticmethod
-    def generate_signature(data, private_key):
-        """
-        Generate signature token of hook request
-
-        :param data: Signature's data
-        :param private_key: Signature's token
-        """
-        import hashlib
-        import hmac
-        algorithm = hashlib.__dict__.get('sha1')
-        encoded_key = bytes(private_key, 'latin-1')
-        mac = hmac.new(encoded_key, msg=data, digestmod=algorithm)
-        return mac.hexdigest()
-
-    @staticmethod
-    def generate_git_api_header(event, sig):
-        """
-        Create header for Github API Request, based on header information from https://developer.github.com/webhooks/.
-
-        :param event: Name of the event type that triggered the delivery.
-        :param sig: The HMAC hex digest of the response body. The HMAC hex digest is generated
-                    using the sha1 hash function and the secret as the HMAC key.
-        """
-        return Headers([
-            ('X-GitHub-Event', event),
-            ('X-Github-Delivery', '72d3162e-cc78-11e3-81ab-4c9367dc0958'),
-            ('X-Hub-Signature', 'sha1={0}'.format(sig)),
-            ('User-Agent', 'GitHub-Hookshot/044aadd'),
-            ('Content-Type', 'application/json'),
-            ('Content-Length', 6615)
-        ])

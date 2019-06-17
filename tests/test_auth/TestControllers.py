@@ -1,10 +1,24 @@
+import json
 import time
+from unittest import mock
 
 from flask import url_for
 
-from mod_auth.controllers import generate_hmac_hash, github_token_validity
+from mod_auth.controllers import (fetch_username_from_token,
+                                  generate_hmac_hash, github_token_validity,
+                                  send_reset_email)
 from mod_auth.models import Role, User
 from tests.base import BaseTestCase, signup_information
+
+
+# mock user to avoid interacting with database
+class MockUser:
+    def __init__(self, id=None, name=None, email=None, password=None, github_token=None):
+        self.id = id
+        self.name = name
+        self.email = email
+        self.password = password
+        self.github_token = github_token
 
 
 class TestSignUp(BaseTestCase):
@@ -112,6 +126,137 @@ class TestLogOut(BaseTestCase):
         self.assert_template_used('auth/login.html')
 
 
+class TestGithubFunctions(BaseTestCase):
+
+    @mock.patch('requests.Session')
+    @mock.patch('mod_auth.controllers.g')
+    @mock.patch('mod_auth.controllers.User')
+    def test_fetch_username_from_none_token(self, mock_user_model, mock_g, mock_session):
+        """
+        Test the Token to username function with None as user's token.
+        """
+        mock_user_model.query.filter.return_value.first.return_value = MockUser()
+
+        returnValue = fetch_username_from_token()
+
+        mock_user_model.query.filter.assert_called_once_with(mock_user_model.id == mock_g.user.id)
+        self.assertIsNone(returnValue)
+        mock_session.assert_not_called()
+        mock_g.log.error.assert_not_called()
+
+    @mock.patch('requests.Session')
+    @mock.patch('mod_auth.controllers.g')
+    @mock.patch('mod_auth.controllers.User')
+    def test_fetch_username_from_valid_token(self, mock_user_model, mock_g, mock_session):
+        """
+        Test the Token to username function with dummy token value.
+        """
+        mock_user_model.query.filter.return_value.first.return_value = MockUser(github_token='token')
+        mock_session.return_value.get.return_value.json.return_value = {'login': 'username'}
+
+        returnValue = fetch_username_from_token()
+
+        mock_user_model.query.filter.assert_called_once_with(mock_user_model.id == mock_g.user.id)
+        mock_session.assert_called_once()
+        self.assertEqual(returnValue, 'username', "unexpected return value")
+        mock_g.log.error.assert_not_called()
+
+    @mock.patch('requests.Session')
+    @mock.patch('mod_auth.controllers.g')
+    @mock.patch('mod_auth.controllers.User')
+    def test_fetch_username_from_token_exception(self, mock_user_model, mock_g, mock_session):
+        """
+        Test the Token to username function with requests throwing exception.
+        """
+        mock_user_model.query.filter.return_value.first.return_value = MockUser(github_token='token')
+        mock_session.return_value.get.side_effect = Exception
+
+        returnValue = fetch_username_from_token()
+
+        mock_user_model.query.filter.assert_called_once_with(mock_user_model.id == mock_g.user.id)
+        mock_session.assert_called_once()
+        self.assertIsNone(returnValue)
+        mock_g.log.error.assert_called_once_with('Failed to fetch the user token')
+
+    @mock.patch('requests.post')
+    def test_github_callback_empty_post(self, mock_post):
+        """
+        Send empty post request to github_callback.
+        """
+        with self.app.test_client() as client:
+            response = client.post('/account/github_callback')
+
+        self.assertEqual(response.status_code, 404)
+        mock_post.assert_not_called()
+
+    @mock.patch('requests.post')
+    def test_github_callback_empty_get(self, mock_post):
+        """
+        Send empty get request to github_callback.
+        """
+        with self.app.test_client() as client:
+            response = client.get('/account/github_callback')
+
+        self.assertEqual(response.status_code, 404)
+        mock_post.assert_not_called()
+
+    @mock.patch('mod_auth.controllers.User')
+    @mock.patch('mod_auth.controllers.g')
+    @mock.patch('requests.post')
+    def test_github_callback_incomplete_get(self, mock_post, mock_g, mock_user_model):
+        """
+        Send valid get request to github_callback and receive no access_token.
+        """
+        mock_post.return_value.json.return_value = {}
+
+        with self.app.test_client() as client:
+            response = client.get('/account/github_callback', query_string={'code': 'secret'})
+
+        self.assertEqual(response.status_code, 302)
+        mock_post.assert_called_once()
+        mock_user_model.query.filter.assert_called_once()
+        mock_g.db.commit.assert_not_called()
+        mock_g.log.error.assert_called_once_with('github didn\'t return an access token')
+
+    @mock.patch('mod_auth.controllers.User')
+    @mock.patch('mod_auth.controllers.g')
+    @mock.patch('requests.post')
+    def test_github_callback_valid_get(self, mock_post, mock_g, mock_user_model):
+        """
+        Send valid get request to github_callback and receive access_token.
+        """
+        mock_post.return_value.json.return_value = {'access_token': 'test'}
+
+        with self.app.test_client() as client:
+            response = client.get('/account/github_callback', query_string={'code': 'secret'})
+
+        self.assertEqual(response.status_code, 302)
+        mock_post.assert_called_once()
+        self.assertEqual(2, mock_user_model.query.filter.call_count)
+        mock_user_model.query.filter.assert_called_with(mock_user_model.id == mock_g.user.id)
+        mock_g.db.commit.assert_called_once()
+        mock_g.log.error.assert_not_called()
+
+    def test_github_redirect(self):
+        """
+        Test editing account where github token is not null
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin, self.user.github_token)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/account/manage', data=dict(
+                    current_password=self.user.password,
+                    name="T1duS",
+                    email=self.user.email
+                ))
+            user = User.query.filter(User.name == "T1duS").first()
+            self.assertNotEqual(user, None)
+            self.assertIn("Settings saved", str(response.data))
+
+
 class Miscellaneous(BaseTestCase):
 
     def test_github_token_validity(self):
@@ -182,21 +327,90 @@ class ManageAccount(BaseTestCase):
             self.assertNotIn("Settings saved", str(response.data))
             self.assertIn("entered value is not a valid email address", str(response.data))
 
-    def test_github_redirect(self):
+    @mock.patch('mod_auth.controllers.url_for')
+    @mock.patch('mod_auth.controllers.generate_hmac_hash')
+    @mock.patch('mod_auth.controllers.flash')
+    @mock.patch('mod_auth.controllers.g.mailer')
+    @mock.patch('run.app')
+    def test_send_reset_email(self, mock_app, mock_mailer, mock_flash, mock_hash, mock_url_for):
         """
-        Test editing account where github token is not null
+        Test sending recovery email to user.
         """
-        self.create_user_with_role(
-            self.user.name, self.user.email, self.user.password, Role.admin, self.user.github_token)
-        with self.app.test_client() as c:
-            response = c.post(
-                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
-            response = c.post(
-                '/account/manage', data=dict(
-                    current_password=self.user.password,
-                    name="T1duS",
-                    email=self.user.email
-                ))
-            user = User.query.filter(User.name == "T1duS").first()
-            self.assertNotEqual(user, None)
-            self.assertIn("Settings saved", str(response.data))
+        user = MockUser(1, 'testuser', 'dummy@test.org', 'dummy')
+        mock_mailer.send_simple_message.return_value = True
+
+        send_reset_email(user)
+
+        mock_hash.assert_called_once()
+        mock_app.jinja_env.get_or_select_template.assert_called_once_with('email/recovery_link.txt')
+        mock_url_for.assert_called_once()
+        mock_mailer.send_simple_message.assert_called_once()
+        mock_flash.assert_not_called()
+
+    @mock.patch('mod_auth.controllers.url_for')
+    @mock.patch('mod_auth.controllers.generate_hmac_hash')
+    @mock.patch('mod_auth.controllers.flash')
+    @mock.patch('mod_auth.controllers.g.mailer')
+    @mock.patch('run.app')
+    def test_send_reset_email_fail(self, mock_app, mock_mailer, mock_flash, mock_hash, mock_url_for):
+        """
+        Test sending recovery email to user.
+        """
+        user = MockUser(1, 'testuser', 'dummy@test.org', 'dummy')
+        mock_mailer.send_simple_message.return_value = False
+
+        send_reset_email(user)
+
+        mock_hash.assert_called_once()
+        mock_app.jinja_env.get_or_select_template.assert_called_once_with('email/recovery_link.txt')
+        mock_url_for.assert_called_once()
+        mock_mailer.send_simple_message.assert_called_once()
+        mock_flash.assert_called_once_with('Could not send an email. Please get in touch', 'error-message')
+
+    def test_account_reset_get(self):
+        """
+        Test account reset endpoint with GET.
+        """
+        with self.app.test_client() as client:
+            response = client.get('/account/reset')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Recover password', str(response.data))
+
+    @mock.patch('mod_auth.controllers.flash')
+    @mock.patch('mod_auth.controllers.send_reset_email')
+    @mock.patch('mod_auth.controllers.User')
+    def test_account_reset_post_user_none(self, mock_user_model, mock_mail, mock_flash):
+        """
+        Test account reset endpoint with POST where user doesn't exist
+        """
+        mock_user_model.query.filter_by.return_value.first.return_value = None
+        form_data = {'email': 'example@test.org'}
+
+        with self.app.test_client() as client:
+            response = client.post('/account/reset', data=form_data)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Recover password', str(response.data))
+        mock_user_model.query.filter_by.assert_called_once_with(email='example@test.org')
+        mock_mail.assert_not_called()
+        mock_flash.assert_called_once()
+
+    @mock.patch('mod_auth.controllers.flash')
+    @mock.patch('mod_auth.controllers.send_reset_email')
+    @mock.patch('mod_auth.controllers.User')
+    def test_account_reset_post_user(self, mock_user_model, mock_mail, mock_flash):
+        """
+        Test account reset endpoint with POST where user does exist
+        """
+        mock_user_model.query.filter_by.return_value.first.return_value = "user"
+        form_data = {'email': 'example@test.org'}
+
+        with self.app.test_client() as client:
+            response = client.post('/account/reset', data=form_data)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Recover password', str(response.data))
+        mock_user_model.query.filter_by.assert_called_once_with(email='example@test.org')
+        mock_mail.assert_called_once_with("user")
+        mock_flash.assert_called_once()

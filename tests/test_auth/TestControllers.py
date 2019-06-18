@@ -414,3 +414,161 @@ class ManageAccount(BaseTestCase):
         mock_user_model.query.filter_by.assert_called_once_with(email='example@test.org')
         mock_mail.assert_called_once_with("user")
         mock_flash.assert_called_once()
+
+    @mock.patch('mod_auth.controllers.flash')
+    @mock.patch('time.time')
+    def test_complete_reset_expired(self, mock_time, mock_flash):
+        """
+        Test complete reset endpoint expired.
+        """
+        time_now = 100
+        mock_time.return_value = time_now
+        time_expired = 100
+
+        with self.app.test_client() as client:
+            response = client.post('/account/reset/1/{}/some_mac'.format(time_expired))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('Redirecting...', str(response.data))
+        mock_flash.assert_called_once()
+
+    @mock.patch('mod_auth.controllers.User')
+    @mock.patch('hmac.compare_digest', return_value=True)
+    @mock.patch('mod_auth.controllers.flash')
+    @mock.patch('time.time')
+    def test_complete_reset_get(self, mock_time, mock_flash, mock_hmac, mock_user):
+        """
+        Test complete reset get form.
+        """
+        time_now = 100
+        mock_time.return_value = time_now
+        mock_user.query.filter_by.return_value.first.return_value = MockUser(email='mock',
+                                                                             name='dummy',
+                                                                             password='psswd')
+
+        with self.app.test_client() as client:
+            response = client.get('/account/reset/1/{}/some_mac'.format(time_now))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Please enter your new password below', str(response.data))
+        mock_user.query.filter_by.assert_called_once_with(id=1)
+        mock_hmac.assert_called_once()
+        mock_flash.assert_not_called()
+
+    @mock.patch('mod_auth.controllers.User')
+    @mock.patch('hmac.compare_digest', return_value=True)
+    @mock.patch('mod_auth.controllers.flash')
+    @mock.patch('time.time')
+    @mock.patch('mod_auth.controllers.CompleteResetForm')
+    @mock.patch('mod_auth.controllers.g')
+    def test_complete_reset_post_valid(self, mock_g, mock_form, mock_time, mock_flash, mock_hmac, mock_user):
+        """
+        Test complete reset valid new password post.
+        """
+        time_now = 100
+        mock_time.return_value = time_now
+        mock_user.query.filter_by.return_value.first.return_value = MockUser(email='mock',
+                                                                             name='dummy',
+                                                                             password='psswd')
+
+        with self.app.test_client() as client:
+            response = client.post('/account/reset/1/{}/some_mac'.format(time_now),
+                                   data={
+                                       'Password': 'abcdEFGH@1234',
+                                       'Repeat password': 'abcdEFGH@1234',
+                                       'Reset password': True
+            })
+
+        self.assertEqual(response.status_code, 302)
+        mock_user.query.filter_by.assert_called_once_with(id=1)
+        mock_hmac.assert_called_once()
+        mock_user.generate_hash.assert_called_once()
+        mock_g.db.commit.assert_called_once()
+        mock_g.mailer.send_simple_message.assert_called_once()
+        mock_flash.assert_not_called()
+
+    @mock.patch('mod_auth.controllers.flash')
+    @mock.patch('time.time')
+    def test_complete_signup_expired(self, mock_time, mock_flash):
+        """
+        Test complete signup endpoint expired.
+        """
+        time_now = 100
+        mock_time.return_value = time_now
+        time_expired = 100
+
+        with self.app.test_client() as client:
+            response = client.post('/account/complete_signup/email/{}/some_mac'.format(time_expired))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('Redirecting...', str(response.data))
+        mock_flash.assert_called_once()
+
+    @mock.patch('mod_auth.controllers.User')
+    @mock.patch('mod_auth.controllers.flash')
+    @mock.patch('hmac.compare_digest', return_value=True)
+    @mock.patch('time.time')
+    def test_complete_signup_user_already_exists(self, mock_time, mock_hmac, mock_flash, mock_user):
+        """
+        Test complete signup when user already exists.
+        """
+        time_now = 100
+        mock_time.return_value = time_now
+        mock_user.query.filter_by.return_value.first.return_value = MockUser(email='mock',
+                                                                             name='dummy',
+                                                                             password='psswd')
+
+        with self.app.test_client() as client:
+            response = client.post('/account/complete_signup/email/{}/some_mac'.format(time_now))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('Redirecting...', str(response.data))
+        mock_hmac.assert_called_once()
+        mock_user.query.filter_by.assert_called_once_with(email='email')
+        mock_flash.assert_called_once_with(mock.ANY, 'error-message')
+
+    @mock.patch('mod_auth.controllers.User')
+    @mock.patch('mod_auth.controllers.flash')
+    @mock.patch('hmac.compare_digest', return_value=True)
+    @mock.patch('time.time')
+    @mock.patch('mod_auth.controllers.CompleteSignupForm')
+    @mock.patch('mod_auth.controllers.g')
+    def test_complete_signup(self, mock_g, mock_form, mock_time, mock_hmac, mock_flash, mock_user):
+        """
+        Test complete signup with valid response.
+        """
+        time_now = 100
+        mock_time.return_value = time_now
+        mock_form.return_value.validate_on_submit.return_value = True
+        mock_user.query.filter_by.return_value.first.return_value = None
+        mock_user.return_value = MockUser(id=1)
+
+        with self.app.test_client() as client:
+            response = client.post('/account/complete_signup/email/{}/some_mac'.format(time_now))
+
+        print(response.data)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('Redirecting...', str(response.data))
+        mock_hmac.assert_called_once()
+        mock_user.query.filter_by.assert_called_once_with(email='email')
+        mock_form.assert_called_once_with()
+        mock_user.assert_called_once()
+        mock_g.db.add.assert_called_once()
+        mock_g.mailer.send_simple_message.assert_called_once()
+        mock_flash.assert_not_called()
+
+
+class ManageUsers(BaseTestCase):
+
+    @mock.patch('mod_auth.controllers.g')
+    def test_user_view_not_loggen_in(self, mock_g):
+        """
+        Test accessing user view when not logged in.
+
+        This test accounts for all other methods which are decorated by login_required
+        """
+
+        with self.app.test_client() as client:
+            response = client.get('/account/user/2')
+
+        self.assertEqual(response.status_code, 302)

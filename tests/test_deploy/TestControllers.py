@@ -4,13 +4,14 @@ from tempfile import gettempdir
 from flask import g
 from mock import mock
 
+from mod_deploy.controllers import requests
 from tests.base import (BaseTestCase, generate_git_api_header,
                         generate_signature)
 
 WSGI_ENVIRONMENT = {'REMOTE_ADDR': '0.0.0.0'}
 
 
-@mock.patch('requests.get')
+@mock.patch.object(requests, 'get')
 class TestControllers(BaseTestCase):
 
     def test_root(self, mock_request_get):
@@ -112,6 +113,80 @@ class TestControllers(BaseTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("Wrong event", str(response.data))
+
+    @mock.patch('mod_deploy.controllers.is_valid_signature', return_value=False)
+    @mock.patch('mod_deploy.controllers.g')
+    def test_headers_invalid_signature_event(self, mock_g, mock_valid_sign, mock_request_get):
+        """
+        Test the view by sending a valid event.
+        """
+        mock_request_get.return_value.json.return_value = {"hooks": ['0.0.0.0']}
+        self.app.config['INSTALL_FOLDER'] = gettempdir()
+        data = {
+            'ref': 'refs/heads/master'
+        }
+        sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
+        headers = generate_git_api_header('push', sig)
+
+        with self.app.test_client() as client:
+            response = client.post(
+                '/deploy', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=headers
+            )
+
+        self.assertEqual(response.status_code, 418)
+        mock_valid_sign.assert_called_once()
+        mock_g.log.warning.assert_called_once()
+        mock_request_get.assert_called_once_with('https://api.github.com/meta')
+
+    @mock.patch('mod_deploy.controllers.is_valid_signature', return_value=True)
+    @mock.patch('mod_deploy.controllers.g')
+    def test_headers_no_payload_event(self, mock_g, mock_valid_sign, mock_request_get):
+        """
+        Test the view by sending a valid event.
+        """
+        mock_request_get.return_value.json.return_value = {"hooks": ['0.0.0.0']}
+        self.app.config['INSTALL_FOLDER'] = gettempdir()
+        data = None
+        sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
+        headers = generate_git_api_header('push', sig)
+
+        with self.app.test_client() as client:
+            response = client.post(
+                '/deploy', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=headers
+            )
+
+        self.assertEqual(response.status_code, 418)
+        mock_valid_sign.assert_called_once()
+        mock_g.log.warning.assert_called_once()
+        mock_request_get.assert_called_once_with('https://api.github.com/meta')
+
+    @mock.patch('mod_deploy.controllers.is_valid_signature', return_value=True)
+    @mock.patch('mod_deploy.controllers.g')
+    def test_headers_not_master_event(self, mock_g, mock_valid_sign, mock_request_get):
+        """
+        Test the view by sending a valid event.
+        """
+        mock_request_get.return_value.json.return_value = {"hooks": ['0.0.0.0']}
+        self.app.config['INSTALL_FOLDER'] = gettempdir()
+        data = {
+            'ref': 'refs/heads/not_master'
+        }
+        sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
+        headers = generate_git_api_header('push', sig)
+
+        with self.app.test_client() as client:
+            response = client.post(
+                '/deploy', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=headers
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Not master', str(response.data))
+        mock_valid_sign.assert_called_once()
+        mock_g.log.warning.assert_not_called()
+        mock_request_get.assert_called_once_with('https://api.github.com/meta')
 
     @mock.patch('mod_deploy.controllers.Repo')
     @mock.patch('mod_deploy.controllers.is_valid_signature', return_value=True)

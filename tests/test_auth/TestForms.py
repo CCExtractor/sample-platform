@@ -1,15 +1,14 @@
-from tests.base import BaseTestCase
+from flask import g
+from wtforms.validators import ValidationError
 
 from mod_auth.forms import unique_username, valid_password
-
-from flask import g
 from mod_auth.models import User
-from wtforms.validators import ValidationError
+from tests.base import BaseTestCase
 
 
 class Field:
-        def __init__(self, data):
-            self.data = data
+    def __init__(self, data):
+        self.data = data
 
 
 class TestForm(BaseTestCase):

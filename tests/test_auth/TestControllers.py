@@ -3,14 +3,14 @@ import time
 from unittest import mock
 
 from flask import url_for
+from werkzeug.exceptions import Forbidden, NotFound
 
+from mod_auth import controllers
 from mod_auth.controllers import (fetch_username_from_token,
                                   generate_hmac_hash, github_token_validity,
                                   send_reset_email)
 from mod_auth.models import Role, User
 from tests.base import BaseTestCase, signup_information
-from mod_auth import controllers
-from werkzeug.exceptions import Forbidden, NotFound
 
 
 # mock user to avoid interacting with database

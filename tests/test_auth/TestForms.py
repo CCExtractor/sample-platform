@@ -35,7 +35,7 @@ class TestForm(BaseTestCase):
         with self.assertRaises(ValidationError):
             valid_password(None, pass_field)
 
-    def test_less_than_min_lenght_invalid_password(self):
+    def test_less_than_min_length_invalid_password(self):
         """
         Test validation fail for password of length less than min length.
         """
@@ -44,7 +44,7 @@ class TestForm(BaseTestCase):
         with self.assertRaises(ValidationError):
             valid_password(None, pass_field)
 
-    def test_more_than_max_lenght_invalid_password(self):
+    def test_more_than_max_length_invalid_password(self):
         """
         Test validation fail for password of length more than max length.
         """

@@ -549,7 +549,6 @@ class ManageAccount(BaseTestCase):
         with self.app.test_client() as client:
             response = client.post('/account/complete_signup/email/{}/some_mac'.format(time_now))
 
-        print(response.data)
         self.assertEqual(response.status_code, 302)
         self.assertIn('Redirecting...', str(response.data))
         mock_hmac.assert_called_once()

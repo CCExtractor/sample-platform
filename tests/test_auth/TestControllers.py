@@ -9,16 +9,19 @@ from mod_auth.controllers import (fetch_username_from_token,
                                   send_reset_email)
 from mod_auth.models import Role, User
 from tests.base import BaseTestCase, signup_information
+from mod_auth import controllers
+from werkzeug.exceptions import Forbidden, NotFound
 
 
 # mock user to avoid interacting with database
 class MockUser:
-    def __init__(self, id=None, name=None, email=None, password=None, github_token=None):
+    def __init__(self, id=None, name=None, email=None, password=None, github_token=None, role=None):
         self.id = id
         self.name = name
         self.email = email
         self.password = password
         self.github_token = github_token
+        self.role = role
 
 
 class TestSignUp(BaseTestCase):
@@ -560,6 +563,17 @@ class ManageAccount(BaseTestCase):
 
 class ManageUsers(BaseTestCase):
 
+    @staticmethod
+    def mock_decorator(f):
+        """
+        Mock login_required decorator.
+        """
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            return f(*args, **kwargs)
+
+        return decorated_function
+
     @mock.patch('mod_auth.controllers.g')
     def test_user_view_not_loggen_in(self, mock_g):
         """
@@ -572,3 +586,129 @@ class ManageUsers(BaseTestCase):
             response = client.get('/account/user/2')
 
         self.assertEqual(response.status_code, 302)
+
+    @mock.patch('mod_auth.controllers.login_required', side_effect=mock_decorator)
+    @mock.patch('mod_auth.controllers.g')
+    def test_user_view_wrong_user(self, mock_g, mock_login):
+        """
+        Test accessing different user from user id.
+        """
+        from mod_auth.controllers import user
+
+        mock_g.user = MockUser(id=1, role="None")
+
+        with self.assertRaises(Forbidden):
+            user(2)
+
+    @mock.patch('mod_auth.controllers.login_required', side_effect=mock_decorator)
+    @mock.patch('mod_auth.controllers.g')
+    @mock.patch('mod_auth.controllers.User')
+    def test_user_view_non_existent_user(self, mock_user, mock_g, mock_login):
+        """
+        Test accessing for user not existent.
+        """
+        from mod_auth.controllers import user
+
+        mock_user.query.filter_by.return_value.first.return_value = None
+        mock_g.user = MockUser(id=1, role="None")
+
+        with self.assertRaises(NotFound):
+            user(1)
+
+        mock_user.query.filter_by.assert_called_once_with(id=1)
+
+    # NOTE: Not able to mock template_renderer decorator
+    # @mock.patch('mod_auth.controllers.login_required', side_effect=mock_decorator)
+    # @mock.patch('mod_auth.controllers.template_renderer', return_value=mock_decorator)
+    # @mock.patch('mod_auth.controllers.g')
+    # @mock.patch('mod_auth.controllers.User')
+    # @mock.patch('mod_upload.models.Upload')
+    # def test_user_view_success(self, mock_upload, mock_user, mock_g, mock_renderer, mock_login):
+    #     """
+    #     Test accessing for user successfully.
+    #     """
+    #     from mod_auth.controllers import user
+
+    #     mock_user.query.filter_by.return_value.first.return_value = MockUser(id=1, role="None")
+    #     mock_g.user = MockUser(id=1, role="None")
+
+    #     response = user(1)
+
+    #     mock_user.query.filter_by.assert_called_once_with(id=1)
+    #     mock_upload.query.filter.assert_called_once_with(mock_upload.user_id == 1)
+
+    @mock.patch('mod_auth.controllers.login_required', side_effect=mock_decorator)
+    @mock.patch('mod_auth.controllers.g')
+    def test_user_reset_wrong_user(self, mock_g, mock_login):
+        """
+        Test accessing reset user from different non-admin user id.
+        """
+        from mod_auth.controllers import reset_user
+
+        mock_g.user = MockUser(id=1, role="None")
+
+        with self.assertRaises(Forbidden):
+            reset_user(2)
+
+    @mock.patch('mod_auth.controllers.login_required', side_effect=mock_decorator)
+    @mock.patch('mod_auth.controllers.g')
+    def test_user_role_wrong_user(self, mock_g, mock_login):
+        """
+        Test accessing role change from non-admin user id.
+        """
+        from mod_auth.controllers import role
+
+        mock_g.user = MockUser(id=1, role="None")
+
+        with self.assertRaises(Forbidden):
+            role(2)
+
+    @mock.patch('mod_auth.controllers.login_required', side_effect=mock_decorator)
+    @mock.patch('mod_auth.controllers.g')
+    def test_user_deactivate_wrong_user(self, mock_g, mock_login):
+        """
+        Test deactivating user from different user id.
+        """
+        from mod_auth.controllers import deactivate
+
+        mock_g.user = MockUser(id=1, role="None")
+
+        with self.assertRaises(Forbidden):
+            deactivate(2)
+
+    @mock.patch('mod_auth.controllers.User')
+    @mock.patch('mod_auth.controllers.login_required', side_effect=mock_decorator)
+    @mock.patch('mod_auth.controllers.g')
+    def test_user_deactivate_non_existent_user(self, mock_g, mock_login, mock_user):
+        """
+        Test deactivating user from non-existent user id.
+        """
+        from mod_auth.controllers import deactivate
+
+        mock_g.user = MockUser(id=1, role="None")
+        mock_user.query.filter_by.return_value.first.return_value = None
+
+        with self.assertRaises(NotFound):
+            deactivate(1)
+
+    @mock.patch('mod_auth.controllers.url_for')
+    @mock.patch('mod_auth.controllers.DeactivationForm')
+    @mock.patch('mod_auth.controllers.User')
+    @mock.patch('mod_auth.controllers.login_required', side_effect=mock_decorator)
+    @mock.patch('mod_auth.controllers.g')
+    def test_user_deactivate_non_existent_user(self, mock_g, mock_login, mock_user, mock_form, mock_url_for):
+        """
+        Test deactivating user.
+        """
+        from mod_auth.controllers import deactivate
+
+        mock_user.query.filter_by.return_value.first.return_value = MockUser(id=1, role=None)
+        mock_g.user = MockUser(id=1, role="None")
+
+        response = deactivate(1)
+
+        mock_user.query.filter_by.assert_called_once_with(id=1)
+        mock_form.assert_called_once()
+        mock_form.return_value.validate_on_submit.assert_called_once()
+        mock_g.db.commit.assert_called_once()
+        mock_url_for.assert_called_once_with('.login')

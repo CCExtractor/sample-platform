@@ -1,10 +1,11 @@
 from importlib import reload
 
 from flask import g
-from mock import mock
+from mock import mock, MagicMock
 from werkzeug.datastructures import Headers
 
 from mod_auth.models import Role
+from mod_ci.controllers import start_platform, start_new_test
 from mod_ci.models import BlockedUsers
 from mod_customized.models import CustomizedTest
 from mod_home.models import CCExtractorVersion, GeneralData
@@ -14,7 +15,69 @@ from tests.base import (BaseTestCase, generate_git_api_header,
                         generate_signature, mock_api_request_github)
 
 
+class MockKVM:
+
+    def __init__(self, name):
+        self.name = name
+
+
 class TestControllers(BaseTestCase):
+
+    @mock.patch('mod_ci.controllers.Kvm')
+    @mock.patch('run.log')
+    def test_start_platform_no_match(self, mock_log, mock_kvm):
+        """
+        Test that error is logged when started with wrong KVM name.
+        """
+        mock_kvm.query.first.return_value = MockKVM("test")
+
+        start_platform(mock.ANY, mock.ANY)
+
+        mock_kvm.query.first.assert_called_once()
+        mock_log.error.assert_called_once()
+
+    @mock.patch('mod_ci.controllers.kvm_processor_linux')
+    @mock.patch('mod_ci.controllers.Kvm')
+    @mock.patch('run.log')
+    def test_start_platform_linux_match(self, mock_log, mock_kvm, mock_linux_processor):
+        """
+        Test that linux processor is invoked when started with linux KVM name.
+        """
+        mock_kvm.query.first.return_value = MockKVM(self.app.config.get('KVM_LINUX_NAME', ''))
+
+        start_platform(mock.ANY, mock.ANY)
+
+        mock_kvm.query.first.assert_called_once()
+        mock_linux_processor.assert_called_once_with(mock.ANY, mock.ANY, None)
+        mock_log.error.assert_not_called()
+
+    @mock.patch('mod_ci.controllers.kvm_processor_windows')
+    @mock.patch('mod_ci.controllers.Kvm')
+    @mock.patch('run.log')
+    def test_start_platform_windows_match(self, mock_log, mock_kvm, mock_windows_processor):
+        """
+        Test that windows processor is invoked when started with windows KVM name.
+        """
+        mock_kvm.query.first.return_value = MockKVM(self.app.config.get('KVM_WINDOWS_NAME', ''))
+
+        start_platform(mock.ANY, mock.ANY)
+
+        mock_kvm.query.first.assert_called_once()
+        mock_windows_processor.assert_called_once_with(mock.ANY, mock.ANY, None)
+        mock_log.error.assert_not_called()
+
+    @mock.patch('mod_ci.controllers.Test', autospec=True)
+    def test_start_new_test_none(self, mock_test):
+        """
+        Test starting a new test when the test is None.
+        """
+        mock_test.query.filter.return_value.order_by.return_value.first.return_value = None
+        mock_db = MagicMock()
+
+        response = start_new_test(mock_db, mock.ANY, 0)
+
+        self.assertEqual(response, None)
+
     @mock.patch('github.GitHub')
     def test_comments_successfully_in_passed_pr_test(self, git_mock):
         import mod_ci.controllers

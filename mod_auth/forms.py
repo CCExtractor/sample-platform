@@ -62,20 +62,6 @@ def email_not_in_use(has_user_field=False):
     return _email_not_in_use
 
 
-def role_id_is_valid(form, field):
-    """
-    Check for validity of User's Role.
-
-    :param form: The form which is being passed in
-    :type form: Form
-    :param field : The data value for the 'role' inserted by User
-    :type field : SelectField
-    """
-    role = Role.query.filter(Role.id == field.data).first()
-    if role is None:
-        raise ValidationError('Role id is invalid')
-
-
 class LoginForm(FlaskForm):
     """Render form for User to enter Log in credentials."""
 

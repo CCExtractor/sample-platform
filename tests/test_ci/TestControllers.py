@@ -1,11 +1,11 @@
 from importlib import reload
 
 from flask import g
-from mock import mock, MagicMock
+from mock import MagicMock, mock
 from werkzeug.datastructures import Headers
 
 from mod_auth.models import Role
-from mod_ci.controllers import start_platform, start_new_test
+from mod_ci.controllers import start_new_test, start_platform
 from mod_ci.models import BlockedUsers
 from mod_customized.models import CustomizedTest
 from mod_home.models import CCExtractorVersion, GeneralData
@@ -19,6 +19,12 @@ class MockKVM:
 
     def __init__(self, name):
         self.name = name
+
+
+class MockPlatform:
+
+    def __init__(self, platform):
+        self.platform = platform
 
 
 class TestControllers(BaseTestCase):
@@ -66,8 +72,9 @@ class TestControllers(BaseTestCase):
         mock_windows_processor.assert_called_once_with(mock.ANY, mock.ANY, None)
         mock_log.error.assert_not_called()
 
-    @mock.patch('mod_ci.controllers.Test', autospec=True)
-    def test_start_new_test_none(self, mock_test):
+    @mock.patch('mod_ci.controllers.Test')
+    @mock.patch('mod_ci.controllers.and_')
+    def test_start_new_test_none(self, mock_and, mock_test):
         """
         Test starting a new test when the test is None.
         """
@@ -76,7 +83,61 @@ class TestControllers(BaseTestCase):
 
         response = start_new_test(mock_db, mock.ANY, 0)
 
+        mock_and.assert_called_once()
         self.assertEqual(response, None)
+
+    @mock.patch('run.log')
+    @mock.patch('mod_ci.controllers.Test')
+    @mock.patch('mod_ci.controllers.and_')
+    def test_start_new_test_unsupported(self, mock_and, mock_test, mock_log):
+        """
+        Test starting a new test when the test is unsupported.
+        """
+        mock_test.query.filter.return_value.order_by.return_value.first.return_value = MagicMock()
+        mock_db = MagicMock()
+
+        response = start_new_test(mock_db, mock.ANY, 0)
+
+        mock_and.assert_called_once()
+        self.assertEqual(response, None)
+        mock_log.error.assert_called_once()
+
+    @mock.patch('run.log')
+    @mock.patch('mod_ci.controllers.Test')
+    @mock.patch('mod_ci.controllers.and_')
+    @mock.patch('mod_ci.controllers.kvm_processor_linux')
+    def test_start_new_test_linux(self, mock_processor, mock_and, mock_test, mock_log):
+        """
+        Test starting a new test when the test is linux test.
+        """
+        mock_test.query.filter.return_value.order_by.return_value.first.return_value = MockPlatform(TestPlatform.linux)
+        mock_db = MagicMock()
+
+        response = start_new_test(mock_db, mock.ANY, 0)
+
+        mock_and.assert_called_once()
+        self.assertEqual(response, None)
+        mock_processor.assert_called_once_with(mock_db, mock.ANY, 0)
+        mock_log.error.assert_not_called()
+
+    @mock.patch('run.log')
+    @mock.patch('mod_ci.controllers.Test')
+    @mock.patch('mod_ci.controllers.and_')
+    @mock.patch('mod_ci.controllers.kvm_processor_windows')
+    def test_start_new_test_windows(self, mock_processor, mock_and, mock_test, mock_log):
+        """
+        Test starting a new test when the test is windows test.
+        """
+        mock_test.query.filter.return_value.order_by.return_value.first.return_value = MockPlatform(
+            TestPlatform.windows)
+        mock_db = MagicMock()
+
+        response = start_new_test(mock_db, mock.ANY, 0)
+
+        mock_and.assert_called_once()
+        self.assertEqual(response, None)
+        mock_processor.assert_called_once_with(mock_db, mock.ANY, 0)
+        mock_log.error.assert_not_called()
 
     @mock.patch('github.GitHub')
     def test_comments_successfully_in_passed_pr_test(self, git_mock):

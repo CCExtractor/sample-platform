@@ -5,7 +5,7 @@ from mock import MagicMock, mock
 from werkzeug.datastructures import Headers
 
 from mod_auth.models import Role
-from mod_ci.controllers import start_new_test, start_platform
+from mod_ci.controllers import start_platform
 from mod_ci.models import BlockedUsers
 from mod_customized.models import CustomizedTest
 from mod_home.models import CCExtractorVersion, GeneralData
@@ -78,6 +78,8 @@ class TestControllers(BaseTestCase):
         """
         Test starting a new test when the test is None.
         """
+        from mod_ci.controllers import start_new_test
+
         mock_test.query.filter.return_value.order_by.return_value.first.return_value = None
         mock_db = MagicMock()
 
@@ -93,6 +95,8 @@ class TestControllers(BaseTestCase):
         """
         Test starting a new test when the test is unsupported.
         """
+        from mod_ci.controllers import start_new_test
+
         mock_test.query.filter.return_value.order_by.return_value.first.return_value = MagicMock()
         mock_db = MagicMock()
 
@@ -110,6 +114,8 @@ class TestControllers(BaseTestCase):
         """
         Test starting a new test when the test is linux test.
         """
+        from mod_ci.controllers import start_new_test
+
         mock_test.query.filter.return_value.order_by.return_value.first.return_value = MockPlatform(TestPlatform.linux)
         mock_db = MagicMock()
 
@@ -128,6 +134,8 @@ class TestControllers(BaseTestCase):
         """
         Test starting a new test when the test is windows test.
         """
+        from mod_ci.controllers import start_new_test
+
         mock_test.query.filter.return_value.order_by.return_value.first.return_value = MockPlatform(
             TestPlatform.windows)
         mock_db = MagicMock()

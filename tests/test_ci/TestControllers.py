@@ -1,3 +1,4 @@
+import json
 from importlib import reload
 
 from flask import g
@@ -146,6 +147,71 @@ class TestControllers(BaseTestCase):
         self.assertEqual(response, None)
         mock_processor.assert_called_once_with(mock_db, mock.ANY, 0)
         mock_log.error.assert_not_called()
+
+    @mock.patch('mod_ci.controllers.kvm_processor')
+    def test_kvm_processor_windows(self, mock_kvm_processor):
+        """
+        Test that kvm_processor is called for windows kvm processor.
+        """
+        from mod_ci.controllers import kvm_processor_windows
+
+        resp = kvm_processor_windows(mock.ANY, mock.ANY, 0)
+
+        self.assertEqual(resp, mock_kvm_processor())
+        mock_kvm_processor.assert_any_call(mock.ANY, "window-test", TestPlatform.windows, mock.ANY, 0)
+
+    @mock.patch('run.log')
+    def test_kvm_processor_empty_kvm_name(self, mock_log):
+        """
+        Test that kvm processor fails with empty kvm name.
+        """
+        from mod_ci.controllers import kvm_processor
+
+        resp = kvm_processor(mock.ANY, "", mock.ANY, mock.ANY, mock.ANY)
+
+        self.assertIsNone(resp)
+        mock_log.info.assert_called_once()
+        mock_log.critical.assert_called_once()
+
+    @mock.patch('run.log')
+    @mock.patch('mod_ci.controllers.MaintenanceMode')
+    def test_kvm_processor_maintenance_mode(self, mock_maintenance, mock_log):
+        """
+        Test that kvm processor does not run when in mentainenace.
+        """
+        from mod_ci.controllers import kvm_processor
+
+        class MockMaintence:
+            def __init__(self):
+                self.disabled = True
+
+        mock_maintenance.query.filter.return_value.first.return_value = MockMaintence()
+
+        resp = kvm_processor(mock.ANY, "test", mock.ANY, mock.ANY, 1)
+
+        self.assertIsNone(resp)
+        mock_log.info.assert_called_once()
+        mock_log.critical.assert_not_called()
+        self.assertEqual(mock_log.debug.call_count, 2)
+
+    @mock.patch('mod_ci.controllers.libvirt')
+    @mock.patch('run.log')
+    @mock.patch('mod_ci.controllers.MaintenanceMode')
+    def test_kvm_processor_conn_fail(self, mock_maintenance, mock_log, mock_libvirt):
+        """
+        Test that kvm processor logs critically when conn cannot be established.
+        """
+        from mod_ci.controllers import kvm_processor
+
+        mock_libvirt.open.return_value = None
+        mock_maintenance.query.filter.return_value.first.return_value = None
+
+        resp = kvm_processor(mock.ANY, "test", mock.ANY, mock.ANY, 1)
+
+        self.assertIsNone(resp)
+        mock_log.info.assert_called_once()
+        mock_log.critical.assert_called_once()
+        self.assertEqual(mock_log.debug.call_count, 1)
 
     @mock.patch('github.GitHub')
     def test_comments_successfully_in_passed_pr_test(self, git_mock):
@@ -484,7 +550,6 @@ class TestControllers(BaseTestCase):
         """
         Check webhook fails when ping with wrong url
         """
-        import json
         with self.app.test_client() as c:
             data = {'action': 'published',
                     'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': '0.0.1'}}
@@ -502,7 +567,6 @@ class TestControllers(BaseTestCase):
         """
         Check webhook release update CCExtractor Version
         """
-        import json
         with self.app.test_client() as c:
             data = {'action': 'published',
                     'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': '0.0.1'}}
@@ -521,7 +585,6 @@ class TestControllers(BaseTestCase):
         """
         Check webhook release update CCExtractor Version
         """
-        import json
         with self.app.test_client() as c:
             # Full Release with version with 2.1
             data = {'action': 'published',
@@ -545,7 +608,6 @@ class TestControllers(BaseTestCase):
         """
         Check webhook action "edited" updates the specified version.
         """
-        import json
         from datetime import datetime
         with self.app.test_client() as c:
             release = CCExtractorVersion('2.1', '2018-05-30T20:18:44Z', 'abcdefgh')
@@ -572,9 +634,8 @@ class TestControllers(BaseTestCase):
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_release_deleted(self, mock_request):
         """
-        Check    def add_CCExversion(self, c, version='v2.1', commit='abcdefgh', released='2018-05-30T20:18:44Z'):
+        Check webhook action "delete" removes the specified version.
         """
-        import json
         with self.app.test_client() as c:
             release = CCExtractorVersion('2.1', '2018-05-30T20:18:44Z', 'abcdefgh')
             g.db.add(release)
@@ -601,7 +662,6 @@ class TestControllers(BaseTestCase):
         """
         Check webhook release update CCExtractor Version
         """
-        import json
         with self.app.test_client() as c:
             # Full Release with version with 2.1
             data = {'action': 'prereleased',
@@ -619,3 +679,119 @@ class TestControllers(BaseTestCase):
                 data=json.dumps(data), headers=headers)
             last_release = CCExtractorVersion.query.order_by(CCExtractorVersion.released.desc()).first()
             self.assertNotEqual(last_release.version, '2.1')
+
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_push_no_after(self, mock_request):
+        """
+        Test webhook triggered with push event without 'after' in payload.
+        """
+        data = {'no_after': 'test'}
+        sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
+        headers = generate_git_api_header('push', sig)
+        # one of ip address from github webhook
+        wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=wsgi_environment,
+                data=json.dumps(data), headers=headers)
+
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    @mock.patch('mod_ci.controllers.queue_test')
+    @mock.patch('mod_ci.controllers.GitHub')
+    @mock.patch('mod_ci.controllers.GeneralData')
+    def test_webhook_push_valid(self, mock_gd, mock_github, mock_queue_test, mock_request):
+        """
+        Test webhook triggered with push event without 'after' in payload.
+        """
+        data = {'after': 'abcdefgh'}
+        sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
+        headers = generate_git_api_header('push', sig)
+        # one of ip address from github webhook
+        wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=wsgi_environment,
+                data=json.dumps(data), headers=headers)
+
+        mock_gd.query.filter.assert_called()
+        mock_github.assert_called_once()
+        mock_queue_test.assert_called_once()
+
+    @mock.patch('mod_ci.controllers.Test')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_pr_closed(self, mock_request, mock_test):
+        """
+        Test webhook triggered with pull_request event with closed action.
+        """
+        class MockTest:
+            def __init__(self):
+                self.id = 1
+
+        mock_test.query.filter.return_value.all.return_value = [MockTest()]
+
+        data = {'action': 'closed',
+                'pull_request': {'number': '1234'}}
+        sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
+        headers = generate_git_api_header('pull_request', sig)
+        # one of ip address from github webhook
+        wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=wsgi_environment,
+                data=json.dumps(data), headers=headers)
+
+        mock_test.query.filter.assert_called_once()
+
+    @mock.patch('mod_ci.controllers.BlockedUsers')
+    @mock.patch('mod_ci.controllers.GitHub')
+    @mock.patch('mod_ci.controllers.queue_test')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_pr_opened_blocked(self, mock_request, mock_queue_test, mock_github, mock_blocked):
+        """
+        Test webhook triggered with pull_request event with opened action.
+        """
+        class MockTest:
+            def __init__(self):
+                self.id = 1
+
+        data = {'action': 'opened',
+                'pull_request': {'number': '1234', 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}}}
+        sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
+        headers = generate_git_api_header('pull_request', sig)
+        # one of ip address from github webhook
+        wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=wsgi_environment,
+                data=json.dumps(data), headers=headers)
+
+        self.assertEqual(response.data, b'ERROR')
+        mock_blocked.query.filter.assert_called_once()
+
+    @mock.patch('mod_ci.controllers.BlockedUsers')
+    @mock.patch('mod_ci.controllers.GitHub')
+    @mock.patch('mod_ci.controllers.queue_test')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_pr_opened(self, mock_request, mock_queue_test, mock_github, mock_blocked):
+        """
+        Test webhook triggered with pull_request event with opened action.
+        """
+        class MockTest:
+            def __init__(self):
+                self.id = 1
+        mock_blocked.query.filter.return_value.first.return_value = None
+
+        data = {'action': 'opened',
+                'pull_request': {'number': '1234', 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}}}
+        sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
+        headers = generate_git_api_header('pull_request', sig)
+        # one of ip address from github webhook
+        wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=wsgi_environment,
+                data=json.dumps(data), headers=headers)
+
+        self.assertEqual(response.data, b'ERROR')
+        mock_blocked.query.filter.assert_called_once()
+        mock_queue_test.query.filter.assert_called_once()

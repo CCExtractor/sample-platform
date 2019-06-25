@@ -43,6 +43,8 @@ class MockTest:
         self.fork = MockFork()
         self.platform = MockPlatform(TestPlatform.linux)
 
+WSGI_ENVIRONMENT = {'REMOTE_ADDR': '192.30.252.0'}
+
 
 class TestControllers(BaseTestCase):
 
@@ -569,13 +571,9 @@ class TestControllers(BaseTestCase):
         with self.app.test_client() as c:
             data = {'action': 'published',
                     'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': '0.0.1'}}
-            sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
-            headers = generate_git_api_header('ping', sig)
-            # non github ip address
-            wsgi_environment = {'REMOTE_ADDR': '0.0.0.0'}
             response = c.post(
-                '/start-ci', environ_overrides=wsgi_environment,
-                data=json.dumps(data), headers=headers)
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=generate_header(data, 'ping'))
             self.assertNotEqual(response.status_code, 200)
 
     @mock.patch('requests.get', side_effect=mock_api_request_github)
@@ -586,13 +584,9 @@ class TestControllers(BaseTestCase):
         with self.app.test_client() as c:
             data = {'action': 'published',
                     'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': '0.0.1'}}
-            sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
-            headers = generate_git_api_header('ping', sig)
-            # one of ip address from github webhook
-            wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
             response = c.post(
-                '/start-ci', environ_overrides=wsgi_environment,
-                data=json.dumps(data), headers=headers)
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=generate_header(data, 'ping'))
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.data, b'{"msg": "Hi!"}')
 
@@ -605,17 +599,14 @@ class TestControllers(BaseTestCase):
             # Full Release with version with 2.1
             data = {'action': 'published',
                     'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': 'v2.1'}}
-            sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
-            headers = generate_git_api_header('release', sig)
             # one of ip address from github webhook
-            wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
             last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
             # abcdefgh is the new commit after previous version defined in base.py
             last_commit.value = 'abcdefgh'
             g.db.commit()
             response = c.post(
-                '/start-ci', environ_overrides=wsgi_environment,
-                data=json.dumps(data), headers=headers)
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=generate_header(data, 'release'))
             last_release = CCExtractorVersion.query.order_by(CCExtractorVersion.released.desc()).first()
             self.assertEqual(last_release.version, '2.1')
 
@@ -632,17 +623,13 @@ class TestControllers(BaseTestCase):
             # Full Release with version with 2.1
             data = {'action': 'edited',
                     'release': {'prerelease': False, 'published_at': '2018-06-30T20:18:44Z', 'tag_name': 'v2.1'}}
-            sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
-            headers = generate_git_api_header('release', sig)
-            # one of ip address from github webhook
-            wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
             last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
             # abcdefgh is the new commit after previous version defined in base.py
             last_commit.value = 'abcdefgh'
             g.db.commit()
             response = c.post(
-                '/start-ci', environ_overrides=wsgi_environment,
-                data=json.dumps(data), headers=headers)
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=generate_header(data, 'release'))
             last_release = CCExtractorVersion.query.filter_by(version='2.1').first()
             self.assertEqual(last_release.released,
                              datetime.strptime('2018-06-30T20:18:44Z', '%Y-%m-%dT%H:%M:%SZ').date())
@@ -659,17 +646,13 @@ class TestControllers(BaseTestCase):
             # Delete full release with version with 2.1
             data = {'action': 'deleted',
                     'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': 'v2.1'}}
-            sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
-            headers = generate_git_api_header('release', sig)
-            # one of ip address from github webhook
-            wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
             last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
             # abcdefgh is the new commit after previous version defined in base.py
             last_commit.value = 'abcdefgh'
             g.db.commit()
             response = c.post(
-                '/start-ci', environ_overrides=wsgi_environment,
-                data=json.dumps(data), headers=headers)
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=generate_header(data, 'release'))
             last_release = CCExtractorVersion.query.order_by(CCExtractorVersion.released.desc()).first()
             self.assertNotEqual(last_release.version, '2.1')
 
@@ -684,15 +667,13 @@ class TestControllers(BaseTestCase):
                     'release': {'prerelease': True, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': 'v2.1'}}
             sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
             headers = generate_git_api_header('release', sig)
-            # one of ip address from github webhook
-            wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
             last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
             # abcdefgh is the new commit after previous version defined in base.py
             last_commit.value = 'abcdefgh'
             g.db.commit()
             response = c.post(
-                '/start-ci', environ_overrides=wsgi_environment,
-                data=json.dumps(data), headers=headers)
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=generate_header(data, 'ping'))
             last_release = CCExtractorVersion.query.order_by(CCExtractorVersion.released.desc()).first()
             self.assertNotEqual(last_release.version, '2.1')
 
@@ -702,14 +683,10 @@ class TestControllers(BaseTestCase):
         Test webhook triggered with push event without 'after' in payload.
         """
         data = {'no_after': 'test'}
-        sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
-        headers = generate_git_api_header('push', sig)
-        # one of ip address from github webhook
-        wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
         with self.app.test_client() as c:
             response = c.post(
-                '/start-ci', environ_overrides=wsgi_environment,
-                data=json.dumps(data), headers=headers)
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=generate_header(data, 'push'))
 
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     @mock.patch('mod_ci.controllers.queue_test')
@@ -717,17 +694,13 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.GeneralData')
     def test_webhook_push_valid(self, mock_gd, mock_github, mock_queue_test, mock_request):
         """
-        Test webhook triggered with push event without 'after' in payload.
+        Test webhook triggered with push event with valid data.
         """
         data = {'after': 'abcdefgh'}
-        sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
-        headers = generate_git_api_header('push', sig)
-        # one of ip address from github webhook
-        wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
         with self.app.test_client() as c:
             response = c.post(
-                '/start-ci', environ_overrides=wsgi_environment,
-                data=json.dumps(data), headers=headers)
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=generate_header(data, 'push'))
 
         mock_gd.query.filter.assert_called()
         mock_github.assert_called_once()
@@ -747,14 +720,11 @@ class TestControllers(BaseTestCase):
 
         data = {'action': 'closed',
                 'pull_request': {'number': '1234'}}
-        sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
-        headers = generate_git_api_header('pull_request', sig)
         # one of ip address from github webhook
-        wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
         with self.app.test_client() as c:
             response = c.post(
-                '/start-ci', environ_overrides=wsgi_environment,
-                data=json.dumps(data), headers=headers)
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=generate_header(data, 'pull_request'))
 
         mock_test.query.filter.assert_called_once()
 
@@ -772,14 +742,10 @@ class TestControllers(BaseTestCase):
 
         data = {'action': 'opened',
                 'pull_request': {'number': '1234', 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}}}
-        sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
-        headers = generate_git_api_header('pull_request', sig)
-        # one of ip address from github webhook
-        wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
         with self.app.test_client() as c:
             response = c.post(
-                '/start-ci', environ_overrides=wsgi_environment,
-                data=json.dumps(data), headers=headers)
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=generate_header(data, 'pull_request'))
 
         self.assertEqual(response.data, b'ERROR')
         mock_blocked.query.filter.assert_called_once()
@@ -796,14 +762,10 @@ class TestControllers(BaseTestCase):
 
         data = {'action': 'opened',
                 'pull_request': {'number': '1234', 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}}}
-        sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
-        headers = generate_git_api_header('pull_request', sig)
-        # one of ip address from github webhook
-        wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
         with self.app.test_client() as c:
             response = c.post(
-                '/start-ci', environ_overrides=wsgi_environment,
-                data=json.dumps(data), headers=headers)
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=generate_header(data, 'pull_request'))
 
         self.assertEqual(response.data, b'{"msg": "EOL"}')
         mock_blocked.query.filter.assert_called_once_with(mock_blocked.user_id == 'test')
@@ -819,14 +781,10 @@ class TestControllers(BaseTestCase):
         data = {'action': 'opened',
                 'issue': {'number': '1234', 'title': 'testTitle', 'body': 'testing', 'state': 'opened',
                           'user': {'login': 'testAuthor'}}}
-        sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
-        headers = generate_git_api_header('issues', sig)
-        # one of ip address from github webhook
-        wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
         with self.app.test_client() as c:
             response = c.post(
-                '/start-ci', environ_overrides=wsgi_environment,
-                data=json.dumps(data), headers=headers)
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=generate_header(data, 'issues'))
 
         self.assertEqual(response.data, b'{"msg": "EOL"}')
         mock_issue.query.filter(mock_issue.issue_id == '1234')
@@ -874,3 +832,16 @@ class TestControllers(BaseTestCase):
                 '/maintenance/windows')
 
         self.assertIsNotNone(response.data)
+
+    def generate_header(data, event):
+        """
+        Generate headers for various REST methods.
+
+        :param data: payload for the event
+        :type data: dict
+        :param event: the github event to be triggered
+        :type event: str
+        """
+        sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
+        headers = generate_git_api_header('issues', sig)
+        return headers

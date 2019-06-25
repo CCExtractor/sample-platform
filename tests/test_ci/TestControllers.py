@@ -1,10 +1,12 @@
+import json
 from importlib import reload
 
 from flask import g
-from mock import mock
+from mock import MagicMock, mock
 from werkzeug.datastructures import Headers
 
 from mod_auth.models import Role
+from mod_ci.controllers import start_platform
 from mod_ci.models import BlockedUsers
 from mod_customized.models import CustomizedTest
 from mod_home.models import CCExtractorVersion, GeneralData
@@ -14,7 +16,222 @@ from tests.base import (BaseTestCase, generate_git_api_header,
                         generate_signature, mock_api_request_github)
 
 
+class MockKVM:
+
+    def __init__(self, name):
+        self.name = name
+
+
+class MockPlatform:
+
+    def __init__(self, platform):
+        self.platform = platform
+        self.value = 'platform'
+
+
+class MockFork:
+
+    def __init__(self, *args, **kwargs):
+        self.github = None
+
+
+class MockTest:
+
+    def __init__(self):
+        self.id = 1
+        self.test_type = TestType.commit
+        self.fork = MockFork()
+        self.platform = MockPlatform(TestPlatform.linux)
+
+
+WSGI_ENVIRONMENT = {'REMOTE_ADDR': '192.30.252.0'}
+
+
 class TestControllers(BaseTestCase):
+
+    @mock.patch('mod_ci.controllers.Kvm')
+    @mock.patch('run.log')
+    def test_start_platform_no_match(self, mock_log, mock_kvm):
+        """
+        Test that error is logged when started with wrong KVM name.
+        """
+        mock_kvm.query.first.return_value = MockKVM("test")
+
+        start_platform(mock.ANY, mock.ANY)
+
+        mock_kvm.query.first.assert_called_once()
+        mock_log.error.assert_called_once()
+
+    @mock.patch('mod_ci.controllers.kvm_processor_linux')
+    @mock.patch('mod_ci.controllers.Kvm')
+    @mock.patch('run.log')
+    def test_start_platform_linux_match(self, mock_log, mock_kvm, mock_linux_processor):
+        """
+        Test that linux processor is invoked when started with linux KVM name.
+        """
+        mock_kvm.query.first.return_value = MockKVM(self.app.config.get('KVM_LINUX_NAME', ''))
+
+        start_platform(mock.ANY, mock.ANY)
+
+        mock_kvm.query.first.assert_called_once()
+        mock_linux_processor.assert_called_once_with(mock.ANY, mock.ANY, None)
+        mock_log.error.assert_not_called()
+
+    @mock.patch('mod_ci.controllers.kvm_processor_windows')
+    @mock.patch('mod_ci.controllers.Kvm')
+    @mock.patch('run.log')
+    def test_start_platform_windows_match(self, mock_log, mock_kvm, mock_windows_processor):
+        """
+        Test that windows processor is invoked when started with windows KVM name.
+        """
+        mock_kvm.query.first.return_value = MockKVM(self.app.config.get('KVM_WINDOWS_NAME', ''))
+
+        start_platform(mock.ANY, mock.ANY)
+
+        mock_kvm.query.first.assert_called_once()
+        mock_windows_processor.assert_called_once_with(mock.ANY, mock.ANY, None)
+        mock_log.error.assert_not_called()
+
+    @mock.patch('mod_ci.controllers.Test')
+    @mock.patch('mod_ci.controllers.and_')
+    def test_start_new_test_none(self, mock_and, mock_test):
+        """
+        Test starting a new test when the test is None.
+        """
+        from mod_ci.controllers import start_new_test
+
+        mock_test.query.filter.return_value.order_by.return_value.first.return_value = None
+        mock_db = MagicMock()
+
+        response = start_new_test(mock_db, mock.ANY, 0)
+
+        mock_and.assert_called_once()
+        self.assertEqual(response, None)
+
+    @mock.patch('run.log')
+    @mock.patch('mod_ci.controllers.Test')
+    @mock.patch('mod_ci.controllers.and_')
+    def test_start_new_test_unsupported(self, mock_and, mock_test, mock_log):
+        """
+        Test starting a new test when the test is unsupported.
+        """
+        from mod_ci.controllers import start_new_test
+
+        mock_test.query.filter.return_value.order_by.return_value.first.return_value = MagicMock()
+        mock_db = MagicMock()
+
+        response = start_new_test(mock_db, mock.ANY, 0)
+
+        mock_and.assert_called_once()
+        self.assertEqual(response, None)
+        mock_log.error.assert_called_once()
+
+    @mock.patch('run.log')
+    @mock.patch('mod_ci.controllers.Test')
+    @mock.patch('mod_ci.controllers.and_')
+    @mock.patch('mod_ci.controllers.kvm_processor_linux')
+    def test_start_new_test_linux(self, mock_processor, mock_and, mock_test, mock_log):
+        """
+        Test starting a new test when the test is linux test.
+        """
+        from mod_ci.controllers import start_new_test
+
+        mock_test.query.filter.return_value.order_by.return_value.first.return_value = MockPlatform(TestPlatform.linux)
+        mock_db = MagicMock()
+
+        response = start_new_test(mock_db, mock.ANY, 0)
+
+        mock_and.assert_called_once()
+        self.assertEqual(response, None)
+        mock_processor.assert_called_once_with(mock_db, mock.ANY, 0)
+        mock_log.error.assert_not_called()
+
+    @mock.patch('run.log')
+    @mock.patch('mod_ci.controllers.Test')
+    @mock.patch('mod_ci.controllers.and_')
+    @mock.patch('mod_ci.controllers.kvm_processor_windows')
+    def test_start_new_test_windows(self, mock_processor, mock_and, mock_test, mock_log):
+        """
+        Test starting a new test when the test is windows test.
+        """
+        from mod_ci.controllers import start_new_test
+
+        mock_test.query.filter.return_value.order_by.return_value.first.return_value = MockPlatform(
+            TestPlatform.windows)
+        mock_db = MagicMock()
+
+        response = start_new_test(mock_db, mock.ANY, 0)
+
+        mock_and.assert_called_once()
+        self.assertEqual(response, None)
+        mock_processor.assert_called_once_with(mock_db, mock.ANY, 0)
+        mock_log.error.assert_not_called()
+
+    @mock.patch('mod_ci.controllers.kvm_processor')
+    def test_kvm_processor_windows(self, mock_kvm_processor):
+        """
+        Test that kvm_processor is called for windows kvm processor.
+        """
+        from mod_ci.controllers import kvm_processor_windows
+
+        resp = kvm_processor_windows(mock.ANY, mock.ANY, 0)
+
+        self.assertEqual(resp, mock_kvm_processor())
+        mock_kvm_processor.assert_any_call(mock.ANY, "window-test", TestPlatform.windows, mock.ANY, 0)
+
+    @mock.patch('run.log')
+    def test_kvm_processor_empty_kvm_name(self, mock_log):
+        """
+        Test that kvm processor fails with empty kvm name.
+        """
+        from mod_ci.controllers import kvm_processor
+
+        resp = kvm_processor(mock.ANY, "", mock.ANY, mock.ANY, mock.ANY)
+
+        self.assertIsNone(resp)
+        mock_log.info.assert_called_once()
+        mock_log.critical.assert_called_once()
+
+    @mock.patch('run.log')
+    @mock.patch('mod_ci.controllers.MaintenanceMode')
+    def test_kvm_processor_maintenance_mode(self, mock_maintenance, mock_log):
+        """
+        Test that kvm processor does not run when in mentainenace.
+        """
+        from mod_ci.controllers import kvm_processor
+
+        class MockMaintence:
+            def __init__(self):
+                self.disabled = True
+
+        mock_maintenance.query.filter.return_value.first.return_value = MockMaintence()
+
+        resp = kvm_processor(mock.ANY, "test", mock.ANY, mock.ANY, 1)
+
+        self.assertIsNone(resp)
+        mock_log.info.assert_called_once()
+        mock_log.critical.assert_not_called()
+        self.assertEqual(mock_log.debug.call_count, 2)
+
+    @mock.patch('mod_ci.controllers.libvirt')
+    @mock.patch('run.log')
+    @mock.patch('mod_ci.controllers.MaintenanceMode')
+    def test_kvm_processor_conn_fail(self, mock_maintenance, mock_log, mock_libvirt):
+        """
+        Test that kvm processor logs critically when conn cannot be established.
+        """
+        from mod_ci.controllers import kvm_processor
+
+        mock_libvirt.open.return_value = None
+        mock_maintenance.query.filter.return_value.first.return_value = None
+
+        resp = kvm_processor(mock.ANY, "test", mock.ANY, mock.ANY, 1)
+
+        self.assertIsNone(resp)
+        mock_log.info.assert_called_once()
+        mock_log.critical.assert_called_once()
+        self.assertEqual(mock_log.debug.call_count, 1)
+
     @mock.patch('github.GitHub')
     def test_comments_successfully_in_passed_pr_test(self, git_mock):
         import mod_ci.controllers
@@ -352,17 +569,14 @@ class TestControllers(BaseTestCase):
         """
         Check webhook fails when ping with wrong url
         """
-        import json
         with self.app.test_client() as c:
-            data = {'action': 'published',
-                    'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': '0.0.1'}}
-            sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
-            headers = generate_git_api_header('ping', sig)
             # non github ip address
             wsgi_environment = {'REMOTE_ADDR': '0.0.0.0'}
+            data = {'action': 'published',
+                    'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': '0.0.1'}}
             response = c.post(
                 '/start-ci', environ_overrides=wsgi_environment,
-                data=json.dumps(data), headers=headers)
+                data=json.dumps(data), headers=self.generate_header(data, 'ping'))
             self.assertNotEqual(response.status_code, 200)
 
     @mock.patch('requests.get', side_effect=mock_api_request_github)
@@ -370,17 +584,12 @@ class TestControllers(BaseTestCase):
         """
         Check webhook release update CCExtractor Version
         """
-        import json
         with self.app.test_client() as c:
             data = {'action': 'published',
                     'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': '0.0.1'}}
-            sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
-            headers = generate_git_api_header('ping', sig)
-            # one of ip address from github webhook
-            wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
             response = c.post(
-                '/start-ci', environ_overrides=wsgi_environment,
-                data=json.dumps(data), headers=headers)
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'ping'))
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.data, b'{"msg": "Hi!"}')
 
@@ -389,22 +598,18 @@ class TestControllers(BaseTestCase):
         """
         Check webhook release update CCExtractor Version
         """
-        import json
         with self.app.test_client() as c:
             # Full Release with version with 2.1
             data = {'action': 'published',
                     'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': 'v2.1'}}
-            sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
-            headers = generate_git_api_header('release', sig)
             # one of ip address from github webhook
-            wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
             last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
             # abcdefgh is the new commit after previous version defined in base.py
             last_commit.value = 'abcdefgh'
             g.db.commit()
             response = c.post(
-                '/start-ci', environ_overrides=wsgi_environment,
-                data=json.dumps(data), headers=headers)
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'release'))
             last_release = CCExtractorVersion.query.order_by(CCExtractorVersion.released.desc()).first()
             self.assertEqual(last_release.version, '2.1')
 
@@ -413,7 +618,6 @@ class TestControllers(BaseTestCase):
         """
         Check webhook action "edited" updates the specified version.
         """
-        import json
         from datetime import datetime
         with self.app.test_client() as c:
             release = CCExtractorVersion('2.1', '2018-05-30T20:18:44Z', 'abcdefgh')
@@ -422,17 +626,13 @@ class TestControllers(BaseTestCase):
             # Full Release with version with 2.1
             data = {'action': 'edited',
                     'release': {'prerelease': False, 'published_at': '2018-06-30T20:18:44Z', 'tag_name': 'v2.1'}}
-            sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
-            headers = generate_git_api_header('release', sig)
-            # one of ip address from github webhook
-            wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
             last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
             # abcdefgh is the new commit after previous version defined in base.py
             last_commit.value = 'abcdefgh'
             g.db.commit()
             response = c.post(
-                '/start-ci', environ_overrides=wsgi_environment,
-                data=json.dumps(data), headers=headers)
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'release'))
             last_release = CCExtractorVersion.query.filter_by(version='2.1').first()
             self.assertEqual(last_release.released,
                              datetime.strptime('2018-06-30T20:18:44Z', '%Y-%m-%dT%H:%M:%SZ').date())
@@ -440,9 +640,8 @@ class TestControllers(BaseTestCase):
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_release_deleted(self, mock_request):
         """
-        Check    def add_CCExversion(self, c, version='v2.1', commit='abcdefgh', released='2018-05-30T20:18:44Z'):
+        Check webhook action "delete" removes the specified version.
         """
-        import json
         with self.app.test_client() as c:
             release = CCExtractorVersion('2.1', '2018-05-30T20:18:44Z', 'abcdefgh')
             g.db.add(release)
@@ -450,17 +649,13 @@ class TestControllers(BaseTestCase):
             # Delete full release with version with 2.1
             data = {'action': 'deleted',
                     'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': 'v2.1'}}
-            sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
-            headers = generate_git_api_header('release', sig)
-            # one of ip address from github webhook
-            wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
             last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
             # abcdefgh is the new commit after previous version defined in base.py
             last_commit.value = 'abcdefgh'
             g.db.commit()
             response = c.post(
-                '/start-ci', environ_overrides=wsgi_environment,
-                data=json.dumps(data), headers=headers)
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'release'))
             last_release = CCExtractorVersion.query.order_by(CCExtractorVersion.released.desc()).first()
             self.assertNotEqual(last_release.version, '2.1')
 
@@ -469,21 +664,188 @@ class TestControllers(BaseTestCase):
         """
         Check webhook release update CCExtractor Version
         """
-        import json
         with self.app.test_client() as c:
             # Full Release with version with 2.1
             data = {'action': 'prereleased',
                     'release': {'prerelease': True, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': 'v2.1'}}
             sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
             headers = generate_git_api_header('release', sig)
-            # one of ip address from github webhook
-            wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
             last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
             # abcdefgh is the new commit after previous version defined in base.py
             last_commit.value = 'abcdefgh'
             g.db.commit()
             response = c.post(
-                '/start-ci', environ_overrides=wsgi_environment,
-                data=json.dumps(data), headers=headers)
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'ping'))
             last_release = CCExtractorVersion.query.order_by(CCExtractorVersion.released.desc()).first()
             self.assertNotEqual(last_release.version, '2.1')
+
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_push_no_after(self, mock_request):
+        """
+        Test webhook triggered with push event without 'after' in payload.
+        """
+        data = {'no_after': 'test'}
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'push'))
+
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    @mock.patch('mod_ci.controllers.queue_test')
+    @mock.patch('mod_ci.controllers.GitHub')
+    @mock.patch('mod_ci.controllers.GeneralData')
+    def test_webhook_push_valid(self, mock_gd, mock_github, mock_queue_test, mock_request):
+        """
+        Test webhook triggered with push event with valid data.
+        """
+        data = {'after': 'abcdefgh'}
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'push'))
+
+        mock_gd.query.filter.assert_called()
+        mock_github.assert_called_once()
+        mock_queue_test.assert_called_once()
+
+    @mock.patch('mod_ci.controllers.Test')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_pr_closed(self, mock_request, mock_test):
+        """
+        Test webhook triggered with pull_request event with closed action.
+        """
+        class MockTest:
+            def __init__(self):
+                self.id = 1
+
+        mock_test.query.filter.return_value.all.return_value = [MockTest()]
+
+        data = {'action': 'closed',
+                'pull_request': {'number': '1234'}}
+        # one of ip address from github webhook
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'pull_request'))
+
+        mock_test.query.filter.assert_called_once()
+
+    @mock.patch('mod_ci.controllers.BlockedUsers')
+    @mock.patch('mod_ci.controllers.GitHub')
+    @mock.patch('mod_ci.controllers.queue_test')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_pr_opened_blocked(self, mock_request, mock_queue_test, mock_github, mock_blocked):
+        """
+        Test webhook triggered with pull_request event with opened action for blocked user.
+        """
+        class MockTest:
+            def __init__(self):
+                self.id = 1
+
+        data = {'action': 'opened',
+                'pull_request': {'number': '1234', 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}}}
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'pull_request'))
+
+        self.assertEqual(response.data, b'ERROR')
+        mock_blocked.query.filter.assert_called_once()
+
+    @mock.patch('mod_ci.controllers.BlockedUsers')
+    @mock.patch('mod_ci.controllers.GitHub')
+    @mock.patch('mod_ci.controllers.queue_test')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_pr_opened(self, mock_request, mock_queue_test, mock_github, mock_blocked):
+        """
+        Test webhook triggered with pull_request event with opened action.
+        """
+        mock_blocked.query.filter.return_value.first.return_value = None
+
+        data = {'action': 'opened',
+                'pull_request': {'number': '1234', 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}}}
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'pull_request'))
+
+        self.assertEqual(response.data, b'{"msg": "EOL"}')
+        mock_blocked.query.filter.assert_called_once_with(mock_blocked.user_id == 'test')
+        mock_queue_test.assert_called_once()
+
+    @mock.patch('mod_ci.controllers.inform_mailing_list')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    @mock.patch('mod_ci.controllers.Issue')
+    def test_webhook_issue_opened(self, mock_issue, mock_requests, mock_mailing):
+        """
+        Test webhook triggered with issues event with opened action.
+        """
+        data = {'action': 'opened',
+                'issue': {'number': '1234', 'title': 'testTitle', 'body': 'testing', 'state': 'opened',
+                          'user': {'login': 'testAuthor'}}}
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'issues'))
+
+        self.assertEqual(response.data, b'{"msg": "EOL"}')
+        mock_issue.query.filter(mock_issue.issue_id == '1234')
+        mock_mailing.assert_called_once_with(mock.ANY, '1234', 'testTitle', 'testAuthor', 'testing')
+
+    @mock.patch('mod_ci.controllers.check_main_repo')
+    @mock.patch('mod_ci.controllers.shutil')
+    def test_update_build_badge(self, mock_shutil, mock_check_repo):
+        """
+        Test update_build_badge function.
+        """
+        from mod_ci.controllers import update_build_badge
+
+        update_build_badge('pass', MockTest())
+
+        mock_check_repo.assert_called_once_with(None)
+        mock_shutil.copyfile.assert_called_once_with(mock.ANY, mock.ANY)
+
+    def test_in_maintenance_mode_ValueError(self):
+        """
+        Test in_maintenance_mode function with invalid platform.
+        """
+        with self.app.test_client() as c:
+            response = c.post(
+                '/maintenance/invalid')
+
+        self.assertIsNotNone(response.data, b'ERROR')
+
+    def test_in_maintenance_mode_linux(self):
+        """
+        Test in_maintenance_mode function with linux platform.
+        """
+        with self.app.test_client() as c:
+            response = c.post(
+                '/maintenance/linux')
+
+        self.assertIsNotNone(response.data)
+
+    def test_in_maintenance_mode_windows(self):
+        """
+        Test in_maintenance_mode function with windows platform.
+        """
+        with self.app.test_client() as c:
+            response = c.post(
+                '/maintenance/windows')
+
+        self.assertIsNotNone(response.data)
+
+    @staticmethod
+    def generate_header(data, event):
+        """
+        Generate headers for various REST methods.
+
+        :param data: payload for the event
+        :type data: dict
+        :param event: the github event to be triggered
+        :type event: str
+        """
+        sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
+        headers = generate_git_api_header(event, sig)
+        return headers

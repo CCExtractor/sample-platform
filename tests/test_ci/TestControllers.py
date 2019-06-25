@@ -43,6 +43,7 @@ class MockTest:
         self.fork = MockFork()
         self.platform = MockPlatform(TestPlatform.linux)
 
+
 WSGI_ENVIRONMENT = {'REMOTE_ADDR': '192.30.252.0'}
 
 
@@ -569,11 +570,13 @@ class TestControllers(BaseTestCase):
         Check webhook fails when ping with wrong url
         """
         with self.app.test_client() as c:
+            # non github ip address
+            wsgi_environment = {'REMOTE_ADDR': '0.0.0.0'}
             data = {'action': 'published',
                     'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': '0.0.1'}}
             response = c.post(
-                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
-                data=json.dumps(data), headers=generate_header(data, 'ping'))
+                '/start-ci', environ_overrides=wsgi_environment,
+                data=json.dumps(data), headers=self.generate_header(data, 'ping'))
             self.assertNotEqual(response.status_code, 200)
 
     @mock.patch('requests.get', side_effect=mock_api_request_github)
@@ -586,7 +589,7 @@ class TestControllers(BaseTestCase):
                     'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': '0.0.1'}}
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
-                data=json.dumps(data), headers=generate_header(data, 'ping'))
+                data=json.dumps(data), headers=self.generate_header(data, 'ping'))
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.data, b'{"msg": "Hi!"}')
 
@@ -606,7 +609,7 @@ class TestControllers(BaseTestCase):
             g.db.commit()
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
-                data=json.dumps(data), headers=generate_header(data, 'release'))
+                data=json.dumps(data), headers=self.generate_header(data, 'release'))
             last_release = CCExtractorVersion.query.order_by(CCExtractorVersion.released.desc()).first()
             self.assertEqual(last_release.version, '2.1')
 
@@ -629,7 +632,7 @@ class TestControllers(BaseTestCase):
             g.db.commit()
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
-                data=json.dumps(data), headers=generate_header(data, 'release'))
+                data=json.dumps(data), headers=self.generate_header(data, 'release'))
             last_release = CCExtractorVersion.query.filter_by(version='2.1').first()
             self.assertEqual(last_release.released,
                              datetime.strptime('2018-06-30T20:18:44Z', '%Y-%m-%dT%H:%M:%SZ').date())
@@ -652,7 +655,7 @@ class TestControllers(BaseTestCase):
             g.db.commit()
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
-                data=json.dumps(data), headers=generate_header(data, 'release'))
+                data=json.dumps(data), headers=self.generate_header(data, 'release'))
             last_release = CCExtractorVersion.query.order_by(CCExtractorVersion.released.desc()).first()
             self.assertNotEqual(last_release.version, '2.1')
 
@@ -673,7 +676,7 @@ class TestControllers(BaseTestCase):
             g.db.commit()
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
-                data=json.dumps(data), headers=generate_header(data, 'ping'))
+                data=json.dumps(data), headers=self.generate_header(data, 'ping'))
             last_release = CCExtractorVersion.query.order_by(CCExtractorVersion.released.desc()).first()
             self.assertNotEqual(last_release.version, '2.1')
 
@@ -686,7 +689,7 @@ class TestControllers(BaseTestCase):
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
-                data=json.dumps(data), headers=generate_header(data, 'push'))
+                data=json.dumps(data), headers=self.generate_header(data, 'push'))
 
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     @mock.patch('mod_ci.controllers.queue_test')
@@ -700,7 +703,7 @@ class TestControllers(BaseTestCase):
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
-                data=json.dumps(data), headers=generate_header(data, 'push'))
+                data=json.dumps(data), headers=self.generate_header(data, 'push'))
 
         mock_gd.query.filter.assert_called()
         mock_github.assert_called_once()
@@ -724,7 +727,7 @@ class TestControllers(BaseTestCase):
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
-                data=json.dumps(data), headers=generate_header(data, 'pull_request'))
+                data=json.dumps(data), headers=self.generate_header(data, 'pull_request'))
 
         mock_test.query.filter.assert_called_once()
 
@@ -745,7 +748,7 @@ class TestControllers(BaseTestCase):
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
-                data=json.dumps(data), headers=generate_header(data, 'pull_request'))
+                data=json.dumps(data), headers=self.generate_header(data, 'pull_request'))
 
         self.assertEqual(response.data, b'ERROR')
         mock_blocked.query.filter.assert_called_once()
@@ -765,7 +768,7 @@ class TestControllers(BaseTestCase):
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
-                data=json.dumps(data), headers=generate_header(data, 'pull_request'))
+                data=json.dumps(data), headers=self.generate_header(data, 'pull_request'))
 
         self.assertEqual(response.data, b'{"msg": "EOL"}')
         mock_blocked.query.filter.assert_called_once_with(mock_blocked.user_id == 'test')
@@ -784,7 +787,7 @@ class TestControllers(BaseTestCase):
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
-                data=json.dumps(data), headers=generate_header(data, 'issues'))
+                data=json.dumps(data), headers=self.generate_header(data, 'issues'))
 
         self.assertEqual(response.data, b'{"msg": "EOL"}')
         mock_issue.query.filter(mock_issue.issue_id == '1234')
@@ -833,6 +836,7 @@ class TestControllers(BaseTestCase):
 
         self.assertIsNotNone(response.data)
 
+    @staticmethod
     def generate_header(data, event):
         """
         Generate headers for various REST methods.
@@ -843,5 +847,5 @@ class TestControllers(BaseTestCase):
         :type event: str
         """
         sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
-        headers = generate_git_api_header('issues', sig)
+        headers = generate_git_api_header(event, sig)
         return headers

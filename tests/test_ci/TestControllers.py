@@ -26,6 +26,22 @@ class MockPlatform:
 
     def __init__(self, platform):
         self.platform = platform
+        self.value = 'platform'
+
+
+class MockFork:
+
+    def __init__(self, *args, **kwargs):
+        self.github = None
+
+
+class MockTest:
+
+    def __init__(self):
+        self.id = 1
+        self.test_type = TestType.commit
+        self.fork = MockFork()
+        self.platform = MockPlatform(TestPlatform.linux)
 
 
 class TestControllers(BaseTestCase):
@@ -748,7 +764,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_pr_opened_blocked(self, mock_request, mock_queue_test, mock_github, mock_blocked):
         """
-        Test webhook triggered with pull_request event with opened action.
+        Test webhook triggered with pull_request event with opened action for blocked user.
         """
         class MockTest:
             def __init__(self):
@@ -776,9 +792,6 @@ class TestControllers(BaseTestCase):
         """
         Test webhook triggered with pull_request event with opened action.
         """
-        class MockTest:
-            def __init__(self):
-                self.id = 1
         mock_blocked.query.filter.return_value.first.return_value = None
 
         data = {'action': 'opened',
@@ -792,6 +805,72 @@ class TestControllers(BaseTestCase):
                 '/start-ci', environ_overrides=wsgi_environment,
                 data=json.dumps(data), headers=headers)
 
-        self.assertEqual(response.data, b'ERROR')
-        mock_blocked.query.filter.assert_called_once()
-        mock_queue_test.query.filter.assert_called_once()
+        self.assertEqual(response.data, b'{"msg": "EOL"}')
+        mock_blocked.query.filter.assert_called_once_with(mock_blocked.user_id == 'test')
+        mock_queue_test.assert_called_once()
+
+    @mock.patch('mod_ci.controllers.inform_mailing_list')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    @mock.patch('mod_ci.controllers.Issue')
+    def test_webhook_issue_opened(self, mock_issue, mock_requests, mock_mailing):
+        """
+        Test webhook triggered with issues event with opened action.
+        """
+        data = {'action': 'opened',
+                'issue': {'number': '1234', 'title': 'testTitle', 'body': 'testing', 'state': 'opened',
+                          'user': {'login': 'testAuthor'}}}
+        sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
+        headers = generate_git_api_header('issues', sig)
+        # one of ip address from github webhook
+        wsgi_environment = {'REMOTE_ADDR': '192.30.252.0'}
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=wsgi_environment,
+                data=json.dumps(data), headers=headers)
+
+        self.assertEqual(response.data, b'{"msg": "EOL"}')
+        mock_issue.query.filter(mock_issue.issue_id == '1234')
+        mock_mailing.assert_called_once_with(mock.ANY, '1234', 'testTitle', 'testAuthor', 'testing')
+
+    @mock.patch('mod_ci.controllers.check_main_repo')
+    @mock.patch('mod_ci.controllers.shutil')
+    def test_update_build_badge(self, mock_shutil, mock_check_repo):
+        """
+        Test update_build_badge function.
+        """
+        from mod_ci.controllers import update_build_badge
+
+        update_build_badge('pass', MockTest())
+
+        mock_check_repo.assert_called_once_with(None)
+        mock_shutil.copyfile.assert_called_once_with(mock.ANY, mock.ANY)
+
+    def test_in_maintenance_mode_ValueError(self):
+        """
+        Test in_maintenance_mode function with invalid platform.
+        """
+        with self.app.test_client() as c:
+            response = c.post(
+                '/maintenance/invalid')
+
+        self.assertIsNotNone(response.data, b'ERROR')
+
+    def test_in_maintenance_mode_linux(self):
+        """
+        Test in_maintenance_mode function with linux platform.
+        """
+        with self.app.test_client() as c:
+            response = c.post(
+                '/maintenance/linux')
+
+        self.assertIsNotNone(response.data)
+
+    def test_in_maintenance_mode_windows(self):
+        """
+        Test in_maintenance_mode function with windows platform.
+        """
+        with self.app.test_client() as c:
+            response = c.post(
+                '/maintenance/windows')
+
+        self.assertIsNotNone(response.data)

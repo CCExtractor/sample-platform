@@ -67,3 +67,31 @@ class TestControllers(BaseTestCase):
         response = self.app.test_client().get('/sample/1')
         self.assertEqual(response.status_code, 200)
         self.assert_template_used('sample/sample_info.html')
+
+    @mock.patch('mod_sample.controllers.os')
+    def test_serve_file_download(self, mock_os):
+        """
+        Test function serve_file_download.
+        """
+        from mod_sample.controllers import serve_file_download
+
+        response = serve_file_download('to_download')
+
+        self.assert200(response)
+        self.assertEqual(2, mock_os.path.join.call_count)
+        mock_os.path.getsize.assert_called_once_with(mock_os.path.join())
+
+    @mock.patch('mod_sample.controllers.serve_file_download')
+    @mock.patch('mod_sample.controllers.Sample')
+    def test_download_sample(self, mock_sample, mock_serve_download):
+        """
+        Test function download_sample.
+        """
+        from mod_sample.controllers import download_sample
+
+        with self.app.test_client() as client:
+            response = client.get('/sample/download/1')
+
+        self.assert200(response)
+        self.assertEqual(mock_serve_download(), response.data)
+        mock_sample.query.filter.assert_called_once_with(mock_sample.id == 1)

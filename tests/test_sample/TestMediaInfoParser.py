@@ -91,7 +91,8 @@ class TestMediaInfoFetcher(BaseTestCase):
         """
         Test _process_tracks method with key error in self.media_info
         """
-        MOCK_MediaInfoFetcher.reset_mock()
+        # set new mocks to eradicate interference with other usage
+        MOCK_MediaInfoFetcher = mock.MagicMock()
         MOCK_MediaInfoFetcher.media_info = {}
 
         with self.assertRaises(InvalidMediaInfoError):
@@ -101,7 +102,8 @@ class TestMediaInfoFetcher(BaseTestCase):
         """
         Test _process_tracks method with no track in media info file
         """
-        MOCK_MediaInfoFetcher.reset_mock()
+        # set new mocks to eradicate interference with other usage
+        MOCK_MediaInfoFetcher = mock.MagicMock()
         MOCK_MediaInfoFetcher.media_info = {'File': OrderedDict()}
 
         with self.assertRaises(InvalidMediaInfoError):
@@ -111,7 +113,8 @@ class TestMediaInfoFetcher(BaseTestCase):
         """
         Test _process_tracks method with valid information.
         """
-        MOCK_MediaInfoFetcher.reset_mock()
+        # set new mocks to eradicate interference with other usage
+        MOCK_MediaInfoFetcher = mock.MagicMock()
         MOCK_MediaInfoFetcher.media_info = {'File': OrderedDict([('track', ['track1'])])}
 
         MediaInfoFetcher._process_tracks(MOCK_MediaInfoFetcher)

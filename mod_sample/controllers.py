@@ -219,7 +219,6 @@ def download_sample(sample_id):
     sample = Sample.query.filter(Sample.id == sample_id).first()
     if sample is not None:
         return serve_file_download(sample.filename)
-
     raise SampleNotFoundException('Sample not found')
 
 

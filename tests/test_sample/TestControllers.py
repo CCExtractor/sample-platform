@@ -67,3 +67,143 @@ class TestControllers(BaseTestCase):
         response = self.app.test_client().get('/sample/1')
         self.assertEqual(response.status_code, 200)
         self.assert_template_used('sample/sample_info.html')
+
+    @mock.patch('mod_sample.controllers.os')
+    def test_serve_file_download(self, mock_os):
+        """
+        Test function serve_file_download.
+        """
+        from mod_sample.controllers import serve_file_download
+
+        response = serve_file_download('to_download')
+
+        self.assert200(response)
+        self.assertEqual(2, mock_os.path.join.call_count)
+        mock_os.path.getsize.assert_called_once_with(mock_os.path.join())
+
+    @mock.patch('mod_sample.controllers.serve_file_download')
+    @mock.patch('mod_sample.controllers.Sample')
+    def test_download_sample(self, mock_sample, mock_serve_download):
+        """
+        Test function download_sample.
+        """
+        from mod_sample.controllers import download_sample
+
+        response = download_sample(1)
+
+        self.assertEqual(response, mock_serve_download())
+        mock_sample.query.filter.assert_called_once_with(mock_sample.id == 1)
+
+    @mock.patch('mod_sample.controllers.serve_file_download')
+    @mock.patch('mod_sample.controllers.Sample')
+    def test_download_sample_raise_exception(self, mock_sample, mock_serve_download):
+        """
+        Test function download_sample to raise SampleNotFoundException.
+        """
+        from mod_sample.controllers import download_sample, SampleNotFoundException
+
+        mock_sample.query.filter.return_value.first.return_value = None
+
+        with self.assertRaises(SampleNotFoundException):
+            download_sample(1)
+
+        mock_sample.query.filter.assert_called_once_with(mock_sample.id == 1)
+        mock_serve_download.assert_not_called()
+
+    @mock.patch('mod_sample.controllers.serve_file_download')
+    @mock.patch('mod_sample.controllers.Sample')
+    @mock.patch('mod_sample.controllers.os')
+    def test_download_sample_media_info(self, mock_os, mock_sample, mock_serve_download):
+        """
+        Test function download_sample_media_info.
+        """
+        from mod_sample.controllers import download_sample_media_info
+
+        response = download_sample_media_info(1)
+
+        self.assertEqual(response, mock_serve_download())
+        mock_sample.query.filter.assert_called_once_with(mock_sample.id == 1)
+        mock_os.path.isfile.assert_called_once()
+
+    @mock.patch('mod_sample.controllers.serve_file_download')
+    @mock.patch('mod_sample.controllers.Sample')
+    @mock.patch('mod_sample.controllers.os')
+    def test_download_sample_media_info_path_wrong(self, mock_os, mock_sample, mock_serve_download):
+        """
+        Test function download_sample_media_info with wrong path for media info.
+        """
+        from mod_sample.controllers import download_sample_media_info, SampleNotFoundException
+
+        mock_os.path.isfile.return_value = False
+
+        with self.assertRaises(SampleNotFoundException):
+            download_sample_media_info(1)
+
+        mock_sample.query.filter.assert_called_once_with(mock_sample.id == 1)
+        mock_os.path.isfile.assert_called_once()
+
+    @mock.patch('mod_sample.controllers.serve_file_download')
+    @mock.patch('mod_sample.controllers.Sample')
+    @mock.patch('mod_sample.controllers.os')
+    def test_download_sample_media_info_sample_not_found(self, mock_os, mock_sample, mock_serve_download):
+        """
+        Test function download_sample_media_info to raise SampleNotFoundException.
+        """
+        from mod_sample.controllers import download_sample_media_info, SampleNotFoundException
+
+        mock_sample.query.filter.return_value.first.return_value = None
+
+        with self.assertRaises(SampleNotFoundException):
+            download_sample_media_info(1)
+
+        mock_sample.query.filter.assert_called_once_with(mock_sample.id == 1)
+        mock_os.path.isfile.assert_not_called()
+
+    @mock.patch('mod_sample.controllers.serve_file_download')
+    @mock.patch('mod_sample.controllers.Sample')
+    @mock.patch('mod_sample.controllers.ExtraFile')
+    def test_download_sample_additional(self, mock_extra, mock_sample, mock_serve_download):
+        """
+        Test function download_sample_additional.
+        """
+        from mod_sample.controllers import download_sample_additional
+
+        response = download_sample_additional(1, 1)
+
+        self.assertEqual(response, mock_serve_download())
+        mock_sample.query.filter.assert_called_once_with(mock_sample.id == 1)
+        mock_extra.query.filter.assert_called_once_with(mock_extra.id == 1)
+
+    @mock.patch('mod_sample.controllers.serve_file_download')
+    @mock.patch('mod_sample.controllers.Sample')
+    @mock.patch('mod_sample.controllers.ExtraFile')
+    def test_download_sample_additional_sample_not_found(self, mock_extra, mock_sample, mock_serve_download):
+        """
+        Test function download_sample_additional to raise SampleNotFoundException.
+        """
+        from mod_sample.controllers import download_sample_additional, SampleNotFoundException
+
+        mock_sample.query.filter.return_value.first.return_value = None
+
+        with self.assertRaises(SampleNotFoundException):
+            download_sample_additional(1, 1)
+
+        mock_sample.query.filter.assert_called_once_with(mock_sample.id == 1)
+        mock_extra.query.filter.assert_not_called()
+
+    @mock.patch('mod_sample.controllers.serve_file_download')
+    @mock.patch('mod_sample.controllers.Sample')
+    @mock.patch('mod_sample.controllers.ExtraFile')
+    def test_download_sample_additional_extrafile_not_found(self, mock_extra, mock_sample, mock_serve_download):
+        """
+        Test function download_sample_additional to raise SampleNotFoundException when extra file not found.
+        """
+        from mod_sample.controllers import download_sample_additional, SampleNotFoundException
+
+        mock_extra.query.filter.return_value.first.return_value = None
+
+        with self.assertRaises(SampleNotFoundException):
+            download_sample_additional(1, 1)
+
+        mock_sample.query.filter.assert_called_once_with(mock_sample.id == 1)
+        mock_extra.query.filter.assert_called_once_with(mock_extra.id == 1)

@@ -10,7 +10,7 @@ from mod_auth.controllers import (fetch_username_from_token,
                                   generate_hmac_hash, github_token_validity,
                                   send_reset_email)
 from mod_auth.models import Role, User
-from tests.base import BaseTestCase, signup_information, mock_decorator
+from tests.base import BaseTestCase, mock_decorator, signup_information
 
 
 # mock user to avoid interacting with database

@@ -1,3 +1,7 @@
+from unittest import mock
+
+from werkzeug.exceptions import Forbidden, NotFound
+
 from mod_auth.models import Role
 from mod_regression.models import RegressionTest
 from mod_test.models import (Test, TestPlatform, TestProgress, TestResult,
@@ -113,3 +117,147 @@ class TestControllers(BaseTestCase):
         response = self.app.test_client().get('/test/ccextractor/0.8494')
         self.assertEqual(response.status_code, 404)
         self.assert_template_used('test/test_not_found.html')
+
+    @mock.patch('mod_test.controllers.g')
+    @mock.patch('mod_test.controllers.GeneralData')
+    @mock.patch('mod_test.controllers.Category')
+    @mock.patch('mod_test.controllers.TestProgress')
+    def test_data_for_test(self, mock_test_progress, mock_category, mock_gen_data, mock_g):
+        """
+        Test get_data_for_test method.
+        """
+        from mod_test.controllers import get_data_for_test
+
+        mock_test = mock.MagicMock()
+
+        result = get_data_for_test(mock_test)
+
+        self.assertIsInstance(result, dict)
+        self.assertEqual(5, mock_g.db.query.call_count)
+        mock_category.query.filter.assert_called_once()
+        mock_gen_data.query.filter.assert_called_once()
+
+    @mock.patch('mod_test.controllers.Test')
+    def test_get_json_data_no_test(self, mock_test):
+        """
+        Try to get json data when Test not present.
+        """
+        from mod_test.controllers import get_json_data
+
+        mock_test.query.filter.return_value.first.return_value = None
+        expected = b'{"error":"Test not found","status":"failure"}\n'
+
+        result = get_json_data(1)
+
+        self.assertEqual(result.data, expected)
+        mock_test.query.filter.assert_called_once_with(mock_test.id == 1)
+
+    @mock.patch('mod_test.controllers.jsonify')
+    @mock.patch('mod_test.controllers.Test')
+    def test_get_json_data(self, mock_test, mock_jsonify):
+        """
+        Try to get json data.
+        """
+        from mod_test.controllers import get_json_data
+
+        result = get_json_data(1)
+
+        mock_test.query.filter.assert_called_once_with(mock_test.id == 1)
+        mock_jsonify.assert_called_once()
+
+    @mock.patch('mod_test.controllers.TestResultFile')
+    def test_generate_diff_abort_403(self, mock_test_result_file):
+        """
+        Try to generate diff without xhr request
+        """
+        from mod_test.controllers import generate_diff
+
+        with self.assertRaises(Forbidden):
+            generate_diff(1, 1, 1)
+
+    @mock.patch('mod_test.controllers.TestResultFile')
+    @mock.patch('mod_test.controllers.request')
+    def test_generate_diff_abort_404(self, mock_request, mock_test_result_file):
+        """
+        Try to generate diff when test file not present.
+        """
+        from mod_test.controllers import generate_diff
+
+        mock_request.is_xhr = True
+        mock_test_result_file.query.filter.return_value.first.return_value = None
+
+        with self.assertRaises(NotFound):
+            generate_diff(1, 1, 1)
+
+    @mock.patch('mod_test.controllers.TestResultFile')
+    @mock.patch('mod_test.controllers.request')
+    def test_generate_diff(self, mock_request, mock_test_result_file):
+        """
+        Test to generate diff.
+        """
+        from mod_test.controllers import generate_diff
+
+        mock_request.is_xhr = True
+
+        response = generate_diff(1, 1, 1)
+
+        self.assertTrue(response, mock_test_result_file.filter().first().generate_html_diff())
+        mock_test_result_file.filter.assert_called_once()
+
+    @mock.patch('mod_test.controllers.os')
+    def test_serve_file_download(self, mock_os):
+        """
+        Test function serve_file_download.
+        """
+        from mod_test.controllers import serve_file_download
+
+        response = serve_file_download('to_download')
+
+        self.assert200(response)
+        self.assertEqual(2, mock_os.path.join.call_count)
+        mock_os.path.getsize.assert_called_once_with(mock_os.path.join())
+
+    @mock.patch('mod_test.controllers.Test')
+    def test_download_build_log_file_test_not_found(self, mock_test):
+        """
+        Try to download build log for invalid test.
+        """
+        from mod_test.controllers import download_build_log_file, TestNotFoundException
+
+        mock_test.query.filter.return_value.first.return_value = None
+
+        with self.assertRaises(TestNotFoundException):
+            download_build_log_file(1)
+
+        mock_test.query.filter.assert_called_once()
+
+    @mock.patch('mod_test.controllers.os')
+    @mock.patch('mod_test.controllers.Test')
+    def test_download_build_log_file_log_not_file(self, mock_test, mock_os):
+        """
+        Try to download build log for invalid file path.
+        """
+        from mod_test.controllers import download_build_log_file, TestNotFoundException
+
+        mock_os.path.isfile.side_effect = TestNotFoundException('msg')
+
+        with self.assertRaises(TestNotFoundException):
+            download_build_log_file('1')
+
+        mock_test.query.filter.assert_called_once()
+        mock_os.path.isfile.assert_called_once()
+
+    @mock.patch('mod_test.controllers.os')
+    @mock.patch('mod_test.controllers.Test')
+    @mock.patch('mod_test.controllers.serve_file_download')
+    def test_download_build_log_file(self, mock_serve, mock_test, mock_os):
+        """
+        Try to download build log.
+        """
+        from mod_test.controllers import download_build_log_file, TestNotFoundException
+
+        response = download_build_log_file('1')
+
+        self.assertEqual(response, mock_serve())
+        mock_test.query.filter.assert_called_once()
+        mock_os.path.isfile.assert_called_once()

@@ -16,11 +16,15 @@ from mod_auth.forms import (AccountForm, CompleteResetForm, CompleteSignupForm,
                             RoleChangeForm, SignupForm)
 from mod_auth.models import Role, User
 
+from database import EnumSymbol
+from mod_auth.forms import CompleteSignupForm, LoginForm, SignupForm
+from typing import Callable, Dict, List, Union, Optional
+from werkzeug.wrappers.response import Response
 mod_auth = Blueprint('auth', __name__)
 
 
 @mod_auth.before_app_request
-def before_app_request():
+def before_app_request() -> None:
     """Run before the request to app is made."""
     user_id = session.get('user_id', 0)
     g.user = User.query.filter(User.id == user_id).first()
@@ -41,7 +45,7 @@ def before_app_request():
     )
 
 
-def login_required(f):
+def login_required(f: Callable) -> Callable:
     """Decorate the function to redirect to the login page if a user is not logged in."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -53,7 +57,7 @@ def login_required(f):
     return decorated_function
 
 
-def check_access_rights(roles=None, parent_route=None):
+def check_access_rights(roles: Optional[List[EnumSymbol]] = None, parent_route: None = None) -> Callable:
     """
     Decorate the function to check if a user can access the page.
 
@@ -109,7 +113,7 @@ def send_reset_email(usr):
         flash('Could not send an email. Please get in touch', 'error-message')
 
 
-def github_token_validity(token):
+def github_token_validity(token: str):
     """
     Check token validity by calling Github V3 APIs.
 
@@ -210,7 +214,7 @@ def github_callback():
 
 @mod_auth.route('/login', methods=['GET', 'POST'])
 @template_renderer()
-def login():
+def login() -> Dict[str, Union[str, LoginForm]]:
     """Route for handling the login page."""
     form = LoginForm(request.form)
     # fetching redirect_location from the request
@@ -310,7 +314,7 @@ def complete_reset(uid, expires, mac):
 
 @mod_auth.route('/signup', methods=['GET', 'POST'])
 @template_renderer()
-def signup():
+def signup() -> Dict[str, SignupForm]:
     """Route for handling the signup page."""
     from run import app
     form = SignupForm(request.form)
@@ -351,7 +355,7 @@ def signup():
 @mod_auth.route('/complete_signup/<email>/<int:expires>/<mac>',
                 methods=['GET', 'POST'])
 @template_renderer()
-def complete_signup(email, expires, mac):
+def complete_signup(email: str, expires: int, mac: str) -> Union[Response, Dict[str, Union[CompleteSignupForm, str, int]]]:
     """
     Complete user signup.
 
@@ -407,7 +411,7 @@ def complete_signup(email, expires, mac):
     return redirect(url_for('.signup'))
 
 
-def generate_hmac_hash(key, data):
+def generate_hmac_hash(key: str, data: str) -> str:
     """
     Accept key and data in any format and encodes it into bytes.
 

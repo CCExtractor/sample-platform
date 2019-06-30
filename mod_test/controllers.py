@@ -32,7 +32,7 @@ class TestNotFoundException(Exception):
 
 
 @mod_test.before_app_request
-def before_app_request():
+def before_app_request() -> None:
     """Curate menu items before app request."""
     g.menu_entries['tests'] = {
         'title': 'Test results',

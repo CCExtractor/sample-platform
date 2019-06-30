@@ -21,7 +21,7 @@ mod_customized = Blueprint('custom', __name__)
 
 
 @mod_customized.before_app_request
-def before_app_request():
+def before_app_request() -> None:
     """Run before app request to ready menu items."""
     if g.user is not None:
         g.menu_entries['custom'] = {

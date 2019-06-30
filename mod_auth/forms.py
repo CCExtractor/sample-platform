@@ -1,5 +1,5 @@
 """contains all the forms related to authentication and account functionality."""
-
+from __future__ import annotations
 from flask_wtf import FlaskForm
 from wtforms import PasswordField, SelectField, StringField, SubmitField
 from wtforms.fields.html5 import EmailField
@@ -8,6 +8,8 @@ from wtforms.validators import DataRequired, Email, ValidationError
 from mod_auth.models import Role, User
 
 
+from typing import Callable, Optional
+from wtforms.fields.simple import PasswordField
 def unique_username(form, field):
     """
     Check if a user already exists with this name.
@@ -22,7 +24,7 @@ def unique_username(form, field):
         raise ValidationError('There is already a user with this name')
 
 
-def valid_password(form, field):
+def valid_password(form: CompleteSignupForm, field: PasswordField) -> None:
     """
     Check for validity of a password.
 
@@ -44,7 +46,7 @@ def valid_password(form, field):
         )
 
 
-def email_not_in_use(has_user_field=False):
+def email_not_in_use(has_user_field: bool = False) -> Callable:
     """
     Check if the passed email is already in use.
 
@@ -105,7 +107,7 @@ class CompleteSignupForm(FlaskForm):
     submit = SubmitField('Register')
 
     @staticmethod
-    def validate_password_repeat(form, field):
+    def validate_password_repeat(form: CompleteSignupForm, field: PasswordField) -> None:
         """
         Validate if the repeated password is the same as 'password'.
 

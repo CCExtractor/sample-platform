@@ -38,7 +38,7 @@ class QueuedSampleNotFoundException(Exception):
 
 
 @mod_upload.before_app_request
-def before_app_request():
+def before_app_request() -> None:
     """Curate menu items before request."""
     g.menu_entries['upload'] = {
         'title': 'Upload',

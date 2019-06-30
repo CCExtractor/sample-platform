@@ -53,7 +53,7 @@ class Status:
 
 
 @mod_ci.before_app_request
-def before_app_request():
+def before_app_request() -> None:
     """Organize menu content such as Platform management before request."""
     config_entries = get_menu_entries(
         g.user, 'Platform mgmt', 'cog', [], '', [

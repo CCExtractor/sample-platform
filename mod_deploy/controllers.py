@@ -12,10 +12,11 @@ import requests
 from flask import Blueprint, abort, g, request
 from git import InvalidGitRepositoryError, Repo
 
+from typing import Callable
 mod_deploy = Blueprint('deploy', __name__)
 
 
-def request_from_github(abort_code=418):
+def request_from_github(abort_code: int = 418) -> Callable:
     """Provide decorator to handle request from github on the webhook."""
     def decorator(f):
         """Decorate the function to check if a request is a GitHub hook request."""

@@ -1,20 +1,21 @@
 import html
 import re
 
-index = dict()  # type: dict # for optimization
+from typing import List, Optional, Tuple, Union
+index: dict = dict()  # for optimization
 
 
-def zip_(ls):
+def zip_(ls: List[str]) -> str:
     return ''.join(ls)
 
 
 # compress words and digits to one list
-def compress(s):
+def compress(s: str) -> List[str]:
     return re.split(r'(\W)', s)
 
 
 # equality factor
-def eq(a, b, same_regions=None, delta_a=0, delta_b=0):
+def eq(a: List[str], b: List[str], same_regions: Optional[List[List[int]]] = None, delta_a: int = 0, delta_b: int = 0) -> Union[List[int], List[Union[int, List[str]]]]:
     if index.get(zip_(a), dict()).get(zip_(b), None) is None:
         e = 0
         rez = []
@@ -69,7 +70,7 @@ def eq(a, b, same_regions=None, delta_a=0, delta_b=0):
 
 
 # processing one line
-def _process(test_result, correct, suffix_id):
+def _process(test_result: str, correct: str, suffix_id: str) -> Tuple[str, str]:
     test_result = html.escape(test_result)
     correct = html.escape(correct)
     tr_compr = compress(test_result)
@@ -122,7 +123,7 @@ def _process(test_result, correct, suffix_id):
 
 
 # return generated difference in HTML formatted table
-def get_html_diff(test_correct_lines, test_res_lines):
+def get_html_diff(test_correct_lines: List[str], test_res_lines: List[str]) -> str:
     html = """
     <table>
         <tr>

@@ -65,7 +65,7 @@ class User(Base):
         return '<User {name}>'.format(name=self.name)
 
     @staticmethod
-    def generate_hash(password):
+    def generate_hash(password: str) -> str:
         """
         Generate a Hash value for a password.
 

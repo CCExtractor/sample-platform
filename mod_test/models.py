@@ -234,7 +234,7 @@ class Test(Base):
         return result
 
     @staticmethod
-    def create_token(length=64):
+    def create_token(length: int = 64) -> str:
         """
         Create a random token for a given length (default: 64).
 

@@ -20,11 +20,11 @@ from mod_sample.models import ExtraFile, ForbiddenExtension, Issue, Sample
 from mod_test.models import Test, TestResult, TestResultFile
 from mod_upload.models import Platform
 
+
 mod_sample = Blueprint('sample', __name__)
 
-
 @mod_sample.before_app_request
-def before_app_request():
+def before_app_request() -> None:
     """Curate menu items before app request."""
     g.menu_entries['samples'] = {
         'title': 'Sample info',

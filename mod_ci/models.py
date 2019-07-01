@@ -16,6 +16,10 @@ from sqlalchemy.orm import relationship
 
 from database import Base
 from mod_test.models import Test, TestPlatform
+import mod_test.models
+from typing import Any
+from typing import Dict
+from typing import Type
 
 
 class BlockedUsers(Base):
@@ -27,11 +31,11 @@ class BlockedUsers(Base):
     user_id = Column(Integer, primary_key=True)
     comment = Column(Text())
 
-    def __init__(self, user_id, comment):
+    def __init__(self, user_id, comment) -> None:
         self.user_id = user_id
         self.comment = comment
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Represent  blocked users with id and comment."""
         return "<BlockedUsers(user_id='{id}', comment='{comment}')>".format(
             id=self.user_id, comment=self.comment)
@@ -47,7 +51,7 @@ class Kvm(Base):
     test = relationship('Test', uselist=False)
     timestamp = Column(DateTime(), nullable=False)
 
-    def __init__(self, name, test_id, timestamp=None):
+    def __init__(self, name, test_id, timestamp=None) -> None:
         """
         Parametrized constructor for the Kvm model.
 
@@ -65,7 +69,7 @@ class Kvm(Base):
             timestamp = datetime.datetime.now()
         self.timestamp = timestamp
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Represent a Kvm Model by its 'test_id' Field.
 
@@ -85,7 +89,7 @@ class MaintenanceMode(Base):
     platform = Column(TestPlatform.db_type(), nullable=False)
     disabled = Column(Boolean, nullable=False, default=False)
 
-    def __init__(self, platform, mode):
+    def __init__(self, platform, mode) -> None:
         """
         Parametrized constructor for the MaintenanceMode model.
 
@@ -98,7 +102,7 @@ class MaintenanceMode(Base):
         self.platform = platform
         self.disabled = mode
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Represent a MaintenanceMode Model by its platform and status Field.
 

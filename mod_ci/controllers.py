@@ -36,6 +36,23 @@ from mod_regression.models import (Category, RegressionTest,
 from mod_sample.models import Issue
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
                              TestResult, TestResultFile, TestStatus, TestType)
+import mailer
+import mod_auth.models
+import mod_ci.forms
+import mod_ci.models
+import mod_customized.models
+import mod_home.models
+import mod_regression.models
+import mod_sample.models
+import mod_test.models
+import multiprocessing
+import pymysql.err
+from typing import Any
+from typing import Callable
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Type
 
 if sys.platform.startswith("linux"):
     import libvirt
@@ -67,7 +84,7 @@ def before_app_request() -> None:
         g.menu_entries['config'] = config_entries
 
 
-def start_platform(db, repository, delay=None):
+def start_platform(db, repository, delay=None) -> None:
     """
     Check whether there is already running test.
 
@@ -92,7 +109,7 @@ def start_platform(db, repository, delay=None):
         )
 
 
-def start_new_test(db, repository, delay):
+def start_new_test(db, repository, delay) -> None:
     """Start a new test based on kvm table."""
     from run import log
 
@@ -113,7 +130,7 @@ def start_new_test(db, repository, delay):
     return
 
 
-def kvm_processor_linux(db, repository, delay):
+def kvm_processor_linux(db, repository, delay) -> None:
     """
     Get Kernel-based Linux Virtual Machine.
 
@@ -131,7 +148,7 @@ def kvm_processor_linux(db, repository, delay):
     return kvm_processor(db, kvm_name, TestPlatform.linux, repository, delay)
 
 
-def kvm_processor_windows(db, repository, delay):
+def kvm_processor_windows(db, repository, delay) -> None:
     """
     Get Kernel-based Windows Virtual Machine.
 
@@ -149,7 +166,7 @@ def kvm_processor_windows(db, repository, delay):
     return kvm_processor(db, kvm_name, TestPlatform.windows, repository, delay)
 
 
-def kvm_processor(db, kvm_name, platform, repository, delay):
+def kvm_processor(db, kvm_name, platform, repository, delay) -> None:
     """
     Check whether there is no already running same kvm.
 
@@ -477,7 +494,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     conn.close()
 
 
-def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
+def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0) -> None:
     """
     Store test details into Test model for each platform, and post the status to GitHub.
 
@@ -532,7 +549,7 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     log.debug("Created tests, waiting for cron...")
 
 
-def inform_mailing_list(mailer, id, title, author, body):
+def inform_mailing_list(mailer, id, title, author, body) -> None:
     """
     Send mail to subscribed users when a issue is opened via the Webhook.
 
@@ -557,7 +574,7 @@ def inform_mailing_list(mailer, id, title, author, body):
     })
 
 
-def get_html_issue_body(title, author, body, issue_number, url):
+def get_html_issue_body(title, author, body, issue_number, url) -> Any:
     """
     Curate a HTML formatted body for the issue mail.
 
@@ -765,7 +782,7 @@ def start_ci():
         return json.dumps({'msg': 'EOL'})
 
 
-def update_build_badge(status, test):
+def update_build_badge(status, test) -> None:
     """
     Build status badge for current test to be displayed on sample-platform.
 
@@ -1046,7 +1063,7 @@ def progress_reporter(test_id, token):
     return "FAIL"
 
 
-def comment_pr(test_id, state, pr_nr, platform):
+def comment_pr(test_id, state, pr_nr, platform) -> None:
     """
     Upload the test report to the github PR as comment.
 
@@ -1281,7 +1298,7 @@ def in_maintenance_mode(platform):
     return str(status.disabled)
 
 
-def check_main_repo(repo_url):
+def check_main_repo(repo_url) -> bool:
     """
     Check whether the repo_url links to the main repository or not.
 
@@ -1296,7 +1313,7 @@ def check_main_repo(repo_url):
     return '{user}/{repo}'.format(user=gh_config['repository_owner'], repo=gh_config['repository']) in repo_url
 
 
-def add_customized_regression_tests(test_id):
+def add_customized_regression_tests(test_id) -> None:
     """
     Run custom regression tests.
 

@@ -24,10 +24,10 @@ from mod_regression.models import (Category, RegressionTest,
 from mod_test.controllers import TestNotFoundException, get_data_for_test
 from mod_test.models import Fork, Test, TestPlatform, TestType
 
-mod_customized = Blueprint('custom', __name__)
+mod_customized = Blueprint('custom', __name__)  # type: ignore
 
 
-@mod_customized.before_app_request
+@mod_customized.before_app_request  # type: ignore
 def before_app_request() -> None:
     """Run before app request to ready menu items."""
     if g.user is not None:
@@ -39,7 +39,7 @@ def before_app_request() -> None:
         }
 
 
-@mod_customized.route('/', methods=['GET', 'POST'])
+@mod_customized.route('/', methods=['GET', 'POST'])  # type: ignore
 @login_required
 @check_access_rights([Role.tester, Role.contributor, Role.admin])
 @template_renderer()

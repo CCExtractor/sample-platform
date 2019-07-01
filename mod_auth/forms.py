@@ -1,7 +1,7 @@
 """contains all the forms related to authentication and account functionality."""
-from __future__ import annotations
+import __future__
 
-from typing import Callable, Optional
+from typing import Any, Callable, Optional, Type
 
 from flask_wtf import FlaskForm
 from wtforms import PasswordField, SelectField, StringField, SubmitField
@@ -9,11 +9,8 @@ from wtforms.fields.html5 import EmailField
 from wtforms.fields.simple import PasswordField
 from wtforms.validators import DataRequired, Email, ValidationError
 
-from mod_auth.models import Role, User
-import __future__
 import mod_auth.models
-from typing import Any
-from typing import Type
+from mod_auth.models import Role, User
 
 
 def unique_username(form, field) -> None:

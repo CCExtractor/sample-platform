@@ -13,7 +13,7 @@ List of models corresponding to mysql tables:
 import datetime
 import os
 import string
-from typing import Any, Dict, List, Tuple, Type
+from typing import Any, Dict, List, Tuple, Type, Union
 
 import pytz
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, orm
@@ -209,7 +209,7 @@ class Test(Base):
         :return: progress, stages, start and end time of Test Model
         :rtype: dict
         """
-        result = {
+        result: Dict[str, Union[Dict[str, Union[str, int]], List[Tuple[str, str]], str]] = {
             'progress': {
                 'state': 'error',
                 'step': -1
@@ -228,11 +228,11 @@ class Test(Base):
 
             if last_status.status == TestStatus.canceled:
                 if len(self.progress) > 1:
-                    result['progress']['step'] = TestStatus.progress_step(self.progress[-2].status)
+                    result['progress']['step'] = TestStatus.progress_step(self.progress[-2].status)  # type: ignore
 
             else:
-                result['progress']['state'] = 'ok'
-                result['progress']['step'] = TestStatus.progress_step(last_status.status)
+                result['progress']['state'] = 'ok'  # type: ignore
+                result['progress']['step'] = TestStatus.progress_step(last_status.status)   # type: ignore
 
         return result
 
@@ -299,7 +299,7 @@ class TestProgress(Base):
             timestamp = timestamp.astimezone(pytz.UTC)
 
         if timestamp.tzinfo is None:
-            timestamp = pytz.utc.localize(timestamp, is_dst=None)
+            timestamp = pytz.utc.localize(timestamp, is_dst=False)
 
         self.timestamp = timestamp
         self.message = message

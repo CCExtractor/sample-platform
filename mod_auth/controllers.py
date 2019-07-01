@@ -23,10 +23,10 @@ from mod_auth.forms import (AccountForm, CompleteResetForm, CompleteSignupForm,
                             RoleChangeForm, SignupForm)
 from mod_auth.models import Role, User
 
-mod_auth = Blueprint('auth', __name__)
+mod_auth = Blueprint('auth', __name__)  # type: ignore
 
 
-@mod_auth.before_app_request
+@mod_auth.before_app_request    # type: ignore
 def before_app_request() -> None:
     """Run before the request to app is made."""
     user_id = session.get('user_id', 0)
@@ -44,7 +44,8 @@ def before_app_request() -> None:
         }
     g.menu_entries['config'] = get_menu_entries(
         g.user, 'Platform mgmt', 'cog',
-        all_entries=[{'title': 'User manager', 'icon': 'users', 'route': 'auth.users', 'access': [Role.admin]}]
+        all_entries=[{'title': 'User manager', 'icon': 'users',
+                      'route': 'auth.users', 'access': [Role.admin]}]  # type: ignore
     )
 
 
@@ -60,7 +61,7 @@ def login_required(f: Callable) -> Callable:
     return decorated_function
 
 
-def check_access_rights(roles: List[Tuple[str, str]]=None, parent_route: None = None) -> Callable:
+def check_access_rights(roles: List[Tuple[str, str]] = None, parent_route: None = None) -> Callable:
     """
     Decorate the function to check if a user can access the page.
 
@@ -136,7 +137,7 @@ def github_token_validity(token: str):
     return response.status_code == 200
 
 
-@mod_auth.route('/github_redirect', methods=['GET', 'POST'])
+@mod_auth.route('/github_redirect', methods=['GET', 'POST'])    # type: ignore
 def github_redirect():
     """
     Create redirect URL if no github token found.
@@ -181,7 +182,7 @@ def fetch_username_from_token() -> Any:
         return None
 
 
-@mod_auth.route('/github_callback', methods=['GET', 'POST'])
+@mod_auth.route('/github_callback', methods=['GET', 'POST'])    # type: ignore
 @template_renderer()
 def github_callback():
     """Access the token and store it in database to for further functionalities."""
@@ -215,9 +216,9 @@ def github_callback():
     return '', 404
 
 
-@mod_auth.route('/login', methods=['GET', 'POST'])
+@mod_auth.route('/login', methods=['GET', 'POST'])      # type: ignore
 @template_renderer()
-def login() -> Dict[str, Union[str, LoginForm]]:
+def login() -> Union[Response, Dict[str, Union[str, LoginForm]]]:
     """Route for handling the login page."""
     form = LoginForm(request.form)
     # fetching redirect_location from the request
@@ -240,7 +241,7 @@ def login() -> Dict[str, Union[str, LoginForm]]:
     }
 
 
-@mod_auth.route('/reset', methods=['GET', 'POST'])
+@mod_auth.route('/reset', methods=['GET', 'POST'])  # type: ignore
 @template_renderer()
 def reset():
     """
@@ -262,7 +263,7 @@ def reset():
     }
 
 
-@mod_auth.route('/reset/<int:uid>/<int:expires>/<mac>', methods=['GET', 'POST'])
+@mod_auth.route('/reset/<int:uid>/<int:expires>/<mac>', methods=['GET', 'POST'])    # type: ignore
 @template_renderer()
 def complete_reset(uid, expires, mac):
     """
@@ -315,7 +316,7 @@ def complete_reset(uid, expires, mac):
     return redirect(url_for('.reset'))
 
 
-@mod_auth.route('/signup', methods=['GET', 'POST'])
+@mod_auth.route('/signup', methods=['GET', 'POST'])  # type: ignore
 @template_renderer()
 def signup() -> Dict[str, SignupForm]:
     """Route for handling the signup page."""
@@ -355,10 +356,11 @@ def signup() -> Dict[str, SignupForm]:
     }
 
 
-@mod_auth.route('/complete_signup/<email>/<int:expires>/<mac>',
+@mod_auth.route('/complete_signup/<email>/<int:expires>/<mac>',     # type: ignore
                 methods=['GET', 'POST'])
 @template_renderer()
-def complete_signup(email: str, expires: int, mac: str) -> Union[Response, Dict[str, Union[CompleteSignupForm, str, int]]]:
+def complete_signup(email: str, expires: int,
+                    mac: str) -> Union[Response, Dict[str, Union[CompleteSignupForm, str, int]]]:
     """
     Complete user signup.
 
@@ -430,7 +432,7 @@ def generate_hmac_hash(key: str, data: str) -> str:
     return hmac.new(encoded_key, encoded_data, hashlib.sha256).hexdigest()
 
 
-@mod_auth.route('/logout')
+@mod_auth.route('/logout')  # type: ignore
 @template_renderer()
 def logout():
     """
@@ -443,7 +445,7 @@ def logout():
     return redirect(url_for('.login'))
 
 
-@mod_auth.route('/manage', methods=['GET', 'POST'])
+@mod_auth.route('/manage', methods=['GET', 'POST'])     # type: ignore
 @login_required
 @template_renderer()
 def manage():
@@ -489,7 +491,7 @@ def manage():
     }
 
 
-@mod_auth.route('/users')
+@mod_auth.route('/users')   # type: ignore
 @login_required
 @check_access_rights([Role.admin])
 @template_renderer()
@@ -505,7 +507,7 @@ def users():
     }
 
 
-@mod_auth.route('/user/<int:uid>')
+@mod_auth.route('/user/<int:uid>')  # type: ignore
 @login_required
 @template_renderer()
 def user(uid):
@@ -533,7 +535,7 @@ def user(uid):
         abort(403, request.endpoint)
 
 
-@mod_auth.route('/reset_user/<int:uid>')
+@mod_auth.route('/reset_user/<int:uid>')    # type: ignore
 @login_required
 @check_access_rights([Role.admin])
 @template_renderer()
@@ -560,7 +562,7 @@ def reset_user(uid):
         abort(403, request.endpoint)
 
 
-@mod_auth.route('/role/<int:uid>', methods=['GET', 'POST'])
+@mod_auth.route('/role/<int:uid>', methods=['GET', 'POST'])     # type: ignore
 @login_required
 @check_access_rights([Role.admin])
 @template_renderer()
@@ -590,7 +592,7 @@ def role(uid):
     abort(404)
 
 
-@mod_auth.route('/deactivate/<int:uid>', methods=['GET', 'POST'])
+@mod_auth.route('/deactivate/<int:uid>', methods=['GET', 'POST'])   # type: ignore
 @login_required
 @template_renderer()
 def deactivate(uid):

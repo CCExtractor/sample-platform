@@ -1,6 +1,6 @@
 import html
 import re
-from typing import List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 index: dict = dict()  # for optimization
 
@@ -15,10 +15,11 @@ def compress(s: str) -> List[str]:
 
 
 # equality factor
-def eq(a: List[str], b: List[str], same_regions: Optional[List[List[int]]] = None, delta_a: int = 0, delta_b: int = 0) -> Union[List[int], List[Union[int, List[str]]]]:
+def eq(a: List[str], b: List[str], same_regions: Optional[List[List[int]]] = None,
+       delta_a: int = 0, delta_b: int = 0) -> Union[List[int], List[Union[int, List[str]]]]:
     if index.get(zip_(a), dict()).get(zip_(b), None) is None:
         e = 0
-        rez = []
+        rez = []    # type: Union[int, Any, List[str]]
         best_len, a_iter, b_iter = -1, -1, -1
         find = False
         for l in range(min(len(a), len(b)), 0, -1):
@@ -41,12 +42,12 @@ def eq(a: List[str], b: List[str], same_regions: Optional[List[List[int]]] = Non
                     sub_b_end = b[j + l:]
                     _e2 = eq(sub_a_end, sub_b_end)[0]
 
-                    if _e1 + _e2 + l > e:
-                        e = _e1 + _e2 + l
+                    if _e1 + _e2 + l > e:   # type: ignore
+                        e = _e1 + _e2 + l   # type: ignore
                         best_len = l
                         a_iter = i
                         b_iter = j
-                        rez = (eq(sub_a_beg, sub_b_beg)[1] + a[i: i + l] + eq(sub_a_end, sub_b_end)[1])
+                        rez = (eq(sub_a_beg, sub_b_beg)[1] + a[i: i + l] + eq(sub_a_end, sub_b_end)[1])  # type: ignore
 
         index[zip_(a)] = index.get(zip_(a), dict())
         index[zip_(a)][zip_(b)] = [e, rez, a_iter, b_iter, best_len]
@@ -75,10 +76,10 @@ def _process(test_result: str, correct: str, suffix_id: str) -> Tuple[str, str]:
     correct = html.escape(correct)
     tr_compr = compress(test_result)
     cr_compr = compress(correct)
-    regions = []
+    regions = []    # type: List[List[int]]
     eq(tr_compr, cr_compr, same_regions=regions)
 
-    events_test = []
+    events_test = []    # type: List[List[object]]
     events_correct = []
 
     for reg_id in range(len(regions)):
@@ -95,7 +96,7 @@ def _process(test_result: str, correct: str, suffix_id: str) -> Tuple[str, str]:
     html_test = ''
     idx = 0
     for event in events_test:
-        while idx < event[0]:
+        while idx < event[0]:   # type: ignore
             html_test += tr_compr[idx]
             idx += 1
         if event[1] == 'OPEN':
@@ -109,7 +110,7 @@ def _process(test_result: str, correct: str, suffix_id: str) -> Tuple[str, str]:
     html_correct = ''
     idx = 0
     for event in events_correct:
-        while idx < event[0]:
+        while idx < event[0]:   # type: ignore
             html_correct += cr_compr[idx]
             idx += 1
         if event[1] == 'OPEN':

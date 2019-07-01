@@ -5,7 +5,7 @@ import os
 import subprocess
 import sys
 from collections import OrderedDict
-from typing import Any, Dict, List, Type
+from typing import Any, Dict, List, Optional, Type
 
 import xmltodict
 from lxml import etree
@@ -34,18 +34,18 @@ class MediaInfoFetcher:
                     raise InvalidMediaInfoError('No Mediainfo root element present')
                 if 'Mediainfo' in doc:
                     self.media_info = doc['Mediainfo']
-                    self.video_tracks = []
-                    self.caption_tracks = []
-                    self.audio_tracks = []
-                    self.other_tracks = []
-                    self.general_track = {}
+                    self.video_tracks = []      # type: List
+                    self.caption_tracks = []    # type: List
+                    self.audio_tracks = []      # type: List
+                    self.other_tracks = []      # type: List
+                    self.general_track = {}     # type: Dict
                     self.parsed = False
                 else:
                     raise InvalidMediaInfoError('No Mediainfo root element present')
         else:
             raise InvalidMediaInfoError('File {path} not found'.format(path=media_info_path))
 
-    def get_media_info(self, force_parse=False) -> List[Dict[str, Any]]:
+    def get_media_info(self, force_parse=False) -> Optional[List[Dict[str, Any]]]:
         """Get media info from the sample file."""
         result = [{
             'name': 'Media info version',

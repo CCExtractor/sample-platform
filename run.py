@@ -241,15 +241,15 @@ def teardown(exception: Optional[Exception]):
 
 
 # Register blueprints
-app.register_blueprint(mod_auth, url_prefix='/account')  # Needs to be first
-app.register_blueprint(mod_upload, url_prefix='/upload')
+app.register_blueprint(mod_auth, url_prefix='/account')  # type: ignore # Needs to be first
+app.register_blueprint(mod_upload, url_prefix='/upload')  # type: ignore
 app.register_blueprint(mod_regression, url_prefix='/regression')
-app.register_blueprint(mod_sample, url_prefix='/sample')
+app.register_blueprint(mod_sample, url_prefix='/sample')  # type: ignore
 app.register_blueprint(mod_home)
 app.register_blueprint(mod_deploy)
-app.register_blueprint(mod_test, url_prefix="/test")
-app.register_blueprint(mod_ci)
-app.register_blueprint(mod_customized, url_prefix='/custom')
+app.register_blueprint(mod_test, url_prefix="/test")  # type: ignore
+app.register_blueprint(mod_ci)  # type: ignore
+app.register_blueprint(mod_customized, url_prefix='/custom')  # type: ignore
 
 if __name__ == '__main__':
     # Run in development mode; Werkzeug server

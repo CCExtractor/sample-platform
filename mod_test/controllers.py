@@ -27,7 +27,7 @@ from mod_regression.models import (Category, RegressionTestOutput,
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
                              TestResult, TestResultFile, TestStatus, TestType)
 
-mod_test = Blueprint('test', __name__)
+mod_test = Blueprint('test', __name__)  # type: ignore
 
 
 class TestNotFoundException(Exception):
@@ -38,7 +38,7 @@ class TestNotFoundException(Exception):
         self.message = message
 
 
-@mod_test.before_app_request
+@mod_test.before_app_request    # type: ignore
 def before_app_request() -> None:
     """Curate menu items before app request."""
     g.menu_entries['tests'] = {
@@ -48,7 +48,7 @@ def before_app_request() -> None:
     }
 
 
-@mod_test.errorhandler(TestNotFoundException)
+@mod_test.errorhandler(TestNotFoundException)  # type: ignore
 @template_renderer('test/test_not_found.html', 404)
 def not_found(error):
     """Show error page when page not found."""
@@ -57,7 +57,7 @@ def not_found(error):
     }
 
 
-@mod_test.route('/')
+@mod_test.route('/')  # type: ignore
 @template_renderer()
 def index():
     """Show index page for tests."""
@@ -86,8 +86,8 @@ def get_data_for_test(test, title=None) -> Dict[str, Any]:
 
     populated_categories = g.db.query(regressionTestLinkTable.c.category_id).subquery()
     categories = Category.query.filter(Category.id.in_(populated_categories)).order_by(Category.name.asc()).all()
-    hours = 0
-    minutes = 0
+    hours = 0.00
+    minutes = 0.00
     queued_tests = 0
 
     """
@@ -110,7 +110,7 @@ def get_data_for_test(test, title=None) -> Dict[str, Any]:
         ).count()
         average_duration = float(GeneralData.query.filter(GeneralData.key == var_average).first().value)
         queued_tests = number_kvm_test
-        time_run = 0
+        time_run = 0.00
         for pr_test in kvm_test:
             timestamps = pr_test.time.split(',')
             start = datetime.strptime(timestamps[0], '%Y-%m-%d %H:%M:%S')
@@ -178,7 +178,7 @@ def get_data_for_test(test, title=None) -> Dict[str, Any]:
     }
 
 
-@mod_test.route('/get_json_data/<test_id>')
+@mod_test.route('/get_json_data/<test_id>')  # type: ignore
 def get_json_data(test_id):
     """
     Retrieve the status of a test id and returns it in JSON format.
@@ -209,7 +209,7 @@ def get_json_data(test_id):
     })
 
 
-@mod_test.route('/<test_id>')
+@mod_test.route('/<test_id>')  # type: ignore
 @template_renderer()
 def by_id(test_id):
     """
@@ -228,7 +228,7 @@ def by_id(test_id):
     return get_data_for_test(test)
 
 
-@mod_test.route('/ccextractor/<ccx_version>')
+@mod_test.route('/ccextractor/<ccx_version>')  # type: ignore
 @template_renderer('test/by_id.html')
 def ccextractor_version(ccx_version):
     """
@@ -258,7 +258,7 @@ def ccextractor_version(ccx_version):
     raise TestNotFoundException('There is no CCExtractor version known as {version}'.format(version=ccx_version))
 
 
-@mod_test.route('/commit/<commit_hash>')
+@mod_test.route('/commit/<commit_hash>')  # type: ignore
 @template_renderer('test/by_id.html')
 def by_commit(commit_hash):
     """
@@ -280,7 +280,7 @@ def by_commit(commit_hash):
     return get_data_for_test(test, 'commit {commit}'.format(commit=commit_hash))
 
 
-@mod_test.route('/master/<platform>')
+@mod_test.route('/master/<platform>')  # type: ignore
 @template_renderer('test/by_id.html')
 def latest_commit_info(platform):
     """
@@ -306,7 +306,7 @@ def latest_commit_info(platform):
     return get_data_for_test(test, 'master {commit}'.format(commit=commit_hash))
 
 
-@mod_test.route('/diff/<test_id>/<regression_test_id>/<output_id>')
+@mod_test.route('/diff/<test_id>/<regression_test_id>/<output_id>')  # type: ignore
 def generate_diff(test_id, regression_test_id, output_id):
     """
     Generate diff for output and expected result.
@@ -363,7 +363,7 @@ def serve_file_download(file_name, content_type='application/octet-stream') -> A
     return response
 
 
-@mod_test.route('/log-files/<test_id>')
+@mod_test.route('/log-files/<test_id>')  # type: ignore
 def download_build_log_file(test_id):
     """
     Serve download of build log.
@@ -390,7 +390,7 @@ def download_build_log_file(test_id):
     raise TestNotFoundException('Test with id {id} not found'.format(id=test_id))
 
 
-@mod_test.route('/restart_test/<test_id>', methods=['GET', 'POST'])
+@mod_test.route('/restart_test/<test_id>', methods=['GET', 'POST'])  # type: ignore
 @login_required
 @check_access_rights([Role.admin, Role.tester, Role.contributor])
 @template_renderer()
@@ -412,7 +412,7 @@ def restart_test(test_id):
     return redirect(url_for('.by_id', test_id=test.id))
 
 
-@mod_test.route('/stop_test/<test_id>', methods=['GET', 'POST'])
+@mod_test.route('/stop_test/<test_id>', methods=['GET', 'POST'])  # type: ignore
 @login_required
 @check_access_rights([Role.admin, Role.tester, Role.contributor])
 @template_renderer()

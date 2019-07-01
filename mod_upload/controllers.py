@@ -32,7 +32,7 @@ from mod_upload.forms import (DeleteQueuedSampleForm, FinishQueuedSampleForm,
 
 from .models import FTPCredentials, Platform, QueuedSample, Upload, UploadLog
 
-mod_upload = Blueprint('upload', __name__)
+mod_upload = Blueprint('upload', __name__)  # type: ignore
 
 
 class QueuedSampleNotFoundException(Exception):
@@ -43,7 +43,7 @@ class QueuedSampleNotFoundException(Exception):
         self.message = message
 
 
-@mod_upload.before_app_request
+@mod_upload.before_app_request  # type: ignore
 def before_app_request() -> None:
     """Curate menu items before request."""
     g.menu_entries['upload'] = {
@@ -54,7 +54,7 @@ def before_app_request() -> None:
     config_entries = get_menu_entries(
         g.user, 'Platform mgmt', 'cog', all_entries=[
             {'title': 'Upload manager', 'icon': 'upload', 'route':
-                'upload.index_admin', 'access': [Role.admin]}
+                'upload.index_admin', 'access': [Role.admin]}   # type: ignore
         ]
     )
     if 'config' in g.menu_entries and 'entries' in config_entries:
@@ -63,7 +63,7 @@ def before_app_request() -> None:
         g.menu_entries['config'] = config_entries
 
 
-@mod_upload.errorhandler(QueuedSampleNotFoundException)
+@mod_upload.errorhandler(QueuedSampleNotFoundException)     # type: ignore
 @template_renderer('upload/queued_sample_not_found.html', 404)
 def not_found(error):
     """Display not found template."""
@@ -72,7 +72,7 @@ def not_found(error):
     }
 
 
-@mod_upload.route('/')
+@mod_upload.route('/')  # type: ignore
 @login_required
 @template_renderer()
 def index():
@@ -83,7 +83,7 @@ def index():
     }
 
 
-@mod_upload.route('/manage')
+@mod_upload.route('/manage')    # type: ignore
 @login_required
 @check_access_rights([Role.admin])
 @template_renderer()
@@ -122,7 +122,7 @@ def make_github_issue(title, body=None, labels=None) -> Any:
              'body': body,
              'labels': labels}
     # Add the issue to our repository
-    r = session.post(url, json.dumps(issue))
+    r = session.post(url, json.dumps(issue))    # type: ignore
 
     if r.status_code == 201:
         return r.json()
@@ -130,7 +130,7 @@ def make_github_issue(title, body=None, labels=None) -> Any:
     return 'ERROR'
 
 
-@mod_upload.route('/ftp')
+@mod_upload.route('/ftp')   # type: ignore
 @login_required
 @template_renderer()
 def ftp_index():
@@ -152,7 +152,7 @@ def ftp_index():
     }
 
 
-@mod_upload.route('/ftp/filezilla')
+@mod_upload.route('/ftp/filezilla')  # type: ignore
 @login_required
 def ftp_filezilla():
     """Root for filezilla ftp connection."""
@@ -182,7 +182,7 @@ def ftp_filezilla():
     return response
 
 
-@mod_upload.route('/new', methods=['GET', 'POST'])
+@mod_upload.route('/new', methods=['GET', 'POST'])  # type: ignore
 @login_required
 @template_renderer()
 def upload():
@@ -213,7 +213,7 @@ def upload():
     }
 
 
-@mod_upload.route('/<upload_id>', methods=['GET', 'POST'])
+@mod_upload.route('/<upload_id>', methods=['GET', 'POST'])  # type: ignore
 @login_required
 @template_renderer()
 def process_id(upload_id):
@@ -326,7 +326,7 @@ def process_id(upload_id):
     raise QueuedSampleNotFoundException()
 
 
-@mod_upload.route('/link/<upload_id>')
+@mod_upload.route('/link/<upload_id>')  # type: ignore
 @login_required
 @template_renderer()
 def link_id(upload_id):
@@ -354,7 +354,7 @@ def link_id(upload_id):
     raise QueuedSampleNotFoundException()
 
 
-@mod_upload.route('/link/<upload_id>/<sample_id>')
+@mod_upload.route('/link/<upload_id>/<sample_id>')  # type: ignore
 @login_required
 def link_id_confirm(upload_id, sample_id):
     """
@@ -379,7 +379,7 @@ def link_id_confirm(upload_id, sample_id):
     raise QueuedSampleNotFoundException()
 
 
-@mod_upload.route('/delete/<upload_id>', methods=['GET', 'POST'])
+@mod_upload.route('/delete/<upload_id>', methods=['GET', 'POST'])   # type: ignore
 @login_required
 @template_renderer()
 def delete_id(upload_id):

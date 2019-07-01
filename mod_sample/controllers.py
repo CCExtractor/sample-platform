@@ -29,9 +29,10 @@ from mod_sample.models import ExtraFile, ForbiddenExtension, Issue, Sample
 from mod_test.models import Test, TestResult, TestResultFile
 from mod_upload.models import Platform
 
-mod_sample = Blueprint('sample', __name__)
+mod_sample = Blueprint('sample', __name__)  # type: ignore
 
-@mod_sample.before_app_request
+
+@mod_sample.before_app_request  # type: ignore
 def before_app_request() -> None:
     """Curate menu items before app request."""
     g.menu_entries['samples'] = {
@@ -131,7 +132,7 @@ def display_sample_info(sample) -> Dict[str, Any]:
     }
 
 
-@mod_sample.errorhandler(SampleNotFoundException)
+@mod_sample.errorhandler(SampleNotFoundException)  # type: ignore
 @template_renderer('sample/sample_not_found.html', 404)
 def not_found(error):
     """Display sample not found page."""
@@ -140,7 +141,7 @@ def not_found(error):
     }
 
 
-@mod_sample.route('/')
+@mod_sample.route('/')  # type: ignore
 @template_renderer()
 def index():
     """Fetch all samples and display sample's index page."""
@@ -149,7 +150,7 @@ def index():
     }
 
 
-@mod_sample.route('/<regex("[0-9]+"):sample_id>')
+@mod_sample.route('/<regex("[0-9]+"):sample_id>')  # type: ignore
 @template_renderer('sample/sample_info.html')
 def sample_by_id(sample_id):
     """
@@ -168,7 +169,7 @@ def sample_by_id(sample_id):
     raise SampleNotFoundException('Sample with id {id} not found.'.format(id=sample_id))
 
 
-@mod_sample.route('/<regex("[A-Za-z0-9]+"):sample_hash>')
+@mod_sample.route('/<regex("[A-Za-z0-9]+"):sample_hash>')  # type: ignore
 @template_renderer('sample/sample_info.html')
 def sample_by_hash(sample_hash):
     """
@@ -213,7 +214,7 @@ def serve_file_download(file_name, sub_folder='', content_type='application/octe
     return response
 
 
-@mod_sample.route('/download/<sample_id>')
+@mod_sample.route('/download/<sample_id>')  # type: ignore
 def download_sample(sample_id):
     """
     Download sample file.
@@ -230,7 +231,7 @@ def download_sample(sample_id):
     raise SampleNotFoundException('Sample not found')
 
 
-@mod_sample.route('/download/<sample_id>/media-info')
+@mod_sample.route('/download/<sample_id>/media-info')  # type: ignore
 def download_sample_media_info(sample_id):
     """
     Download sample file's media information as XML.
@@ -256,7 +257,7 @@ def download_sample_media_info(sample_id):
     raise SampleNotFoundException('Sample with id {id} not found'.format(id=sample_id))
 
 
-@mod_sample.route('/download/<sample_id>/additional/<additional_id>')
+@mod_sample.route('/download/<sample_id>/additional/<additional_id>')  # type: ignore
 def download_sample_additional(sample_id, additional_id):
     """
     Download sample file's additional files and information.
@@ -281,7 +282,7 @@ def download_sample_additional(sample_id, additional_id):
     raise SampleNotFoundException('Sample with id {id} not found'.format(id=sample_id))
 
 
-@mod_sample.route('/edit/<sample_id>', methods=['GET', 'POST'])
+@mod_sample.route('/edit/<sample_id>', methods=['GET', 'POST'])  # type: ignore
 @login_required
 @check_access_rights([Role.admin])
 @template_renderer()
@@ -328,7 +329,7 @@ def edit_sample(sample_id):
     raise SampleNotFoundException('Sample with id {id} not found'.format(id=sample_id))
 
 
-@mod_sample.route('/delete/<sample_id>', methods=['GET', 'POST'])
+@mod_sample.route('/delete/<sample_id>', methods=['GET', 'POST'])  # type: ignore
 @login_required
 @check_access_rights([Role.admin])
 @template_renderer()
@@ -366,7 +367,7 @@ def delete_sample(sample_id):
     raise SampleNotFoundException('Sample with id {id} not found'.format(id=sample_id))
 
 
-@mod_sample.route('/delete/<sample_id>/additional/<additional_id>', methods=['GET', 'POST'])
+@mod_sample.route('/delete/<sample_id>/additional/<additional_id>', methods=['GET', 'POST'])  # type: ignore
 @login_required
 @check_access_rights([Role.admin])
 @template_renderer()

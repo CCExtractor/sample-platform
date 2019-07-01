@@ -1,7 +1,7 @@
 import html
 import re
-
 from typing import List, Optional, Tuple, Union
+
 index: dict = dict()  # for optimization
 
 

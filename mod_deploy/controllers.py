@@ -7,12 +7,12 @@ from functools import wraps
 from ipaddress import ip_address, ip_network
 from os import path
 from shutil import copyfile
+from typing import Callable
 
 import requests
 from flask import Blueprint, abort, g, request
 from git import InvalidGitRepositoryError, Repo
 
-from typing import Callable
 mod_deploy = Blueprint('deploy', __name__)
 
 

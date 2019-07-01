@@ -1,15 +1,17 @@
 """contains all the forms related to authentication and account functionality."""
 from __future__ import annotations
+
+from typing import Callable, Optional
+
 from flask_wtf import FlaskForm
 from wtforms import PasswordField, SelectField, StringField, SubmitField
 from wtforms.fields.html5 import EmailField
+from wtforms.fields.simple import PasswordField
 from wtforms.validators import DataRequired, Email, ValidationError
 
 from mod_auth.models import Role, User
 
 
-from typing import Callable, Optional
-from wtforms.fields.simple import PasswordField
 def unique_username(form, field):
     """
     Check if a user already exists with this name.

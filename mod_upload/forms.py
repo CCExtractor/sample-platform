@@ -2,20 +2,19 @@
 
 import mimetypes
 import os
+from typing import Any, Type
 
 import magic
 from flask_wtf import FlaskForm
 from wtforms import FileField, SelectField, SubmitField, TextAreaField
 from wtforms.validators import DataRequired, ValidationError
 
-from mod_home.models import CCExtractorVersion
-from mod_sample.models import ForbiddenExtension, ForbiddenMimeType
-from mod_upload.models import Platform
 import mod_home.models
 import mod_sample.models
 import mod_upload.models
-from typing import Any
-from typing import Type
+from mod_home.models import CCExtractorVersion
+from mod_sample.models import ForbiddenExtension, ForbiddenMimeType
+from mod_upload.models import Platform
 
 
 class UploadForm(FlaskForm):

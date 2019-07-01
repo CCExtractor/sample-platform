@@ -2,6 +2,7 @@
 
 import os
 from datetime import datetime
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 from flask import (Blueprint, abort, g, jsonify, make_response, redirect,
                    request, url_for)
@@ -9,6 +10,12 @@ from github import GitHub
 from sqlalchemy import and_, func
 from sqlalchemy.sql import label
 
+import mod_auth.models
+import mod_ci.models
+import mod_customized.models
+import mod_home.models
+import mod_regression.models
+import mod_test.models
 from decorators import template_renderer
 from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role
@@ -19,19 +26,6 @@ from mod_regression.models import (Category, RegressionTestOutput,
                                    regressionTestLinkTable)
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
                              TestResult, TestResultFile, TestStatus, TestType)
-import mod_auth.models
-import mod_ci.models
-import mod_customized.models
-import mod_home.models
-import mod_regression.models
-import mod_test.models
-from typing import Any
-from typing import Callable
-from typing import Dict
-from typing import List
-from typing import Optional
-from typing import Tuple
-from typing import Type
 
 mod_test = Blueprint('test', __name__)
 

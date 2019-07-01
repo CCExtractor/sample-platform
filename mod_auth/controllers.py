@@ -4,7 +4,8 @@ import hashlib
 import hmac
 import time
 from functools import wraps
-from typing import Callable, Dict, List, Optional, Union, Tuple
+from typing import (Any, Callable, Dict, List, Optional, Sequence, Tuple, Type,
+                    Union)
 
 import requests
 from flask import (Blueprint, abort, flash, g, redirect, request, session,
@@ -12,18 +13,15 @@ from flask import (Blueprint, abort, flash, g, redirect, request, session,
 from pyisemail import is_email
 from werkzeug.wrappers.response import Response
 
+import database
+import mod_auth.forms
+import mod_auth.models
 from database import EnumSymbol
 from decorators import get_menu_entries, template_renderer
 from mod_auth.forms import (AccountForm, CompleteResetForm, CompleteSignupForm,
                             DeactivationForm, LoginForm, ResetForm,
                             RoleChangeForm, SignupForm)
 from mod_auth.models import Role, User
-import database
-import mod_auth.forms
-import mod_auth.models
-from typing import Any
-from typing import Sequence
-from typing import Type
 
 mod_auth = Blueprint('auth', __name__)
 

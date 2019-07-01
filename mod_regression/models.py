@@ -9,16 +9,14 @@ List of models corresponding to mysql tables:
     ]
 """
 
+from typing import Any, Dict, Tuple, Type
+
 from sqlalchemy import (Boolean, Column, ForeignKey, Integer, String, Table,
                         Text)
 from sqlalchemy.orm import relationship
 
-from database import Base, DeclEnum
 import database
-from typing import Any
-from typing import Dict
-from typing import Tuple
-from typing import Type
+from database import Base, DeclEnum
 
 regressionTestLinkTable = Table(
     'regression_test_category',

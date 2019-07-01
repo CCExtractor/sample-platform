@@ -7,6 +7,7 @@ import mimetypes
 import os
 import shutil
 import traceback
+from typing import Any, Callable, List, Optional, Tuple, Type
 
 import magic
 import requests
@@ -15,6 +16,11 @@ from flask import (Blueprint, flash, g, make_response, redirect,
 from git import GitCommandError, InvalidGitRepositoryError, Repo
 from werkzeug.utils import secure_filename
 
+import mod_auth.models
+import mod_home.models
+import mod_sample.models
+import mod_upload.forms
+import mod_upload.models
 from decorators import get_menu_entries, template_renderer
 from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role, User
@@ -25,17 +31,6 @@ from mod_upload.forms import (DeleteQueuedSampleForm, FinishQueuedSampleForm,
                               UploadForm)
 
 from .models import FTPCredentials, Platform, QueuedSample, Upload, UploadLog
-import mod_auth.models
-import mod_home.models
-import mod_sample.models
-import mod_upload.forms
-import mod_upload.models
-from typing import Any
-from typing import Callable
-from typing import List
-from typing import Optional
-from typing import Tuple
-from typing import Type
 
 mod_upload = Blueprint('upload', __name__)
 

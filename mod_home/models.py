@@ -10,14 +10,12 @@ List of models corresponding to mysql tables:
     ]
 """
 from datetime import datetime
+from typing import Any, Dict, Type
 
 from sqlalchemy import Column, Date, Integer, String, Text
 
-from database import Base, DeclEnum
 import database
-from typing import Any
-from typing import Dict
-from typing import Type
+from database import Base, DeclEnum
 
 
 class CCExtractorVersion(Base):

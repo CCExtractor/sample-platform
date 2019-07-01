@@ -1,17 +1,14 @@
 """Contains classes and methods to parse media info from samples."""
 
+import collections
 import os
 import subprocess
 import sys
 from collections import OrderedDict
+from typing import Any, Dict, List, Type
 
 import xmltodict
 from lxml import etree
-import collections
-from typing import Any
-from typing import Dict
-from typing import List
-from typing import Type
 
 
 class InvalidMediaInfoError(Exception):

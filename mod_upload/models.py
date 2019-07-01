@@ -11,16 +11,13 @@ List of models corresponding to mysql tables:
 """
 
 import string
+from typing import Any, Dict, Tuple, Type
 
 from sqlalchemy import Column, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
-from database import Base, DeclEnum
 import database
-from typing import Any
-from typing import Dict
-from typing import Tuple
-from typing import Type
+from database import Base, DeclEnum
 
 
 class Platform(DeclEnum):

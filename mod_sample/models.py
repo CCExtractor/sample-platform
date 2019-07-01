@@ -1,15 +1,13 @@
 """Maintain database models regarding various sample, ExtraFile, ForbiddenExtension, ForbiddenMimeType, Issue."""
 
 from datetime import datetime
+from typing import Any, Dict, Type
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
-from database import Base, DeclEnum
 import database
-from typing import Any
-from typing import Dict
-from typing import Type
+from database import Base, DeclEnum
 
 
 class Sample(Base):

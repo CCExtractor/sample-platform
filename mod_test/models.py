@@ -13,22 +13,18 @@ List of models corresponding to mysql tables:
 import datetime
 import os
 import string
+from typing import Any, Dict, List, Tuple, Type
 
 import pytz
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, orm
 from sqlalchemy.orm import relationship
 from tzlocal import get_localzone
 
+import database
+import mod_regression.models
 from database import Base, DeclEnum
 from mod_regression.models import RegressionTest
 from mod_test.nicediff import diff
-import database
-import mod_regression.models
-from typing import Any
-from typing import Dict
-from typing import List
-from typing import Tuple
-from typing import Type
 
 
 class TestPlatform(DeclEnum):

@@ -3,10 +3,19 @@
 import json
 import os
 from operator import and_
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 import requests
 from flask import Blueprint, g, make_response, redirect, request, url_for
 
+import mod_auth.models
+import mod_home.models
+import mod_regression.models
+import mod_sample.forms
+import mod_sample.media_info_parser
+import mod_sample.models
+import mod_test.models
+import mod_upload.models
 from decorators import template_renderer
 from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role
@@ -19,21 +28,6 @@ from mod_sample.media_info_parser import (InvalidMediaInfoError,
 from mod_sample.models import ExtraFile, ForbiddenExtension, Issue, Sample
 from mod_test.models import Test, TestResult, TestResultFile
 from mod_upload.models import Platform
-import mod_auth.models
-import mod_home.models
-import mod_regression.models
-import mod_sample.forms
-import mod_sample.media_info_parser
-import mod_sample.models
-import mod_test.models
-import mod_upload.models
-from typing import Any
-from typing import Callable
-from typing import Dict
-from typing import List
-from typing import Optional
-from typing import Tuple
-from typing import Type
 
 mod_sample = Blueprint('sample', __name__)
 

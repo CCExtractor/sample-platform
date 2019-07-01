@@ -9,17 +9,15 @@ List of models corresponding to mysql tables:
 """
 
 import datetime
+from typing import Any, Dict, Type
 
 from sqlalchemy import (Boolean, Column, DateTime, ForeignKey, Integer, String,
                         Text)
 from sqlalchemy.orm import relationship
 
+import mod_test.models
 from database import Base
 from mod_test.models import Test, TestPlatform
-import mod_test.models
-from typing import Any
-from typing import Dict
-from typing import Type
 
 
 class BlockedUsers(Base):

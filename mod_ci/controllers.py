@@ -3,11 +3,14 @@
 import datetime
 import hashlib
 import json
+import multiprocessing
 import os
 import shutil
 import sys
 from multiprocessing import Process
+from typing import Any, Callable, List, Optional, Tuple, Type
 
+import pymysql.err
 import requests
 from flask import (Blueprint, abort, flash, g, jsonify, redirect, request,
                    url_for)
@@ -21,6 +24,15 @@ from sqlalchemy.sql import label
 from sqlalchemy.sql.functions import count
 from werkzeug.utils import secure_filename
 
+import mailer
+import mod_auth.models
+import mod_ci.forms
+import mod_ci.models
+import mod_customized.models
+import mod_home.models
+import mod_regression.models
+import mod_sample.models
+import mod_test.models
 from decorators import get_menu_entries, template_renderer
 from mailer import Mailer
 from mod_auth.controllers import check_access_rights, login_required
@@ -36,23 +48,6 @@ from mod_regression.models import (Category, RegressionTest,
 from mod_sample.models import Issue
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
                              TestResult, TestResultFile, TestStatus, TestType)
-import mailer
-import mod_auth.models
-import mod_ci.forms
-import mod_ci.models
-import mod_customized.models
-import mod_home.models
-import mod_regression.models
-import mod_sample.models
-import mod_test.models
-import multiprocessing
-import pymysql.err
-from typing import Any
-from typing import Callable
-from typing import List
-from typing import Optional
-from typing import Tuple
-from typing import Type
 
 if sys.platform.startswith("linux"):
     import libvirt

@@ -1,5 +1,5 @@
 """contains all the forms related to authentication and account functionality."""
-import __future__
+from __future__ import annotations
 
 from typing import Any, Callable, Optional, Type
 

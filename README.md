@@ -163,7 +163,8 @@ git diff /path/to/new.py/file                                              # man
 pycodestyle ./ --config=./.pycodestylerc                                   # to check for PEP8 violations
 ```
 
-NOTE: Manual inspection is very important.
+NOTE: Manual inspection is very important. If then you feel that a mypy error is inappropriate or overkill, append
+`# type: ignore` at the end of the line.
 
 Only once the above procedure is finished for all new files, one should commit the changes.
 

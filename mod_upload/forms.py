@@ -11,6 +11,11 @@ from wtforms.validators import DataRequired, ValidationError
 from mod_home.models import CCExtractorVersion
 from mod_sample.models import ForbiddenExtension, ForbiddenMimeType
 from mod_upload.models import Platform
+import mod_home.models
+import mod_sample.models
+import mod_upload.models
+from typing import Any
+from typing import Type
 
 
 class UploadForm(FlaskForm):
@@ -22,7 +27,7 @@ class UploadForm(FlaskForm):
     submit = SubmitField('Upload file')
 
     @staticmethod
-    def validate_file(form, field):
+    def validate_file(form, field) -> None:
         """
         Validate sample being uploaded.
 
@@ -77,7 +82,7 @@ class CommonSampleForm(FlaskForm):
     IssueBody = TextAreaField('Issue Content', [DataRequired(message='Content is not filled in')])
 
     @staticmethod
-    def validate_version(form, field):
+    def validate_version(form, field) -> None:
         """
         Validate CCExtractor version.
 

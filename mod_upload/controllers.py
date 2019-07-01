@@ -25,6 +25,17 @@ from mod_upload.forms import (DeleteQueuedSampleForm, FinishQueuedSampleForm,
                               UploadForm)
 
 from .models import FTPCredentials, Platform, QueuedSample, Upload, UploadLog
+import mod_auth.models
+import mod_home.models
+import mod_sample.models
+import mod_upload.forms
+import mod_upload.models
+from typing import Any
+from typing import Callable
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Type
 
 mod_upload = Blueprint('upload', __name__)
 
@@ -32,7 +43,7 @@ mod_upload = Blueprint('upload', __name__)
 class QueuedSampleNotFoundException(Exception):
     """Custom exception handler for queued sample not found."""
 
-    def __init__(self, message):
+    def __init__(self, message) -> None:
         Exception.__init__(self)
         self.message = message
 
@@ -89,7 +100,7 @@ def index_admin():
     }
 
 
-def make_github_issue(title, body=None, labels=None):
+def make_github_issue(title, body=None, labels=None) -> Any:
     """
     Create an issue on github.com using the given parameters.
 
@@ -411,7 +422,7 @@ def delete_id(upload_id):
     raise QueuedSampleNotFoundException()
 
 
-def create_hash_for_sample(file_path):
+def create_hash_for_sample(file_path) -> str:
     """
     Create the hash for given file.
 
@@ -428,7 +439,7 @@ def create_hash_for_sample(file_path):
     return hash_sha256.hexdigest()
 
 
-def sample_already_uploaded(file_hash):
+def sample_already_uploaded(file_hash) -> bool:
     """
     Check if a given file hash is already present in the database.
 
@@ -443,7 +454,7 @@ def sample_already_uploaded(file_hash):
     return sample is not None or queued_sample is not None
 
 
-def add_sample_to_queue(file_hash, temp_path, user_id, db):
+def add_sample_to_queue(file_hash, temp_path, user_id, db) -> None:
     """
     Add a sample to the queue.
 
@@ -474,7 +485,7 @@ def add_sample_to_queue(file_hash, temp_path, user_id, db):
     db.commit()
 
 
-def upload_ftp(db, path):
+def upload_ftp(db, path) -> None:
     """
     Make a FTP upload.
 

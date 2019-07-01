@@ -10,6 +10,11 @@ from passlib.apps import custom_app_context as pwd_context
 from sqlalchemy import Column, Integer, String, Text
 
 from database import Base, DeclEnum
+import database
+from typing import Any
+from typing import Dict
+from typing import Tuple
+from typing import Type
 
 
 class Role(DeclEnum):
@@ -33,7 +38,7 @@ class User(Base):
     password = Column(String(255), unique=False, nullable=False)
     role = Column(Role.db_type())
 
-    def __init__(self, name, role=Role.user, email=None, password='', github_token=None):
+    def __init__(self, name, role=Role.user, email=None, password='', github_token=None) -> None:
         """
         Parametrized constructor for the User model.
 
@@ -54,7 +59,7 @@ class User(Base):
         self.role = role
         self.github_token = github_token
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Represent a User Model by its 'name' Field.
 
@@ -78,7 +83,7 @@ class User(Base):
         return pwd_context.encrypt(password, category='admin')
 
     @staticmethod
-    def create_random_password(length=16):
+    def create_random_password(length=16) -> str:
         """
         Create a random password of default length 16.
 
@@ -92,7 +97,7 @@ class User(Base):
         import os
         return ''.join(chars[ord(os.urandom(1)) % len(chars)] for i in range(length))
 
-    def is_password_valid(self, password):
+    def is_password_valid(self, password) -> Any:
         """
         Check the validity of the password.
 
@@ -103,7 +108,7 @@ class User(Base):
         """
         return pwd_context.verify(password, self.password)
 
-    def update_password(self, new_password):
+    def update_password(self, new_password) -> None:
         """
         Update the password to a new one.
 
@@ -122,7 +127,7 @@ class User(Base):
         """
         return self.role == Role.admin
 
-    def has_role(self, name):
+    def has_role(self, name) -> Any:
         """
         Check whether the User has a particular role.
 

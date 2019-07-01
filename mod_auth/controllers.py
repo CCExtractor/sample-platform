@@ -4,7 +4,7 @@ import hashlib
 import hmac
 import time
 from functools import wraps
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Union, Tuple
 
 import requests
 from flask import (Blueprint, abort, flash, g, redirect, request, session,
@@ -18,6 +18,12 @@ from mod_auth.forms import (AccountForm, CompleteResetForm, CompleteSignupForm,
                             DeactivationForm, LoginForm, ResetForm,
                             RoleChangeForm, SignupForm)
 from mod_auth.models import Role, User
+import database
+import mod_auth.forms
+import mod_auth.models
+from typing import Any
+from typing import Sequence
+from typing import Type
 
 mod_auth = Blueprint('auth', __name__)
 
@@ -56,7 +62,7 @@ def login_required(f: Callable) -> Callable:
     return decorated_function
 
 
-def check_access_rights(roles: Optional[List[EnumSymbol]] = None, parent_route: None = None) -> Callable:
+def check_access_rights(roles: List[Tuple[str, str]]=None, parent_route: None = None) -> Callable:
     """
     Decorate the function to check if a user can access the page.
 
@@ -88,7 +94,7 @@ def check_access_rights(roles: Optional[List[EnumSymbol]] = None, parent_route: 
     return access_decorator
 
 
-def send_reset_email(usr):
+def send_reset_email(usr) -> None:
     """
     Send account recovery mail to the user.
 
@@ -154,7 +160,7 @@ def github_redirect():
     return 'https://github.com/login/oauth/authorize?client_id={id}&scope=public_repo'.format(id=github_clientid)
 
 
-def fetch_username_from_token():
+def fetch_username_from_token() -> Any:
     """
     Get username from the Github token.
 

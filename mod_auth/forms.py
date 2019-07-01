@@ -10,9 +10,13 @@ from wtforms.fields.simple import PasswordField
 from wtforms.validators import DataRequired, Email, ValidationError
 
 from mod_auth.models import Role, User
+import __future__
+import mod_auth.models
+from typing import Any
+from typing import Type
 
 
-def unique_username(form, field):
+def unique_username(form, field) -> None:
     """
     Check if a user already exists with this name.
 
@@ -125,7 +129,7 @@ class CompleteSignupForm(FlaskForm):
 class AccountForm(FlaskForm):
     """Form for editing current Account."""
 
-    def __init__(self, formdata=None, obj=None, prefix='', *args, **kwargs):
+    def __init__(self, formdata=None, obj=None, prefix='', *args, **kwargs) -> None:
         super(AccountForm, self).__init__(formdata=formdata, obj=obj, prefix=prefix, *args, **kwargs)
         self.user = obj
 
@@ -141,7 +145,7 @@ class AccountForm(FlaskForm):
     submit = SubmitField('Update account')
 
     @staticmethod
-    def validate_current_password(form, field):
+    def validate_current_password(form, field) -> None:
         """
         Validate current password entered with the password stored in database.
 
@@ -157,7 +161,7 @@ class AccountForm(FlaskForm):
             raise ValidationError('User instance not passed to form validation')
 
     @staticmethod
-    def validate_new_password(form, field):
+    def validate_new_password(form, field) -> None:
         """
         Validate the new password entered.
 
@@ -172,7 +176,7 @@ class AccountForm(FlaskForm):
         valid_password(form, field)
 
     @staticmethod
-    def validate_new_password_repeat(form, field):
+    def validate_new_password_repeat(form, field) -> None:
         """
         Validate new password repeat and checks if it matches 'new_password'.
 
@@ -208,7 +212,7 @@ class CompleteResetForm(FlaskForm):
     submit = SubmitField('Reset password')
 
     @staticmethod
-    def validate_password_repeat(form, field):
+    def validate_password_repeat(form, field) -> None:
         """
         Validate new password repeat and checks if it matches 'password'.
 

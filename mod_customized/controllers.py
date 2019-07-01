@@ -16,6 +16,19 @@ from mod_regression.models import (Category, RegressionTest,
                                    regressionTestLinkTable)
 from mod_test.controllers import TestNotFoundException, get_data_for_test
 from mod_test.models import Fork, Test, TestPlatform, TestType
+import mod_auth.models
+import mod_customized.forms
+import mod_customized.models
+import mod_regression.models
+import mod_test.controllers
+import mod_test.models
+from typing import Any
+from typing import Callable
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Type
 
 mod_customized = Blueprint('custom', __name__)
 
@@ -103,7 +116,7 @@ def index():
     }
 
 
-def add_test_to_kvm(username, commit_hash, platforms, regression_tests):
+def add_test_to_kvm(username, commit_hash, platforms, regression_tests) -> None:
     """
     Create new tests and add it to CustomizedTests based on parameters.
 

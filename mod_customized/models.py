@@ -12,6 +12,12 @@ from database import Base
 from mod_auth.models import User
 from mod_regression.models import RegressionTest
 from mod_test.models import Test
+import mod_auth.models
+import mod_regression.models
+import mod_test.models
+from typing import Any
+from typing import Dict
+from typing import Type
 
 
 class TestFork(Base):
@@ -25,7 +31,7 @@ class TestFork(Base):
     test_id = Column(Integer, ForeignKey(Test.id, onupdate="CASCADE", ondelete="RESTRICT"))
     test = relationship('Test', uselist=False)
 
-    def __init__(self, user_id, test_id):
+    def __init__(self, user_id, test_id) -> None:
         """
         Parametrized constructor for the CCExtractorVersion model.
 
@@ -51,7 +57,7 @@ class CustomizedTest(Base):
     regression_id = Column(Integer, ForeignKey(RegressionTest.id, onupdate='CASCADE', ondelete='CASCADE'))
     regression_test = relationship('RegressionTest', uselist=False)
 
-    def __init__(self, test_id, regression_id):
+    def __init__(self, test_id, regression_id) -> None:
         """
         Parametrized constructor for the CustomizedTest model.
 

@@ -10,7 +10,7 @@ from mod_auth.controllers import (fetch_username_from_token,
                                   generate_hmac_hash, github_token_validity,
                                   send_reset_email)
 from mod_auth.models import Role, User
-from tests.base import BaseTestCase, signup_information
+from tests.base import BaseTestCase, mock_decorator, signup_information
 
 
 # mock user to avoid interacting with database
@@ -561,17 +561,6 @@ class ManageAccount(BaseTestCase):
 
 
 class ManageUsers(BaseTestCase):
-
-    @staticmethod
-    def mock_decorator(f):
-        """
-        Mock login_required decorator.
-        """
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            return f(*args, **kwargs)
-
-        return decorated_function
 
     @mock.patch('mod_auth.controllers.g')
     def test_user_view_not_loggen_in(self, mock_g):

@@ -19,6 +19,21 @@ from mod_sample.media_info_parser import (InvalidMediaInfoError,
 from mod_sample.models import ExtraFile, ForbiddenExtension, Issue, Sample
 from mod_test.models import Test, TestResult, TestResultFile
 from mod_upload.models import Platform
+import mod_auth.models
+import mod_home.models
+import mod_regression.models
+import mod_sample.forms
+import mod_sample.media_info_parser
+import mod_sample.models
+import mod_test.models
+import mod_upload.models
+from typing import Any
+from typing import Callable
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Type
 
 mod_sample = Blueprint('sample', __name__)
 
@@ -35,12 +50,12 @@ def before_app_request() -> None:
 class SampleNotFoundException(Exception):
     """Custom exception triggered when sample not found."""
 
-    def __init__(self, message):
+    def __init__(self, message) -> None:
         Exception.__init__(self)
         self.message = message
 
 
-def display_sample_info(sample):
+def display_sample_info(sample) -> Dict[str, Any]:
     """
     Fetch the media info.
 
@@ -178,7 +193,7 @@ def sample_by_hash(sample_hash):
     raise SampleNotFoundException('Sample with hash {hash} not found.'.format(hash=sample_hash))
 
 
-def serve_file_download(file_name, sub_folder='', content_type='application/octet-stream'):
+def serve_file_download(file_name, sub_folder='', content_type='application/octet-stream') -> Any:
     """
     Serve sample file for download.
 

@@ -19,6 +19,19 @@ from mod_regression.models import (Category, RegressionTestOutput,
                                    regressionTestLinkTable)
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
                              TestResult, TestResultFile, TestStatus, TestType)
+import mod_auth.models
+import mod_ci.models
+import mod_customized.models
+import mod_home.models
+import mod_regression.models
+import mod_test.models
+from typing import Any
+from typing import Callable
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Type
 
 mod_test = Blueprint('test', __name__)
 
@@ -26,7 +39,7 @@ mod_test = Blueprint('test', __name__)
 class TestNotFoundException(Exception):
     """Custom exception handler for handling test not found."""
 
-    def __init__(self, message):
+    def __init__(self, message) -> None:
         Exception.__init__(self)
         self.message = message
 
@@ -63,7 +76,7 @@ def index():
     }
 
 
-def get_data_for_test(test, title=None):
+def get_data_for_test(test, title=None) -> Dict[str, Any]:
     """
     Retrieve the data for a single test, with an optional title.
 
@@ -331,7 +344,7 @@ def generate_diff(test_id, regression_test_id, output_id):
     abort(403, 'generate_diff')
 
 
-def serve_file_download(file_name, content_type='application/octet-stream'):
+def serve_file_download(file_name, content_type='application/octet-stream') -> Any:
     """
     Endpoint to serve file download.
 

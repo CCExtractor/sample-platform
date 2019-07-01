@@ -7,7 +7,7 @@ from mock import mock
 from mod_auth.models import Role
 from mod_sample.models import Issue, Sample
 from mod_upload.models import QueuedSample
-from tests.base import BaseTestCase, mock_api_request_github
+from tests.base import BaseTestCase, mock_api_request_github, mock_decorator
 
 
 class TestControllers(BaseTestCase):
@@ -155,3 +155,46 @@ class TestControllers(BaseTestCase):
         queued_sample = QueuedSample.query.filter(
             QueuedSample.sha == filehash).first()
         self.assertEqual(queued_sample, None)
+
+    # TODO: The methods below are not working due to decorator login_required not being mocked
+    # @mock.patch('mod_upload.controllers.login_required', side_effect=mock_decorator)
+    # def test_link_id_confirm_invalid(self, mock_login):
+    #     """
+    #     Try to confirm link for invalid sample and queue.
+    #     """
+    #     from mod_upload.controllers import link_id_confirm, QueuedSampleNotFoundException
+
+    #     with self.assertRaises(QueuedSampleNotFoundException):
+    #         link_id_confirm(1000, 1000)
+
+    # @mock.patch('mod_upload.controllers.redirect')
+    # @mock.patch('mod_upload.controllers.login_required', side_effect=mock_decorator)
+    # @mock.patch('mod_upload.controllers.QueuedSample')
+    # @mock.patch('mod_upload.controllers.Sample')
+    # def test_link_id_confirm(self, mock_sample, mock_queue, mock_login, mock_redirect):
+    #     """
+    #     Test confirm link for valid sample and queue.
+    #     """
+    #     from mod_upload.controllers import link_id_confirm
+
+    #     mock_queue.query.filter.return_value.first.return_value.user_id = g.user
+    #     mock_sample.query.filter.return_value.first.return_value.upload.user_id = g.user
+
+    #     response = link_id_confirm(1, 1)
+
+    #     self.assertEqual(response, mock_redirect())
+    #     mock_queue.query.filter.assert_called_once_with(mock_queue.id == 1)
+    #     mock_sample.query.filter.assert_called_once_with(mock_sample.id == 1)
+
+    def test_create_hash_for_sample(self):
+        """
+        Test creating hash for temp file.
+        """
+        from tempfile import NamedTemporaryFile
+        from mod_upload.controllers import create_hash_for_sample
+
+        f = NamedTemporaryFile()
+
+        resp = create_hash_for_sample(f.name)
+
+        self.assertIsInstance(resp, str)

@@ -33,6 +33,17 @@ def provide_file_at_root(file_name, to_write=None):
     os.remove(file_name)
 
 
+def mock_decorator(f):
+    """
+    Mock login_required decorator.
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        return f(*args, **kwargs)
+
+        return decorated_function
+
+
 def generate_keys():
     from utility import ROOT_DIR
     secret_csrf_path = "{path}secret_csrf".format(path=os.path.join(ROOT_DIR, ""))

@@ -429,12 +429,14 @@ class TestResultFile(Base):
             equal="Equal" if self.got is None else "Unequal"
         )
 
-    def generate_html_diff(self, base_path) -> str:
+    def generate_html_diff(self, base_path: str, to_view: bool = True) -> str:
         """
         Generate diff between correct and test regression_test_output.
 
         :param base_path: The base path for the files location.
         :type base_path: str
+        :param to_view: True if the diff is to be viewed in browser, False if it is to be downloaded.
+        :type base_path: bool
         :return: An HTML formatted string.
         :rtype: str
         """
@@ -443,4 +445,4 @@ class TestResultFile(Base):
         lines_ok = open(file_ok, 'U').readlines()
         lines_fail = open(file_fail, 'U').readlines()
 
-        return diff.get_html_diff(lines_ok, lines_fail)
+        return diff.get_html_diff(lines_ok, lines_fail, to_view)

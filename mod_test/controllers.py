@@ -4,8 +4,8 @@ import os
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
-from flask import (Blueprint, abort, g, jsonify, make_response, redirect,
-                   request, url_for)
+from flask import (Blueprint, Response, abort, g, jsonify, make_response,
+                   redirect, request, url_for)
 from github import GitHub
 from sqlalchemy import and_, func
 from sqlalchemy.sql import label
@@ -306,8 +306,9 @@ def latest_commit_info(platform):
     return get_data_for_test(test, 'master {commit}'.format(commit=commit_hash))
 
 
-@mod_test.route('/diff/<test_id>/<regression_test_id>/<output_id>')  # type: ignore
-def generate_diff(test_id, regression_test_id, output_id):
+@mod_test.route('/diff/<test_id>/<regression_test_id>/<output_id>', defaults={'to_view': 1})  # type: ignore
+@mod_test.route('/diff/<test_id>/<regression_test_id>/<output_id>/<int:to_view>')             # type: ignore
+def generate_diff(test_id: int, regression_test_id: int, output_id: int, to_view: int = 1):
     """
     Generate diff for output and expected result.
 
@@ -317,6 +318,8 @@ def generate_diff(test_id, regression_test_id, output_id):
     :type regression_test_id: int
     :param output_id: id of the generated output
     :type output_id: int
+    :param to_view: 1 (default) if test diff to be shown in browser, 0 if to be downloaded
+    :type to_view: int
     :return: html diff
     :rtype: html
     """
@@ -331,7 +334,22 @@ def generate_diff(test_id, regression_test_id, output_id):
 
         if result is not None:
             path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'TestResults')
-            return result.generate_html_diff(path)
+            if to_view == 1:
+                return result.generate_html_diff(path)
+            else:
+                diff_html_text = result.generate_html_diff(path, to_view=False)
+                return Response(
+                    diff_html_text,
+                    mimetype='text/html',
+                    headers={
+                        "Content-disposition":
+                            "attachment; filename=test{testid}_regression{regrid}_output{outid}.html".format(
+                                testid=test_id,
+                                regrid=regression_test_id,
+                                outid=output_id
+                            )
+                    }
+                )
 
         abort(404)
 

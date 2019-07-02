@@ -1,10 +1,12 @@
 """Maintain database models regarding various sample, ExtraFile, ForbiddenExtension, ForbiddenMimeType, Issue."""
 
 from datetime import datetime
+from typing import Any, Dict, Type
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
+import database
 from database import Base, DeclEnum
 
 
@@ -21,7 +23,7 @@ class Sample(Base):
     tests = relationship('RegressionTest', back_populates='sample')
     upload = relationship('Upload', uselist=False, back_populates='sample')
 
-    def __init__(self, sha, extension, original_name):
+    def __init__(self, sha, extension, original_name) -> None:
         """
         Parametrized constructor for the Sample model.
 
@@ -36,7 +38,7 @@ class Sample(Base):
         self.extension = extension
         self.original_name = original_name
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Represent a Sample Model by its 'sha' Field.
 
@@ -64,7 +66,7 @@ class ExtraFile(Base):
     original_name = Column(Text(), nullable=False)
     extension = Column(String(64), nullable=False)
 
-    def __init__(self, sample_id, extension, original_name):
+    def __init__(self, sample_id, extension, original_name) -> None:
         """
         Parametrized constructor for the ExtraFile model.
 
@@ -79,7 +81,7 @@ class ExtraFile(Base):
         self.extension = extension
         self.original_name = original_name
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Represent a ExtraFile Model by its 'sample_id' Field.
 
@@ -122,7 +124,7 @@ class ForbiddenExtension(Base):
     __table_args__ = {'mysql_engine': 'InnoDB'}
     extension = Column(String(32), primary_key=True)
 
-    def __init__(self, extension):
+    def __init__(self, extension) -> None:
         """
         Parametrized constructor for the ForbiddenExtension model.
 
@@ -131,7 +133,7 @@ class ForbiddenExtension(Base):
         """
         self.extension = extension
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Represent a ForbiddenExtension Model by its 'extension' Field.
 
@@ -148,7 +150,7 @@ class ForbiddenMimeType(Base):
     __table_args__ = {'mysql_engine': 'InnoDB'}
     mimetype = Column(String(64), primary_key=True)
 
-    def __init__(self, mimetype):
+    def __init__(self, mimetype) -> None:
         """
         Parametrized constructor for the ForbiddenMimeType model.
 
@@ -157,7 +159,7 @@ class ForbiddenMimeType(Base):
         """
         self.mimetype = mimetype
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Represent a ForbiddenMimeType Model by its 'mimetype' Field.
 
@@ -183,7 +185,7 @@ class Issue(Base):
     created_at = Column(DateTime(timezone=True), nullable=False)
     status = Column(Text(), nullable=False)
 
-    def __init__(self, sample_id, issue_id, date, title, user, status):
+    def __init__(self, sample_id, issue_id, date, title, user, status) -> None:
         """
         Parametrized constructor for the Issue model.
 

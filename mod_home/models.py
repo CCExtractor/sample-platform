@@ -10,9 +10,11 @@ List of models corresponding to mysql tables:
     ]
 """
 from datetime import datetime
+from typing import Any, Dict, Type
 
 from sqlalchemy import Column, Date, Integer, String, Text
 
+import database
 from database import Base, DeclEnum
 
 
@@ -26,7 +28,7 @@ class CCExtractorVersion(Base):
     released = Column(Date(), unique=True)
     commit = Column(String(64), unique=True)
 
-    def __init__(self, version, released, commit):
+    def __init__(self, version, released, commit) -> None:
         """
         Parametrized constructor for the CCExtractorVersion model.
 
@@ -44,7 +46,7 @@ class CCExtractorVersion(Base):
         self.released = datetime.strptime(released, '%Y-%m-%dT%H:%M:%SZ').date()
         self.commit = commit
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Represent a CCExtractorVersion Model by its 'version' Field.
 
@@ -64,7 +66,7 @@ class GeneralData(Base):
     key = Column(String(64), unique=True)
     value = Column(Text(), nullable=False)
 
-    def __init__(self, key, value):
+    def __init__(self, key, value) -> None:
         """
         Parametrized constructor for the GeneralData model.
 
@@ -78,7 +80,7 @@ class GeneralData(Base):
         self.key = key
         self.value = value
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Represent a GeneralData Model by its 'key' and 'value' Field.
 

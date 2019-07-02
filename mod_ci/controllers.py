@@ -3,11 +3,14 @@
 import datetime
 import hashlib
 import json
+import multiprocessing
 import os
 import shutil
 import sys
 from multiprocessing import Process
+from typing import Any, Callable, List, Optional, Tuple, Type
 
+import pymysql.err
 import requests
 from flask import (Blueprint, abort, flash, g, jsonify, redirect, request,
                    url_for)
@@ -21,6 +24,15 @@ from sqlalchemy.sql import label
 from sqlalchemy.sql.functions import count
 from werkzeug.utils import secure_filename
 
+import mailer
+import mod_auth.models
+import mod_ci.forms
+import mod_ci.models
+import mod_customized.models
+import mod_home.models
+import mod_regression.models
+import mod_sample.models
+import mod_test.models
 from decorators import get_menu_entries, template_renderer
 from mailer import Mailer
 from mod_auth.controllers import check_access_rights, login_required
@@ -40,7 +52,7 @@ from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
 if sys.platform.startswith("linux"):
     import libvirt
 
-mod_ci = Blueprint('ci', __name__)
+mod_ci = Blueprint('ci', __name__)  # type: ignore
 
 
 class Status:
@@ -52,13 +64,15 @@ class Status:
     FAILURE = "failure"
 
 
-@mod_ci.before_app_request
-def before_app_request():
+@mod_ci.before_app_request  # type: ignore
+def before_app_request() -> None:
     """Organize menu content such as Platform management before request."""
     config_entries = get_menu_entries(
         g.user, 'Platform mgmt', 'cog', [], '', [
-            {'title': 'Maintenance', 'icon': 'wrench', 'route': 'ci.show_maintenance', 'access': [Role.admin]},
-            {'title': 'Blocked Users', 'icon': 'ban', 'route': 'ci.blocked_users', 'access': [Role.admin]}
+            {'title': 'Maintenance', 'icon': 'wrench',
+             'route': 'ci.show_maintenance', 'access': [Role.admin]},  # type: ignore
+            {'title': 'Blocked Users', 'icon': 'ban',
+             'route': 'ci.blocked_users', 'access': [Role.admin]}  # type: ignore
         ]
     )
     if 'config' in g.menu_entries and 'entries' in config_entries:
@@ -67,7 +81,7 @@ def before_app_request():
         g.menu_entries['config'] = config_entries
 
 
-def start_platform(db, repository, delay=None):
+def start_platform(db, repository, delay=None) -> None:
     """
     Check whether there is already running test.
 
@@ -92,7 +106,7 @@ def start_platform(db, repository, delay=None):
         )
 
 
-def start_new_test(db, repository, delay):
+def start_new_test(db, repository, delay) -> None:
     """Start a new test based on kvm table."""
     from run import log
 
@@ -113,7 +127,7 @@ def start_new_test(db, repository, delay):
     return
 
 
-def kvm_processor_linux(db, repository, delay):
+def kvm_processor_linux(db, repository, delay) -> None:
     """
     Get Kernel-based Linux Virtual Machine.
 
@@ -131,7 +145,7 @@ def kvm_processor_linux(db, repository, delay):
     return kvm_processor(db, kvm_name, TestPlatform.linux, repository, delay)
 
 
-def kvm_processor_windows(db, repository, delay):
+def kvm_processor_windows(db, repository, delay) -> None:
     """
     Get Kernel-based Windows Virtual Machine.
 
@@ -149,7 +163,7 @@ def kvm_processor_windows(db, repository, delay):
     return kvm_processor(db, kvm_name, TestPlatform.windows, repository, delay)
 
 
-def kvm_processor(db, kvm_name, platform, repository, delay):
+def kvm_processor(db, kvm_name, platform, repository, delay) -> None:
     """
     Check whether there is no already running same kvm.
 
@@ -477,7 +491,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay):
     conn.close()
 
 
-def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
+def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0) -> None:
     """
     Store test details into Test model for each platform, and post the status to GitHub.
 
@@ -532,7 +546,7 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0):
     log.debug("Created tests, waiting for cron...")
 
 
-def inform_mailing_list(mailer, id, title, author, body):
+def inform_mailing_list(mailer, id, title, author, body) -> None:
     """
     Send mail to subscribed users when a issue is opened via the Webhook.
 
@@ -557,7 +571,7 @@ def inform_mailing_list(mailer, id, title, author, body):
     })
 
 
-def get_html_issue_body(title, author, body, issue_number, url):
+def get_html_issue_body(title, author, body, issue_number, url) -> Any:
     """
     Curate a HTML formatted body for the issue mail.
 
@@ -582,7 +596,7 @@ def get_html_issue_body(title, author, body, issue_number, url):
     return html_email_body
 
 
-@mod_ci.route('/start-ci', methods=['GET', 'POST'])
+@mod_ci.route('/start-ci', methods=['GET', 'POST'])  # type: ignore
 @request_from_github()
 def start_ci():
     """
@@ -765,7 +779,7 @@ def start_ci():
         return json.dumps({'msg': 'EOL'})
 
 
-def update_build_badge(status, test):
+def update_build_badge(status, test) -> None:
     """
     Build status badge for current test to be displayed on sample-platform.
 
@@ -788,7 +802,7 @@ def update_build_badge(status, test):
         return
 
 
-@mod_ci.route('/progress-reporter/<test_id>/<token>', methods=['POST'])
+@mod_ci.route('/progress-reporter/<test_id>/<token>', methods=['POST'])  # type: ignore
 def progress_reporter(test_id, token):
     """
     Handle the progress of a certain test after validating the token. If necessary, update the status on GitHub.
@@ -1046,7 +1060,7 @@ def progress_reporter(test_id, token):
     return "FAIL"
 
 
-def comment_pr(test_id, state, pr_nr, platform):
+def comment_pr(test_id, state, pr_nr, platform) -> None:
     """
     Upload the test report to the github PR as comment.
 
@@ -1113,7 +1127,7 @@ def comment_pr(test_id, state, pr_nr, platform):
         log.error('Github PR Comment Failed for Test_id: {test_id} with Exception {e}'.format(test_id=test_id, e=e))
 
 
-@mod_ci.route('/show_maintenance')
+@mod_ci.route('/show_maintenance')  # type: ignore
 @login_required
 @check_access_rights([Role.admin])
 @template_renderer('ci/maintenance.html')
@@ -1129,7 +1143,7 @@ def show_maintenance():
     }
 
 
-@mod_ci.route('/blocked_users', methods=['GET', 'POST'])
+@mod_ci.route('/blocked_users', methods=['GET', 'POST'])    # type: ignore
 @login_required
 @check_access_rights([Role.admin])
 @template_renderer()
@@ -1220,7 +1234,7 @@ def blocked_users():
     }
 
 
-@mod_ci.route('/toggle_maintenance/<platform>/<status>')
+@mod_ci.route('/toggle_maintenance/<platform>/<status>')    # type: ignore
 @login_required
 @check_access_rights([Role.admin])
 def toggle_maintenance(platform, status):
@@ -1256,7 +1270,7 @@ def toggle_maintenance(platform, status):
     })
 
 
-@mod_ci.route('/maintenance-mode/<platform>')
+@mod_ci.route('/maintenance-mode/<platform>')   # type: ignore
 def in_maintenance_mode(platform):
     """
     Check if platform in maintenance mode.
@@ -1281,7 +1295,7 @@ def in_maintenance_mode(platform):
     return str(status.disabled)
 
 
-def check_main_repo(repo_url):
+def check_main_repo(repo_url) -> bool:
     """
     Check whether the repo_url links to the main repository or not.
 
@@ -1296,7 +1310,7 @@ def check_main_repo(repo_url):
     return '{user}/{repo}'.format(user=gh_config['repository_owner'], repo=gh_config['repository']) in repo_url
 
 
-def add_customized_regression_tests(test_id):
+def add_customized_regression_tests(test_id) -> None:
     """
     Run custom regression tests.
 

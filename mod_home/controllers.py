@@ -9,7 +9,7 @@ mod_home = Blueprint('home', __name__)
 
 
 @mod_home.before_app_request
-def before_app_request():
+def before_app_request() -> None:
     """Curate menu entries before app request."""
     g.menu_entries['home'] = {
         'title': 'Home',

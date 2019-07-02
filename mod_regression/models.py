@@ -9,10 +9,13 @@ List of models corresponding to mysql tables:
     ]
 """
 
+from typing import Any, Dict, Tuple, Type
+
 from sqlalchemy import (Boolean, Column, ForeignKey, Integer, String, Table,
                         Text)
 from sqlalchemy.orm import relationship
 
+import database
 from database import Base, DeclEnum
 
 regressionTestLinkTable = Table(
@@ -33,7 +36,7 @@ class Category(Base):
     description = Column(Text(), nullable=False)
     regression_tests = relationship('RegressionTest', secondary=regressionTestLinkTable, back_populates='categories')
 
-    def __init__(self, name, description):
+    def __init__(self, name, description) -> None:
         """
         Parametrized constructor for the Category model.
 
@@ -45,7 +48,7 @@ class Category(Base):
         self.name = name
         self.description = description
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Represent a Category Model by its 'name' Field.
 
@@ -91,7 +94,7 @@ class RegressionTest(Base):
     expected_rc = Column(Integer)
     active = Column(Boolean(), default=True)
 
-    def __init__(self, sample_id, command, input_type, output_type, category_id, expected_rc, active=True):
+    def __init__(self, sample_id, command, input_type, output_type, category_id, expected_rc, active=True) -> None:
         """
         Parametrized constructor for the RegressionTest model.
 
@@ -119,7 +122,7 @@ class RegressionTest(Base):
         self.expected_rc = expected_rc
         self.active = active
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Represent a RegressionTest Model by its 'id' Field.
 
@@ -142,7 +145,7 @@ class RegressionTestOutput(Base):
     expected_filename = Column(Text())
     ignore = Column(Boolean(), default=False)
 
-    def __init__(self, regression_id, correct, correct_extension, expected_filename, ignore=False):
+    def __init__(self, regression_id, correct, correct_extension, expected_filename, ignore=False) -> None:
         """
         Parametrized constructor for the RegressionTestOutput model.
 
@@ -163,7 +166,7 @@ class RegressionTestOutput(Base):
         self.expected_filename = expected_filename
         self.ignore = ignore
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Represent a RegressionTestOutput Model by its 'id' Field.
 
@@ -182,7 +185,7 @@ class RegressionTestOutput(Base):
         """
         return self.create_correct_filename(self.correct)
 
-    def filename_expected(self, sample_hash):
+    def filename_expected(self, sample_hash) -> str:
         """
         Return expected filename.
 
@@ -193,7 +196,7 @@ class RegressionTestOutput(Base):
         """
         return "{sha}{extra}{ext}".format(sha=sample_hash, extra=self.expected_filename, ext=self.correct_extension)
 
-    def create_correct_filename(self, name):
+    def create_correct_filename(self, name) -> str:
         """
         Create correct filename.
 

@@ -15,7 +15,7 @@ mod_regression = Blueprint('regression', __name__)
 
 
 @mod_regression.before_app_request
-def before_app_request():
+def before_app_request() -> None:
     """Curate menu entries before app request."""
     g.menu_entries['regression'] = {
         'title': 'Regression tests',

@@ -11,10 +11,12 @@ List of models corresponding to mysql tables:
 """
 
 import string
+from typing import Any, Dict, Tuple, Type
 
 from sqlalchemy import Column, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
+import database
 from database import Base, DeclEnum
 
 
@@ -43,7 +45,7 @@ class Upload(Base):
     parameters = Column(Text(), nullable=False)
     notes = Column(Text(), nullable=False)
 
-    def __init__(self, user_id, sample_id, version_id, platform, parameters='', notes=''):
+    def __init__(self, user_id, sample_id, version_id, platform, parameters='', notes='') -> None:
         """
         Parametrized constructor for the Upload model.
 
@@ -67,7 +69,7 @@ class Upload(Base):
         self.parameters = parameters
         self.notes = notes
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Represent a Upload Model by its 'id' Field.
 
@@ -90,7 +92,7 @@ class QueuedSample(Base):
         'user.id', onupdate="CASCADE", ondelete="RESTRICT"))
     user = relationship('User', uselist=False)
 
-    def __init__(self, sha, extension, original_name, user_id):
+    def __init__(self, sha, extension, original_name, user_id) -> None:
         """
         Parametrized constructor for the QueuedSample model.
 
@@ -129,7 +131,7 @@ class UploadLog(Base):
     user_id = Column(Integer, ForeignKey('user.id', onupdate="CASCADE", ondelete="RESTRICT"))
     user = relationship('User', uselist=False)
 
-    def __init__(self, message, user_id):
+    def __init__(self, message, user_id) -> None:
         """
         Parametrized constructor for the UploadLog model.
 
@@ -168,7 +170,7 @@ class FTPCredentials(Base):
     gid = Column(Integer, nullable=False, default=2015)
 
     def __init__(self, user_id, user_name=None, status=FTPActive.enabled, password=None, home_directory=None,
-                 ip_access="*", quota_files=20):
+                 ip_access="*", quota_files=20) -> None:
         """
         Parametrized constructor for the FTPCredentials model.
 
@@ -205,7 +207,7 @@ class FTPCredentials(Base):
         self.dir = home_directory
 
     @staticmethod
-    def _create_random_string(length=16):
+    def _create_random_string(length=16) -> str:
         """
         Create a random string with a given length (a default of 16).
 

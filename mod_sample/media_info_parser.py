@@ -1,9 +1,12 @@
 """Contains classes and methods to parse media info from samples."""
+from __future__ import annotations
 
+import collections
 import os
 import subprocess
 import sys
 from collections import OrderedDict
+from typing import Any, Dict, List, Optional, Type
 
 import xmltodict
 from lxml import etree
@@ -12,7 +15,7 @@ from lxml import etree
 class InvalidMediaInfoError(Exception):
     """Custom exception class to handle Invalid Media."""
 
-    def __init__(self, message):
+    def __init__(self, message) -> None:
         Exception.__init__(self)
         self.message = message
 
@@ -20,7 +23,7 @@ class InvalidMediaInfoError(Exception):
 class MediaInfoFetcher:
     """Class to fetch media info from sample."""
 
-    def __init__(self, sample):
+    def __init__(self, sample) -> None:
         from run import config
         # Fetch media info
         media_info_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'TestFiles', 'media', sample.sha + '.xml')
@@ -32,18 +35,18 @@ class MediaInfoFetcher:
                     raise InvalidMediaInfoError('No Mediainfo root element present')
                 if 'Mediainfo' in doc:
                     self.media_info = doc['Mediainfo']
-                    self.video_tracks = []
-                    self.caption_tracks = []
-                    self.audio_tracks = []
-                    self.other_tracks = []
-                    self.general_track = {}
+                    self.video_tracks = []      # type: List
+                    self.caption_tracks = []    # type: List
+                    self.audio_tracks = []      # type: List
+                    self.other_tracks = []      # type: List
+                    self.general_track = {}     # type: Dict
                     self.parsed = False
                 else:
                     raise InvalidMediaInfoError('No Mediainfo root element present')
         else:
             raise InvalidMediaInfoError('File {path} not found'.format(path=media_info_path))
 
-    def get_media_info(self, force_parse=False):
+    def get_media_info(self, force_parse=False) -> Optional[List[Dict[str, Any]]]:
         """Get media info from the sample file."""
         result = [{
             'name': 'Media info version',
@@ -68,7 +71,7 @@ class MediaInfoFetcher:
 
         return result
 
-    def _process_tracks(self):
+    def _process_tracks(self) -> None:
         """Reset stored tracks."""
         if self.parsed:
             self.video_tracks = []
@@ -90,7 +93,7 @@ class MediaInfoFetcher:
         except KeyError:
             raise InvalidMediaInfoError('No File element present in XML')
 
-    def _process_track(self, track):
+    def _process_track(self, track) -> None:
         """
         Process different tracks according to their type.
 
@@ -115,7 +118,7 @@ class MediaInfoFetcher:
         # Other tracks are ignored for now
         return
 
-    def _process_generic(self, track, keys):
+    def _process_generic(self, track, keys) -> dict:
         """
         Process generic information about a track.
 
@@ -133,7 +136,7 @@ class MediaInfoFetcher:
                 result[key.replace('_', ' ')] = track[key]
         return result
 
-    def _process_general(self, track):
+    def _process_general(self, track) -> None:
         """
         Process general information about a track.
 
@@ -144,7 +147,7 @@ class MediaInfoFetcher:
         """
         self.general_track = self._process_generic(track, ['Format', 'File_size', 'Duration', 'Codec_ID'])
 
-    def _process_video(self, track):
+    def _process_video(self, track) -> None:
         """
         Process video from a track.
 
@@ -182,14 +185,14 @@ class MediaInfoFetcher:
 
         self.video_tracks.append({'name': name, 'value': result})
 
-    def _process_text(self, track):
+    def _process_text(self, track) -> None:
         self.caption_tracks.append({
             'name': 'ID: {number}'.format(number=track['ID']),
             'value': self._process_generic(track, ['Format', 'Menu_ID', 'Muxing_mode'])
         })
 
     @staticmethod
-    def generate_media_xml(sample):
+    def generate_media_xml(sample) -> MediaInfoFetcher:
         """
         Generate xml for the sample media.
 

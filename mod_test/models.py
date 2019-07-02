@@ -13,12 +13,15 @@ List of models corresponding to mysql tables:
 import datetime
 import os
 import string
+from typing import Any, Dict, List, Tuple, Type, Union
 
 import pytz
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, orm
 from sqlalchemy.orm import relationship
 from tzlocal import get_localzone
 
+import database
+import mod_regression.models
 from database import Base, DeclEnum
 from mod_regression.models import RegressionTest
 from mod_test.nicediff import diff
@@ -48,7 +51,7 @@ class TestStatus(DeclEnum):
     canceled = "canceled", "Canceled/Error"
 
     @staticmethod
-    def progress_step(inst):
+    def progress_step(inst) -> Any:
         """
         Get progress step of the test.
 
@@ -63,7 +66,7 @@ class TestStatus(DeclEnum):
             return -1
 
     @staticmethod
-    def stages():
+    def stages() -> List[Tuple[str, str]]:
         """
         Define stages for the test.
 
@@ -83,10 +86,10 @@ class Fork(Base):
     github = Column(String(256), unique=True)
     tests = relationship('Test', back_populates='fork')
 
-    def __init__(self, github):
+    def __init__(self, github) -> None:
         self.github = github
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Represent fork with fork id."""
         return '<Fork {id}>'.format(id=self.id)
 
@@ -119,7 +122,7 @@ class Test(Base):
     progress = relationship('TestProgress', back_populates='test', order_by='TestProgress.id')
     results = relationship('TestResult', back_populates='test')
 
-    def __init__(self, platform, test_type, fork_id, branch, commit, pr_nr=0, token=None):
+    def __init__(self, platform, test_type, fork_id, branch, commit, pr_nr=0, token=None) -> None:
         """
         Parametrized constructor for the Test model.
 
@@ -149,7 +152,7 @@ class Test(Base):
             token = self.create_token(64)
         self.token = token
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Represent a Test Model by its 'id' Field.
 
@@ -199,14 +202,14 @@ class Test(Base):
 
         return "{base}/{test_type}/{test_id}".format(base=self.fork.github_url, test_type=test_type, test_id=test_id)
 
-    def progress_data(self):
+    def progress_data(self) -> Dict[str, Any]:
         """
         Generate progress report for the Test Model.
 
         :return: progress, stages, start and end time of Test Model
         :rtype: dict
         """
-        result = {
+        result: Dict[str, Union[Dict[str, Union[str, int]], List[Tuple[str, str]], str]] = {
             'progress': {
                 'state': 'error',
                 'step': -1
@@ -225,16 +228,16 @@ class Test(Base):
 
             if last_status.status == TestStatus.canceled:
                 if len(self.progress) > 1:
-                    result['progress']['step'] = TestStatus.progress_step(self.progress[-2].status)
+                    result['progress']['step'] = TestStatus.progress_step(self.progress[-2].status)  # type: ignore
 
             else:
-                result['progress']['state'] = 'ok'
-                result['progress']['step'] = TestStatus.progress_step(last_status.status)
+                result['progress']['state'] = 'ok'  # type: ignore
+                result['progress']['step'] = TestStatus.progress_step(last_status.status)   # type: ignore
 
         return result
 
     @staticmethod
-    def create_token(length=64):
+    def create_token(length: int = 64) -> str:
         """
         Create a random token for a given length (default: 64).
 
@@ -247,7 +250,7 @@ class Test(Base):
         import os
         return ''.join(chars[ord(os.urandom(1)) % len(chars)] for i in range(length))
 
-    def get_customized_regressiontests(self):
+    def get_customized_regressiontests(self) -> Any:
         """
         Output all customized regression ids of the test.
 
@@ -274,7 +277,7 @@ class TestProgress(Base):
     timestamp = Column(DateTime(timezone=True), nullable=False)
     message = Column(Text(), nullable=False)
 
-    def __init__(self, test_id, status, message, timestamp=None):
+    def __init__(self, test_id, status, message, timestamp=None) -> None:
         """
         Parametrized constructor for the TestProgress model.
 
@@ -296,12 +299,12 @@ class TestProgress(Base):
             timestamp = timestamp.astimezone(pytz.UTC)
 
         if timestamp.tzinfo is None:
-            timestamp = pytz.utc.localize(timestamp, is_dst=None)
+            timestamp = pytz.utc.localize(timestamp, is_dst=False)
 
         self.timestamp = timestamp
         self.message = message
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Represent a TestProgress Model by its 'id' and 'status' Field.
 
@@ -331,7 +334,7 @@ class TestResult(Base):
     exit_code = Column(Integer)
     expected_rc = Column(Integer)
 
-    def __init__(self, test_id, regression_test_id, runtime, exit_code, expected_rc):
+    def __init__(self, test_id, regression_test_id, runtime, exit_code, expected_rc) -> None:
         """
         Parametrized constructor for the TestResult model.
 
@@ -352,7 +355,7 @@ class TestResult(Base):
         self.exit_code = exit_code
         self.expected_rc = expected_rc
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Represent a TestResult Model by its 'test_id','expected_rc', 'regression_test_id' and 'status' Field.
 
@@ -387,7 +390,7 @@ class TestResultFile(Base):
     expected = Column(Text(), nullable=False)  # Keep track of which sample was 'correct' at the time the test ran.
     got = Column(Text(), nullable=True)  # If null/empty, it's equal to the expected version
 
-    def __init__(self, test_id, regression_test_id, regression_test_output_id, expected, got=None):
+    def __init__(self, test_id, regression_test_id, regression_test_output_id, expected, got=None) -> None:
         """
         Parametrized constructor for the TestResultFile model.
 
@@ -408,7 +411,7 @@ class TestResultFile(Base):
         self.expected = expected
         self.got = got
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Represent a TestResultFile.
 
@@ -426,7 +429,7 @@ class TestResultFile(Base):
             equal="Equal" if self.got is None else "Unequal"
         )
 
-    def generate_html_diff(self, base_path):
+    def generate_html_diff(self, base_path) -> str:
         """
         Generate diff between correct and test regression_test_output.
 

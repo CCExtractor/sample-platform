@@ -5,9 +5,14 @@ List of models corresponding to mysql tables: ['TestFork' => 'test_fork',
                                                'CustomizedTest' => 'customized_test']
 """
 
+from typing import Any, Dict, Type
+
 from sqlalchemy import Column, ForeignKey, Integer
 from sqlalchemy.orm import relationship
 
+import mod_auth.models
+import mod_regression.models
+import mod_test.models
 from database import Base
 from mod_auth.models import User
 from mod_regression.models import RegressionTest
@@ -25,7 +30,7 @@ class TestFork(Base):
     test_id = Column(Integer, ForeignKey(Test.id, onupdate="CASCADE", ondelete="RESTRICT"))
     test = relationship('Test', uselist=False)
 
-    def __init__(self, user_id, test_id):
+    def __init__(self, user_id, test_id) -> None:
         """
         Parametrized constructor for the CCExtractorVersion model.
 
@@ -51,7 +56,7 @@ class CustomizedTest(Base):
     regression_id = Column(Integer, ForeignKey(RegressionTest.id, onupdate='CASCADE', ondelete='CASCADE'))
     regression_test = relationship('RegressionTest', uselist=False)
 
-    def __init__(self, test_id, regression_id):
+    def __init__(self, test_id, regression_id) -> None:
         """
         Parametrized constructor for the CustomizedTest model.
 

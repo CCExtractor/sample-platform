@@ -1,14 +1,19 @@
 """contains all the forms related to authentication and account functionality."""
+from __future__ import annotations
+
+from typing import Any, Callable, Optional, Type
 
 from flask_wtf import FlaskForm
 from wtforms import PasswordField, SelectField, StringField, SubmitField
 from wtforms.fields.html5 import EmailField
+from wtforms.fields.simple import PasswordField
 from wtforms.validators import DataRequired, Email, ValidationError
 
+import mod_auth.models
 from mod_auth.models import Role, User
 
 
-def unique_username(form, field):
+def unique_username(form, field) -> None:
     """
     Check if a user already exists with this name.
 
@@ -22,7 +27,7 @@ def unique_username(form, field):
         raise ValidationError('There is already a user with this name')
 
 
-def valid_password(form, field):
+def valid_password(form: CompleteSignupForm, field: PasswordField) -> None:
     """
     Check for validity of a password.
 
@@ -44,7 +49,7 @@ def valid_password(form, field):
         )
 
 
-def email_not_in_use(has_user_field=False):
+def email_not_in_use(has_user_field: bool = False) -> Callable:
     """
     Check if the passed email is already in use.
 
@@ -105,7 +110,7 @@ class CompleteSignupForm(FlaskForm):
     submit = SubmitField('Register')
 
     @staticmethod
-    def validate_password_repeat(form, field):
+    def validate_password_repeat(form: CompleteSignupForm, field: PasswordField) -> None:
         """
         Validate if the repeated password is the same as 'password'.
 
@@ -121,7 +126,7 @@ class CompleteSignupForm(FlaskForm):
 class AccountForm(FlaskForm):
     """Form for editing current Account."""
 
-    def __init__(self, formdata=None, obj=None, prefix='', *args, **kwargs):
+    def __init__(self, formdata=None, obj=None, prefix='', *args, **kwargs) -> None:
         super(AccountForm, self).__init__(formdata=formdata, obj=obj, prefix=prefix, *args, **kwargs)
         self.user = obj
 
@@ -137,7 +142,7 @@ class AccountForm(FlaskForm):
     submit = SubmitField('Update account')
 
     @staticmethod
-    def validate_current_password(form, field):
+    def validate_current_password(form, field) -> None:
         """
         Validate current password entered with the password stored in database.
 
@@ -153,7 +158,7 @@ class AccountForm(FlaskForm):
             raise ValidationError('User instance not passed to form validation')
 
     @staticmethod
-    def validate_new_password(form, field):
+    def validate_new_password(form, field) -> None:
         """
         Validate the new password entered.
 
@@ -168,7 +173,7 @@ class AccountForm(FlaskForm):
         valid_password(form, field)
 
     @staticmethod
-    def validate_new_password_repeat(form, field):
+    def validate_new_password_repeat(form, field) -> None:
         """
         Validate new password repeat and checks if it matches 'new_password'.
 
@@ -204,7 +209,7 @@ class CompleteResetForm(FlaskForm):
     submit = SubmitField('Reset password')
 
     @staticmethod
-    def validate_password_repeat(form, field):
+    def validate_password_repeat(form, field) -> None:
         """
         Validate new password repeat and checks if it matches 'password'.
 

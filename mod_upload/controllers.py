@@ -7,6 +7,7 @@ import mimetypes
 import os
 import shutil
 import traceback
+from typing import Any, Callable, List, Optional, Tuple, Type
 
 import magic
 import requests
@@ -15,6 +16,11 @@ from flask import (Blueprint, flash, g, make_response, redirect,
 from git import GitCommandError, InvalidGitRepositoryError, Repo
 from werkzeug.utils import secure_filename
 
+import mod_auth.models
+import mod_home.models
+import mod_sample.models
+import mod_upload.forms
+import mod_upload.models
 from decorators import get_menu_entries, template_renderer
 from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role, User
@@ -26,19 +32,19 @@ from mod_upload.forms import (DeleteQueuedSampleForm, FinishQueuedSampleForm,
 
 from .models import FTPCredentials, Platform, QueuedSample, Upload, UploadLog
 
-mod_upload = Blueprint('upload', __name__)
+mod_upload = Blueprint('upload', __name__)  # type: ignore
 
 
 class QueuedSampleNotFoundException(Exception):
     """Custom exception handler for queued sample not found."""
 
-    def __init__(self, message):
+    def __init__(self, message) -> None:
         Exception.__init__(self)
         self.message = message
 
 
-@mod_upload.before_app_request
-def before_app_request():
+@mod_upload.before_app_request  # type: ignore
+def before_app_request() -> None:
     """Curate menu items before request."""
     g.menu_entries['upload'] = {
         'title': 'Upload',
@@ -48,7 +54,7 @@ def before_app_request():
     config_entries = get_menu_entries(
         g.user, 'Platform mgmt', 'cog', all_entries=[
             {'title': 'Upload manager', 'icon': 'upload', 'route':
-                'upload.index_admin', 'access': [Role.admin]}
+                'upload.index_admin', 'access': [Role.admin]}   # type: ignore
         ]
     )
     if 'config' in g.menu_entries and 'entries' in config_entries:
@@ -57,7 +63,7 @@ def before_app_request():
         g.menu_entries['config'] = config_entries
 
 
-@mod_upload.errorhandler(QueuedSampleNotFoundException)
+@mod_upload.errorhandler(QueuedSampleNotFoundException)     # type: ignore
 @template_renderer('upload/queued_sample_not_found.html', 404)
 def not_found(error):
     """Display not found template."""
@@ -66,7 +72,7 @@ def not_found(error):
     }
 
 
-@mod_upload.route('/')
+@mod_upload.route('/')  # type: ignore
 @login_required
 @template_renderer()
 def index():
@@ -77,7 +83,7 @@ def index():
     }
 
 
-@mod_upload.route('/manage')
+@mod_upload.route('/manage')    # type: ignore
 @login_required
 @check_access_rights([Role.admin])
 @template_renderer()
@@ -89,7 +95,7 @@ def index_admin():
     }
 
 
-def make_github_issue(title, body=None, labels=None):
+def make_github_issue(title, body=None, labels=None) -> Any:
     """
     Create an issue on github.com using the given parameters.
 
@@ -116,7 +122,7 @@ def make_github_issue(title, body=None, labels=None):
              'body': body,
              'labels': labels}
     # Add the issue to our repository
-    r = session.post(url, json.dumps(issue))
+    r = session.post(url, json.dumps(issue))    # type: ignore
 
     if r.status_code == 201:
         return r.json()
@@ -124,7 +130,7 @@ def make_github_issue(title, body=None, labels=None):
     return 'ERROR'
 
 
-@mod_upload.route('/ftp')
+@mod_upload.route('/ftp')   # type: ignore
 @login_required
 @template_renderer()
 def ftp_index():
@@ -146,7 +152,7 @@ def ftp_index():
     }
 
 
-@mod_upload.route('/ftp/filezilla')
+@mod_upload.route('/ftp/filezilla')  # type: ignore
 @login_required
 def ftp_filezilla():
     """Root for filezilla ftp connection."""
@@ -176,7 +182,7 @@ def ftp_filezilla():
     return response
 
 
-@mod_upload.route('/new', methods=['GET', 'POST'])
+@mod_upload.route('/new', methods=['GET', 'POST'])  # type: ignore
 @login_required
 @template_renderer()
 def upload():
@@ -207,7 +213,7 @@ def upload():
     }
 
 
-@mod_upload.route('/<upload_id>', methods=['GET', 'POST'])
+@mod_upload.route('/<upload_id>', methods=['GET', 'POST'])  # type: ignore
 @login_required
 @template_renderer()
 def process_id(upload_id):
@@ -320,7 +326,7 @@ def process_id(upload_id):
     raise QueuedSampleNotFoundException()
 
 
-@mod_upload.route('/link/<upload_id>')
+@mod_upload.route('/link/<upload_id>')  # type: ignore
 @login_required
 @template_renderer()
 def link_id(upload_id):
@@ -348,7 +354,7 @@ def link_id(upload_id):
     raise QueuedSampleNotFoundException()
 
 
-@mod_upload.route('/link/<upload_id>/<sample_id>')
+@mod_upload.route('/link/<upload_id>/<sample_id>')  # type: ignore
 @login_required
 def link_id_confirm(upload_id, sample_id):
     """
@@ -373,7 +379,7 @@ def link_id_confirm(upload_id, sample_id):
     raise QueuedSampleNotFoundException()
 
 
-@mod_upload.route('/delete/<upload_id>', methods=['GET', 'POST'])
+@mod_upload.route('/delete/<upload_id>', methods=['GET', 'POST'])   # type: ignore
 @login_required
 @template_renderer()
 def delete_id(upload_id):
@@ -411,7 +417,7 @@ def delete_id(upload_id):
     raise QueuedSampleNotFoundException()
 
 
-def create_hash_for_sample(file_path):
+def create_hash_for_sample(file_path) -> str:
     """
     Create the hash for given file.
 
@@ -428,7 +434,7 @@ def create_hash_for_sample(file_path):
     return hash_sha256.hexdigest()
 
 
-def sample_already_uploaded(file_hash):
+def sample_already_uploaded(file_hash) -> bool:
     """
     Check if a given file hash is already present in the database.
 
@@ -443,7 +449,7 @@ def sample_already_uploaded(file_hash):
     return sample is not None or queued_sample is not None
 
 
-def add_sample_to_queue(file_hash, temp_path, user_id, db):
+def add_sample_to_queue(file_hash, temp_path, user_id, db) -> None:
     """
     Add a sample to the queue.
 
@@ -474,7 +480,7 @@ def add_sample_to_queue(file_hash, temp_path, user_id, db):
     db.commit()
 
 
-def upload_ftp(db, path):
+def upload_ftp(db, path) -> None:
     """
     Make a FTP upload.
 

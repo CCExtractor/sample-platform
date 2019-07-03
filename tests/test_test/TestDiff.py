@@ -1,9 +1,9 @@
+import os
 import unittest
+from pathlib import Path
 
 from mod_test.nicediff.diff import get_html_diff
 from tests.base import load_file_lines
-from pathlib import Path
-import os
 
 STATIC_MOCK_DIR = os.path.join(Path(__file__).parents[1], 'static_mock_files')
 EXPECTED_RESULT_FILE = os.path.join(STATIC_MOCK_DIR, 'expected.txt')

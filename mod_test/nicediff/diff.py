@@ -2,6 +2,9 @@ import html
 import re
 from typing import Any, List, Optional, Tuple, Union
 
+# number of lines to show in view mode
+MAX_NUMBER_OF_LINES_TO_VIEW = 50
+
 index: dict = dict()  # for optimization
 
 
@@ -124,7 +127,11 @@ def _process(test_result: str, correct: str, suffix_id: str) -> Tuple[str, str]:
 
 
 # return generated difference in HTML formatted table
-def get_html_diff(test_correct_lines: List[str], test_res_lines: List[str]) -> str:
+def get_html_diff(test_correct_lines: List[str], test_res_lines: List[str], to_view: bool = True) -> str:
+
+    # variable to keep count of diff lines noted
+    number_of_noted_diff_lines = 0
+
     html = """
     <table>
         <tr>
@@ -149,6 +156,10 @@ def get_html_diff(test_correct_lines: List[str], test_res_lines: List[str]) -> s
         till = res_len
 
     for line in range(use):
+        # stop at 50 lines if test-data for viewing
+        if to_view and number_of_noted_diff_lines >= MAX_NUMBER_OF_LINES_TO_VIEW:
+            break
+
         if test_correct_lines[line] == test_res_lines[line]:
             continue
         html += """
@@ -167,8 +178,16 @@ def get_html_diff(test_correct_lines: List[str], test_res_lines: List[str]) -> s
         html += """
     </table>"""
 
+        # increase noted diff line by one
+        number_of_noted_diff_lines += 1
+
     # processing remaining lines
     for line in range(use, till):
+
+        # stop at 50 lines if test-data for viewing
+        if to_view and number_of_noted_diff_lines >= MAX_NUMBER_OF_LINES_TO_VIEW:
+            break
+
         html += """
     <table>"""
 
@@ -199,5 +218,8 @@ def get_html_diff(test_correct_lines: List[str], test_res_lines: List[str]) -> s
 
         html += """
     <table>"""
+
+        # increase noted diff line by one
+        number_of_noted_diff_lines += 1
 
     return html

@@ -1,6 +1,13 @@
+import os
 import unittest
+from pathlib import Path
 
 from mod_test.nicediff.diff import get_html_diff
+from tests.base import load_file_lines
+
+STATIC_MOCK_DIR = os.path.join(Path(__file__).parents[1], 'static_mock_files')
+EXPECTED_RESULT_FILE = os.path.join(STATIC_MOCK_DIR, 'expected.txt')
+OBTAINED_RESULT_FILE = os.path.join(STATIC_MOCK_DIR, 'obtained.txt')
 
 
 class TestDiff(unittest.TestCase):
@@ -47,3 +54,29 @@ class TestDiff(unittest.TestCase):
         obtained_diff = get_html_diff(expected_sub, obtained_sub)
 
         self.assertEqual(expected_diff, obtained_diff)
+
+    def test_if_view_limit_respected(self):
+        """
+        Test that in view only first 50 diffs are sent.
+        """
+        expected_tr_count = 102     # 2 table rows for each diff along with 2 table rows for headings
+        obtained = load_file_lines(OBTAINED_RESULT_FILE)
+        expected = load_file_lines(EXPECTED_RESULT_FILE)
+
+        obtained_diff = get_html_diff(expected, obtained, to_view=True)
+        obtained_tr_count = obtained_diff.count("</tr>")
+
+        self.assertEqual(expected_tr_count, obtained_tr_count)
+
+    def test_if_full_diff_download(self):
+        """
+        Test that in download mode all diff is sent.
+        """
+        limit_tr_count = 102     # 2 table rows for each diff along with 2 table rows for headings
+        obtained = load_file_lines(OBTAINED_RESULT_FILE)
+        expected = load_file_lines(EXPECTED_RESULT_FILE)
+
+        obtained_diff = get_html_diff(expected, obtained, to_view=False)
+        obtained_tr_count = obtained_diff.count("</tr>")
+
+        self.assertGreater(obtained_tr_count, limit_tr_count)

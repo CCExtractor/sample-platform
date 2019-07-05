@@ -255,8 +255,10 @@ def reset():
         user = User.query.filter_by(email=form.email.data).first()
         if user is not None:
             send_reset_email(user)
-        flash('If an account was linked to the provided email address, an email with reset instructions has been sent. '
-              'Please check your inbox.', 'success')
+            flash('An email with reset instructions has been sent. '
+                  'Please check your inbox.', 'success')
+        else:
+            flash('No account linked to {} was found, please signup!'.format(form.email.data), 'alert')
         form = ResetForm(None)
     return {
         'form': form

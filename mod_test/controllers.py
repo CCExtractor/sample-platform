@@ -312,6 +312,11 @@ def generate_diff(test_id: int, regression_test_id: int, output_id: int, to_view
     """
     Generate diff for output and expected result.
 
+    The function is invoked in two modes: to view and to download. In the 'to view' a max of 50 diffs are returned,
+    and in 'to download' all the diffs are returned but as a downloadable HTML.
+
+    We check for XHR when the request is to simply view the diff.
+
     :param test_id: id of the test
     :type test_id: int
     :param regression_test_id: id of the regression test
@@ -324,36 +329,37 @@ def generate_diff(test_id: int, regression_test_id: int, output_id: int, to_view
     :rtype: html
     """
     from run import config
-    if request.is_xhr:
-        # Fetch test
-        result = TestResultFile.query.filter(and_(
-            TestResultFile.test_id == test_id,
-            TestResultFile.regression_test_id == regression_test_id,
-            TestResultFile.regression_test_output_id == output_id
-        )).first()
 
-        if result is not None:
-            path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'TestResults')
-            if to_view == 1:
-                return result.generate_html_diff(path)
-            else:
-                diff_html_text = result.generate_html_diff(path, to_view=False)
-                return Response(
-                    diff_html_text,
-                    mimetype='text/html',
-                    headers={
-                        "Content-disposition":
-                            "attachment; filename=test{testid}_regression{regrid}_output{outid}.html".format(
-                                testid=test_id,
-                                regrid=regression_test_id,
-                                outid=output_id
-                            )
-                    }
-                )
+    # Fetch test
+    result = TestResultFile.query.filter(and_(
+        TestResultFile.test_id == test_id,
+        TestResultFile.regression_test_id == regression_test_id,
+        TestResultFile.regression_test_output_id == output_id
+    )).first()
 
-        abort(404)
+    if result is not None:
+        path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'TestResults')
 
-    abort(403, 'generate_diff')
+        if request.is_xhr and to_view == 1:
+            return result.generate_html_diff(path)
+        elif to_view == 0:
+            diff_html_text = result.generate_html_diff(path, to_view=False)
+            return Response(
+                diff_html_text,
+                mimetype='text/html',
+                headers={
+                    "Content-disposition":
+                        "attachment; filename=test{testid}_regression{regrid}_output{outid}.html".format(
+                            testid=test_id,
+                            regrid=regression_test_id,
+                            outid=output_id
+                        )
+                }
+            )
+        else:
+            abort(403, 'generate_diff')
+
+    abort(404)
 
 
 def serve_file_download(file_name, content_type='application/octet-stream') -> Any:

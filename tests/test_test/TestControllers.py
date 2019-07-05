@@ -204,6 +204,21 @@ class TestControllers(BaseTestCase):
         self.assertTrue(response, mock_test_result_file.filter().first().generate_html_diff())
         mock_test_result_file.filter.assert_called_once()
 
+    @mock.patch('mod_test.controllers.TestResultFile')
+    @mock.patch('mod_test.controllers.request')
+    @mock.patch('mod_test.controllers.Response')
+    def test_generate_diff_download(self, mock_response, mock_request, mock_test_result_file):
+        """
+        Test to download generated diff.
+        """
+        from mod_test.controllers import generate_diff
+
+        mock_request.is_xhr = True
+
+        response = generate_diff(1, 1, 1, to_view=0)
+
+        self.assertTrue(response, mock_response())
+
     @mock.patch('mod_test.controllers.os')
     def test_serve_file_download(self, mock_os):
         """

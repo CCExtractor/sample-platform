@@ -222,7 +222,9 @@
                 // Make ajax request to get a diff, and display it in a "popup"
                 var $modal = $('#modal');
                 var url = '{{ url_for('test.generate_diff', test_id='_0_', regression_test_id='_1_', output_id='_2_') }}';
+                var diff_download_url = '{{ url_for('test.generate_diff', test_id='_0_', regression_test_id='_1_', output_id='_2_', to_view=0) }}';
                 url = url.replace('_0_', $(this).data('test')).replace('_1_', $(this).data('regression')).replace('_2_', $(this).data('output'));
+                diff_download_url = diff_download_url.replace('_0_', $(this).data('test')).replace('_1_', $(this).data('regression')).replace('_2_', $(this).data('output'));
 
                 $.ajax(url).done(function(resp){
                     var id, reveal, popup;

@@ -33,6 +33,19 @@ def provide_file_at_root(file_name, to_write=None):
     os.remove(file_name)
 
 
+def load_file_lines(filepath):
+    """
+    Load lines of the file passed.
+
+    :param filepath: path to the file
+    :type filepath: str
+    """
+    with open(filepath, 'r') as f:
+        contents = f.readlines()
+
+    return contents
+
+
 def mock_decorator(f):
     """
     Mock login_required decorator.

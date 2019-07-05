@@ -234,6 +234,12 @@
                     reveal.setAttribute('data-reveal', '');
                     reveal.innerHTML = resp;
                     reveal.innerHTML +=
+                        '<a href="'+diff_download_url+'" target="_blank">' +
+                            '<button type="button">' +
+                            'Download Full Diff' +
+                            '</button>' +
+                        '</a>, only first 50 shown here.';
+                    reveal.innerHTML +=
                         '<button class="close-button" data-close aria-label="Cancel" type="button">' +
                         '   <span aria-hidden="true">&times;</span>' +
                         '</button>';

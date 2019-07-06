@@ -1,5 +1,7 @@
-from flask import g
 from unittest import mock
+
+from flask import g
+from werkzeug.exceptions import NotFound
 
 from mod_auth.models import Role
 from mod_customized.models import CustomizedTest
@@ -8,7 +10,6 @@ from mod_regression.models import (Category, InputType, OutputType,
 from mod_sample.models import Sample
 from mod_test.models import Test
 from tests.base import BaseTestCase
-from werkzeug.exceptions import NotFound
 
 
 class TestControllers(BaseTestCase):
@@ -52,7 +53,7 @@ class TestControllers(BaseTestCase):
 
         mock_regression_output.query.filter.assert_called_once_with(mock_regression_output.id == 1)
 
-    @mock.patch('mod_regression.controllers.serve_file_download')    
+    @mock.patch('mod_regression.controllers.serve_file_download')
     @mock.patch('mod_regression.controllers.RegressionTestOutput')
     def test_download_result_file(self, mock_regression_output, mock_serve):
         """
@@ -64,6 +65,19 @@ class TestControllers(BaseTestCase):
 
         mock_regression_output.query.filter.assert_called_once_with(mock_regression_output.id == 1)
         mock_serve.assert_called_once()
+
+    @mock.patch('mod_regression.controllers.os')
+    def test_serve_file_download(self, mock_os):
+        """
+        Test function serve_file_download.
+        """
+        from mod_regression.controllers import serve_file_download
+
+        response = serve_file_download('to_download')
+
+        self.assert200(response)
+        self.assertEqual(2, mock_os.path.join.call_count)
+        mock_os.path.getsize.assert_called_once_with(mock_os.path.join())
 
     def test_regression_test_deletion_Without_login(self):
         response = self.app.test_client().get('/regression/test/9432/delete')

@@ -227,7 +227,7 @@ def login() -> Union[Response, Dict[str, Union[str, LoginForm]]]:
     if session.get('user_id', None) is not None:
         flash('You are already logged in!', 'alert')
         if len(redirect_location) == 0:
-                return redirect("/")
+            return redirect("/")
         else:
             return redirect(url_for(redirect_location))
 

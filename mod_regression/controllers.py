@@ -181,7 +181,7 @@ def toggle_active_status(regression_id):
     })
 
 
-@mod_regression.route('/test/<regression_test_output_id>/')
+@mod_regression.route('/test/<regression_test_output_id>/download', methods=['GET'])
 def test_result_file(regression_test_output_id):
     """View the output files of the regression test."""
     rto = RegressionTestOutput.query.filter(RegressionTestOutput.id == regression_test_output_id).first()

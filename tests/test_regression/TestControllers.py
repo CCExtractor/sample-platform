@@ -1,4 +1,5 @@
 from flask import g
+from unittest import mock
 
 from mod_auth.models import Role
 from mod_customized.models import CustomizedTest
@@ -7,6 +8,7 @@ from mod_regression.models import (Category, InputType, OutputType,
 from mod_sample.models import Sample
 from mod_test.models import Test
 from tests.base import BaseTestCase
+from werkzeug.exceptions import NotFound
 
 
 class TestControllers(BaseTestCase):
@@ -36,6 +38,32 @@ class TestControllers(BaseTestCase):
                 self.assertEqual('False', response.json['active'])
             else:
                 self.assertEqual('True', response.json['active'])
+
+    @mock.patch('mod_regression.controllers.RegressionTestOutput')
+    def test_download_result_file_not_found(self, mock_regression_output):
+        """
+        Test that non-existent result file gives 404.
+        """
+        from mod_regression.controllers import test_result_file
+        mock_regression_output.query.filter.return_value.first.return_value = None
+
+        with self.assertRaises(NotFound):
+            test_result_file(1)
+
+        mock_regression_output.query.filter.assert_called_once_with(mock_regression_output.id == 1)
+
+    @mock.patch('mod_regression.controllers.serve_file_download')    
+    @mock.patch('mod_regression.controllers.RegressionTestOutput')
+    def test_download_result_file(self, mock_regression_output, mock_serve):
+        """
+        Test that correct result file triggers serve download.
+        """
+        from mod_regression.controllers import test_result_file
+
+        response = test_result_file(1)
+
+        mock_regression_output.query.filter.assert_called_once_with(mock_regression_output.id == 1)
+        mock_serve.assert_called_once()
 
     def test_regression_test_deletion_Without_login(self):
         response = self.app.test_client().get('/regression/test/9432/delete')

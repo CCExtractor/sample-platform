@@ -66,6 +66,24 @@ class TestSignUp(BaseTestCase):
         return self.app.test_client().post(url_for('auth.signup'), data=dict(email=email), follow_redirects=True)
 
 
+class TestLogin(BaseTestCase):
+
+    @mock.patch('mod_auth.controllers.flash')
+    def test_not_show_login_user_logged_in(self, mock_flash):
+        """
+        Do not show login page if the user is already logged in.
+        """
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            response = c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.get('/account/login')
+
+        self.assertStatus(response, 302)
+        mock_flash.assert_called_once_with('You are already logged in!', 'alert')
+
+
 class CompleteSignUp(BaseTestCase):
 
     def setUp(self):

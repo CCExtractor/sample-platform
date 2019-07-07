@@ -220,9 +220,18 @@ def github_callback():
 @template_renderer()
 def login() -> Union[Response, Dict[str, Union[str, LoginForm]]]:
     """Route for handling the login page."""
-    form = LoginForm(request.form)
     # fetching redirect_location from the request
     redirect_location = request.args.get('next', '')
+
+    # redirect already logged in user
+    if session.get('user_id', None) is not None:
+        flash('You are already logged in!', 'alert')
+        if len(redirect_location) == 0:
+            return redirect("/")
+        else:
+            return redirect(url_for(redirect_location))
+
+    form = LoginForm(request.form)
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data).first()
         # saving session and redirecting on valid password

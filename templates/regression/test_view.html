@@ -11,7 +11,12 @@
             <p>Command: {{ test.command }}</p>
             <p>Input type: {{ test.input_type.description }}</p>
             <p>Output type: {{ test.output_type.description }}</p>
-            <p>Output files: Coming soon<!-- TODO: finish --></p>
+            <p>Output files:</p>
+            <ul>
+                {% for output_file in test.output_files %}
+                <li><a target="_blank" href="{{ url_for('regression.test_result_file', regression_test_output_id=output_file.id) }}">{{ output_file.filename_correct }}</a></li>
+                {% endfor %}            
+            </ul>            
         </div>
         <div class="column medium-3">
             {% if user is not none and user.has_role('contributor') %}

@@ -1,14 +1,17 @@
 """Maintain logic to perform CRUD operations on regression tests."""
 
-from flask import (Blueprint, abort, flash, g, jsonify, redirect, request,
-                   url_for)
+import os
+from typing import Any
+
+from flask import (Blueprint, abort, flash, g, jsonify, make_response,
+                   redirect, request, url_for)
 
 from decorators import template_renderer
 from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role
 from mod_regression.forms import AddCategoryForm, AddTestForm, ConfirmationForm
 from mod_regression.models import (Category, InputType, OutputType,
-                                   RegressionTest)
+                                   RegressionTest, RegressionTestOutput)
 from mod_sample.models import Sample
 
 mod_regression = Blueprint('regression', __name__)
@@ -178,10 +181,38 @@ def toggle_active_status(regression_id):
     })
 
 
-@mod_regression.route('/test/<regression_id>/results')
-def test_result(regression_id):
+@mod_regression.route('/test/<regression_test_output_id>/download', methods=['GET'])
+def test_result_file(regression_test_output_id):
     """View the output files of the regression test."""
-    pass
+    rto = RegressionTestOutput.query.filter(RegressionTestOutput.id == regression_test_output_id).first()
+    if rto is None:
+        abort(404)
+    return serve_file_download(rto.filename_correct)
+
+
+def serve_file_download(file_name, content_type='application/octet-stream') -> Any:
+    """
+    Endpoint to serve file download.
+
+    :param file_name: name of the file
+    :type file_name: str
+    :param content_type: content type of the file, defaults to 'application/octet-stream'
+    :type content_type: str, optional
+    :return: response, the file download
+    :rtype: Flask response
+    """
+    from run import config
+
+    file_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'TestResults', file_name)
+    response = make_response()
+    response.headers['Content-Description'] = 'File Transfer'
+    response.headers['Cache-Control'] = 'no-cache'
+    response.headers['Content-Type'] = content_type
+    response.headers['Content-Disposition'] = 'attachment; filename={name}'.format(name=file_name)
+    response.headers['Content-Length'] = os.path.getsize(file_path)
+    response.headers['X-Accel-Redirect'] = '/' + os.path.join('regression-download', file_name)
+
+    return response
 
 
 @mod_regression.route('/test/new', methods=['GET', 'POST'])

@@ -1,4 +1,7 @@
+from unittest import mock
+
 from flask import g
+from werkzeug.exceptions import NotFound
 
 from mod_auth.models import Role
 from mod_customized.models import CustomizedTest
@@ -36,6 +39,45 @@ class TestControllers(BaseTestCase):
                 self.assertEqual('False', response.json['active'])
             else:
                 self.assertEqual('True', response.json['active'])
+
+    @mock.patch('mod_regression.controllers.RegressionTestOutput')
+    def test_download_result_file_not_found(self, mock_regression_output):
+        """
+        Test that non-existent result file gives 404.
+        """
+        from mod_regression.controllers import test_result_file
+        mock_regression_output.query.filter.return_value.first.return_value = None
+
+        with self.assertRaises(NotFound):
+            test_result_file(1)
+
+        mock_regression_output.query.filter.assert_called_once_with(mock_regression_output.id == 1)
+
+    @mock.patch('mod_regression.controllers.serve_file_download')
+    @mock.patch('mod_regression.controllers.RegressionTestOutput')
+    def test_download_result_file(self, mock_regression_output, mock_serve):
+        """
+        Test that correct result file triggers serve download.
+        """
+        from mod_regression.controllers import test_result_file
+
+        response = test_result_file(1)
+
+        mock_regression_output.query.filter.assert_called_once_with(mock_regression_output.id == 1)
+        mock_serve.assert_called_once()
+
+    @mock.patch('mod_regression.controllers.os')
+    def test_serve_file_download(self, mock_os):
+        """
+        Test function serve_file_download.
+        """
+        from mod_regression.controllers import serve_file_download
+
+        response = serve_file_download('to_download')
+
+        self.assert200(response)
+        self.assertEqual(2, mock_os.path.join.call_count)
+        mock_os.path.getsize.assert_called_once_with(mock_os.path.join())
 
     def test_regression_test_deletion_Without_login(self):
         response = self.app.test_client().get('/regression/test/9432/delete')

@@ -819,8 +819,10 @@ def progress_reporter(test_id, token):
     test = Test.query.filter(Test.id == test_id).first()
     if test is not None and test.token == token:
         repo_folder = config.get('SAMPLE_REPOSITORY', '')
+
         if 'type' in request.form:
             if request.form['type'] == 'progress':
+
                 # Progress, log
                 status = TestStatus.from_string(request.form['status'])
                 # Check whether test is not running previous status again
@@ -836,6 +838,28 @@ def progress_reporter(test_id, token):
                     if laststatus > istatus:
                         status = TestStatus.canceled
                         message = "Duplicate Entries"
+
+                    if laststatus < istatus:
+                        # get KVM start time for finding KVM preparation time
+                        KVM = Kvm.query.filter(Kvm.test_id == test_id).first()
+
+                        if status == TestStatus.building:
+                            prep_finish_time = datetime.datetime.now()
+                            # save preparation finish time
+                            KVM.timestamp_prep_finished = prep_finish_time
+                            g.db.commit()
+                            # set time taken in seconds to do preparation
+                            time_diff = (prep_finish_time - KVM.timestamp).total_seconds()
+                            set_avg_time(test.platform, "prep", time_diff)
+
+                        elif status == TestStatus.testing:
+                            build_finish_time = datetime.datetime.now()
+                            # save build finish time
+                            KVM.timestamp_build_finished = build_finish_time
+                            g.db.commit()
+                            # set time taken in seconds to do preparation
+                            time_diff = (build_finish_time - KVM.timestamp_prep_finished).total_seconds()
+                            set_avg_time(test.platform, "build", time_diff)
 
                 progress = TestProgress(test.id, status, message)
                 g.db.add(progress)
@@ -1058,6 +1082,50 @@ def progress_reporter(test_id, token):
             return "OK"
 
     return "FAIL"
+
+
+def set_avg_time(platform: Test.platform, process_type: str, time_taken: int) -> None:
+    """
+    Set average platform preparation time.
+
+    :param platform: platform to which the average time belongs
+    :type platform: TestPlatform
+    :param process_type: process to save the average time for
+    :type process_type: str
+    :param time_taken: time taken to complete the process
+    :type time_taken: int
+    """
+    val_key = platform.value + "_avg_" + str(process_type) + "_time"
+    count_key = platform.value + "_avg_" + str(process_type) + "_count"
+
+    current_avg_count = GeneralData.query.filter(GeneralData.key == count_key).first()
+
+    # adding average data the first time
+    if current_avg_count is None:
+        avg_count_GD = GeneralData(count_key, str(1))
+        avg_time_GD = GeneralData(val_key, str(time_taken))
+        g.db.add(avg_count_GD)
+        g.db.add(avg_time_GD)
+
+    else:
+        current_average = GeneralData.query.filter(GeneralData.key == val_key).first()
+        avg_count = int(current_avg_count.value)
+        avg_value = int(current_average.value)
+        new_average = ((avg_value * avg_count) + time_taken) / (avg_count + 1)
+        current_avg_count.value = str(avg_count + 1)
+        current_average.value = str(new_average)
+
+    g.db.commit()
+
+
+def set_avg_build_time(platform: TestPlatform) -> None:
+    """
+    Set average platform preparation time.
+
+    :param platform: platform to which the average time belongs
+    :type platform: TestPlatform
+    """
+    pass
 
 
 def comment_pr(test_id, state, pr_nr, platform) -> None:

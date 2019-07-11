@@ -13,6 +13,7 @@ from mod_regression.forms import AddCategoryForm, AddTestForm, ConfirmationForm
 from mod_regression.models import (Category, InputType, OutputType,
                                    RegressionTest, RegressionTestOutput)
 from mod_sample.models import Sample
+from utility import serve_file_download
 
 mod_regression = Blueprint('regression', __name__)
 
@@ -187,32 +188,7 @@ def test_result_file(regression_test_output_id):
     rto = RegressionTestOutput.query.filter(RegressionTestOutput.id == regression_test_output_id).first()
     if rto is None:
         abort(404)
-    return serve_file_download(rto.filename_correct)
-
-
-def serve_file_download(file_name, content_type='application/octet-stream') -> Any:
-    """
-    Endpoint to serve file download.
-
-    :param file_name: name of the file
-    :type file_name: str
-    :param content_type: content type of the file, defaults to 'application/octet-stream'
-    :type content_type: str, optional
-    :return: response, the file download
-    :rtype: Flask response
-    """
-    from run import config
-
-    file_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'TestResults', file_name)
-    response = make_response()
-    response.headers['Content-Description'] = 'File Transfer'
-    response.headers['Cache-Control'] = 'no-cache'
-    response.headers['Content-Type'] = content_type
-    response.headers['Content-Disposition'] = 'attachment; filename={name}'.format(name=file_name)
-    response.headers['Content-Length'] = os.path.getsize(file_path)
-    response.headers['X-Accel-Redirect'] = '/' + os.path.join('regression-download', file_name)
-
-    return response
+    return serve_file_download(rto.filename_correct, 'TestResults', 'regression-download')
 
 
 @mod_regression.route('/test/new', methods=['GET', 'POST'])

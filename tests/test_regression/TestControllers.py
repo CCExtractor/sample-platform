@@ -66,19 +66,6 @@ class TestControllers(BaseTestCase):
         mock_regression_output.query.filter.assert_called_once_with(mock_regression_output.id == 1)
         mock_serve.assert_called_once()
 
-    @mock.patch('mod_regression.controllers.os')
-    def test_serve_file_download(self, mock_os):
-        """
-        Test function serve_file_download.
-        """
-        from mod_regression.controllers import serve_file_download
-
-        response = serve_file_download('to_download')
-
-        self.assert200(response)
-        self.assertEqual(2, mock_os.path.join.call_count)
-        mock_os.path.getsize.assert_called_once_with(mock_os.path.join())
-
     def test_regression_test_deletion_Without_login(self):
         response = self.app.test_client().get('/regression/test/9432/delete')
         self.assertEqual(response.status_code, 302)

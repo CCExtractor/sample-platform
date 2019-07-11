@@ -26,6 +26,7 @@ from mod_regression.models import (Category, RegressionTestOutput,
                                    regressionTestLinkTable)
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
                              TestResult, TestResultFile, TestStatus, TestType)
+from utility import serve_file_download
 
 mod_test = Blueprint('test', __name__)  # type: ignore
 
@@ -369,31 +370,6 @@ def generate_diff(test_id: int, regression_test_id: int, output_id: int, to_view
     abort(404)
 
 
-def serve_file_download(file_name, content_type='application/octet-stream') -> Any:
-    """
-    Endpoint to serve file download.
-
-    :param file_name: name of the file
-    :type file_name: str
-    :param content_type: content type of the file, defaults to 'application/octet-stream'
-    :type content_type: str, optional
-    :return: response, the file download
-    :rtype: Flask response
-    """
-    from run import config
-
-    file_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'LogFiles', file_name)
-    response = make_response()
-    response.headers['Content-Description'] = 'File Transfer'
-    response.headers['Cache-Control'] = 'no-cache'
-    response.headers['Content-Type'] = content_type
-    response.headers['Content-Disposition'] = 'attachment; filename={name}'.format(name=file_name)
-    response.headers['Content-Length'] = os.path.getsize(file_path)
-    response.headers['X-Accel-Redirect'] = '/' + os.path.join('logfile-download', file_name)
-
-    return response
-
-
 @mod_test.route('/log-files/<test_id>')  # type: ignore
 def download_build_log_file(test_id):
     """
@@ -414,7 +390,7 @@ def download_build_log_file(test_id):
         log_file_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'LogFiles', test_id + '.txt')
 
         if os.path.isfile(log_file_path):
-            return serve_file_download(test_id + '.txt', 'text/plain')
+            return serve_file_download(test_id + '.txt', 'LogFiles', 'logfile-download', 'text/plain')
 
         raise TestNotFoundException('Build log for Test {id} not found'.format(id=test_id))
 

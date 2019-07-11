@@ -219,19 +219,6 @@ class TestControllers(BaseTestCase):
 
         self.assertTrue(response, mock_response())
 
-    @mock.patch('mod_test.controllers.os')
-    def test_serve_file_download(self, mock_os):
-        """
-        Test function serve_file_download.
-        """
-        from mod_test.controllers import serve_file_download
-
-        response = serve_file_download('to_download')
-
-        self.assert200(response)
-        self.assertEqual(2, mock_os.path.join.call_count)
-        mock_os.path.getsize.assert_called_once_with(mock_os.path.join())
-
     @mock.patch('mod_test.controllers.Test')
     def test_download_build_log_file_test_not_found(self, mock_test):
         """

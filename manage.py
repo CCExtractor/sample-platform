@@ -33,9 +33,9 @@ class UpdateResults(Command):
             print('path to ccextractor: ' + str(path_to_ccex))
 
             if update_expected_results(path_to_ccex):
-                print('update succeeded')
+                print('update function finished')
             else:
-                print('update failed, please check your path and version and try running manually on failed ones.')
+                print('update function errored')
                 return 1
 
         return 0

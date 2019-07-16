@@ -6,6 +6,7 @@ import subprocess
 from time import gmtime, strftime
 from typing import List
 
+from database import create_session
 from mod_regression.models import RegressionTest
 from run import config
 
@@ -100,12 +101,19 @@ def update_expected_results(path_to_ccex: str) -> bool:
     :param path_to_ccex: path to the ccextractor executable
     :type path_to_ccex: str
     """
+    DBSession = create_session(config['DATABASE_URI'])
+
     if not os.path.isfile(path_to_ccex):
         return False
 
-    all_regression_tests = RegressionTest.query.all()
+    all_regression_tests = DBSession.query(RegressionTest).all()
 
     tests_to_update = []
+
+    if len(all_regression_tests) == 0:
+        print('INFO: No regression tests found!')
+        return True
+
     for test in all_regression_tests:
         input_file = Test.get_inputfilepath(test)
         output_file = Test.get_outputfilepath(test)

@@ -8,7 +8,7 @@ sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 def run():
     from mod_home.models import CCExtractorVersion, GeneralData
-    from mod_regression.models import Category, RegressionTest, InputType, OutputType
+    from mod_regression.models import Category, RegressionTest, InputType, OutputType, RegressionTestOutput
     from mod_sample.models import Sample
     from mod_upload.models import Upload
     from mod_auth.models import User
@@ -33,7 +33,7 @@ def run():
     db.add_all(samples)
     db.commit()
 
-    cc_version = CCExtractorVersion('0.84', '2016-12-16', '77da2dc873cc25dbf606a3b04172aa9fb1370f32')
+    cc_version = CCExtractorVersion('0.84', '2016-12-16T00:00:00Z', '77da2dc873cc25dbf606a3b04172aa9fb1370f32')
     db.add(cc_version)
     db.commit()
 
@@ -46,6 +46,13 @@ def run():
 
     gen_data = GeneralData('last_commit', '71dffd6eb30c1f4b5cf800307de845072ce33262')
     db.add(gen_data)
+    db.commit()
+
+    regresstion_test_output = [
+        RegressionTestOutput(1, "test1", "srt", "test1.srt"),
+        RegressionTestOutput(2, "test2", "srt", "test2.srt")
+    ]
+    db.add_all(regresstion_test_output)
     db.commit()
 
 

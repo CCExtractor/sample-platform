@@ -50,7 +50,7 @@ class Test:
         :rtype: str
         """
         output = reg_test.output_files[0]
-        file_name = output.correct_filename
+        file_name = output.filename_correct
         file_path = os.path.join(OUTPUT_RESULTS_FOLDER, file_name)
         abs_file_path = os.path.abspath(file_path)
 
@@ -75,16 +75,17 @@ class Test:
         :rtype: bool
         """
         proc_args = [path_to_ccex]
-        proc_args.extend(list(args.split('')))
+        proc_args.extend(list(args.split(' ')))
         proc_args.append(input_file)
         proc_args.extend(['-o', output_file])
 
         try:
             proc = subprocess.run(proc_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             with open(log_file, 'w+') as logf:
-                logf.write(proc.stdout)
+                logf.write(proc.stdout.decode('utf-8'))
             if proc.returncode != 0:
                 print(f'ERROR: ccextractor encountered error for {input_file}, please see {log_file}')
+                print(f'ccextractor was run as {" ".join(proc_args)}')
                 return False
             else:
                 return True
@@ -131,7 +132,7 @@ def update_expected_results(path_to_ccex: str) -> bool:
     print(f'INFO: ccextractor logs can be found at {log_folder_path} for each sample after update')
 
     for test in tests_to_update:
-        log_file = os.path.join(log_folder_path, test.input + '.log')
+        log_file = os.path.join(log_folder_path, os.path.basename(test.input) + '.log')
         success = Test.run_ccex(path_to_ccex, log_file, test.input, test.args, test.output)
         if success:
             print(f'SUCCESS: output {output_file} updated for sample {input_file}')

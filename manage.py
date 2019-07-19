@@ -28,15 +28,15 @@ class UpdateResults(Command):
         if len(remaining) == 0:
             print('path to ccextractor is missing')
             return 1
-        else:
-            path_to_ccex = remaining[0]
-            print('path to ccextractor: ' + str(path_to_ccex))
 
-            if update_expected_results(path_to_ccex):
-                print('update function finished')
-            else:
-                print('update function errored')
-                return 1
+        path_to_ccex = remaining[0]
+        print('path to ccextractor: ' + str(path_to_ccex))
+
+        if update_expected_results(path_to_ccex):
+            print('update function finished')
+        else:
+            print('update function errored')
+            return 1
 
         return 0
 

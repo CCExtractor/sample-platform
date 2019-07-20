@@ -35,7 +35,7 @@ class UpdateResults(Command):
         if not update_expected_results(path_to_ccex):
             print('update function errored')
             return 1
-        
+
         print('update function finished')
         return 0
 

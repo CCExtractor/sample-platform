@@ -101,8 +101,8 @@ def get_data_for_test(test, title=None) -> Dict[str, Any]:
         var_average = 'average_time_' + test.platform.value
 
         # get average build and prep time.
-        prep_average_key = test.platform.value + '_avg_prep_time'
-        build_average_key = test.platform.value + '_avg_build_time'
+        prep_average_key = 'avg_prep_time_' + test.platform.value
+        build_average_key = 'avg_build_time_' + test.platform.value
         average_prep_time = int(GeneralData.query.filter(GeneralData.key == prep_average_key).first().value)
         average_build_time = int(GeneralData.query.filter(GeneralData.key == build_average_key).first().value)
 

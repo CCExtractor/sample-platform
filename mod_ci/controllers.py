@@ -1095,8 +1095,8 @@ def set_avg_time(platform: Test.platform, process_type: str, time_taken: int) ->
     :param time_taken: time taken to complete the process
     :type time_taken: int
     """
-    val_key = platform.value + "_avg_" + str(process_type) + "_time"
-    count_key = platform.value + "_avg_" + str(process_type) + "_count"
+    val_key = "avg_" + str(process_type) + "_time_" + platform.value
+    count_key = "avg_" + str(process_type) + "_count_" + platform.value
 
     current_avg_count = GeneralData.query.filter(GeneralData.key == count_key).first()
 
@@ -1116,16 +1116,6 @@ def set_avg_time(platform: Test.platform, process_type: str, time_taken: int) ->
         current_average.value = str(new_average)
 
     g.db.commit()
-
-
-def set_avg_build_time(platform: TestPlatform) -> None:
-    """
-    Set average platform preparation time.
-
-    :param platform: platform to which the average time belongs
-    :type platform: TestPlatform
-    """
-    pass
 
 
 def comment_pr(test_id, state, pr_nr, platform) -> None:

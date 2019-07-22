@@ -48,6 +48,8 @@ class Kvm(Base):
     test_id = Column(Integer, ForeignKey(Test.id, onupdate="CASCADE", ondelete="RESTRICT"))
     test = relationship('Test', uselist=False)
     timestamp = Column(DateTime(), nullable=False)
+    timestamp_prep_finished = Column(DateTime(), nullable=True)
+    timestamp_build_finished = Column(DateTime(), nullable=True)
 
     def __init__(self, name, test_id, timestamp=None) -> None:
         """

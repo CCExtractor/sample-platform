@@ -87,8 +87,7 @@ class Test:
                 print(f'ERROR: ccextractor encountered error for {input_file}, please see {log_file}')
                 print(f'ccextractor was run as {" ".join(proc_args)}')
                 return False
-            else:
-                return True
+            return True
         except subprocess.CalledProcessError as err:
             print(f'ERROR: subprocess failed for {input_file}')
             print(f'ERROR: The run for subprocess was "{" ".join(proc_args)}"')

@@ -39,6 +39,7 @@ flask-migrate = "==2.5.2"
 Flask = "==1.0.3"
 PyMySQL = "==0.9.3"
 GitPython = "==2.1.11"
+flask-script = "==2.0.6"
 
 [requires]
 python_version = "3.7"

@@ -83,9 +83,9 @@ def before_app_request() -> None:
 
 def start_platforms(db, repository, delay=None, platform=None) -> None:
     """
-    Check whether there is already running test.
+    Start new test on both platforms in parallel.
 
-    It check the kvm progress and if no running test then it start a new test.
+    We use multiprocessing module which bypasses Python GIL to make use of multiple cores of the processor.
     """
     from run import config, log
 
@@ -99,11 +99,11 @@ def start_platforms(db, repository, delay=None, platform=None) -> None:
 
     if platform is None or platform == TestPlatform.windows:
         win_kvm_name = config.get('KVM_WINDOWS_NAME', '')
-        log.info('setting windows virtual machine process...')
+        log.info('setting Windows virtual machine process...')
         windows_process = Process(target=kvm_processor, args=(current_app._get_current_object(), db, win_kvm_name,
                                                               TestPlatform.windows, repository, delay,))
         windows_process.start()
-        log.info('started Linux virtual machine process...')
+        log.info('started Windows virtual machine process...')
 
 
 def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:

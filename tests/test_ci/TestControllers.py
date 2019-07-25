@@ -232,6 +232,41 @@ class TestControllers(BaseTestCase):
         mock_log.critical.assert_called_once()
         self.assertEqual(mock_log.debug.call_count, 1)
 
+    @mock.patch('mod_ci.controllers.GeneralData')
+    @mock.patch('mod_ci.controllers.g')
+    def test_set_avg_time_first(self, mock_g, mock_gd):
+        """
+        Test setting average time for the first time.
+        """
+        from mod_ci.controllers import set_avg_time
+
+        mock_gd.query.filter.return_value.first.return_value = None
+
+        set_avg_time(TestPlatform.linux, "build", 100)
+
+        mock_gd.query.filter.assert_called_once_with(mock_gd.key == 'avg_build_count_linux')
+        self.assertEqual(mock_gd.call_count, 2)
+        self.assertEqual(mock_g.db.add.call_count, 2)
+        mock_g.db.commit.assert_called_once()
+
+    @mock.patch('mod_ci.controllers.int')
+    @mock.patch('mod_ci.controllers.GeneralData')
+    @mock.patch('mod_ci.controllers.g')
+    def test_set_avg_time(self, mock_g, mock_gd, mock_int):
+        """
+        Test setting average time for NOT first time.
+        """
+        from mod_ci.controllers import set_avg_time
+
+        mock_int.return_value = 5
+
+        set_avg_time(TestPlatform.windows, "prep", 100)
+
+        mock_gd.query.filter.assert_called_with(mock_gd.key == 'avg_prep_count_windows')
+        self.assertEqual(mock_gd.call_count, 0)
+        self.assertEqual(mock_g.db.add.call_count, 0)
+        mock_g.db.commit.assert_called_once()
+
     @mock.patch('github.GitHub')
     def test_comments_successfully_in_passed_pr_test(self, git_mock):
         import mod_ci.controllers

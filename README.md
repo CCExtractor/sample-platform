@@ -25,6 +25,18 @@ samples and associated test results.
 An installation guideline can be found here:
 [installation guide](install/installation.md).
 
+## Sample Updates
+
+A lot of times it may happen that we add new features to ccextractor which render the result files associated with
+regression tests useless. In these cases, the tests can give false negative. For such cases, we should update the existing
+result files by the following command.
+
+```shell
+python manage.py update /path/to/ccextractor/executable
+```
+
+NOTE: Please backup old results and be sure about updating them as there is no method to go back.
+
 ## Database Migrations
 
 Sample-Platform uses flask-migrate to handle database migrations.

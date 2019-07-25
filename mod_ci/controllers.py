@@ -12,8 +12,8 @@ from typing import Any, Callable, List, Optional, Tuple, Type
 
 import pymysql.err
 import requests
-from flask import (Blueprint, abort, flash, g, jsonify, redirect, request,
-                   url_for, current_app)
+from flask import (Blueprint, abort, current_app, flash, g, jsonify, redirect,
+                   request, url_for)
 from git import GitCommandError, InvalidGitRepositoryError, Repo
 from github import ApiError, GitHub
 from lxml import etree
@@ -45,7 +45,6 @@ from mod_home.models import CCExtractorVersion, GeneralData
 from mod_regression.models import (Category, RegressionTest,
                                    RegressionTestOutput,
                                    regressionTestLinkTable)
-from multiprocessing import Process
 from mod_sample.models import Issue
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
                              TestResult, TestResultFile, TestStatus, TestType)
@@ -102,7 +101,7 @@ def start_platforms(db, repository, delay=None, platform=None) -> None:
         win_kvm_name = config.get('KVM_WINDOWS_NAME', '')
         log.info('setting windows virtual machine process...')
         windows_process = Process(target=kvm_processor, args=(current_app._get_current_object(), db, win_kvm_name,
-                                                              TestPlatform.windows, repository, delay,))    
+                                                              TestPlatform.windows, repository, delay,))
         windows_process.start()
         log.info('started Linux virtual machine process...')
 

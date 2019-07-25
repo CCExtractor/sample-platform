@@ -10,7 +10,7 @@ sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 def cron():
     """Script to run from cron for Sampleplatform."""
-    from mod_ci.controllers import start_platform
+    from mod_ci.controllers import start_platforms
     from run import config, log
     from database import create_session
     from github import GitHub
@@ -21,7 +21,7 @@ def cron():
     gh = GitHub(access_token=config['GITHUB_TOKEN'])
     repository = gh.repos(config['GITHUB_OWNER'])(config['GITHUB_REPOSITORY'])
 
-    start_platform(db, repository)
+    start_platforms(db, repository)
 
 
 cron()

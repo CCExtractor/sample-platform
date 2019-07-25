@@ -13,7 +13,7 @@ from typing import Any, Callable, List, Optional, Tuple, Type
 import pymysql.err
 import requests
 from flask import (Blueprint, abort, flash, g, jsonify, redirect, request,
-                   url_for)
+                   url_for, current_app)
 from git import GitCommandError, InvalidGitRepositoryError, Repo
 from github import ApiError, GitHub
 from lxml import etree
@@ -45,6 +45,7 @@ from mod_home.models import CCExtractorVersion, GeneralData
 from mod_regression.models import (Category, RegressionTest,
                                    RegressionTestOutput,
                                    regressionTestLinkTable)
+from multiprocessing import Process
 from mod_sample.models import Issue
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
                              TestResult, TestResultFile, TestStatus, TestType)
@@ -81,7 +82,7 @@ def before_app_request() -> None:
         g.menu_entries['config'] = config_entries
 
 
-def start_platform(db, repository, delay=None) -> None:
+def start_platforms(db, repository, delay=None, platform=None) -> None:
     """
     Check whether there is already running test.
 
@@ -89,81 +90,24 @@ def start_platform(db, repository, delay=None) -> None:
     """
     from run import config, log
 
-    linux_kvm_name = config.get('KVM_LINUX_NAME', '')
-    win_kvm_name = config.get('KVM_WINDOWS_NAME', '')
-    kvm_test = Kvm.query.first()
+    if platform is None or platform == TestPlatform.linux:
+        linux_kvm_name = config.get('KVM_LINUX_NAME', '')
+        log.info('setting Linux virtual machine process...')
+        linux_process = Process(target=kvm_processor, args=(current_app._get_current_object(), db, linux_kvm_name,
+                                                            TestPlatform.linux, repository, delay,))
+        linux_process.start()
+        log.info('started Linux virtual machine process...')
 
-    if kvm_test is None:
-        start_new_test(db, repository, delay)
-    elif kvm_test.name == linux_kvm_name:
-        kvm_processor_linux(db, repository, delay)
-    elif kvm_test.name == win_kvm_name:
-        kvm_processor_windows(db, repository, delay)
-    else:
-        log.error(
-            "There's a test in the KVM machine, but none of the platforms matched! We got {name}, compared against "
-            "{lin}, {win}".format(name=kvm_test.name, lin=linux_kvm_name, win=win_kvm_name)
-        )
-
-
-def start_new_test(db, repository, delay) -> None:
-    """Start a new test based on kvm table."""
-    from run import log
-
-    finished_tests = db.query(TestProgress.test_id).filter(
-        TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
-    ).subquery()
-    test = Test.query.filter(and_(Test.id.notin_(finished_tests))).order_by(Test.id.asc()).first()
-
-    if test is None:
-        return
-    elif test.platform == TestPlatform.windows:
-        kvm_processor_windows(db, repository, delay)
-    elif test.platform == TestPlatform.linux:
-        kvm_processor_linux(db, repository, delay)
-    else:
-        log.error("Unsupported CI platform: {platform}".format(platform=test.platform))
-
-    return
+    if platform is None or platform == TestPlatform.windows:
+        win_kvm_name = config.get('KVM_WINDOWS_NAME', '')
+        log.info('setting windows virtual machine process...')
+        windows_process = Process(target=kvm_processor, args=(current_app._get_current_object(), db, win_kvm_name,
+                                                              TestPlatform.windows, repository, delay,))    
+        windows_process.start()
+        log.info('started Linux virtual machine process...')
 
 
-def kvm_processor_linux(db, repository, delay) -> None:
-    """
-    Get Kernel-based Linux Virtual Machine.
-
-    :param db: database connection
-    :type db: sqlalchemy.orm.scoped_session
-    :param repository: repository to run tests on
-    :type repository: str
-    :param delay: time delay after which to start kvm processor
-    :type delay: int
-    :return: null
-    :rtype: null
-    """
-    from run import config
-    kvm_name = config.get('KVM_LINUX_NAME', '')
-    return kvm_processor(db, kvm_name, TestPlatform.linux, repository, delay)
-
-
-def kvm_processor_windows(db, repository, delay) -> None:
-    """
-    Get Kernel-based Windows Virtual Machine.
-
-    :param db: database connection
-    :type db: sqlalchemy.orm.scoped_session
-    :param repository: repository to run tests on
-    :type repository: str
-    :param delay: time delay after which to start kvm processor
-    :type delay: int
-    :return: null
-    :rtype: null
-    """
-    from run import config
-    kvm_name = config.get('KVM_WINDOWS_NAME', '')
-    return kvm_processor(db, kvm_name, TestPlatform.windows, repository, delay)
-
-
-def kvm_processor(db, kvm_name, platform, repository, delay) -> None:
+def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
     """
     Check whether there is no already running same kvm.
 
@@ -183,7 +127,7 @@ def kvm_processor(db, kvm_name, platform, repository, delay) -> None:
     :param delay: time delay after which to start kvm processor
     :type delay: int
     """
-    from run import config, log, app, get_github_config
+    from run import config, log, get_github_config
 
     github_config = get_github_config(config)
 
@@ -978,8 +922,7 @@ def progress_reporter(test_id, token):
 
                 if status in [TestStatus.completed, TestStatus.canceled]:
                     # Start next test if necessary, on the same platform
-                    process = Process(target=start_platform, args=(g.db, repository, 60))
-                    process.start()
+                    start_platforms(g.db, repository, 60, test.platform)
 
             elif request.form['type'] == 'equality':
                 log.debug('Equality for {t}/{rt}/{rto}'.format(

@@ -160,7 +160,7 @@ class RegressionTestOutput(Base):
         :param ignore: The value of the 'ignore' field of RegressionTestOutput model (False by default)
         :type ignore: bool
         """
-        self.sample_id = regression_id
+        self.regression_id = regression_id
         self.correct = correct
         self.correct_extension = correct_extension
         self.expected_filename = expected_filename

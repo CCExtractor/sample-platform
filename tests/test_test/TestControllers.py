@@ -135,7 +135,7 @@ class TestControllers(BaseTestCase):
         self.assertIsInstance(result, dict)
         self.assertEqual(5, mock_g.db.query.call_count)
         mock_category.query.filter.assert_called_once()
-        mock_gen_data.query.filter.assert_called_once()
+        mock_gen_data.query.filter.assert_called()
 
     @mock.patch('mod_test.controllers.Test')
     def test_get_json_data_no_test(self, mock_test):

@@ -99,6 +99,13 @@ def get_data_for_test(test, title=None) -> Dict[str, Any]:
     """
     if len(test.progress) == 0:
         var_average = 'average_time_' + test.platform.value
+
+        # get average build and prep time.
+        prep_average_key = 'avg_prep_time_' + test.platform.value
+        build_average_key = 'avg_build_time_' + test.platform.value
+        average_prep_time = int(GeneralData.query.filter(GeneralData.key == prep_average_key).first().value)
+        average_build_time = int(GeneralData.query.filter(GeneralData.key == build_average_key).first().value)
+
         queued_kvm = g.db.query(Kvm.test_id).filter(Kvm.test_id < test.id).subquery()
         queued_kvm_entries = g.db.query(Test.id).filter(
             and_(Test.id.in_(queued_kvm), Test.platform == test.platform)
@@ -118,7 +125,7 @@ def get_data_for_test(test, title=None) -> Dict[str, Any]:
             end = datetime.strptime(timestamps[-1], '%Y-%m-%d %H:%M:%S')
             time_run += (end - start).total_seconds()
         # subtracting current running tests
-        total = (average_duration * (queued_tests + 1)) - time_run
+        total = (average_build_time + average_prep_time + (average_duration * (queued_tests + 1))) - time_run
         minutes = (total % 3600) // 60
         hours = total // 3600
 

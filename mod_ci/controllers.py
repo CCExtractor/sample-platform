@@ -87,23 +87,25 @@ def start_platforms(db, repository, delay=None, platform=None) -> None:
 
     We use multiprocessing module which bypasses Python GIL to make use of multiple cores of the processor.
     """
-    from run import config, log
+    from run import config, log, app
 
-    if platform is None or platform == TestPlatform.linux:
-        linux_kvm_name = config.get('KVM_LINUX_NAME', '')
-        log.info('setting Linux virtual machine process...')
-        linux_process = Process(target=kvm_processor, args=(current_app._get_current_object(), db, linux_kvm_name,
-                                                            TestPlatform.linux, repository, delay,))
-        linux_process.start()
-        log.info('started Linux virtual machine process...')
+    with app.app_context():
+        from flask import current_app
+        if platform is None or platform == TestPlatform.linux:
+            linux_kvm_name = config.get('KVM_LINUX_NAME', '')
+            log.info('setting Linux virtual machine process...')
+            linux_process = Process(target=kvm_processor, args=(current_app._get_current_object(), db, linux_kvm_name,
+                                                                TestPlatform.linux, repository, delay,))
+            linux_process.start()
+            log.info('started Linux virtual machine process...')
 
-    if platform is None or platform == TestPlatform.windows:
-        win_kvm_name = config.get('KVM_WINDOWS_NAME', '')
-        log.info('setting Windows virtual machine process...')
-        windows_process = Process(target=kvm_processor, args=(current_app._get_current_object(), db, win_kvm_name,
-                                                              TestPlatform.windows, repository, delay,))
-        windows_process.start()
-        log.info('started Windows virtual machine process...')
+        if platform is None or platform == TestPlatform.windows:
+            win_kvm_name = config.get('KVM_WINDOWS_NAME', '')
+            log.info('setting Windows virtual machine process...')
+            windows_process = Process(target=kvm_processor, args=(current_app._get_current_object(), db, win_kvm_name,
+                                                                  TestPlatform.windows, repository, delay,))
+            windows_process.start()
+            log.info('started Windows virtual machine process...')
 
 
 def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:

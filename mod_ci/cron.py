@@ -4,8 +4,6 @@
 import sys
 from os import path
 
-from flask import current_app
-
 # Need to append server root path to ensure we can import the necessary files.
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
@@ -13,6 +11,7 @@ sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 def cron(testing=False):
     """Script to run from cron for Sampleplatform."""
     from mod_ci.controllers import start_platforms, kvm_processor, TestPlatform
+    from flask import current_app
     from run import config, log
     from database import create_session
     from github import GitHub

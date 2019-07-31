@@ -6,7 +6,7 @@ from mock import MagicMock, mock
 from werkzeug.datastructures import Headers
 
 from mod_auth.models import Role
-from mod_ci.controllers import start_platform
+from mod_ci.controllers import start_platforms
 from mod_ci.models import BlockedUsers
 from mod_customized.models import CustomizedTest
 from mod_home.models import CCExtractorVersion, GeneralData
@@ -49,135 +49,40 @@ WSGI_ENVIRONMENT = {'REMOTE_ADDR': '192.30.252.0'}
 
 class TestControllers(BaseTestCase):
 
-    @mock.patch('mod_ci.controllers.Kvm')
+    @mock.patch('mod_ci.controllers.Process')
     @mock.patch('run.log')
-    def test_start_platform_no_match(self, mock_log, mock_kvm):
+    def test_start_platform_none_specified(self, mock_log, mock_process):
         """
-        Test that error is logged when started with wrong KVM name.
+        Test that both platforms run with no platform value is passed.
         """
-        mock_kvm.query.first.return_value = MockKVM("test")
+        start_platforms(mock.ANY, mock.ANY)
 
-        start_platform(mock.ANY, mock.ANY)
+        self.assertEqual(2, mock_process.call_count)
+        self.assertEqual(4, mock_log.info.call_count)
 
-        mock_kvm.query.first.assert_called_once()
-        mock_log.error.assert_called_once()
-
-    @mock.patch('mod_ci.controllers.kvm_processor_linux')
-    @mock.patch('mod_ci.controllers.Kvm')
+    @mock.patch('mod_ci.controllers.Process')
     @mock.patch('run.log')
-    def test_start_platform_linux_match(self, mock_log, mock_kvm, mock_linux_processor):
+    def test_start_platform_linux_specified(self, mock_log, mock_process):
         """
-        Test that linux processor is invoked when started with linux KVM name.
+        Test that only linux platform runs.
         """
-        mock_kvm.query.first.return_value = MockKVM(self.app.config.get('KVM_LINUX_NAME', ''))
+        start_platforms(mock.ANY, mock.ANY, platform=TestPlatform.linux)
 
-        start_platform(mock.ANY, mock.ANY)
+        self.assertEqual(1, mock_process.call_count)
+        self.assertEqual(2, mock_log.info.call_count)
+        mock_log.info.assert_called_with('started Linux virtual machine process...')
 
-        mock_kvm.query.first.assert_called_once()
-        mock_linux_processor.assert_called_once_with(mock.ANY, mock.ANY, None)
-        mock_log.error.assert_not_called()
-
-    @mock.patch('mod_ci.controllers.kvm_processor_windows')
-    @mock.patch('mod_ci.controllers.Kvm')
+    @mock.patch('mod_ci.controllers.Process')
     @mock.patch('run.log')
-    def test_start_platform_windows_match(self, mock_log, mock_kvm, mock_windows_processor):
+    def test_start_platform_windows_specified(self, mock_log, mock_process):
         """
-        Test that windows processor is invoked when started with windows KVM name.
+        Test that only windows platform runs.
         """
-        mock_kvm.query.first.return_value = MockKVM(self.app.config.get('KVM_WINDOWS_NAME', ''))
+        start_platforms(mock.ANY, mock.ANY, platform=TestPlatform.windows)
 
-        start_platform(mock.ANY, mock.ANY)
-
-        mock_kvm.query.first.assert_called_once()
-        mock_windows_processor.assert_called_once_with(mock.ANY, mock.ANY, None)
-        mock_log.error.assert_not_called()
-
-    @mock.patch('mod_ci.controllers.Test')
-    @mock.patch('mod_ci.controllers.and_')
-    def test_start_new_test_none(self, mock_and, mock_test):
-        """
-        Test starting a new test when the test is None.
-        """
-        from mod_ci.controllers import start_new_test
-
-        mock_test.query.filter.return_value.order_by.return_value.first.return_value = None
-        mock_db = MagicMock()
-
-        response = start_new_test(mock_db, mock.ANY, 0)
-
-        mock_and.assert_called_once()
-        self.assertEqual(response, None)
-
-    @mock.patch('run.log')
-    @mock.patch('mod_ci.controllers.Test')
-    @mock.patch('mod_ci.controllers.and_')
-    def test_start_new_test_unsupported(self, mock_and, mock_test, mock_log):
-        """
-        Test starting a new test when the test is unsupported.
-        """
-        from mod_ci.controllers import start_new_test
-
-        mock_test.query.filter.return_value.order_by.return_value.first.return_value = MagicMock()
-        mock_db = MagicMock()
-
-        response = start_new_test(mock_db, mock.ANY, 0)
-
-        mock_and.assert_called_once()
-        self.assertEqual(response, None)
-        mock_log.error.assert_called_once()
-
-    @mock.patch('run.log')
-    @mock.patch('mod_ci.controllers.Test')
-    @mock.patch('mod_ci.controllers.and_')
-    @mock.patch('mod_ci.controllers.kvm_processor_linux')
-    def test_start_new_test_linux(self, mock_processor, mock_and, mock_test, mock_log):
-        """
-        Test starting a new test when the test is linux test.
-        """
-        from mod_ci.controllers import start_new_test
-
-        mock_test.query.filter.return_value.order_by.return_value.first.return_value = MockPlatform(TestPlatform.linux)
-        mock_db = MagicMock()
-
-        response = start_new_test(mock_db, mock.ANY, 0)
-
-        mock_and.assert_called_once()
-        self.assertEqual(response, None)
-        mock_processor.assert_called_once_with(mock_db, mock.ANY, 0)
-        mock_log.error.assert_not_called()
-
-    @mock.patch('run.log')
-    @mock.patch('mod_ci.controllers.Test')
-    @mock.patch('mod_ci.controllers.and_')
-    @mock.patch('mod_ci.controllers.kvm_processor_windows')
-    def test_start_new_test_windows(self, mock_processor, mock_and, mock_test, mock_log):
-        """
-        Test starting a new test when the test is windows test.
-        """
-        from mod_ci.controllers import start_new_test
-
-        mock_test.query.filter.return_value.order_by.return_value.first.return_value = MockPlatform(
-            TestPlatform.windows)
-        mock_db = MagicMock()
-
-        response = start_new_test(mock_db, mock.ANY, 0)
-
-        mock_and.assert_called_once()
-        self.assertEqual(response, None)
-        mock_processor.assert_called_once_with(mock_db, mock.ANY, 0)
-        mock_log.error.assert_not_called()
-
-    @mock.patch('mod_ci.controllers.kvm_processor')
-    def test_kvm_processor_windows(self, mock_kvm_processor):
-        """
-        Test that kvm_processor is called for windows kvm processor.
-        """
-        from mod_ci.controllers import kvm_processor_windows
-
-        resp = kvm_processor_windows(mock.ANY, mock.ANY, 0)
-
-        self.assertEqual(resp, mock_kvm_processor())
-        mock_kvm_processor.assert_any_call(mock.ANY, "window-test", TestPlatform.windows, mock.ANY, 0)
+        self.assertEqual(1, mock_process.call_count)
+        self.assertEqual(2, mock_log.info.call_count)
+        mock_log.info.assert_called_with('started Windows virtual machine process...')
 
     @mock.patch('run.log')
     def test_kvm_processor_empty_kvm_name(self, mock_log):
@@ -186,7 +91,7 @@ class TestControllers(BaseTestCase):
         """
         from mod_ci.controllers import kvm_processor
 
-        resp = kvm_processor(mock.ANY, "", mock.ANY, mock.ANY, mock.ANY)
+        resp = kvm_processor(mock.ANY, mock.ANY, "", mock.ANY, mock.ANY, mock.ANY)
 
         self.assertIsNone(resp)
         mock_log.info.assert_called_once()
@@ -206,7 +111,7 @@ class TestControllers(BaseTestCase):
 
         mock_maintenance.query.filter.return_value.first.return_value = MockMaintence()
 
-        resp = kvm_processor(mock.ANY, "test", mock.ANY, mock.ANY, 1)
+        resp = kvm_processor(mock.ANY, mock.ANY, "test", mock.ANY, mock.ANY, 1)
 
         self.assertIsNone(resp)
         mock_log.info.assert_called_once()
@@ -225,7 +130,7 @@ class TestControllers(BaseTestCase):
         mock_libvirt.open.return_value = None
         mock_maintenance.query.filter.return_value.first.return_value = None
 
-        resp = kvm_processor(mock.ANY, "test", mock.ANY, mock.ANY, 1)
+        resp = kvm_processor(mock.ANY, mock.ANY, "test", mock.ANY, mock.ANY, 1)
 
         self.assertIsNone(resp)
         mock_log.info.assert_called_once()
@@ -350,7 +255,7 @@ class TestControllers(BaseTestCase):
         GitPullInfo = namedtuple('GitPullInfo', 'flags')
         pull_info = GitPullInfo(flags=0)
         origin.pull.return_value = [pull_info]
-        cron()
+        cron(testing=True)
         fork_url = 'https://github.com/{user}/{repo}.git'.format(user=self.user.name, repo=g.github['repository'])
         repo.create_remote.assert_called_with('fork_2', url=fork_url)
         repo.create_head.assert_called_with('CI_Branch', origin.refs.master)
@@ -385,7 +290,7 @@ class TestControllers(BaseTestCase):
         GitPullInfo = namedtuple('GitPullInfo', 'flags')
         pull_info = GitPullInfo(flags=0)
         origin.pull.return_value = [pull_info]
-        cron()
+        cron(testing=True)
         repo.remote.assert_called_with('fork_2')
 
     @mock.patch('github.GitHub')
@@ -419,7 +324,7 @@ class TestControllers(BaseTestCase):
         origin.pull.return_value = [pull_info]
         single_test = mock_etree.Element('tests')
         mock_etree.Element.return_value = single_test
-        cron()
+        cron(testing=True)
         mock_etree.SubElement.assert_any_call(single_test, 'entry', id=str(2))
         assert (single_test, 'entry', str(1)) not in mock_etree.call_args_list
 

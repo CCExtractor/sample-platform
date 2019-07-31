@@ -4,13 +4,17 @@
 import sys
 from os import path
 
+from flask import current_app
+
+from mod_ci.models import TestPlatform
+
 # Need to append server root path to ensure we can import the necessary files.
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 
-def cron():
+def cron(testing=False):
     """Script to run from cron for Sampleplatform."""
-    from mod_ci.controllers import start_platform
+    from mod_ci.controllers import start_platforms, kvm_processor
     from run import config, log
     from database import create_session
     from github import GitHub
@@ -21,7 +25,11 @@ def cron():
     gh = GitHub(access_token=config['GITHUB_TOKEN'])
     repository = gh.repos(config['GITHUB_OWNER'])(config['GITHUB_REPOSITORY'])
 
-    start_platform(db, repository)
+    if testing is True:
+        kvm_processor(current_app._get_current_object(), db, config.get('KVM_LINUX_NAME', ''), TestPlatform.linux,
+                      repository, None)
+    else:
+        start_platforms(db, repository)
 
 
 cron()

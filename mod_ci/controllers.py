@@ -775,10 +775,14 @@ def progress_reporter(test_id, token):
                 equality_type_request(log, test_id, test)
 
             elif request.form['type'] == 'logupload':
-                logupload_type_request(log, test_id, repo_folder, test)
+                ret_val = logupload_type_request(log, test_id, repo_folder, test)
+                if ret_val == "EMPTY":
+                    return "EMPTY"
 
             elif request.form['type'] == 'upload':
-                upload_type_request(log, test_id, repo_folder, test)
+                ret_val = upload_type_request(log, test_id, repo_folder, test)
+                if ret_val == "EMPTY":
+                    return "EMPTY"
 
             elif request.form['type'] == 'finish':
                 finish_type_request(log, test_id, test)
@@ -1100,7 +1104,7 @@ def finish_type_request(log, test_id, test):
     try:
         g.db.commit()
     except IntegrityError as e:
-        log.error('Could not save the results: {msg}'.format(msg=e.message))
+        log.error('Could not save the results: {msg}'.format(msg=e))
 
 
 def set_avg_time(platform: Test.platform, process_type: str, time_taken: int) -> None:

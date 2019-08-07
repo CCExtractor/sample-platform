@@ -746,6 +746,168 @@ class TestControllers(BaseTestCase):
         mock_check_repo.assert_called_once_with(None)
         mock_shutil.copyfile.assert_called_once_with(mock.ANY, mock.ANY)
 
+    @mock.patch('mod_ci.controllers.request')
+    @mock.patch('mod_ci.controllers.Test')
+    def test_progress_reporter_no_test(self, mock_test, mock_request):
+        """
+        Test progress_reporter with no test found.
+        """
+        from mod_ci.controllers import progress_reporter
+
+        mock_test.query.filter.return_value.first.return_value = None
+
+        expected_ret = "FAIL"
+
+        ret_val = progress_reporter(1, "token")
+
+        self.assertEqual(expected_ret, ret_val)
+        mock_test.query.filter.assert_called_once()
+        mock_request.assert_not_called()
+
+    @mock.patch('mod_ci.controllers.request')
+    @mock.patch('mod_ci.controllers.Test')
+    @mock.patch('mod_ci.controllers.progress_type_request')
+    def test_progress_reporter_progress_type_fail(self, mock_progress_type, mock_test, mock_request):
+        """
+        Test progress_reporter with failing of request type progress.
+        """
+        from mod_ci.controllers import progress_reporter
+
+        mock_test_obj = MagicMock()
+        mock_test_obj.token = "token"
+        mock_test.query.filter.return_value.first.return_value = mock_test_obj
+        mock_request.form = {'type': 'progress'}
+        mock_progress_type.return_value = "FAIL"
+
+        expected_ret = "FAIL"
+
+        ret_val = progress_reporter(1, "token")
+
+        self.assertEqual(expected_ret, ret_val)
+        mock_test.query.filter.assert_called_once()
+        mock_request.assert_not_called()
+        mock_progress_type.assert_called_once(mock.ANY, mock.ANY, 1)
+
+    @mock.patch('mod_ci.controllers.request')
+    @mock.patch('mod_ci.controllers.Test')
+    @mock.patch('mod_ci.controllers.progress_type_request')
+    def test_progress_reporter_progress_type(self, mock_progress_type, mock_test, mock_request):
+        """
+        Test progress_reporter with request type progress.
+        """
+        from mod_ci.controllers import progress_reporter
+
+        mock_test_obj = MagicMock()
+        mock_test_obj.token = "token"
+        mock_test.query.filter.return_value.first.return_value = mock_test_obj
+        mock_request.form = {'type': 'progress'}
+        mock_progress_type.return_value = "OK"
+
+        expected_ret = "OK"
+
+        ret_val = progress_reporter(1, "token")
+
+        self.assertEqual(expected_ret, ret_val)
+        mock_test.query.filter.assert_called_once()
+        mock_request.assert_not_called()
+        mock_progress_type.assert_called_once_with(mock.ANY, mock.ANY, 1)
+
+    @mock.patch('mod_ci.controllers.request')
+    @mock.patch('mod_ci.controllers.Test')
+    @mock.patch('mod_ci.controllers.equality_type_request')
+    def test_progress_reporter_equality_type(self, mock_equality_type, mock_test, mock_request):
+        """
+        Test progress_reporter with request type equality.
+        """
+        from mod_ci.controllers import progress_reporter
+
+        mock_test_obj = MagicMock()
+        mock_test_obj.token = "token"
+        mock_test.query.filter.return_value.first.return_value = mock_test_obj
+        mock_request.form = {'type': 'equality'}
+        mock_equality_type.return_value = "OK"
+
+        expected_ret = "OK"
+
+        ret_val = progress_reporter(1, "token")
+
+        self.assertEqual(expected_ret, ret_val)
+        mock_test.query.filter.assert_called_once()
+        mock_request.assert_not_called()
+        mock_equality_type.assert_called_once_with(mock.ANY, 1, mock.ANY)
+
+    @mock.patch('mod_ci.controllers.request')
+    @mock.patch('mod_ci.controllers.Test')
+    @mock.patch('mod_ci.controllers.logupload_type_request')
+    def test_progress_reporter_logupload_type(self, mock_logupload_type, mock_test, mock_request):
+        """
+        Test progress_reporter with request type logupload.
+        """
+        from mod_ci.controllers import progress_reporter
+
+        mock_test_obj = MagicMock()
+        mock_test_obj.token = "token"
+        mock_test.query.filter.return_value.first.return_value = mock_test_obj
+        mock_request.form = {'type': 'logupload'}
+        mock_logupload_type.return_value = "OK"
+
+        expected_ret = "OK"
+
+        ret_val = progress_reporter(1, "token")
+
+        self.assertEqual(expected_ret, ret_val)
+        mock_test.query.filter.assert_called_once()
+        mock_request.assert_not_called()
+        mock_logupload_type.assert_called_once_with(mock.ANY, 1, mock.ANY, mock.ANY)
+
+    @mock.patch('mod_ci.controllers.request')
+    @mock.patch('mod_ci.controllers.Test')
+    @mock.patch('mod_ci.controllers.upload_type_request')
+    def test_progress_reporter_upload_type(self, mock_upload_type, mock_test, mock_request):
+        """
+        Test progress_reporter with request type upload.
+        """
+        from mod_ci.controllers import progress_reporter
+
+        mock_test_obj = MagicMock()
+        mock_test_obj.token = "token"
+        mock_test.query.filter.return_value.first.return_value = mock_test_obj
+        mock_request.form = {'type': 'upload'}
+        mock_upload_type.return_value = "OK"
+
+        expected_ret = "OK"
+
+        ret_val = progress_reporter(1, "token")
+
+        self.assertEqual(expected_ret, ret_val)
+        mock_test.query.filter.assert_called_once()
+        mock_request.assert_not_called()
+        mock_upload_type.assert_called_once_with(mock.ANY, 1, mock.ANY, mock.ANY)
+
+    @mock.patch('mod_ci.controllers.request')
+    @mock.patch('mod_ci.controllers.Test')
+    @mock.patch('mod_ci.controllers.finish_type_request')
+    def test_progress_reporter_finish_type(self, mock_finish_type, mock_test, mock_request):
+        """
+        Test progress_reporter with request type finish.
+        """
+        from mod_ci.controllers import progress_reporter
+
+        mock_test_obj = MagicMock()
+        mock_test_obj.token = "token"
+        mock_test.query.filter.return_value.first.return_value = mock_test_obj
+        mock_request.form = {'type': 'finish'}
+        mock_finish_type.return_value = "OK"
+
+        expected_ret = "OK"
+
+        ret_val = progress_reporter(1, "token")
+
+        self.assertEqual(expected_ret, ret_val)
+        mock_test.query.filter.assert_called_once()
+        mock_request.assert_not_called()
+        mock_finish_type.assert_called_once_with(mock.ANY, 1, mock.ANY)
+
     def test_in_maintenance_mode_ValueError(self):
         """
         Test in_maintenance_mode function with invalid platform.

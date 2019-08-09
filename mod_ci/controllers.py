@@ -767,32 +767,32 @@ def progress_reporter(test_id, token):
 
         if 'type' in request.form:
             if request.form['type'] == 'progress':
-                ret_val = progress_type_request(log, test, test_id)
+                ret_val = progress_type_request(log, test, test_id, request)
                 if ret_val == "FAIL":
                     return "FAIL"
 
             elif request.form['type'] == 'equality':
-                equality_type_request(log, test_id, test)
+                equality_type_request(log, test_id, test, request)
 
             elif request.form['type'] == 'logupload':
-                ret_val = logupload_type_request(log, test_id, repo_folder, test)
+                ret_val = logupload_type_request(log, test_id, repo_folder, test, request)
                 if ret_val == "EMPTY":
                     return "EMPTY"
 
             elif request.form['type'] == 'upload':
-                ret_val = upload_type_request(log, test_id, repo_folder, test)
+                ret_val = upload_type_request(log, test_id, repo_folder, test, request)
                 if ret_val == "EMPTY":
                     return "EMPTY"
 
             elif request.form['type'] == 'finish':
-                finish_type_request(log, test_id, test)
+                finish_type_request(log, test_id, test, request)
 
             return "OK"
 
     return "FAIL"
 
 
-def progress_type_request(log, test, test_id):
+def progress_type_request(log, test, test_id, request):
     """
     Handle progress updates for progress reporter.
 
@@ -802,6 +802,8 @@ def progress_type_request(log, test, test_id):
     :type test: Test
     :param test_id: The id of the test to update.
     :type test_id: int
+    :param request: Request parameters
+    :type request: Request
     """
     # Progress, log
     status = TestStatus.from_string(request.form['status'])
@@ -985,7 +987,7 @@ def progress_type_request(log, test, test_id):
         start_platforms(g.db, repository, 60, test.platform)
 
 
-def equality_type_request(log, test_id, test):
+def equality_type_request(log, test_id, test, request):
     """
     Handle equality request type for progress reporter.
 
@@ -995,6 +997,8 @@ def equality_type_request(log, test_id, test):
     :type test_id: int
     :param test: concerned test
     :type test: Test
+    :param request: Request parameters
+    :type request: Request
     """
     log.debug('Equality for {t}/{rt}/{rto}'.format(
         t=test_id, rt=request.form['test_id'], rto=request.form['test_file_id'])
@@ -1010,7 +1014,7 @@ def equality_type_request(log, test_id, test):
         g.db.commit()
 
 
-def logupload_type_request(log, test_id, repo_folder, test):
+def logupload_type_request(log, test_id, repo_folder, test, request):
     """
     Handle logupload request type for progress reporter.
 
@@ -1022,6 +1026,8 @@ def logupload_type_request(log, test_id, repo_folder, test):
     :type repo_folder: str
     :param test: concerned test
     :type test: Test
+    :param request: Request parameters
+    :type request: Request
     """
     log.debug("Received log file for test {id}".format(id=test_id))
     # File upload, process
@@ -1040,7 +1046,7 @@ def logupload_type_request(log, test_id, repo_folder, test):
         log.debug("Stored log file")
 
 
-def upload_type_request(log, test_id, repo_folder, test):
+def upload_type_request(log, test_id, repo_folder, test, request):
     """
     Handle upload request type for progress reporter.
 
@@ -1052,6 +1058,8 @@ def upload_type_request(log, test_id, repo_folder, test):
     :type repo_folder: str
     :param test: concerned test
     :type test: Test
+    :param request: Request parameters
+    :type request: Request
     """
     log.debug('Upload for {t}/{rt}/{rto}'.format(
         t=test_id, rt=request.form['test_id'], rto=request.form['test_file_id'])
@@ -1083,7 +1091,7 @@ def upload_type_request(log, test_id, repo_folder, test):
         g.db.commit()
 
 
-def finish_type_request(log, test_id, test):
+def finish_type_request(log, test_id, test, request):
     """
     Handle finish request type for progress reporter.
 
@@ -1093,6 +1101,8 @@ def finish_type_request(log, test_id, test):
     :type test_id: int
     :param test: concerned test
     :type test: Test
+    :param request: Request parameters
+    :type request: Request
     """
     log.debug('Finish for {t}/{rt}'.format(t=test_id, rt=request.form['test_id']))
     regression_test = RegressionTest.query.filter(RegressionTest.id == request.form['test_id']).first()

@@ -767,265 +767,354 @@ def progress_reporter(test_id, token):
 
         if 'type' in request.form:
             if request.form['type'] == 'progress':
-
-                # Progress, log
-                status = TestStatus.from_string(request.form['status'])
-                # Check whether test is not running previous status again
-                istatus = TestStatus.progress_step(status)
-                message = request.form['message']
-
-                if len(test.progress) != 0:
-                    laststatus = TestStatus.progress_step(test.progress[-1].status)
-
-                    if laststatus in [TestStatus.completed, TestStatus.canceled]:
-                        return "FAIL"
-
-                    if laststatus > istatus:
-                        status = TestStatus.canceled
-                        message = "Duplicate Entries"
-
-                    if laststatus < istatus:
-                        # get KVM start time for finding KVM preparation time
-                        KVM = Kvm.query.filter(Kvm.test_id == test_id).first()
-
-                        if status == TestStatus.building:
-                            prep_finish_time = datetime.datetime.now()
-                            # save preparation finish time
-                            KVM.timestamp_prep_finished = prep_finish_time
-                            g.db.commit()
-                            # set time taken in seconds to do preparation
-                            time_diff = (prep_finish_time - KVM.timestamp).total_seconds()
-                            set_avg_time(test.platform, "prep", time_diff)
-
-                        elif status == TestStatus.testing:
-                            build_finish_time = datetime.datetime.now()
-                            # save build finish time
-                            KVM.timestamp_build_finished = build_finish_time
-                            g.db.commit()
-                            # set time taken in seconds to do preparation
-                            time_diff = (build_finish_time - KVM.timestamp_prep_finished).total_seconds()
-                            set_avg_time(test.platform, "build", time_diff)
-
-                progress = TestProgress(test.id, status, message)
-                g.db.add(progress)
-                g.db.commit()
-
-                gh = GitHub(access_token=g.github['bot_token'])
-                repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
-                # Store the test commit for testing in case of commit
-                if status == TestStatus.completed and check_main_repo(test.fork.github):
-                    commit_name = 'fetch_commit_' + test.platform.value
-                    commit = GeneralData.query.filter(GeneralData.key == commit_name).first()
-                    fetch_commit = Test.query.filter(
-                        and_(Test.commit == commit.value, Test.platform == test.platform)
-                    ).first()
-
-                    if test.test_type == TestType.commit and test.id > fetch_commit.id:
-                        commit.value = test.commit
-                        g.db.commit()
-
-                # If status is complete, remove the Kvm entry
-                if status in [TestStatus.completed, TestStatus.canceled]:
-                    log.debug("Test {id} has been {status}".format(id=test_id, status=status))
-                    var_average = 'average_time_' + test.platform.value
-                    current_average = GeneralData.query.filter(GeneralData.key == var_average).first()
-                    average_time = 0
-                    total_time = 0
-
-                    if current_average is None:
-                        platform_tests = g.db.query(Test.id).filter(Test.platform == test.platform).subquery()
-                        finished_tests = g.db.query(TestProgress.test_id).filter(
-                            and_(
-                                TestProgress.status.in_([TestStatus.canceled, TestStatus.completed]),
-                                TestProgress.test_id.in_(platform_tests)
-                            )
-                        ).subquery()
-                        in_progress_statuses = [TestStatus.preparation, TestStatus.completed, TestStatus.canceled]
-                        finished_tests_progress = g.db.query(TestProgress).filter(
-                            and_(
-                                TestProgress.test_id.in_(finished_tests),
-                                TestProgress.status.in_(in_progress_statuses)
-                            )
-                        ).subquery()
-                        times = g.db.query(
-                            finished_tests_progress.c.test_id,
-                            label('time', func.group_concat(finished_tests_progress.c.timestamp))
-                        ).group_by(finished_tests_progress.c.test_id).all()
-
-                        for p in times:
-                            parts = p.time.split(',')
-                            start = datetime.datetime.strptime(parts[0], '%Y-%m-%d %H:%M:%S')
-                            end = datetime.datetime.strptime(parts[-1], '%Y-%m-%d %H:%M:%S')
-                            total_time += (end - start).total_seconds()
-
-                        if len(times) != 0:
-                            average_time = total_time // len(times)
-
-                        new_avg = GeneralData(var_average, average_time)
-                        g.db.add(new_avg)
-                        g.db.commit()
-
-                    else:
-                        all_results = TestResult.query.count()
-                        regression_test_count = RegressionTest.query.count()
-                        number_test = all_results / regression_test_count
-                        updated_average = float(current_average.value) * (number_test - 1)
-                        pr = test.progress_data()
-                        end_time = pr['end']
-                        start_time = pr['start']
-
-                        if end_time.tzinfo is not None:
-                            end_time = end_time.replace(tzinfo=None)
-
-                        if start_time.tzinfo is not None:
-                            start_time = start_time.replace(tzinfo=None)
-
-                        last_running_test = end_time - start_time
-                        updated_average = updated_average + last_running_test.total_seconds()
-                        current_average.value = updated_average // number_test
-                        g.db.commit()
-
-                    kvm = Kvm.query.filter(Kvm.test_id == test_id).first()
-
-                    if kvm is not None:
-                        log.debug("Removing KVM entry")
-                        g.db.delete(kvm)
-                        g.db.commit()
-
-                # Post status update
-                state = Status.PENDING
-                target_url = url_for('test.by_id', test_id=test.id, _external=True)
-                context = "CI - {name}".format(name=test.platform.value)
-
-                if status == TestStatus.canceled:
-                    state = Status.ERROR
-                    message = 'Tests aborted due to an error; please check'
-
-                elif status == TestStatus.completed:
-                    # Determine if success or failure
-                    # It fails if any of these happen:
-                    # - A crash (unexpected exit code)
-                    # - A not None value on the "got" of a TestResultFile (
-                    #       meaning the hashes do not match)
-                    crashes = g.db.query(count(TestResult.exit_code)).filter(
-                        and_(
-                            TestResult.test_id == test.id,
-                            TestResult.exit_code != TestResult.expected_rc
-                        )).scalar()
-                    results_zero_rc = g.db.query(RegressionTest.id).filter(
-                        RegressionTest.expected_rc == 0
-                    ).subquery()
-                    results = g.db.query(count(TestResultFile.got)).filter(
-                        and_(
-                            TestResultFile.test_id == test.id,
-                            TestResultFile.regression_test_id.in_(results_zero_rc),
-                            TestResultFile.got.isnot(None)
-                        )
-                    ).scalar()
-                    log.debug('Test {id} completed: {crashes} crashes, {results} results'.format(
-                        id=test.id, crashes=crashes, results=results
-                    ))
-                    if crashes > 0 or results > 0:
-                        state = Status.FAILURE
-                        message = 'Not all tests completed successfully, please check'
-
-                    else:
-                        state = Status.SUCCESS
-                        message = 'Tests completed'
-                    if test.test_type == TestType.pull_request:
-                        comment_pr(test.id, state, test.pr_nr, test.platform.name)
-                    update_build_badge(state, test)
-
-                else:
-                    message = progress.message
-
-                gh_commit = repository.statuses(test.commit)
-                try:
-                    gh_commit.post(state=state, description=message, context=context, target_url=target_url)
-                except ApiError as a:
-                    log.error('Got an exception while posting to GitHub! Message: {message}'.format(message=a.message))
-
-                if status in [TestStatus.completed, TestStatus.canceled]:
-                    # Start next test if necessary, on the same platform
-                    start_platforms(g.db, repository, 60, test.platform)
+                ret_val = progress_type_request(log, test, test_id, request)
+                if ret_val == "FAIL":
+                    return "FAIL"
 
             elif request.form['type'] == 'equality':
-                log.debug('Equality for {t}/{rt}/{rto}'.format(
-                    t=test_id, rt=request.form['test_id'], rto=request.form['test_file_id'])
-                )
-                rto = RegressionTestOutput.query.filter(RegressionTestOutput.id == request.form['test_file_id']).first()
-
-                if rto is None:
-                    # Equality posted on a file that's ignored presumably
-                    log.info('No rto for {test_id}: {test}'.format(test_id=test_id, test=request.form['test_id']))
-                else:
-                    result_file = TestResultFile(test.id, request.form['test_id'], rto.id, rto.correct)
-                    g.db.add(result_file)
-                    g.db.commit()
+                equality_type_request(log, test_id, test, request)
 
             elif request.form['type'] == 'logupload':
-                log.debug("Received log file for test {id}".format(id=test_id))
-                # File upload, process
-                if 'file' in request.files:
-                    uploaded_file = request.files['file']
-                    filename = secure_filename(uploaded_file.filename)
-                    if filename is '':
-                        return 'EMPTY'
-
-                    temp_path = os.path.join(repo_folder, 'TempFiles', filename)
-                    # Save to temporary location
-                    uploaded_file.save(temp_path)
-                    final_path = os.path.join(repo_folder, 'LogFiles', '{id}{ext}'.format(id=test.id, ext='.txt'))
-
-                    os.rename(temp_path, final_path)
-                    log.debug("Stored log file")
+                ret_val = logupload_type_request(log, test_id, repo_folder, test, request)
+                if ret_val == "EMPTY":
+                    return "EMPTY"
 
             elif request.form['type'] == 'upload':
-                log.debug('Upload for {t}/{rt}/{rto}'.format(
-                    t=test_id, rt=request.form['test_id'], rto=request.form['test_file_id'])
-                )
-                # File upload, process
-                if 'file' in request.files:
-                    uploaded_file = request.files['file']
-                    filename = secure_filename(uploaded_file.filename)
-                    if filename is '':
-                        return 'EMPTY'
-                    temp_path = os.path.join(repo_folder, 'TempFiles', filename)
-                    # Save to temporary location
-                    uploaded_file.save(temp_path)
-                    # Get hash and check if it's already been submitted
-                    hash_sha256 = hashlib.sha256()
-                    with open(temp_path, "rb") as f:
-                        for chunk in iter(lambda: f.read(4096), b""):
-                            hash_sha256.update(chunk)
-                    file_hash = hash_sha256.hexdigest()
-                    filename, file_extension = os.path.splitext(filename)
-                    final_path = os.path.join(
-                        repo_folder, 'TestResults', '{hash}{ext}'.format(hash=file_hash, ext=file_extension)
-                    )
-                    os.rename(temp_path, final_path)
-                    rto = RegressionTestOutput.query.filter(
-                        RegressionTestOutput.id == request.form['test_file_id']).first()
-                    result_file = TestResultFile(test.id, request.form['test_id'], rto.id, rto.correct, file_hash)
-                    g.db.add(result_file)
-                    g.db.commit()
+                ret_val = upload_type_request(log, test_id, repo_folder, test, request)
+                if ret_val == "EMPTY":
+                    return "EMPTY"
 
             elif request.form['type'] == 'finish':
-                log.debug('Finish for {t}/{rt}'.format(t=test_id, rt=request.form['test_id']))
-                regression_test = RegressionTest.query.filter(RegressionTest.id == request.form['test_id']).first()
-                result = TestResult(
-                    test.id, regression_test.id, request.form['runTime'],
-                    request.form['exitCode'], regression_test.expected_rc
-                )
-                g.db.add(result)
-                try:
-                    g.db.commit()
-                except IntegrityError as e:
-                    log.error('Could not save the results: {msg}'.format(msg=e.message))
+                finish_type_request(log, test_id, test, request)
 
             return "OK"
 
     return "FAIL"
+
+
+def progress_type_request(log, test, test_id, request):
+    """
+    Handle progress updates for progress reporter.
+
+    :param log: logger
+    :type log: Logger
+    :param test: concerned test
+    :type test: Test
+    :param test_id: The id of the test to update.
+    :type test_id: int
+    :param request: Request parameters
+    :type request: Request
+    """
+    # Progress, log
+    status = TestStatus.from_string(request.form['status'])
+    # Check whether test is not running previous status again
+    istatus = TestStatus.progress_step(status)
+    message = request.form['message']
+
+    if len(test.progress) != 0:
+        laststatus = TestStatus.progress_step(test.progress[-1].status)
+
+        if laststatus in [TestStatus.completed, TestStatus.canceled]:
+            return "FAIL"
+
+        if laststatus > istatus:
+            status = TestStatus.canceled
+            message = "Duplicate Entries"
+
+        if laststatus < istatus:
+            # get KVM start time for finding KVM preparation time
+            KVM = Kvm.query.filter(Kvm.test_id == test_id).first()
+
+            if status == TestStatus.building:
+                prep_finish_time = datetime.datetime.now()
+                # save preparation finish time
+                KVM.timestamp_prep_finished = prep_finish_time
+                g.db.commit()
+                # set time taken in seconds to do preparation
+                time_diff = (prep_finish_time - KVM.timestamp).total_seconds()
+                set_avg_time(test.platform, "prep", time_diff)
+
+            elif status == TestStatus.testing:
+                build_finish_time = datetime.datetime.now()
+                # save build finish time
+                KVM.timestamp_build_finished = build_finish_time
+                g.db.commit()
+                # set time taken in seconds to do preparation
+                time_diff = (build_finish_time - KVM.timestamp_prep_finished).total_seconds()
+                set_avg_time(test.platform, "build", time_diff)
+
+    progress = TestProgress(test.id, status, message)
+    g.db.add(progress)
+    g.db.commit()
+
+    gh = GitHub(access_token=g.github['bot_token'])
+    repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
+    # Store the test commit for testing in case of commit
+    if status == TestStatus.completed and check_main_repo(test.fork.github):
+        commit_name = 'fetch_commit_' + test.platform.value
+        commit = GeneralData.query.filter(GeneralData.key == commit_name).first()
+        fetch_commit = Test.query.filter(
+            and_(Test.commit == commit.value, Test.platform == test.platform)
+        ).first()
+
+        if test.test_type == TestType.commit and test.id > fetch_commit.id:
+            commit.value = test.commit
+            g.db.commit()
+
+    # If status is complete, remove the Kvm entry
+    if status in [TestStatus.completed, TestStatus.canceled]:
+        log.debug("Test {id} has been {status}".format(id=test_id, status=status))
+        var_average = 'average_time_' + test.platform.value
+        current_average = GeneralData.query.filter(GeneralData.key == var_average).first()
+        average_time = 0
+        total_time = 0
+
+        if current_average is None:
+            platform_tests = g.db.query(Test.id).filter(Test.platform == test.platform).subquery()
+            finished_tests = g.db.query(TestProgress.test_id).filter(
+                and_(
+                    TestProgress.status.in_([TestStatus.canceled, TestStatus.completed]),
+                    TestProgress.test_id.in_(platform_tests)
+                )
+            ).subquery()
+            in_progress_statuses = [TestStatus.preparation, TestStatus.completed, TestStatus.canceled]
+            finished_tests_progress = g.db.query(TestProgress).filter(
+                and_(
+                    TestProgress.test_id.in_(finished_tests),
+                    TestProgress.status.in_(in_progress_statuses)
+                )
+            ).subquery()
+            times = g.db.query(
+                finished_tests_progress.c.test_id,
+                label('time', func.group_concat(finished_tests_progress.c.timestamp))
+            ).group_by(finished_tests_progress.c.test_id).all()
+
+            for p in times:
+                parts = p.time.split(',')
+                start = datetime.datetime.strptime(parts[0], '%Y-%m-%d %H:%M:%S')
+                end = datetime.datetime.strptime(parts[-1], '%Y-%m-%d %H:%M:%S')
+                total_time += (end - start).total_seconds()
+
+            if len(times) != 0:
+                average_time = total_time // len(times)
+
+            new_avg = GeneralData(var_average, average_time)
+            g.db.add(new_avg)
+            g.db.commit()
+
+        else:
+            all_results = TestResult.query.count()
+            regression_test_count = RegressionTest.query.count()
+            number_test = all_results / regression_test_count
+            updated_average = float(current_average.value) * (number_test - 1)
+            pr = test.progress_data()
+            end_time = pr['end']
+            start_time = pr['start']
+
+            if end_time.tzinfo is not None:
+                end_time = end_time.replace(tzinfo=None)
+
+            if start_time.tzinfo is not None:
+                start_time = start_time.replace(tzinfo=None)
+
+            last_running_test = end_time - start_time
+            updated_average = updated_average + last_running_test.total_seconds()
+            current_average.value = updated_average // number_test
+            g.db.commit()
+
+        kvm = Kvm.query.filter(Kvm.test_id == test_id).first()
+
+        if kvm is not None:
+            log.debug("Removing KVM entry")
+            g.db.delete(kvm)
+            g.db.commit()
+
+    # Post status update
+    state = Status.PENDING
+    target_url = url_for('test.by_id', test_id=test.id, _external=True)
+    context = "CI - {name}".format(name=test.platform.value)
+
+    if status == TestStatus.canceled:
+        state = Status.ERROR
+        message = 'Tests aborted due to an error; please check'
+
+    elif status == TestStatus.completed:
+        # Determine if success or failure
+        # It fails if any of these happen:
+        # - A crash (unexpected exit code)
+        # - A not None value on the "got" of a TestResultFile (
+        #       meaning the hashes do not match)
+        crashes = g.db.query(count(TestResult.exit_code)).filter(
+            and_(
+                TestResult.test_id == test.id,
+                TestResult.exit_code != TestResult.expected_rc
+            )).scalar()
+        results_zero_rc = g.db.query(RegressionTest.id).filter(
+            RegressionTest.expected_rc == 0
+        ).subquery()
+        results = g.db.query(count(TestResultFile.got)).filter(
+            and_(
+                TestResultFile.test_id == test.id,
+                TestResultFile.regression_test_id.in_(results_zero_rc),
+                TestResultFile.got.isnot(None)
+            )
+        ).scalar()
+        log.debug('Test {id} completed: {crashes} crashes, {results} results'.format(
+            id=test.id, crashes=crashes, results=results
+        ))
+        if crashes > 0 or results > 0:
+            state = Status.FAILURE
+            message = 'Not all tests completed successfully, please check'
+
+        else:
+            state = Status.SUCCESS
+            message = 'Tests completed'
+        if test.test_type == TestType.pull_request:
+            comment_pr(test.id, state, test.pr_nr, test.platform.name)
+        update_build_badge(state, test)
+
+    else:
+        message = progress.message
+
+    gh_commit = repository.statuses(test.commit)
+    try:
+        gh_commit.post(state=state, description=message, context=context, target_url=target_url)
+    except ApiError as a:
+        log.error('Got an exception while posting to GitHub! Message: {message}'.format(message=a.message))
+
+    if status in [TestStatus.completed, TestStatus.canceled]:
+        # Start next test if necessary, on the same platform
+        start_platforms(g.db, repository, 60, test.platform)
+
+
+def equality_type_request(log, test_id, test, request):
+    """
+    Handle equality request type for progress reporter.
+
+    :param log: logger
+    :type log: Logger
+    :param test_id: The id of the test to update.
+    :type test_id: int
+    :param test: concerned test
+    :type test: Test
+    :param request: Request parameters
+    :type request: Request
+    """
+    log.debug('Equality for {t}/{rt}/{rto}'.format(
+        t=test_id, rt=request.form['test_id'], rto=request.form['test_file_id'])
+    )
+    rto = RegressionTestOutput.query.filter(RegressionTestOutput.id == request.form['test_file_id']).first()
+
+    if rto is None:
+        # Equality posted on a file that's ignored presumably
+        log.info('No rto for {test_id}: {test}'.format(test_id=test_id, test=request.form['test_id']))
+    else:
+        result_file = TestResultFile(test.id, request.form['test_id'], rto.id, rto.correct)
+        g.db.add(result_file)
+        g.db.commit()
+
+
+def logupload_type_request(log, test_id, repo_folder, test, request):
+    """
+    Handle logupload request type for progress reporter.
+
+    :param log: logger
+    :type log: Logger
+    :param test_id: The id of the test to update.
+    :type test_id: int
+    :param repo_folder: repository folder
+    :type repo_folder: str
+    :param test: concerned test
+    :type test: Test
+    :param request: Request parameters
+    :type request: Request
+    """
+    log.debug("Received log file for test {id}".format(id=test_id))
+    # File upload, process
+    if 'file' in request.files:
+        uploaded_file = request.files['file']
+        filename = secure_filename(uploaded_file.filename)
+        if filename is '':
+            return 'EMPTY'
+
+        temp_path = os.path.join(repo_folder, 'TempFiles', filename)
+        # Save to temporary location
+        uploaded_file.save(temp_path)
+        final_path = os.path.join(repo_folder, 'LogFiles', '{id}{ext}'.format(id=test.id, ext='.txt'))
+
+        os.rename(temp_path, final_path)
+        log.debug("Stored log file")
+
+
+def upload_type_request(log, test_id, repo_folder, test, request):
+    """
+    Handle upload request type for progress reporter.
+
+    :param log: logger
+    :type log: Logger
+    :param test_id: The id of the test to update.
+    :type test_id: int
+    :param repo_folder: repository folder
+    :type repo_folder: str
+    :param test: concerned test
+    :type test: Test
+    :param request: Request parameters
+    :type request: Request
+    """
+    log.debug('Upload for {t}/{rt}/{rto}'.format(
+        t=test_id, rt=request.form['test_id'], rto=request.form['test_file_id'])
+    )
+    # File upload, process
+    if 'file' in request.files:
+        uploaded_file = request.files['file']
+        filename = secure_filename(uploaded_file.filename)
+        if filename is '':
+            return 'EMPTY'
+        temp_path = os.path.join(repo_folder, 'TempFiles', filename)
+        # Save to temporary location
+        uploaded_file.save(temp_path)
+        # Get hash and check if it's already been submitted
+        hash_sha256 = hashlib.sha256()
+        with open(temp_path, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_sha256.update(chunk)
+        file_hash = hash_sha256.hexdigest()
+        filename, file_extension = os.path.splitext(filename)
+        final_path = os.path.join(
+            repo_folder, 'TestResults', '{hash}{ext}'.format(hash=file_hash, ext=file_extension)
+        )
+        os.rename(temp_path, final_path)
+        rto = RegressionTestOutput.query.filter(
+            RegressionTestOutput.id == request.form['test_file_id']).first()
+        result_file = TestResultFile(test.id, request.form['test_id'], rto.id, rto.correct, file_hash)
+        g.db.add(result_file)
+        g.db.commit()
+
+
+def finish_type_request(log, test_id, test, request):
+    """
+    Handle finish request type for progress reporter.
+
+    :param log: logger
+    :type log: Logger
+    :param test_id: The id of the test to update.
+    :type test_id: int
+    :param test: concerned test
+    :type test: Test
+    :param request: Request parameters
+    :type request: Request
+    """
+    log.debug('Finish for {t}/{rt}'.format(t=test_id, rt=request.form['test_id']))
+    regression_test = RegressionTest.query.filter(RegressionTest.id == request.form['test_id']).first()
+    result = TestResult(
+        test.id, regression_test.id, request.form['runTime'],
+        request.form['exitCode'], regression_test.expected_rc
+    )
+    g.db.add(result)
+    try:
+        g.db.commit()
+    except IntegrityError as e:
+        log.error('Could not save the results: {msg}'.format(msg=e))
 
 
 def set_avg_time(platform: Test.platform, process_type: str, time_taken: int) -> None:

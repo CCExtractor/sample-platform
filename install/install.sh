@@ -46,11 +46,11 @@ echo "-------------------------------"
 echo ""
 echo "In order to configure the platform, we need some information from you. Please reply to the following questions:"
 echo ""
-read -e -r -p "Password of the 'root' user of MySQL: " -i "" db_root_password
+read -e -r -p -s "Password of the 'root' user of MySQL: " -i "" db_root_password
 # Verify password
 supress_warning=$(mysql_config_editor set --login-path=root_login --host=localhost --user=root --password "${db_root_password}") >> "$install_log" 2>&1
 while ! mysql  --login-path=root_login  -e ";" ; do
-      read -e -r -p "Invalid password, please retry: " -i "" db_root_password
+      read -e -r -p -s "Invalid password, please retry: " -i "" db_root_password
       supress_warning=$(mysql_config_editor set --login-path=root_login --host=localhost --user=root --password "${db_root_password}") >> "$install_log" 2>&1
 done
 
@@ -69,7 +69,7 @@ db_user_exists=$(mysql --login-path=root_login -sse "SELECT EXISTS(SELECT 1 FROM
 
 if [ "${db_user_exists}" = 0 ]; then
     rand_pass=$(< /dev/urandom tr -dc 'a-zA-Z0-9' | fold -w 16 | head -n 1)
-    read -e -r -p "Password for ${db_user} (will be created): " -i "${rand_pass}" db_user_password
+    read -e -r -p -s "Password for ${db_user} (will be created): " -i "${rand_pass}" db_user_password
     # Attempt to create the user
     mysql --login-path=root_login -e "CREATE USER '${db_user}'@'localhost' IDENTIFIED BY '${db_user_password}';" >> "$install_log" 2>&1
     db_user_exists=$(mysql --login-path=root_login -sse "SELECT EXISTS(SELECT 1 FROM mysql.user WHERE user = '$db_user')")
@@ -78,11 +78,11 @@ if [ "${db_user_exists}" = 0 ]; then
         exit -1
     fi
 else
-    read -e -r -p "Password for ${db_user}: " db_user_password
+    read -e -r -p -s "Password for ${db_user}: " db_user_password
     supress_warning=$(mysql_config_editor set --login-path=check_login --host=localhost --user="${db_user}" --password "${db_root_password}") >> "$install_log" 2>&1
     # Check if we have access
     while ! mysql  --login-path=check_login  -e ";" ; do
-       read -e -r -p "Invalid password, please retry: " -i "" db_user_password
+       read -e -r -p -s "Invalid password, please retry: " -i "" db_user_password
        supress_warning=$(mysql_config_editor set --login-path=check_login --host=localhost --user="${db_user}" --password "${db_root_password}") >> "$install_log" 2>&1
     done
 fi
@@ -145,7 +145,13 @@ echo ""
 echo "We need some information for the admin account"
 read -e -r -p "Admin username: " -i "admin" admin_name
 read -e -r -p "Admin email: " admin_email
-read -e -r -p "Admin password: " admin_password
+read -e -r -p -s "Admin password: " admin_password
+read -e -r -p -s "Confirm admin password: " confirm_admin_password
+while [ $admin_password -ne $confirm_admin_password ]; do
+    echo "Entered passwords did not match! Retrying..."
+    read -e -r -p -s "Admin password: " admin_password
+    read -e -r -p -s "Confirm admin password: " confirm_admin_password
+done
 echo "Creating admin account: "
 python "${dir}/init_db.py" "${config_db_uri}" "${admin_name}" "${admin_email}" "${admin_password}"
 # Create sample database if user wanted to

@@ -2,6 +2,7 @@
 
 import sys
 from os import path
+from sqlalchemy.exc import IntegrityError
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
@@ -16,6 +17,7 @@ def run():
 
     db = create_session(sys.argv[1])
 
+    entries = []
     categories = [
         Category('Broken', 'Samples that are broken'),
         Category('DVB', 'Samples that contain DVB subtitles'),
@@ -23,37 +25,37 @@ def run():
         Category('MP4', 'Samples that are stored in the MP4 format'),
         Category('General', 'General regression samples')
     ]
-    db.add_all(categories)
-    db.commit()
+    entries.extend(categories)
 
     samples = [
         Sample('sample1', 'ts', 'sample1'),
         Sample('sample2', 'ts', 'sample2')
     ]
-    db.add_all(samples)
-    db.commit()
+    entries.extend(samples)
 
     cc_version = CCExtractorVersion('0.84', '2016-12-16T00:00:00Z', '77da2dc873cc25dbf606a3b04172aa9fb1370f32')
-    db.add(cc_version)
-    db.commit()
+    entries.append(cc_version)
 
     regression_tests = [
         RegressionTest(1, '-autoprogram -out=ttxt -latin1', InputType.file, OutputType.file, 3, 10),
         RegressionTest(2, '-autoprogram -out=ttxt -latin1 -ucla', InputType.file, OutputType.file, 1, 10)
     ]
-    db.add_all(regression_tests)
-    db.commit()
+    entries.extend(regression_tests)
 
     gen_data = GeneralData('last_commit', '71dffd6eb30c1f4b5cf800307de845072ce33262')
-    db.add(gen_data)
-    db.commit()
+    entries.append(gen_data)
 
     regresstion_test_output = [
         RegressionTestOutput(1, "test1", "srt", "test1.srt"),
         RegressionTestOutput(2, "test2", "srt", "test2.srt")
     ]
-    db.add_all(regresstion_test_output)
-    db.commit()
+    entries.extend(regresstion_test_output)
 
-
+    for entry in entries:
+        try:
+            db.add(entry)
+            db.commit()
+        except IntegrityError:
+            print("Entry already exists!", entry, flush=True)
+            db.rollback()
 run()

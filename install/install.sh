@@ -31,8 +31,17 @@ apt-get -q -y install nginx python python-dev python3-libvirt libxslt1-dev libxm
 for file in /etc/init.d/mysql*
 do
     if [ ! -f "$file" ]; then
-        echo "* Installing MySQL (root password will be empty!)"
-        DEBIAN_FRONTEND=noninteractive apt-get install -y mysql-server >> "$install_log" 2>&1
+        mysql_user_resp="Y"
+        while [ "$mysql_user_resp" != "N" ]; do
+            echo "* Installing MySQL (root password will be empty!)"
+            apt-get install -y mysql-server >> "$install_log" 2>&1
+            if [ $? -ne 0 ]; then
+                read -e -r -p "MySQL installation failed! Do you want to try again? [Y for yes | N for No | Q to quit installation] " -i "Y" mysql_user_resp
+                if [ "$mysql_user_resp" = "Q" ]; then
+                    exit 1
+                fi
+            fi
+        done
     fi
 done
 echo "* Update pip, setuptools and wheel"

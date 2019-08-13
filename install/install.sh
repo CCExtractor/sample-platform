@@ -50,8 +50,8 @@ read -e -r -p -s "Password of the 'root' user of MySQL: " -i "" db_root_password
 # Verify password
 supress_warning=$(mysql_config_editor set --login-path=root_login --host=localhost --user=root --password "${db_root_password}") >> "$install_log" 2>&1
 while ! mysql  --login-path=root_login  -e ";" ; do
-      read -e -r -p -s "Invalid password, please retry: " -i "" db_root_password
-      supress_warning=$(mysql_config_editor set --login-path=root_login --host=localhost --user=root --password "${db_root_password}") >> "$install_log" 2>&1
+    read -e -r -p -s "Invalid password, please retry: " -i "" db_root_password
+    supress_warning=$(mysql_config_editor set --login-path=root_login --host=localhost --user=root --password "${db_root_password}") >> "$install_log" 2>&1
 done
 
 
@@ -156,9 +156,9 @@ echo "Creating admin account: "
 python "${dir}/init_db.py" "${config_db_uri}" "${admin_name}" "${admin_email}" "${admin_password}"
 # Create sample database if user wanted to
 if [ "${sample_response}" == 'y' ]; then
-  echo "Creating sample database.."
-  cp -r sample_files/* "${sample_repository}/TestFiles"
-  python "${dir}/sample_db.py" "${config_db_uri}"
+    echo "Creating sample database.."
+    cp -r sample_files/* "${sample_repository}/TestFiles"
+    python "${dir}/sample_db.py" "${config_db_uri}"
 fi
 echo ""
 echo "-------------------------------"

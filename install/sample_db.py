@@ -2,6 +2,7 @@
 
 import sys
 from os import path
+
 from sqlalchemy.exc import IntegrityError
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
@@ -58,4 +59,6 @@ def run():
         except IntegrityError:
             print("Entry already exists!", entry, flush=True)
             db.rollback()
+
+
 run()

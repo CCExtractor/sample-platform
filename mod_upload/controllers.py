@@ -16,11 +16,7 @@ from flask import (Blueprint, flash, g, make_response, redirect,
 from git import GitCommandError, InvalidGitRepositoryError, Repo
 from werkzeug.utils import secure_filename
 
-import mod_auth.models
-import mod_home.models
-import mod_sample.models
-import mod_upload.forms
-import mod_upload.models
+
 from decorators import get_menu_entries, template_renderer
 from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role, User
@@ -30,7 +26,8 @@ from mod_sample.models import (ForbiddenExtension, ForbiddenMimeType, Issue,
 from mod_upload.forms import (DeleteQueuedSampleForm, FinishQueuedSampleForm,
                               UploadForm)
 
-from .models import FTPCredentials, Platform, QueuedSample, Upload, UploadLog
+from mod_upload.models import FTPCredentials, Platform, QueuedSample, Upload, UploadLog
+
 
 mod_upload = Blueprint('upload', __name__)  # type: ignore
 
@@ -41,6 +38,7 @@ class QueuedSampleNotFoundException(Exception):
     def __init__(self, message) -> None:
         Exception.__init__(self)
         self.message = message
+
 
 
 @mod_upload.before_app_request  # type: ignore

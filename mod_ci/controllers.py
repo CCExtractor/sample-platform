@@ -24,15 +24,6 @@ from sqlalchemy.sql import label
 from sqlalchemy.sql.functions import count
 from werkzeug.utils import secure_filename
 
-import mailer
-import mod_auth.models
-import mod_ci.forms
-import mod_ci.models
-import mod_customized.models
-import mod_home.models
-import mod_regression.models
-import mod_sample.models
-import mod_test.models
 from decorators import get_menu_entries, template_renderer
 from mailer import Mailer
 from mod_auth.controllers import check_access_rights, login_required
@@ -52,7 +43,7 @@ from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
 if sys.platform.startswith("linux"):
     import libvirt
 
-mod_ci = Blueprint('ci', __name__)  # type: ignore
+mod_ci = Blueprint('ci', __name__)
 
 
 class Status:
@@ -64,7 +55,7 @@ class Status:
     FAILURE = "failure"
 
 
-@mod_ci.before_app_request  # type: ignore
+@mod_ci.before_app_request
 def before_app_request() -> None:
     """Organize menu content such as Platform management before request."""
     config_entries = get_menu_entries(
@@ -541,7 +532,7 @@ def get_html_issue_body(title, author, body, issue_number, url) -> Any:
     return html_email_body
 
 
-@mod_ci.route('/start-ci', methods=['GET', 'POST'])  # type: ignore
+@mod_ci.route('/start-ci', methods=['GET', 'POST'])
 @request_from_github()
 def start_ci():
     """
@@ -747,7 +738,7 @@ def update_build_badge(status, test) -> None:
         return
 
 
-@mod_ci.route('/progress-reporter/<test_id>/<token>', methods=['POST'])  # type: ignore
+@mod_ci.route('/progress-reporter/<test_id>/<token>', methods=['POST'])
 def progress_reporter(test_id, token):
     """
     Handle the progress of a certain test after validating the token. If necessary, update the status on GitHub.
@@ -1218,7 +1209,7 @@ def comment_pr(test_id, state, pr_nr, platform) -> None:
         log.error('Github PR Comment Failed for Test_id: {test_id} with Exception {e}'.format(test_id=test_id, e=e))
 
 
-@mod_ci.route('/show_maintenance')  # type: ignore
+@mod_ci.route('/show_maintenance')
 @login_required
 @check_access_rights([Role.admin])
 @template_renderer('ci/maintenance.html')
@@ -1234,7 +1225,7 @@ def show_maintenance():
     }
 
 
-@mod_ci.route('/blocked_users', methods=['GET', 'POST'])    # type: ignore
+@mod_ci.route('/blocked_users', methods=['GET', 'POST'])
 @login_required
 @check_access_rights([Role.admin])
 @template_renderer()
@@ -1325,7 +1316,7 @@ def blocked_users():
     }
 
 
-@mod_ci.route('/toggle_maintenance/<platform>/<status>')    # type: ignore
+@mod_ci.route('/toggle_maintenance/<platform>/<status>')
 @login_required
 @check_access_rights([Role.admin])
 def toggle_maintenance(platform, status):
@@ -1361,7 +1352,7 @@ def toggle_maintenance(platform, status):
     })
 
 
-@mod_ci.route('/maintenance-mode/<platform>')   # type: ignore
+@mod_ci.route('/maintenance-mode/<platform>')
 def in_maintenance_mode(platform):
     """
     Check if platform in maintenance mode.

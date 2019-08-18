@@ -7,12 +7,6 @@ from flask import Blueprint, flash, g, redirect, request, url_for
 from github import ApiError, GitHub
 from sqlalchemy import and_
 
-import mod_auth.models
-import mod_customized.forms
-import mod_customized.models
-import mod_regression.models
-import mod_test.controllers
-import mod_test.models
 from decorators import get_menu_entries, template_renderer
 from mod_auth.controllers import (check_access_rights,
                                   fetch_username_from_token, login_required)
@@ -24,10 +18,10 @@ from mod_regression.models import (Category, RegressionTest,
 from mod_test.controllers import TestNotFoundException, get_data_for_test
 from mod_test.models import Fork, Test, TestPlatform, TestType
 
-mod_customized = Blueprint('custom', __name__)  # type: ignore
+mod_customized = Blueprint('custom', __name__)
 
 
-@mod_customized.before_app_request  # type: ignore
+@mod_customized.before_app_request
 def before_app_request() -> None:
     """Run before app request to ready menu items."""
     if g.user is not None:
@@ -39,7 +33,7 @@ def before_app_request() -> None:
         }
 
 
-@mod_customized.route('/', methods=['GET', 'POST'])  # type: ignore
+@mod_customized.route('/', methods=['GET', 'POST'])
 @login_required
 @check_access_rights([Role.tester, Role.contributor, Role.admin])
 @template_renderer()

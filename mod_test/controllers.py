@@ -10,12 +10,7 @@ from github import GitHub
 from sqlalchemy import and_, func
 from sqlalchemy.sql import label
 
-import mod_auth.models
-import mod_ci.models
-import mod_customized.models
-import mod_home.models
-import mod_regression.models
-import mod_test.models
+
 from decorators import template_renderer
 from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role
@@ -27,6 +22,7 @@ from mod_regression.models import (Category, RegressionTestOutput,
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
                              TestResult, TestResultFile, TestStatus, TestType)
 from utility import serve_file_download
+
 
 mod_test = Blueprint('test', __name__)  # type: ignore
 

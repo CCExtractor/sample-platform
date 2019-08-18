@@ -2,6 +2,7 @@
 
 import os
 from datetime import datetime
+from exceptions import TestNotFoundException
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 from flask import (Blueprint, Response, abort, g, jsonify, make_response,
@@ -9,7 +10,6 @@ from flask import (Blueprint, Response, abort, g, jsonify, make_response,
 from github import GitHub
 from sqlalchemy import and_, func
 from sqlalchemy.sql import label
-
 
 from decorators import template_renderer
 from mod_auth.controllers import check_access_rights, login_required
@@ -23,19 +23,10 @@ from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
                              TestResult, TestResultFile, TestStatus, TestType)
 from utility import serve_file_download
 
-
-mod_test = Blueprint('test', __name__)  # type: ignore
-
-
-class TestNotFoundException(Exception):
-    """Custom exception handler for handling test not found."""
-
-    def __init__(self, message) -> None:
-        Exception.__init__(self)
-        self.message = message
+mod_test = Blueprint('test', __name__)
 
 
-@mod_test.before_app_request    # type: ignore
+@mod_test.before_app_request
 def before_app_request() -> None:
     """Curate menu items before app request."""
     g.menu_entries['tests'] = {
@@ -45,7 +36,7 @@ def before_app_request() -> None:
     }
 
 
-@mod_test.errorhandler(TestNotFoundException)  # type: ignore
+@mod_test.errorhandler(TestNotFoundException)
 @template_renderer('test/test_not_found.html', 404)
 def not_found(error):
     """Show error page when page not found."""
@@ -54,7 +45,7 @@ def not_found(error):
     }
 
 
-@mod_test.route('/')  # type: ignore
+@mod_test.route('/')
 @template_renderer()
 def index():
     """Show index page for tests."""
@@ -182,7 +173,7 @@ def get_data_for_test(test, title=None) -> Dict[str, Any]:
     }
 
 
-@mod_test.route('/get_json_data/<test_id>')  # type: ignore
+@mod_test.route('/get_json_data/<test_id>')
 def get_json_data(test_id):
     """
     Retrieve the status of a test id and returns it in JSON format.
@@ -213,7 +204,7 @@ def get_json_data(test_id):
     })
 
 
-@mod_test.route('/<test_id>')  # type: ignore
+@mod_test.route('/<test_id>')
 @template_renderer()
 def by_id(test_id):
     """
@@ -232,7 +223,7 @@ def by_id(test_id):
     return get_data_for_test(test)
 
 
-@mod_test.route('/ccextractor/<ccx_version>')  # type: ignore
+@mod_test.route('/ccextractor/<ccx_version>')
 @template_renderer('test/by_id.html')
 def ccextractor_version(ccx_version):
     """
@@ -262,7 +253,7 @@ def ccextractor_version(ccx_version):
     raise TestNotFoundException('There is no CCExtractor version known as {version}'.format(version=ccx_version))
 
 
-@mod_test.route('/commit/<commit_hash>')  # type: ignore
+@mod_test.route('/commit/<commit_hash>')
 @template_renderer('test/by_id.html')
 def by_commit(commit_hash):
     """
@@ -284,7 +275,7 @@ def by_commit(commit_hash):
     return get_data_for_test(test, 'commit {commit}'.format(commit=commit_hash))
 
 
-@mod_test.route('/master/<platform>')  # type: ignore
+@mod_test.route('/master/<platform>')
 @template_renderer('test/by_id.html')
 def latest_commit_info(platform):
     """
@@ -310,8 +301,8 @@ def latest_commit_info(platform):
     return get_data_for_test(test, 'master {commit}'.format(commit=commit_hash))
 
 
-@mod_test.route('/diff/<test_id>/<regression_test_id>/<output_id>', defaults={'to_view': 1})  # type: ignore
-@mod_test.route('/diff/<test_id>/<regression_test_id>/<output_id>/<int:to_view>')             # type: ignore
+@mod_test.route('/diff/<test_id>/<regression_test_id>/<output_id>', defaults={'to_view': 1})
+@mod_test.route('/diff/<test_id>/<regression_test_id>/<output_id>/<int:to_view>')
 def generate_diff(test_id: int, regression_test_id: int, output_id: int, to_view: int = 1):
     """
     Generate diff for output and expected result.
@@ -366,7 +357,7 @@ def generate_diff(test_id: int, regression_test_id: int, output_id: int, to_view
     abort(404)
 
 
-@mod_test.route('/log-files/<test_id>')  # type: ignore
+@mod_test.route('/log-files/<test_id>')
 def download_build_log_file(test_id):
     """
     Serve download of build log.
@@ -393,7 +384,7 @@ def download_build_log_file(test_id):
     raise TestNotFoundException('Test with id {id} not found'.format(id=test_id))
 
 
-@mod_test.route('/restart_test/<test_id>', methods=['GET', 'POST'])  # type: ignore
+@mod_test.route('/restart_test/<test_id>', methods=['GET', 'POST'])
 @login_required
 @check_access_rights([Role.admin, Role.tester, Role.contributor])
 @template_renderer()
@@ -415,7 +406,7 @@ def restart_test(test_id):
     return redirect(url_for('.by_id', test_id=test.id))
 
 
-@mod_test.route('/stop_test/<test_id>', methods=['GET', 'POST'])  # type: ignore
+@mod_test.route('/stop_test/<test_id>', methods=['GET', 'POST'])
 @login_required
 @check_access_rights([Role.admin, Role.tester, Role.contributor])
 @template_renderer()

@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 import re
+import traceback
 from abc import ABCMeta
+from exceptions import EnumParsingException, FailedToSpawnDBSession
 from typing import Any, Dict, Iterator, Tuple, Type, Union
 
 from sqlalchemy import create_engine
 from sqlalchemy.dialects.sqlite.pysqlite import SQLiteDialect_pysqlite
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.declarative import DeclarativeMeta, declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.sql.schema import Column, Table
@@ -38,18 +41,22 @@ def create_session(db_string: str, drop_tables: bool = False) -> scoped_session:
     import os
     global db_engine, Base
 
-    # In testing, we want to maintain same memory variable
-    if db_engine is None or 'TESTING' not in os.environ or os.environ['TESTING'] == 'False':
-        db_engine = create_engine(db_string, convert_unicode=True)
-    db_session = scoped_session(sessionmaker(bind=db_engine))
-    Base.query = db_session.query_property()
+    try:
+        # In testing, we want to maintain same memory variable
+        if db_engine is None or 'TESTING' not in os.environ or os.environ['TESTING'] == 'False':
+            db_engine = create_engine(db_string, convert_unicode=True)
+        db_session = scoped_session(sessionmaker(bind=db_engine))
+        Base.query = db_session.query_property()
 
-    if drop_tables:
-        Base.metadata.drop_all(bind=db_engine)
+        if drop_tables:
+            Base.metadata.drop_all(bind=db_engine)
 
-    Base.metadata.create_all(bind=db_engine)
+        Base.metadata.create_all(bind=db_engine)
 
-    return db_session
+        return db_session
+    except SQLAlchemyError:
+        traceback.print_exc()
+        raise FailedToSpawnDBSession()
 
 
 class EnumSymbol(object):
@@ -133,7 +140,8 @@ class DeclEnum(object, metaclass=EnumMeta):
         try:
             return cls._reg[value]
         except KeyError:
-            raise ValueError("Invalid value for {name}: {value}".format(name=cls.__name__, value=value))
+            print("Invalid value for {name}: {value}".format(name=cls.__name__, value=value))
+            raise EnumParsingException
 
     @classmethod
     def values(cls):

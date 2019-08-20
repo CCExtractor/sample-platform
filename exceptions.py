@@ -44,3 +44,17 @@ class MissingConfigError(Exception):
     """Custom exception handler for handling missing config.py file."""
 
     pass
+
+
+class FailedToSpawnDBSession(Exception):
+    """Custom exception handler for handling failure of creating db session."""
+
+    pass
+
+
+class EnumParsingException(Exception):
+    """Custom exception handler for handling failed parsing of Enum from string."""
+
+    def __init__(self, message):
+        super().__init__()
+        self.message = message

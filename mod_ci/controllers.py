@@ -1134,7 +1134,7 @@ def set_avg_time(platform: Test.platform, process_type: str, time_taken: int) ->
     else:
         current_average = GeneralData.query.filter(GeneralData.key == val_key).first()
         avg_count = int(current_avg_count.value)
-        avg_value = int(current_average.value)
+        avg_value = int(float(current_average.value))
         new_average = ((avg_value * avg_count) + time_taken) / (avg_count + 1)
         current_avg_count.value = str(avg_count + 1)
         current_average.value = str(new_average)

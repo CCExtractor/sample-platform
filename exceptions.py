@@ -62,3 +62,19 @@ class FailedToSendMail(Exception):
     """Custom exception handler for handling failure in sending mail."""
 
     pass
+
+
+class MissingPathToCCExtractor(Exception):
+    """Custom exception handler for handling the missing of CCExtractor with update sample method."""
+
+    def __init__(self) -> None:
+        Exception.__init__(self)
+        sys.exit(1)
+
+
+class CCExtractorEndedWithNonZero(Exception):
+    """Custom exception handler for handling failure in producing new samples by CCExtractor."""
+
+    def __init__(self) -> None:
+        Exception.__init__(self)
+        sys.exit(1)

@@ -6,13 +6,16 @@ import os
 import sys
 import traceback
 from datetime import datetime
+from exceptions import (IncompleteConfigException, MissingConfigError,
+                        SecretKeyInstallationException)
 from typing import Any, Dict, List, Optional
 
 from flask import Flask, g
 from flask_migrate import Migrate
-from werkzeug.contrib.fixers import ProxyFix
 from werkzeug.exceptions import Forbidden, InternalServerError, NotFound
+from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.routing import BaseConverter, Map
+from werkzeug.utils import ImportStringError
 
 from config_parser import parse_config
 from database import Base, create_session
@@ -32,7 +35,12 @@ from mod_upload.controllers import mod_upload
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app)   # type: ignore
 # Load config
-config = parse_config('config')
+try:
+    config = parse_config('config')
+except ImportStringError:
+    traceback.print_exc()
+    raise MissingConfigError()
+
 app.config.from_mapping(config)
 try:
     app.config['DEBUG'] = os.environ['DEBUG']
@@ -40,8 +48,12 @@ except KeyError:
     app.config['DEBUG'] = False
 
 # embed flask-migrate in the app itself
-app.config['SQLALCHEMY_DATABASE_URI'] = app.config['DATABASE_URI']
-Migrate(app, Base)
+try:
+    app.config['SQLALCHEMY_DATABASE_URI'] = app.config['DATABASE_URI']
+    Migrate(app, Base)
+except KeyError:
+    traceback.print_exc()
+    raise IncompleteConfigException()
 
 # Init logger
 log_configuration = LogConfiguration(app.root_path,        # type: ignore # type error skipped since flask
@@ -82,7 +94,7 @@ def install_secret_keys(application: Flask, secret_session: str = 'secret_key',
         do_exit = True
 
     if do_exit:
-        sys.exit(1)
+        raise SecretKeyInstallationException()
 
 
 if 'TESTING' not in os.environ or os.environ['TESTING'] == 'False':

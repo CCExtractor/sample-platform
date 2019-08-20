@@ -1,4 +1,5 @@
 """Handle all the custom exceptions raised."""
+import sys
 
 
 class QueuedSampleNotFoundException(Exception):
@@ -23,3 +24,23 @@ class TestNotFoundException(Exception):
     def __init__(self, message: str) -> None:
         Exception.__init__(self)
         self.message = message
+
+
+class SecretKeyInstallationException(Exception):
+    """Custom exception handler for handling failed installation of secret keys."""
+
+    def __init__(self) -> None:
+        Exception.__init__(self)
+        sys.exit(1)
+
+
+class IncompleteConfigException(Exception):
+    """Custom exception handler for handling missing configuration errors."""
+
+    pass
+
+
+class MissingConfigError(Exception):
+    """Custom exception handler for handling missing config.py file."""
+
+    pass

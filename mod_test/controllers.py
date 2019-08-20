@@ -390,7 +390,7 @@ def download_build_log_file(test_id):
         log_file_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'LogFiles', test_id + '.txt')
 
         if os.path.isfile(log_file_path):
-            return serve_file_download(test_id + '.txt', 'LogFiles', 'logfile-download', 'text/plain')
+            return serve_file_download(test_id + '.txt', 'LogFiles', 'logfile-download', content_type='text/plain')
 
         raise TestNotFoundException('Build log for Test {id} not found'.format(id=test_id))
 

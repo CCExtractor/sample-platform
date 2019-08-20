@@ -823,24 +823,24 @@ def progress_type_request(log, test, test_id, request):
 
         if laststatus < istatus:
             # get KVM start time for finding KVM preparation time
-            KVM = Kvm.query.filter(Kvm.test_id == test_id).first()
+            kvm_entry = Kvm.query.filter(Kvm.test_id == test_id).first()
 
             if status == TestStatus.building:
                 prep_finish_time = datetime.datetime.now()
                 # save preparation finish time
-                KVM.timestamp_prep_finished = prep_finish_time
+                kvm_entry.timestamp_prep_finished = prep_finish_time
                 g.db.commit()
                 # set time taken in seconds to do preparation
-                time_diff = (prep_finish_time - datetime.strptime(KVM.timestamp, '%Y-%m-%d %H:%M:%S')).total_seconds()
+                time_diff = (prep_finish_time - datetime.strptime(kvm_entry.timestamp, '%Y-%m-%d %H:%M:%S')).total_seconds()
                 set_avg_time(test.platform, "prep", time_diff)
 
             elif status == TestStatus.testing:
                 build_finish_time = datetime.datetime.now()
                 # save build finish time
-                KVM.timestamp_build_finished = build_finish_time
+                kvm_entry.timestamp_build_finished = build_finish_time
                 g.db.commit()
                 # set time taken in seconds to do preparation
-                time_diff = (build_finish_time - datetime.strptime(KVM.timestamp_prep_finished,
+                time_diff = (build_finish_time - datetime.strptime(kvm_entry.timestamp_prep_finished,
                                                                    '%Y-%m-%d %H:%M:%S')).total_seconds()
                 set_avg_time(test.platform, "build", time_diff)
 
@@ -1144,7 +1144,7 @@ def set_avg_time(platform: Test.platform, process_type: str, time_taken: int) ->
     else:
         current_average = GeneralData.query.filter(GeneralData.key == val_key).first()
         avg_count = int(current_avg_count.value)
-        avg_value = int(current_average.value)
+        avg_value = int(float(current_average.value))
         new_average = ((avg_value * avg_count) + time_taken) / (avg_count + 1)
         current_avg_count.value = str(avg_count + 1)
         current_average.value = str(new_average)

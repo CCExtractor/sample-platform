@@ -54,6 +54,7 @@ def login_required(f: Callable) -> Callable:
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if g.user is None:
+            g.log.warning(f'login protected endpoint {request.endpoint} accessed before logging in')
             return redirect(url_for('auth.login', next=request.endpoint))
 
         return f(*args, **kwargs)
@@ -86,6 +87,7 @@ def check_access_rights(roles: List[Tuple[str, str]] = None, parent_route: None 
             if g.user.role in roles:
                 return f(*args, **kwargs)
             # Return page not allowed
+            g.log.warning(f'attempt to access protected endpoint {request.endpoint} without required rights')
             abort(403, request.endpoint)
 
         return decorated_function
@@ -154,6 +156,7 @@ def github_redirect():
             g.user.github_token = None
             g.db.commit()
         else:
+            g.log.error('Failed to validate Github token')
             return None
 
     return 'https://github.com/login/oauth/authorize?client_id={id}&scope=public_repo'.format(id=github_clientid)
@@ -297,6 +300,7 @@ def complete_reset(uid, expires, mac):
             try:
                 authentic = hmac.compare_digest(real_hash, mac)
             except AttributeError:
+                g.log.warning(f'falling back to direct comparison of hash...')
                 # Older python version? Fallback which is less safe
                 authentic = real_hash == mac
             if authentic:
@@ -358,6 +362,7 @@ def signup() -> Dict[str, SignupForm]:
             else:
                 flash('Could not send email', 'error-message')
         else:
+            g.log.debug(f'sign up attempt using invalid email id: {form.email.data}')
             flash('Invalid email address!', 'error-message')
 
     return {
@@ -390,6 +395,7 @@ def complete_signup(email: str, expires: int,
         try:
             authentic = hmac.compare_digest(real_hash, mac)
         except AttributeError:
+            g.log.warning(f'falling back to direct comparison of hash...')
             # Older python version? Fallback which is less safe
             authentic = real_hash == mac
         if authentic:
@@ -539,6 +545,7 @@ def user(uid):
                 'view_user': usr,
                 'samples': [u.sample for u in uploads]
             }
+        g.log.debug(f'user with id: {uid} not found!')
         abort(404)
     else:
         abort(403, request.endpoint)
@@ -566,8 +573,10 @@ def reset_user(uid):
             return {
                 'view_user': usr
             }
+        g.log.debug(f'user with id: {uid} not found!')
         abort(404)
     else:
+        g.log.warning(f'user with id: {g.user.id} tried to access restricted endpoint for user id: {uid}!')
         abort(403, request.endpoint)
 
 
@@ -598,6 +607,7 @@ def role(uid):
             'form': form,
             'view_user': usr
         }
+    g.log.debug(f'user with id: {uid} not found!')
     abort(404)
 
 
@@ -629,12 +639,14 @@ def deactivate(uid):
                     return redirect(url_for('.users'))
                 else:
                     session.pop('user_id', None)
+                    g.log.debug(f'account deactivate for user id: {uid}')
                     flash('Account deactivated.', 'success')
                     return redirect(url_for('.login'))
             return {
                 'form': form,
                 'view_user': usr
             }
+        g.log.debug(f'user with id: {uid} not found!')
         abort(404)
     else:
         abort(403, request.endpoint)

@@ -113,8 +113,11 @@ def make_github_issue(title, body=None, labels=None) -> Any:
     r = session.post(url, json.dumps(issue))    # type: ignore
 
     if r.status_code == 201:
+        g.log.info('new github issue created')
         return r.json()
 
+    g.log.error('failed to create github issue')
+    g.log.debug(str(r.json()))
     return 'ERROR'
 
 
@@ -131,6 +134,7 @@ def ftp_index():
         credentials = FTPCredentials(g.user.id)
         g.db.add(credentials)
         g.db.commit()
+        g.log.info('new FTP credentials added to database')
 
     return {
         'host': config.get('SERVER_NAME', ''),
@@ -152,6 +156,7 @@ def ftp_filezilla():
         credentials = FTPCredentials(g.user.id)
         g.db.add(credentials)
         g.db.commit()
+        g.log.info('new FTP credentials added to database')
 
     response = make_response(
         render_template(
@@ -192,6 +197,7 @@ def upload():
                 os.remove(temp_path)
                 form.errors['file'] = ['Sample with same hash already uploaded or queued']
             else:
+                g.log.info(f'new sample added in upload queue')
                 add_sample_to_queue(file_hash, temp_path, g.user.id, g.db)
                 return redirect(url_for('.index'))
     return {
@@ -337,6 +343,9 @@ def link_id(upload_id):
                 'samples': [u.sample for u in user_uploads],
                 'queued_sample': queued_sample
             }
+        g.log.warning(
+            f'user with id: {g.user.id} tried to access upload belonging to user with id: {queued_sample.user_id}'
+        )
 
     # Raise error
     raise QueuedSampleNotFoundException()
@@ -393,13 +402,16 @@ def delete_id(upload_id):
                 os.remove(file_path)
                 g.db.delete(queued_sample)
                 g.db.commit()
-
+                g.log.warning(f'upload with id: {upload_id} deleted')
                 return redirect(url_for('.index'))
 
             return {
                 'form': form,
                 'queued_sample': queued_sample
             }
+        g.log.warning(
+            f'user with id: {g.user.id} tried to access upload belonging to user with id: {queued_sample.user_id}'
+        )
 
     # Raise error
     raise QueuedSampleNotFoundException()

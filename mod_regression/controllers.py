@@ -52,6 +52,7 @@ def by_sample(sample_id):
     # Show all regression tests for sample
     sample = Sample.query.filter(Sample.id == sample_id).first()
     if sample is None:
+        g.log.error(f'requested sample with id: {sample_id} not found!')
         abort(404)
     return {
         'sample': sample,
@@ -74,6 +75,7 @@ def test_view(regression_id):
     test = RegressionTest.query.filter(RegressionTest.id == regression_id).first()
 
     if test is None:
+        g.log.error(f'requested regression test with id: {regression_id} not found!')
         abort(404)
 
     return {
@@ -99,6 +101,7 @@ def test_delete(regression_id):
     test = RegressionTest.query.filter(RegressionTest.id == regression_id).first()
 
     if test is None:
+        g.log.error(f'requested regression test with id: {regression_id} not found!')
         abort(404)
 
     form = ConfirmationForm()
@@ -106,6 +109,7 @@ def test_delete(regression_id):
     if form.validate_on_submit():
         g.db.delete(test)
         g.db.commit()
+        g.log.warning(f'regression test with id: {regression_id} deleted!')
         flash('Regression Test Deleted')
         return redirect(url_for('.index'))
 
@@ -131,6 +135,7 @@ def test_edit(regression_id):
     test = RegressionTest.query.filter(RegressionTest.id == regression_id).first()
 
     if(test is None):
+        g.log.error(f'requested regression test with id: {regression_id} not found!')
         abort(404)
 
     form = AddTestForm(request.form)
@@ -154,6 +159,7 @@ def test_edit(regression_id):
         category.regression_tests.append(test)
 
         g.db.commit()
+        g.log.info(f'regression test with id: {regression_id} updated!')
         flash('Regression Test Updated')
         return redirect(url_for('.test_view', regression_id=regression_id))
     return {'form': form, 'regression_id': regression_id}
@@ -173,6 +179,7 @@ def toggle_active_status(regression_id):
     """
     regression_test = RegressionTest.query.filter(RegressionTest.id == regression_id).first()
     if regression_test is None:
+        g.log.error(f'requested regression test with id: {regression_id} not found!')
         abort(404)
     regression_test.active = not regression_test.active
     g.db.commit()
@@ -187,6 +194,7 @@ def test_result_file(regression_test_output_id):
     """View the output files of the regression test."""
     rto = RegressionTestOutput.query.filter(RegressionTestOutput.id == regression_test_output_id).first()
     if rto is None:
+        g.log.error(f'requested regression test output with id: {regression_test_output_id} not found!')
         abort(404)
     return serve_file_download(rto.filename_correct, 'TestResults', 'regression-download')
 
@@ -238,6 +246,7 @@ def category_delete(category_id):
     category = Category.query.filter(Category.id == category_id).first()
 
     if category is None:
+        g.log.error(f'requested category with id: {category_id} not found!')
         abort(404)
 
     form = ConfirmationForm()
@@ -245,6 +254,7 @@ def category_delete(category_id):
     if form.validate_on_submit():
         g.db.delete(category)
         g.db.commit()
+        g.log.warning(f'category with id: {category_id} deleted!')
         return redirect(url_for('.index'))
     return {
         'form': form,
@@ -268,6 +278,7 @@ def category_edit(category_id):
     test = Category.query.filter(Category.id == category_id).first()
 
     if(test is None):
+        g.log.error(f'requested category with id: {category_id} not found!')
         abort(404)
 
     form = AddCategoryForm(request.form)
@@ -275,6 +286,7 @@ def category_edit(category_id):
         test.name = form.category_name.data
         test.description = form.category_description.data
         g.db.commit()
+        g.log.info(f'category with id: {category_id} updated!')
         flash('Category Updated')
         return redirect(url_for('.index'))
     return {'form': form, 'category_id': category_id}

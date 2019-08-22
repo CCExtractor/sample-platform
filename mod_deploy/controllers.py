@@ -27,17 +27,23 @@ def request_from_github(abort_code: int = 418) -> Callable:
             else:
                 # Do initial validations on required headers
                 if 'X-Github-Event' not in request.headers:
+                    g.log.critical('X-Github-Event not in headers!')
                     abort(abort_code)
                 if 'X-Github-Delivery' not in request.headers:
+                    g.log.critical('X-Github-Delivery not in headers!')
                     abort(abort_code)
                 if 'X-Hub-Signature' not in request.headers:
+                    g.log.critical('X-Hub-Signature not in headers!')
                     abort(abort_code)
                 if not request.is_json:
+                    g.log.critical('Request is not JSON!')
                     abort(abort_code)
                 if 'User-Agent' not in request.headers:
+                    g.log.critical('User-Agent not in headers!')
                     abort(abort_code)
                 ua = request.headers.get('User-Agent')
                 if not ua.startswith('GitHub-Hookshot/'):
+                    g.log.critical('User-Agent does not begin with Github-Hookshot/!')
                     abort(abort_code)
 
                 request_ip = ip_address(u'{0}'.format(request.remote_addr))
@@ -49,7 +55,7 @@ def request_from_github(abort_code: int = 418) -> Callable:
                     if ip_address(request_ip) in ip_network(block):
                         break
                 else:
-                    g.log.info("Unauthorized attempt to deploy by IP {ip}".format(ip=request_ip))
+                    g.log.warning("Unauthorized attempt to deploy by IP {ip}".format(ip=request_ip))
                     abort(abort_code)
                 return f(*args, **kwargs)
         return decorated_function
@@ -83,8 +89,10 @@ def deploy():
 
     event = request.headers.get('X-GitHub-Event')
     if event == "ping":
+        g.log.info('deploy endpoint pinged!')
         return json.dumps({'msg': 'Hi!'})
     if event != "push":
+        g.log.info('deploy endpoint received unaccepted push request!')
         return json.dumps({'msg': "Wrong event type"})
 
     x_hub_signature = request.headers.get('X-Hub-Signature')
@@ -139,4 +147,5 @@ def deploy():
     # Reload platform service
     g.log.info('Platform upgraded to commit {commit}'.format(commit=commit_hash))
     subprocess.Popen(["sudo", "service", "platform", "reload"])
+    g.log.info('Sample platform synced with Github!')
     return json.dumps({'msg': 'Platform upgraded to commit {commit}'.format(commit=commit_hash)})

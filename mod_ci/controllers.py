@@ -829,26 +829,28 @@ def progress_type_request(log, test, test_id, request):
 
         if laststatus < istatus:
             # get KVM start time for finding KVM preparation time
-            KVM = Kvm.query.filter(Kvm.test_id == test_id).first()
+            kvm_entry = Kvm.query.filter(Kvm.test_id == test_id).first()
 
             if status == TestStatus.building:
                 log.info('test preparation finished')
                 prep_finish_time = datetime.datetime.now()
                 # save preparation finish time
-                KVM.timestamp_prep_finished = prep_finish_time
+                kvm_entry.timestamp_prep_finished = prep_finish_time
                 g.db.commit()
                 # set time taken in seconds to do preparation
-                time_diff = (prep_finish_time - KVM.timestamp).total_seconds()
+                time_diff = (prep_finish_time - datetime.strptime(kvm_entry.timestamp,
+                                                                  '%Y-%m-%d %H:%M:%S')).total_seconds()
                 set_avg_time(test.platform, "prep", time_diff)
 
             elif status == TestStatus.testing:
                 log.info('test build procedure finished')
                 build_finish_time = datetime.datetime.now()
                 # save build finish time
-                KVM.timestamp_build_finished = build_finish_time
+                kvm_entry.timestamp_build_finished = build_finish_time
                 g.db.commit()
                 # set time taken in seconds to do preparation
-                time_diff = (build_finish_time - KVM.timestamp_prep_finished).total_seconds()
+                time_diff = (build_finish_time - datetime.strptime(kvm_entry.timestamp_prep_finished,
+                                                                   '%Y-%m-%d %H:%M:%S')).total_seconds()
                 set_avg_time(test.platform, "build", time_diff)
 
     progress = TestProgress(test.id, status, message)

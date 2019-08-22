@@ -272,6 +272,7 @@ def edit_sample(sample_id):
             upload.platform = Platform.from_string(form.platform.data)
             upload.parameters = form.parameters.data
             g.db.commit()
+            g.log.info(f'sample with id: {sample_id} updated')
             return redirect(url_for('.sample_by_id', sample_id=sample.id))
 
         if not form.is_submitted():
@@ -318,6 +319,7 @@ def delete_sample(sample_id):
             os.remove(os.path.join(basedir, sample.filename))
             g.db.delete(sample)
             g.db.commit()
+            g.log.warning(f'sample with id: {sample_id} deleted')
             return redirect(url_for('.index'))
 
         return {
@@ -356,6 +358,7 @@ def delete_sample_additional(sample_id, additional_id):
                 os.remove(os.path.join(basedir, 'extra', extra.filename))
                 g.db.delete(extra)
                 g.db.commit()
+                g.log.warning(f'additional with id: {additional_id} for sample with id: {sample_id} deleted')
                 return redirect(url_for('.sample_by_id', sample_id=sample.id))
 
             return {

@@ -259,6 +259,7 @@ def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
         check_write = False
         for regression_test in category.regression_tests:
             if regression_test.id not in regression_ids:
+                log.debug(f'skipping regression test id: {regression_test.id} as not in scope of the test')
                 continue
             check_write = True
             entry = etree.SubElement(single_test, 'entry', id=str(regression_test.id))
@@ -453,6 +454,7 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0) -> No
     ).first()
 
     if test_type == TestType.pull_request:
+        log.debug('pull request test type detected')
         branch = "pull_request"
 
     linux_test = Test(TestPlatform.linux, test_type, fork.id, branch, commit, pr_nr)
@@ -500,11 +502,12 @@ def inform_mailing_list(mailer, id, title, author, body) -> None:
     from run import get_github_issue_link
     subject = "GitHub Issue #{issue_number}".format(issue_number=id)
     url = get_github_issue_link(id)
-    mailer.send_simple_message({
+    if not mailer.send_simple_message({
         "to": "ccextractor-dev@googlegroups.com",
         "subject": subject,
         "html": get_html_issue_body(title=title, author=author, body=body, issue_number=id, url=url)
-    })
+    }):
+        g.log.error('failed to send issue to mailing list')
 
 
 def get_html_issue_body(title, author, body, issue_number, url) -> Any:
@@ -553,6 +556,7 @@ def start_ci():
 
         event = request.headers.get('X-GitHub-Event')
         if event == "ping":
+            g.log.debug('server ping successful')
             return json.dumps({'msg': 'Hi!'})
 
         x_hub_signature = request.headers.get('X-Hub-Signature')
@@ -571,6 +575,7 @@ def start_ci():
         repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
 
         if event == "push":
+            g.log.debug('push event detected')
             # If it's a push, and the 'after' hash is available, then it's a commit, so run the tests
             if 'after' in payload:
                 commit = payload['after']
@@ -594,6 +599,7 @@ def start_ci():
                 g.log.debug(payload)
 
         elif event == "pull_request":
+            g.log.debug('pull request event detected')
             # If it's a valid PR, run the tests
             commit = ''
             gh_commit = None
@@ -637,6 +643,8 @@ def start_ci():
                     )
 
         elif event == "issues":
+            g.log.debug('issues event detected')
+
             issue_data = payload['issue']
             issue_action = payload['action']
             issue = Issue.query.filter(Issue.issue_id == issue_data['number']).first()
@@ -656,6 +664,7 @@ def start_ci():
 
         elif event == "release":
             g.log.debug("release webhook triggered")
+
             release_data = payload['release']
             action = payload['action']
             release_version = release_data['tag_name']
@@ -734,6 +743,7 @@ def update_build_badge(status, test) -> None:
         svglocation = os.path.join(parent_dir, 'static', 'img', 'status',
                                    'build-{platform}.svg'.format(platform=test.platform.value))
         shutil.copyfile(availableon, svglocation)
+        g.log.info('Build badge updated successfully!')
     else:
         return
 
@@ -758,24 +768,29 @@ def progress_reporter(test_id, token):
 
         if 'type' in request.form:
             if request.form['type'] == 'progress':
+                log.info('progress method triggered by progress_reporter')
                 ret_val = progress_type_request(log, test, test_id, request)
                 if ret_val == "FAIL":
                     return "FAIL"
 
             elif request.form['type'] == 'equality':
+                log.info('equality method triggered by progress_reporter')
                 equality_type_request(log, test_id, test, request)
 
             elif request.form['type'] == 'logupload':
+                log.info('logupload method triggered by progress_reporter')
                 ret_val = logupload_type_request(log, test_id, repo_folder, test, request)
                 if ret_val == "EMPTY":
                     return "EMPTY"
 
             elif request.form['type'] == 'upload':
+                log.info('upload method triggered by progress_reporter')
                 ret_val = upload_type_request(log, test_id, repo_folder, test, request)
                 if ret_val == "EMPTY":
                     return "EMPTY"
 
             elif request.form['type'] == 'finish':
+                log.info('finish method triggered by progress_reporter')
                 finish_type_request(log, test_id, test, request)
 
             return "OK"
@@ -817,6 +832,7 @@ def progress_type_request(log, test, test_id, request):
             KVM = Kvm.query.filter(Kvm.test_id == test_id).first()
 
             if status == TestStatus.building:
+                log.info('test preparation finished')
                 prep_finish_time = datetime.datetime.now()
                 # save preparation finish time
                 KVM.timestamp_prep_finished = prep_finish_time
@@ -826,6 +842,7 @@ def progress_type_request(log, test, test_id, request):
                 set_avg_time(test.platform, "prep", time_diff)
 
             elif status == TestStatus.testing:
+                log.info('test build procedure finished')
                 build_finish_time = datetime.datetime.now()
                 # save build finish time
                 KVM.timestamp_build_finished = build_finish_time
@@ -890,6 +907,7 @@ def progress_type_request(log, test, test_id, request):
                 average_time = total_time // len(times)
 
             new_avg = GeneralData(var_average, average_time)
+            log.info(f'new average time {str(average_time)} set successfully')
             g.db.add(new_avg)
             g.db.commit()
 
@@ -912,6 +930,7 @@ def progress_type_request(log, test, test_id, request):
             updated_average = updated_average + last_running_test.total_seconds()
             current_average.value = updated_average // number_test
             g.db.commit()
+            log.info(f'average time updated to {str(current_average.value)}')
 
         kvm = Kvm.query.filter(Kvm.test_id == test_id).first()
 
@@ -1060,6 +1079,7 @@ def upload_type_request(log, test_id, repo_folder, test, request):
         uploaded_file = request.files['file']
         filename = secure_filename(uploaded_file.filename)
         if filename is '':
+            log.warning('empty filename provided for uploading')
             return 'EMPTY'
         temp_path = os.path.join(repo_folder, 'TempFiles', filename)
         # Save to temporary location

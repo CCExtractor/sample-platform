@@ -120,6 +120,7 @@ def add_test_to_kvm(username, commit_hash, platforms, regression_tests) -> None:
     fork_url = ('https://github.com/{user}/{repo}.git').format(
         user=username, repo=g.github['repository']
     )
+    g.log.info(f'adding test for {fork_url} to queue')
     fork = Fork.query.filter(Fork.github == fork_url).first()
     if fork is None:
         fork = Fork(fork_url)
@@ -134,5 +135,6 @@ def add_test_to_kvm(username, commit_hash, platforms, regression_tests) -> None:
             customized_test = CustomizedTest(test.id, regression_test)
             g.db.add(customized_test)
         test_fork = TestFork(g.user.id, test.id)
+        g.log.info(f'added {platform} tests for {fork_url} for')
         g.db.add(test_fork)
         g.db.commit()

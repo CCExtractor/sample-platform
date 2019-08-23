@@ -1,5 +1,7 @@
 """handles the mailing operations across the app."""
 
+import traceback
+from exceptions import FailedToSendMail
 from typing import Dict
 
 import requests
@@ -38,4 +40,8 @@ class Mailer:
         :rtype: requests.Response
         """
         data['from'] = self.sender
-        return requests.post("{url}/messages".format(url=self.api_url), auth=self.auth, data=data)
+        try:
+            return requests.post("{url}/messages".format(url=self.api_url), auth=self.auth, data=data)
+        except (requests.HTTPError, requests.ConnectionError):
+            traceback.print_exc()
+            raise FailedToSendMail

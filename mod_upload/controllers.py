@@ -7,6 +7,7 @@ import mimetypes
 import os
 import shutil
 import traceback
+from exceptions import QueuedSampleNotFoundException
 from typing import Any, Callable, List, Optional, Tuple, Type
 
 import magic
@@ -16,11 +17,6 @@ from flask import (Blueprint, flash, g, make_response, redirect,
 from git import GitCommandError, InvalidGitRepositoryError, Repo
 from werkzeug.utils import secure_filename
 
-import mod_auth.models
-import mod_home.models
-import mod_sample.models
-import mod_upload.forms
-import mod_upload.models
 from decorators import get_menu_entries, template_renderer
 from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role, User
@@ -29,21 +25,13 @@ from mod_sample.models import (ForbiddenExtension, ForbiddenMimeType, Issue,
                                Sample)
 from mod_upload.forms import (DeleteQueuedSampleForm, FinishQueuedSampleForm,
                               UploadForm)
+from mod_upload.models import (FTPCredentials, Platform, QueuedSample, Upload,
+                               UploadLog)
 
-from .models import FTPCredentials, Platform, QueuedSample, Upload, UploadLog
-
-mod_upload = Blueprint('upload', __name__)  # type: ignore
-
-
-class QueuedSampleNotFoundException(Exception):
-    """Custom exception handler for queued sample not found."""
-
-    def __init__(self, message) -> None:
-        Exception.__init__(self)
-        self.message = message
+mod_upload = Blueprint('upload', __name__)
 
 
-@mod_upload.before_app_request  # type: ignore
+@mod_upload.before_app_request
 def before_app_request() -> None:
     """Curate menu items before request."""
     g.menu_entries['upload'] = {
@@ -63,7 +51,7 @@ def before_app_request() -> None:
         g.menu_entries['config'] = config_entries
 
 
-@mod_upload.errorhandler(QueuedSampleNotFoundException)     # type: ignore
+@mod_upload.errorhandler(QueuedSampleNotFoundException)
 @template_renderer('upload/queued_sample_not_found.html', 404)
 def not_found(error):
     """Display not found template."""
@@ -72,7 +60,7 @@ def not_found(error):
     }
 
 
-@mod_upload.route('/')  # type: ignore
+@mod_upload.route('/')
 @login_required
 @template_renderer()
 def index():
@@ -83,7 +71,7 @@ def index():
     }
 
 
-@mod_upload.route('/manage')    # type: ignore
+@mod_upload.route('/manage')
 @login_required
 @check_access_rights([Role.admin])
 @template_renderer()
@@ -125,12 +113,15 @@ def make_github_issue(title, body=None, labels=None) -> Any:
     r = session.post(url, json.dumps(issue))    # type: ignore
 
     if r.status_code == 201:
+        g.log.info('new github issue created')
         return r.json()
 
+    g.log.error('failed to create github issue')
+    g.log.debug(str(r.json()))
     return 'ERROR'
 
 
-@mod_upload.route('/ftp')   # type: ignore
+@mod_upload.route('/ftp')
 @login_required
 @template_renderer()
 def ftp_index():
@@ -143,6 +134,7 @@ def ftp_index():
         credentials = FTPCredentials(g.user.id)
         g.db.add(credentials)
         g.db.commit()
+        g.log.info('new FTP credentials added to database')
 
     return {
         'host': config.get('SERVER_NAME', ''),
@@ -152,7 +144,7 @@ def ftp_index():
     }
 
 
-@mod_upload.route('/ftp/filezilla')  # type: ignore
+@mod_upload.route('/ftp/filezilla')
 @login_required
 def ftp_filezilla():
     """Root for filezilla ftp connection."""
@@ -164,6 +156,7 @@ def ftp_filezilla():
         credentials = FTPCredentials(g.user.id)
         g.db.add(credentials)
         g.db.commit()
+        g.log.info('new FTP credentials added to database')
 
     response = make_response(
         render_template(
@@ -182,7 +175,7 @@ def ftp_filezilla():
     return response
 
 
-@mod_upload.route('/new', methods=['GET', 'POST'])  # type: ignore
+@mod_upload.route('/new', methods=['GET', 'POST'])
 @login_required
 @template_renderer()
 def upload():
@@ -204,6 +197,7 @@ def upload():
                 os.remove(temp_path)
                 form.errors['file'] = ['Sample with same hash already uploaded or queued']
             else:
+                g.log.info(f'new sample added in upload queue')
                 add_sample_to_queue(file_hash, temp_path, g.user.id, g.db)
                 return redirect(url_for('.index'))
     return {
@@ -213,7 +207,7 @@ def upload():
     }
 
 
-@mod_upload.route('/<upload_id>', methods=['GET', 'POST'])  # type: ignore
+@mod_upload.route('/<upload_id>', methods=['GET', 'POST'])
 @login_required
 @template_renderer()
 def process_id(upload_id):
@@ -326,7 +320,7 @@ def process_id(upload_id):
     raise QueuedSampleNotFoundException()
 
 
-@mod_upload.route('/link/<upload_id>')  # type: ignore
+@mod_upload.route('/link/<upload_id>')
 @login_required
 @template_renderer()
 def link_id(upload_id):
@@ -349,12 +343,15 @@ def link_id(upload_id):
                 'samples': [u.sample for u in user_uploads],
                 'queued_sample': queued_sample
             }
+        g.log.warning(
+            f'user with id: {g.user.id} tried to access upload belonging to user with id: {queued_sample.user_id}'
+        )
 
     # Raise error
     raise QueuedSampleNotFoundException()
 
 
-@mod_upload.route('/link/<upload_id>/<sample_id>')  # type: ignore
+@mod_upload.route('/link/<upload_id>/<sample_id>')
 @login_required
 def link_id_confirm(upload_id, sample_id):
     """
@@ -379,7 +376,7 @@ def link_id_confirm(upload_id, sample_id):
     raise QueuedSampleNotFoundException()
 
 
-@mod_upload.route('/delete/<upload_id>', methods=['GET', 'POST'])   # type: ignore
+@mod_upload.route('/delete/<upload_id>', methods=['GET', 'POST'])
 @login_required
 @template_renderer()
 def delete_id(upload_id):
@@ -405,13 +402,16 @@ def delete_id(upload_id):
                 os.remove(file_path)
                 g.db.delete(queued_sample)
                 g.db.commit()
-
+                g.log.warning(f'upload with id: {upload_id} deleted')
                 return redirect(url_for('.index'))
 
             return {
                 'form': form,
                 'queued_sample': queued_sample
             }
+        g.log.warning(
+            f'user with id: {g.user.id} tried to access upload belonging to user with id: {queued_sample.user_id}'
+        )
 
     # Raise error
     raise QueuedSampleNotFoundException()

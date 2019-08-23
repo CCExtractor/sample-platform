@@ -13,9 +13,6 @@ from flask import (Blueprint, abort, flash, g, redirect, request, session,
 from pyisemail import is_email
 from werkzeug.wrappers.response import Response
 
-import database
-import mod_auth.forms
-import mod_auth.models
 from database import EnumSymbol
 from decorators import get_menu_entries, template_renderer
 from mod_auth.forms import (AccountForm, CompleteResetForm, CompleteSignupForm,
@@ -23,10 +20,10 @@ from mod_auth.forms import (AccountForm, CompleteResetForm, CompleteSignupForm,
                             RoleChangeForm, SignupForm)
 from mod_auth.models import Role, User
 
-mod_auth = Blueprint('auth', __name__)  # type: ignore
+mod_auth = Blueprint('auth', __name__)
 
 
-@mod_auth.before_app_request    # type: ignore
+@mod_auth.before_app_request
 def before_app_request() -> None:
     """Run before the request to app is made."""
     user_id = session.get('user_id', 0)
@@ -54,6 +51,7 @@ def login_required(f: Callable) -> Callable:
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if g.user is None:
+            g.log.warning(f'login protected endpoint {request.endpoint} accessed before logging in')
             return redirect(url_for('auth.login', next=request.endpoint))
 
         return f(*args, **kwargs)
@@ -86,6 +84,7 @@ def check_access_rights(roles: List[Tuple[str, str]] = None, parent_route: None 
             if g.user.role in roles:
                 return f(*args, **kwargs)
             # Return page not allowed
+            g.log.warning(f'attempt to access protected endpoint {request.endpoint} without required rights')
             abort(403, request.endpoint)
 
         return decorated_function
@@ -137,7 +136,7 @@ def github_token_validity(token: str):
     return response.status_code == 200
 
 
-@mod_auth.route('/github_redirect', methods=['GET', 'POST'])    # type: ignore
+@mod_auth.route('/github_redirect', methods=['GET', 'POST'])
 def github_redirect():
     """
     Create redirect URL if no github token found.
@@ -154,6 +153,7 @@ def github_redirect():
             g.user.github_token = None
             g.db.commit()
         else:
+            g.log.error('Failed to validate Github token')
             return None
 
     return 'https://github.com/login/oauth/authorize?client_id={id}&scope=public_repo'.format(id=github_clientid)
@@ -182,7 +182,7 @@ def fetch_username_from_token() -> Any:
         return None
 
 
-@mod_auth.route('/github_callback', methods=['GET', 'POST'])    # type: ignore
+@mod_auth.route('/github_callback', methods=['GET', 'POST'])
 @template_renderer()
 def github_callback():
     """Access the token and store it in database to for further functionalities."""
@@ -216,7 +216,7 @@ def github_callback():
     return '', 404
 
 
-@mod_auth.route('/login', methods=['GET', 'POST'])      # type: ignore
+@mod_auth.route('/login', methods=['GET', 'POST'])
 @template_renderer()
 def login() -> Union[Response, Dict[str, Union[str, LoginForm]]]:
     """Route for handling the login page."""
@@ -250,7 +250,7 @@ def login() -> Union[Response, Dict[str, Union[str, LoginForm]]]:
     }
 
 
-@mod_auth.route('/reset', methods=['GET', 'POST'])  # type: ignore
+@mod_auth.route('/reset', methods=['GET', 'POST'])
 @template_renderer()
 def reset():
     """
@@ -272,7 +272,7 @@ def reset():
     }
 
 
-@mod_auth.route('/reset/<int:uid>/<int:expires>/<mac>', methods=['GET', 'POST'])    # type: ignore
+@mod_auth.route('/reset/<int:uid>/<int:expires>/<mac>', methods=['GET', 'POST'])
 @template_renderer()
 def complete_reset(uid, expires, mac):
     """
@@ -297,6 +297,7 @@ def complete_reset(uid, expires, mac):
             try:
                 authentic = hmac.compare_digest(real_hash, mac)
             except AttributeError:
+                g.log.warning(f'falling back to direct comparison of hash...')
                 # Older python version? Fallback which is less safe
                 authentic = real_hash == mac
             if authentic:
@@ -325,7 +326,7 @@ def complete_reset(uid, expires, mac):
     return redirect(url_for('.reset'))
 
 
-@mod_auth.route('/signup', methods=['GET', 'POST'])  # type: ignore
+@mod_auth.route('/signup', methods=['GET', 'POST'])
 @template_renderer()
 def signup() -> Dict[str, SignupForm]:
     """Route for handling the signup page."""
@@ -358,6 +359,7 @@ def signup() -> Dict[str, SignupForm]:
             else:
                 flash('Could not send email', 'error-message')
         else:
+            g.log.debug(f'sign up attempt using invalid email id: {form.email.data}')
             flash('Invalid email address!', 'error-message')
 
     return {
@@ -365,7 +367,7 @@ def signup() -> Dict[str, SignupForm]:
     }
 
 
-@mod_auth.route('/complete_signup/<email>/<int:expires>/<mac>',     # type: ignore
+@mod_auth.route('/complete_signup/<email>/<int:expires>/<mac>',
                 methods=['GET', 'POST'])
 @template_renderer()
 def complete_signup(email: str, expires: int,
@@ -390,6 +392,7 @@ def complete_signup(email: str, expires: int,
         try:
             authentic = hmac.compare_digest(real_hash, mac)
         except AttributeError:
+            g.log.warning(f'falling back to direct comparison of hash...')
             # Older python version? Fallback which is less safe
             authentic = real_hash == mac
         if authentic:
@@ -441,7 +444,7 @@ def generate_hmac_hash(key: str, data: str) -> str:
     return hmac.new(encoded_key, encoded_data, hashlib.sha256).hexdigest()
 
 
-@mod_auth.route('/logout')  # type: ignore
+@mod_auth.route('/logout')
 @template_renderer()
 def logout():
     """
@@ -454,7 +457,7 @@ def logout():
     return redirect(url_for('.login'))
 
 
-@mod_auth.route('/manage', methods=['GET', 'POST'])     # type: ignore
+@mod_auth.route('/manage', methods=['GET', 'POST'])
 @login_required
 @template_renderer()
 def manage():
@@ -500,7 +503,7 @@ def manage():
     }
 
 
-@mod_auth.route('/users')   # type: ignore
+@mod_auth.route('/users')
 @login_required
 @check_access_rights([Role.admin])
 @template_renderer()
@@ -516,7 +519,7 @@ def users():
     }
 
 
-@mod_auth.route('/user/<int:uid>')  # type: ignore
+@mod_auth.route('/user/<int:uid>')
 @login_required
 @template_renderer()
 def user(uid):
@@ -539,12 +542,13 @@ def user(uid):
                 'view_user': usr,
                 'samples': [u.sample for u in uploads]
             }
+        g.log.debug(f'user with id: {uid} not found!')
         abort(404)
     else:
         abort(403, request.endpoint)
 
 
-@mod_auth.route('/reset_user/<int:uid>')    # type: ignore
+@mod_auth.route('/reset_user/<int:uid>')
 @login_required
 @check_access_rights([Role.admin])
 @template_renderer()
@@ -566,12 +570,14 @@ def reset_user(uid):
             return {
                 'view_user': usr
             }
+        g.log.debug(f'user with id: {uid} not found!')
         abort(404)
     else:
+        g.log.warning(f'user with id: {g.user.id} tried to access restricted endpoint for user id: {uid}!')
         abort(403, request.endpoint)
 
 
-@mod_auth.route('/role/<int:uid>', methods=['GET', 'POST'])     # type: ignore
+@mod_auth.route('/role/<int:uid>', methods=['GET', 'POST'])
 @login_required
 @check_access_rights([Role.admin])
 @template_renderer()
@@ -598,10 +604,11 @@ def role(uid):
             'form': form,
             'view_user': usr
         }
+    g.log.debug(f'user with id: {uid} not found!')
     abort(404)
 
 
-@mod_auth.route('/deactivate/<int:uid>', methods=['GET', 'POST'])   # type: ignore
+@mod_auth.route('/deactivate/<int:uid>', methods=['GET', 'POST'])
 @login_required
 @template_renderer()
 def deactivate(uid):
@@ -629,12 +636,14 @@ def deactivate(uid):
                     return redirect(url_for('.users'))
                 else:
                     session.pop('user_id', None)
+                    g.log.debug(f'account deactivate for user id: {uid}')
                     flash('Account deactivated.', 'success')
                     return redirect(url_for('.login'))
             return {
                 'form': form,
                 'view_user': usr
             }
+        g.log.debug(f'user with id: {uid} not found!')
         abort(404)
     else:
         abort(403, request.endpoint)

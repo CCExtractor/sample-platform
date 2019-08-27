@@ -24,15 +24,6 @@ from sqlalchemy.sql import label
 from sqlalchemy.sql.functions import count
 from werkzeug.utils import secure_filename
 
-import mailer
-import mod_auth.models
-import mod_ci.forms
-import mod_ci.models
-import mod_customized.models
-import mod_home.models
-import mod_regression.models
-import mod_sample.models
-import mod_test.models
 from decorators import get_menu_entries, template_renderer
 from mailer import Mailer
 from mod_auth.controllers import check_access_rights, login_required
@@ -52,7 +43,7 @@ from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
 if sys.platform.startswith("linux"):
     import libvirt
 
-mod_ci = Blueprint('ci', __name__)  # type: ignore
+mod_ci = Blueprint('ci', __name__)
 
 
 class Status:
@@ -64,7 +55,7 @@ class Status:
     FAILURE = "failure"
 
 
-@mod_ci.before_app_request  # type: ignore
+@mod_ci.before_app_request
 def before_app_request() -> None:
     """Organize menu content such as Platform management before request."""
     config_entries = get_menu_entries(
@@ -268,6 +259,7 @@ def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
         check_write = False
         for regression_test in category.regression_tests:
             if regression_test.id not in regression_ids:
+                log.debug(f'skipping regression test id: {regression_test.id} as not in scope of the test')
                 continue
             check_write = True
             entry = etree.SubElement(single_test, 'entry', id=str(regression_test.id))
@@ -462,6 +454,7 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0) -> No
     ).first()
 
     if test_type == TestType.pull_request:
+        log.debug('pull request test type detected')
         branch = "pull_request"
 
     linux_test = Test(TestPlatform.linux, test_type, fork.id, branch, commit, pr_nr)
@@ -509,11 +502,12 @@ def inform_mailing_list(mailer, id, title, author, body) -> None:
     from run import get_github_issue_link
     subject = "GitHub Issue #{issue_number}".format(issue_number=id)
     url = get_github_issue_link(id)
-    mailer.send_simple_message({
+    if not mailer.send_simple_message({
         "to": "ccextractor-dev@googlegroups.com",
         "subject": subject,
         "html": get_html_issue_body(title=title, author=author, body=body, issue_number=id, url=url)
-    })
+    }):
+        g.log.error('failed to send issue to mailing list')
 
 
 def get_html_issue_body(title, author, body, issue_number, url) -> Any:
@@ -541,7 +535,7 @@ def get_html_issue_body(title, author, body, issue_number, url) -> Any:
     return html_email_body
 
 
-@mod_ci.route('/start-ci', methods=['GET', 'POST'])  # type: ignore
+@mod_ci.route('/start-ci', methods=['GET', 'POST'])
 @request_from_github()
 def start_ci():
     """
@@ -562,6 +556,7 @@ def start_ci():
 
         event = request.headers.get('X-GitHub-Event')
         if event == "ping":
+            g.log.debug('server ping successful')
             return json.dumps({'msg': 'Hi!'})
 
         x_hub_signature = request.headers.get('X-Hub-Signature')
@@ -580,6 +575,7 @@ def start_ci():
         repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
 
         if event == "push":
+            g.log.debug('push event detected')
             # If it's a push, and the 'after' hash is available, then it's a commit, so run the tests
             if 'after' in payload:
                 commit = payload['after']
@@ -603,6 +599,7 @@ def start_ci():
                 g.log.debug(payload)
 
         elif event == "pull_request":
+            g.log.debug('pull request event detected')
             # If it's a valid PR, run the tests
             commit = ''
             gh_commit = None
@@ -646,6 +643,8 @@ def start_ci():
                     )
 
         elif event == "issues":
+            g.log.debug('issues event detected')
+
             issue_data = payload['issue']
             issue_action = payload['action']
             issue = Issue.query.filter(Issue.issue_id == issue_data['number']).first()
@@ -665,6 +664,7 @@ def start_ci():
 
         elif event == "release":
             g.log.debug("release webhook triggered")
+
             release_data = payload['release']
             action = payload['action']
             release_version = release_data['tag_name']
@@ -743,11 +743,12 @@ def update_build_badge(status, test) -> None:
         svglocation = os.path.join(parent_dir, 'static', 'img', 'status',
                                    'build-{platform}.svg'.format(platform=test.platform.value))
         shutil.copyfile(availableon, svglocation)
+        g.log.info('Build badge updated successfully!')
     else:
         return
 
 
-@mod_ci.route('/progress-reporter/<test_id>/<token>', methods=['POST'])  # type: ignore
+@mod_ci.route('/progress-reporter/<test_id>/<token>', methods=['POST'])
 def progress_reporter(test_id, token):
     """
     Handle the progress of a certain test after validating the token. If necessary, update the status on GitHub.
@@ -767,24 +768,29 @@ def progress_reporter(test_id, token):
 
         if 'type' in request.form:
             if request.form['type'] == 'progress':
+                log.info('progress method triggered by progress_reporter')
                 ret_val = progress_type_request(log, test, test_id, request)
                 if ret_val == "FAIL":
                     return "FAIL"
 
             elif request.form['type'] == 'equality':
+                log.info('equality method triggered by progress_reporter')
                 equality_type_request(log, test_id, test, request)
 
             elif request.form['type'] == 'logupload':
+                log.info('logupload method triggered by progress_reporter')
                 ret_val = logupload_type_request(log, test_id, repo_folder, test, request)
                 if ret_val == "EMPTY":
                     return "EMPTY"
 
             elif request.form['type'] == 'upload':
+                log.info('upload method triggered by progress_reporter')
                 ret_val = upload_type_request(log, test_id, repo_folder, test, request)
                 if ret_val == "EMPTY":
                     return "EMPTY"
 
             elif request.form['type'] == 'finish':
+                log.info('finish method triggered by progress_reporter')
                 finish_type_request(log, test_id, test, request)
 
             return "OK"
@@ -823,24 +829,28 @@ def progress_type_request(log, test, test_id, request):
 
         if laststatus < istatus:
             # get KVM start time for finding KVM preparation time
-            KVM = Kvm.query.filter(Kvm.test_id == test_id).first()
+            kvm_entry = Kvm.query.filter(Kvm.test_id == test_id).first()
 
             if status == TestStatus.building:
+                log.info('test preparation finished')
                 prep_finish_time = datetime.datetime.now()
                 # save preparation finish time
-                KVM.timestamp_prep_finished = prep_finish_time
+                kvm_entry.timestamp_prep_finished = prep_finish_time
                 g.db.commit()
                 # set time taken in seconds to do preparation
-                time_diff = (prep_finish_time - KVM.timestamp).total_seconds()
+                time_diff = (prep_finish_time - datetime.strptime(kvm_entry.timestamp,
+                                                                  '%Y-%m-%d %H:%M:%S')).total_seconds()
                 set_avg_time(test.platform, "prep", time_diff)
 
             elif status == TestStatus.testing:
+                log.info('test build procedure finished')
                 build_finish_time = datetime.datetime.now()
                 # save build finish time
-                KVM.timestamp_build_finished = build_finish_time
+                kvm_entry.timestamp_build_finished = build_finish_time
                 g.db.commit()
                 # set time taken in seconds to do preparation
-                time_diff = (build_finish_time - KVM.timestamp_prep_finished).total_seconds()
+                time_diff = (build_finish_time - datetime.strptime(kvm_entry.timestamp_prep_finished,
+                                                                   '%Y-%m-%d %H:%M:%S')).total_seconds()
                 set_avg_time(test.platform, "build", time_diff)
 
     progress = TestProgress(test.id, status, message)
@@ -899,6 +909,7 @@ def progress_type_request(log, test, test_id, request):
                 average_time = total_time // len(times)
 
             new_avg = GeneralData(var_average, average_time)
+            log.info(f'new average time {str(average_time)} set successfully')
             g.db.add(new_avg)
             g.db.commit()
 
@@ -921,6 +932,7 @@ def progress_type_request(log, test, test_id, request):
             updated_average = updated_average + last_running_test.total_seconds()
             current_average.value = updated_average // number_test
             g.db.commit()
+            log.info(f'average time updated to {str(current_average.value)}')
 
         kvm = Kvm.query.filter(Kvm.test_id == test_id).first()
 
@@ -1069,6 +1081,7 @@ def upload_type_request(log, test_id, repo_folder, test, request):
         uploaded_file = request.files['file']
         filename = secure_filename(uploaded_file.filename)
         if filename is '':
+            log.warning('empty filename provided for uploading')
             return 'EMPTY'
         temp_path = os.path.join(repo_folder, 'TempFiles', filename)
         # Save to temporary location
@@ -1143,7 +1156,7 @@ def set_avg_time(platform: Test.platform, process_type: str, time_taken: int) ->
     else:
         current_average = GeneralData.query.filter(GeneralData.key == val_key).first()
         avg_count = int(current_avg_count.value)
-        avg_value = int(current_average.value)
+        avg_value = int(float(current_average.value))
         new_average = ((avg_value * avg_count) + time_taken) / (avg_count + 1)
         current_avg_count.value = str(avg_count + 1)
         current_average.value = str(new_average)
@@ -1218,7 +1231,7 @@ def comment_pr(test_id, state, pr_nr, platform) -> None:
         log.error('Github PR Comment Failed for Test_id: {test_id} with Exception {e}'.format(test_id=test_id, e=e))
 
 
-@mod_ci.route('/show_maintenance')  # type: ignore
+@mod_ci.route('/show_maintenance')
 @login_required
 @check_access_rights([Role.admin])
 @template_renderer('ci/maintenance.html')
@@ -1234,7 +1247,7 @@ def show_maintenance():
     }
 
 
-@mod_ci.route('/blocked_users', methods=['GET', 'POST'])    # type: ignore
+@mod_ci.route('/blocked_users', methods=['GET', 'POST'])
 @login_required
 @check_access_rights([Role.admin])
 @template_renderer()
@@ -1325,7 +1338,7 @@ def blocked_users():
     }
 
 
-@mod_ci.route('/toggle_maintenance/<platform>/<status>')    # type: ignore
+@mod_ci.route('/toggle_maintenance/<platform>/<status>')
 @login_required
 @check_access_rights([Role.admin])
 def toggle_maintenance(platform, status):
@@ -1361,7 +1374,7 @@ def toggle_maintenance(platform, status):
     })
 
 
-@mod_ci.route('/maintenance-mode/<platform>')   # type: ignore
+@mod_ci.route('/maintenance-mode/<platform>')
 def in_maintenance_mode(platform):
     """
     Check if platform in maintenance mode.

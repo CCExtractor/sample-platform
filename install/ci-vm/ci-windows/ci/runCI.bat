@@ -28,10 +28,10 @@ SET logFile="%reportFolder%/log.html"
 echo Copy files over to local disk
 call :postStatus "preparation" "Copy testsuite to local folder"
 rem robocopy returns a non-zero exit code even on success (https://ss64.com/nt/robocopy-exit.html), so we cannot use executeCommand
-call robocopy %suiteSrcDir% %suiteDstDir% /e >> "%logFile%"
+call robocopy %suiteSrcDir% %suiteDstDir% /e /MIR >> "%logFile%"
 
 call :postStatus "preparation" "Copy code to local folder"
-call robocopy %srcDir% %dstDir% /e >> "%logFile%"
+call robocopy %srcDir% %dstDir% /e /MIR /XD %srcDir%\.git >> "%logFile%"
 call :executeCommand cd %dstDir%
 
 echo Compile CCX using cmake

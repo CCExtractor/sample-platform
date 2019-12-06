@@ -230,9 +230,8 @@ def login() -> Union[Response, Dict[str, Union[str, LoginForm]]]:
         if len(redirect_location) == 0:
             return redirect("/")
         else:
-            """
-    return redirect(url_for(redirect_location))
-
+            return redirect(url_for(redirect_location))
+    """
     form = LoginForm(request.form)
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data).first()

@@ -224,6 +224,7 @@ def login() -> Union[Response, Dict[str, Union[str, LoginForm]]]:
     redirect_location = request.args.get('next', '')
 
     # redirect already logged in user
+
     if session.get('user_id', None) is not None:
         flash('You are already logged in!', 'alert')
         if len(redirect_location) == 0:
@@ -453,6 +454,7 @@ def logout():
     Return user to the login page.
     """
     session.pop('user_id', None)
+    session.clear()
     flash('You have been logged out', 'success')
     return redirect(url_for('.login'))
 

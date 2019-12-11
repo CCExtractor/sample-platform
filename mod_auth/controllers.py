@@ -448,6 +448,11 @@ def generate_hmac_hash(key: str, data: str) -> str:
 @mod_auth.route('/logout')
 @template_renderer()
 def logout():
+    """
+    Destroy session variable.
+
+    Return user to the login page.
+    """
     session.pop('user_id', None)
     session.clear()
     flash('You have been logged out', 'success')

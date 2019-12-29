@@ -164,12 +164,12 @@ def test_edit(regression_id):
 
     if not form.is_submitted():
         # Populate form with current set sample values
-        form.sample_id = test.sample_id
-        form.command = test.command
-        form.category_id = test.categories[0].id
-        form.expected_rc = test.expected_rc
-        form.input_type = test.input_type.value
-        form.output_type = test.output_type.value
+        form.sample_id.data = test.sample_id
+        form.command.data = test.command
+        form.category_id.data = test.categories[0].id
+        form.expected_rc.data = test.expected_rc
+        form.input_type.data = test.input_type.value
+        form.output_type.data = test.output_type.value
 
     return {'form': form, 'regression_id': regression_id}
 

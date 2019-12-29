@@ -135,6 +135,8 @@ def test_edit(regression_id):
         g.log.error(f'requested regression test with id: {regression_id} not found!')
         abort(404)
 
+    g.log.info(f'regression test with id {regression_id} loaded for edit')
+
     form = EditTestForm(request.form)
     form.sample_id.choices = [(sam.id, sam.sha) for sam in Sample.query.all()]
     form.category_id.choices = [(cat.id, cat.name) for cat in Category.query.all()]
@@ -160,6 +162,7 @@ def test_edit(regression_id):
         return redirect(url_for('.test_view', regression_id=regression_id))
 
     if not form.is_submitted():
+        g.log.info(f'regression test with id {regression_id} used to populate form')
         # Populate form with current set sample values
         form.sample_id.data = test.sample_id
         form.command.data = test.command

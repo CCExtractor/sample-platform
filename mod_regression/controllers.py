@@ -134,19 +134,22 @@ def test_edit(regression_id):
     """
     test = RegressionTest.query.filter(RegressionTest.id == regression_id).first()
 
-    if(test is None):
+    if test is None:
         g.log.error(f'requested regression test with id: {regression_id} not found!')
         abort(404)
 
     form = AddTestForm(request.form)
     form.sample_id.choices = [(sam.id, sam.sha) for sam in Sample.query.all()]
     form.category_id.choices = [(cat.id, cat.name) for cat in Category.query.all()]
-    if form.validate_on_submit():
-        # removing test from its previous category
-        category = Category.query.filter(Category.id == test.categories[0].id).first()
-        category.regression_tests.remove(test)
 
-        # editing data
+    if form.validate_on_submit():
+        # Remove category for test and add again.
+        old_category = Category.query.filter(Category.id == test.categories[0].id).first()
+        old_category.regression_tests.remove(test)
+
+        new_category = Category.query.filter(Category.id == form.category_id.data).first()
+        new_category.regression_tests.append(test)
+
         test.sample_id = form.sample_id.data
         test.command = form.command.data
         test.category_id = form.category_id.data
@@ -154,14 +157,20 @@ def test_edit(regression_id):
         test.input_type = InputType.from_string(form.input_type.data)
         test.output_type = OutputType.from_string(form.output_type.data)
 
-        # adding test to its new category
-        category = Category.query.filter(Category.id == form.category_id.data).first()
-        category.regression_tests.append(test)
-
         g.db.commit()
         g.log.info(f'regression test with id: {regression_id} updated!')
         flash('Regression Test Updated')
         return redirect(url_for('.test_view', regression_id=regression_id))
+
+    if not form.is_submitted():
+        # Populate form with current set sample values
+        form.sample_id = test.sample_id
+        form.command = test.command
+        form.category_id = test.categories[0].id
+        form.expected_rc = test.expected_rc
+        form.input_type = test.input_type.value
+        form.output_type = test.output_type.value
+
     return {'form': form, 'regression_id': regression_id}
 
 

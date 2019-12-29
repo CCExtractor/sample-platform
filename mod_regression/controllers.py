@@ -1,15 +1,12 @@
 """Maintain logic to perform CRUD operations on regression tests."""
 
-import os
-from typing import Any
-
-from flask import (Blueprint, abort, flash, g, jsonify, make_response,
+from flask import (Blueprint, abort, flash, g, jsonify,
                    redirect, request, url_for)
 
 from decorators import template_renderer
 from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role
-from mod_regression.forms import AddCategoryForm, AddTestForm, ConfirmationForm
+from mod_regression.forms import AddCategoryForm, AddTestForm, ConfirmationForm, EditTestForm
 from mod_regression.models import (Category, InputType, OutputType,
                                    RegressionTest, RegressionTestOutput)
 from mod_sample.models import Sample
@@ -138,7 +135,7 @@ def test_edit(regression_id):
         g.log.error(f'requested regression test with id: {regression_id} not found!')
         abort(404)
 
-    form = AddTestForm(request.form)
+    form = EditTestForm(request.form)
     form.sample_id.choices = [(sam.id, sam.sha) for sam in Sample.query.all()]
     form.category_id.choices = [(cat.id, cat.name) for cat in Category.query.all()]
 

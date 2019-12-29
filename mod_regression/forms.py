@@ -18,7 +18,7 @@ class AddCategoryForm(FlaskForm):
     submit = SubmitField("Add Category")
 
 
-class AddTestForm(FlaskForm):
+class CommonTestForm(FlaskForm):
     """Flask form to Add Regression Test."""
 
     sample_id = SelectField("Sample", coerce=int)
@@ -37,7 +37,14 @@ class AddTestForm(FlaskForm):
     )
     category_id = SelectField("Category", coerce=int)
     expected_rc = IntegerField("Expected Runtime Code", [DataRequired(message="Expected Runtime Code can't be empty")])
+
+
+class AddTestForm(CommonTestForm):
     submit = SubmitField("Add Regression Test")
+
+
+class EditTestForm(CommonTestForm):
+    submit = SubmitField("Edit Regression Test")
 
 
 class ConfirmationForm(FlaskForm):

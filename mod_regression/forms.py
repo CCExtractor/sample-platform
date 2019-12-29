@@ -4,7 +4,7 @@ from flask_wtf import FlaskForm
 from wtforms import (Form, HiddenField, IntegerField, SelectField, StringField,
                      SubmitField, validators)
 from wtforms.validators import (DataRequired, Email, NumberRange,
-                                ValidationError)
+                                ValidationError, InputRequired)
 
 from mod_regression.models import Category, InputType, OutputType
 from mod_sample.models import Sample
@@ -36,7 +36,7 @@ class CommonTestForm(FlaskForm):
         choices=[(o.value, o.description) for o in OutputType]
     )
     category_id = SelectField("Category", coerce=int)
-    expected_rc = IntegerField("Expected Runtime Code", [DataRequired(message="Expected Runtime Code can't be empty")])
+    expected_rc = IntegerField("Expected Runtime Code", [InputRequired(message="Expected Runtime Code can't be empty")])
 
 
 class AddTestForm(CommonTestForm):

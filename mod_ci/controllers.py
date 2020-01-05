@@ -259,7 +259,7 @@ def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
         check_write = False
         for regression_test in category.regression_tests:
             if regression_test.id not in regression_ids:
-                log.debug(f'skipping regression test id: {regression_test.id} as not in scope of the test')
+                log.debug(f'Skipping RT #{regression_test.id} ({category.name}) as not in scope')
                 continue
             check_write = True
             entry = etree.SubElement(single_test, 'entry', id=str(regression_test.id))

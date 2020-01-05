@@ -1352,17 +1352,15 @@ def toggle_maintenance(platform, status):
     """
     result = 'failed'
     message = 'Platform Not found'
+    disabled = status == 'True'
     try:
         platform = TestPlatform.from_string(platform)
         db_mode = MaintenanceMode.query.filter(MaintenanceMode.platform == platform).first()
         if db_mode is not None:
-            db_mode.disabled = status == 'True'
+            db_mode.disabled = disabled
             g.db.commit()
             result = 'success'
-            message = '{platform} in maintenance? {status}'.format(
-                platform=platform.description,
-                status=("Yes" if db_mode.disabled else 'No')
-            )
+            message = f'{platform.description} in maintenance? {"Yes" if disabled else "No"}'
     except ValueError:
         pass
 
@@ -1409,7 +1407,7 @@ def check_main_repo(repo_url) -> bool:
     from run import config, get_github_config
 
     gh_config = get_github_config(config)
-    return '{user}/{repo}'.format(user=gh_config['repository_owner'], repo=gh_config['repository']) in repo_url
+    return f'{gh_config["repository_owner"]}/{gh_config["repository"]}' in repo_url
 
 
 def add_customized_regression_tests(test_id) -> None:
@@ -1421,6 +1419,7 @@ def add_customized_regression_tests(test_id) -> None:
     """
     active_regression_tests = RegressionTest.query.filter(RegressionTest.active == 1).all()
     for regression_test in active_regression_tests:
+        g.log.debug(f'Adding RT #{regression_test.id} to test {test_id}')
         customized_test = CustomizedTest(test_id, regression_test.id)
         g.db.add(customized_test)
-        g.db.commit()
+    g.db.commit()

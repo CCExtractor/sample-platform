@@ -1,10 +1,11 @@
 """Maintain forms related to CRUD operations on regression tests."""
 
 from flask_wtf import FlaskForm
-from mod_regression.models import InputType, OutputType
 from wtforms import (HiddenField, IntegerField, SelectField, StringField,
                      SubmitField)
-from wtforms.validators import (DataRequired, InputRequired)
+from wtforms.validators import DataRequired, InputRequired
+
+from mod_regression.models import InputType, OutputType
 
 
 class AddCategoryForm(FlaskForm):

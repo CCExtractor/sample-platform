@@ -37,12 +37,14 @@ class CommonTestForm(FlaskForm):
 
 
 class AddTestForm(CommonTestForm):
-    """Flask form to add a Regression Test"""
+    """Flask form to add a Regression Test."""
+
     submit = SubmitField("Add Regression Test")
 
 
 class EditTestForm(CommonTestForm):
-    """Flask form to edit a Regression Test"""
+    """Flask form to edit a Regression Test."""
+
     submit = SubmitField("Edit Regression Test")
 
 

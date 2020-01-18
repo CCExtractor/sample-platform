@@ -1,13 +1,10 @@
 """Maintain forms related to CRUD operations on regression tests."""
 
 from flask_wtf import FlaskForm
-from wtforms import (Form, HiddenField, IntegerField, SelectField, StringField,
-                     SubmitField, validators)
-from wtforms.validators import (DataRequired, Email, NumberRange,
-                                ValidationError, InputRequired)
-
-from mod_regression.models import Category, InputType, OutputType
-from mod_sample.models import Sample
+from mod_regression.models import InputType, OutputType
+from wtforms import (HiddenField, IntegerField, SelectField, StringField,
+                     SubmitField)
+from wtforms.validators import (DataRequired, InputRequired)
 
 
 class AddCategoryForm(FlaskForm):
@@ -19,7 +16,7 @@ class AddCategoryForm(FlaskForm):
 
 
 class CommonTestForm(FlaskForm):
-    """Flask form to Add Regression Test."""
+    """Common Flask form to manage a Regression Test."""
 
     sample_id = SelectField("Sample", coerce=int)
     command = StringField("Command")
@@ -40,10 +37,12 @@ class CommonTestForm(FlaskForm):
 
 
 class AddTestForm(CommonTestForm):
+    """Flask form to add a Regression Test"""
     submit = SubmitField("Add Regression Test")
 
 
 class EditTestForm(CommonTestForm):
+    """Flask form to edit a Regression Test"""
     submit = SubmitField("Edit Regression Test")
 
 

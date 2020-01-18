@@ -1,9 +1,8 @@
 """Maintain logic to perform CRUD operations on regression tests."""
 
+from decorators import template_renderer
 from flask import (Blueprint, abort, flash, g, jsonify,
                    redirect, request, url_for)
-
-from decorators import template_renderer
 from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role
 from mod_regression.forms import AddCategoryForm, AddTestForm, ConfirmationForm, EditTestForm

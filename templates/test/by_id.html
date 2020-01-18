@@ -16,7 +16,7 @@
                             <td><a href="{{ test.github_link }}" target="_blank">{{ test.commit[:7] }}</a> (
                             {% if test.test_type == TestType.commit %}
                                 {{ test.branch }}
-                            {% if test.test_type == TestType.commit %}
+                            {% elif test.test_type == TestType.pull_request %}
                                 #{{ test.pr_nr }}
                             {% endif %}
                             )</td>

@@ -8,7 +8,7 @@ from functools import wraps
 from ipaddress import IPv4Address, IPv6Address, ip_address, ip_network
 from os import path
 from shutil import copyfile
-from typing import Callable, List, Union
+from typing import Callable, List, Union, Optional
 
 import requests
 from flask import Blueprint, abort, g, request
@@ -18,7 +18,7 @@ mod_deploy = Blueprint('deploy', __name__)
 
 IPAddress = Union[IPv4Address, IPv6Address]
 
-cached_web_hook_blocks = None
+cached_web_hook_blocks: Optional[List[str]] = None
 cached_load_time: datetime = datetime(1970, 1, 1)
 
 

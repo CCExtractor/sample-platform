@@ -803,7 +803,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
             return False
 
         if last_status > current_status:
-            status = TestStatus.canceled # type: ignore
+            status = TestStatus.canceled  # type: ignore
             message = "Duplicate Entries"
 
         if last_status < current_status:

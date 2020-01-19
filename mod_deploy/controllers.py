@@ -8,7 +8,7 @@ from functools import wraps
 from ipaddress import IPv4Address, IPv6Address, ip_address, ip_network
 from os import path
 from shutil import copyfile
-from typing import Callable, List, Union, Optional
+from typing import Callable, List, Union
 
 import requests
 from flask import Blueprint, abort, g, request
@@ -18,7 +18,7 @@ mod_deploy = Blueprint('deploy', __name__)
 
 IPAddress = Union[IPv4Address, IPv6Address]
 
-cached_web_hook_blocks: Optional[List[str]] = None
+cached_web_hook_blocks: List[str] = []
 cached_load_time: datetime = datetime(1970, 1, 1)
 
 
@@ -43,7 +43,7 @@ def get_cached_web_hook_blocks() -> List[str]:
     global cached_web_hook_blocks
     from run import config
 
-    if cached_web_hook_blocks is None or cache_has_expired():
+    if len(cached_web_hook_blocks) == 0 or cache_has_expired():
         client_id = config.get('GITHUB_CLIENT_ID', '')
         client_secret = config.get('GITHUB_CLIENT_SECRET', '')
         meta_json = requests.get(
@@ -52,7 +52,6 @@ def get_cached_web_hook_blocks() -> List[str]:
             cached_web_hook_blocks = meta_json['hooks']
         except KeyError:
             g.log.critical(f"Failed to retrieve hook IP's from GitHub! API returned {meta_json}")
-            cached_web_hook_blocks = []
 
     return cached_web_hook_blocks
 

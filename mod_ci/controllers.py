@@ -792,9 +792,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
     :param request: Request parameters
     :type request: Request
     """
-    # Progress, log
     status = TestStatus.from_string(request.form['status'])
-    # Check whether test is not running previous status again
     current_status = TestStatus.progress_step(status)
     message = request.form['message']
 
@@ -805,7 +803,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
             return False
 
         if last_status > current_status:
-            status = TestStatus.canceled
+            status = TestStatus.canceled # type: ignore
             message = "Duplicate Entries"
 
         if last_status < current_status:
@@ -882,7 +880,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
                 parts = p.time.split(',')
                 start = datetime.datetime.strptime(parts[0], '%Y-%m-%d %H:%M:%S')
                 end = datetime.datetime.strptime(parts[-1], '%Y-%m-%d %H:%M:%S')
-                total_time += (end - start).total_seconds()
+                total_time += int((end - start).total_seconds())
 
             if len(times) != 0:
                 average_time = total_time // len(times)

@@ -4,16 +4,38 @@ import hmac
 import json
 import subprocess
 from functools import wraps
-from ipaddress import ip_address, ip_network
+from ipaddress import ip_address, ip_network, IPv4Address, IPv6Address
 from os import path
 from shutil import copyfile
-from typing import Callable
+from typing import Callable, Union
 
 import requests
 from flask import Blueprint, abort, g, request
 from git import InvalidGitRepositoryError, Repo
 
 mod_deploy = Blueprint('deploy', __name__)
+
+IPAddress = Union[IPv4Address, IPv6Address]
+
+
+def is_github_web_hook_ip(request_ip: IPAddress) -> bool:
+    """
+    Checks if the given IP address is matching one provided by the API of GitHub.
+
+    :param request_ip: The IP address the request came from.
+    :type request_ip: IPAddress
+    :return: True if the IP address is a valid GitHub Web Hook requester.
+    :rtype: bool
+    """
+    meta_json = requests.get('https://api.github.com/meta').json()
+    try:
+        hook_blocks = meta_json['hooks']
+        for block in hook_blocks:
+            if ip_address(request_ip) in ip_network(block):
+                return True
+    except KeyError:
+        g.log.critical(f"Failed to retrieve hook IP's from GitHub! API returned {meta_json}")
+    return False
 
 
 def request_from_github(abort_code: int = 418) -> Callable:
@@ -47,16 +69,10 @@ def request_from_github(abort_code: int = 418) -> Callable:
                     abort(abort_code)
 
                 request_ip = ip_address(u'{0}'.format(request.remote_addr))
-                meta_json = requests.get('https://api.github.com/meta').json()
-                hook_blocks = meta_json['hooks']
-
-                # Check if the POST request is from GitHub
-                for block in hook_blocks:
-                    if ip_address(request_ip) in ip_network(block):
-                        break
-                else:
-                    g.log.warning("Unauthorized attempt to deploy by IP {ip}".format(ip=request_ip))
+                if not is_github_web_hook_ip(request_ip):
+                    g.log.warning(f"Unauthorized attempt to deploy by IP {request_ip}")
                     abort(abort_code)
+
                 return f(*args, **kwargs)
         return decorated_function
     return decorator

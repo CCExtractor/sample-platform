@@ -222,9 +222,9 @@ class TestControllers(BaseTestCase):
             assert False, "Message not Correct"
 
     def test_check_main_repo_returns_in_false_url(self):
-        from mod_ci.controllers import check_main_repo
-        assert check_main_repo('random_user/random_repo') is False
-        assert check_main_repo('test_owner/test_repo') is True
+        from mod_ci.controllers import is_main_repo
+        assert is_main_repo('random_user/random_repo') is False
+        assert is_main_repo('test_owner/test_repo') is True
 
     @mock.patch('github.GitHub')
     @mock.patch('git.Repo')
@@ -1007,17 +1007,15 @@ class TestControllers(BaseTestCase):
         """
         Test function logupload_type_request when filename is empty.
         """
-        from mod_ci.controllers import logupload_type_request
+        from mod_ci.controllers import upload_log_type_request
 
         mock_log = MagicMock()
         mock_request = MagicMock()
         mock_request.files = {'file': MagicMock()}
         mock_filename.return_value = ''
-        expected = "EMPTY"
 
-        ret_val = logupload_type_request(mock_log, 1, MagicMock(), MagicMock(), mock_request)
+        self.assertFalse(upload_log_type_request(mock_log, 1, MagicMock(), MagicMock(), mock_request))
 
-        self.assertEqual(ret_val, expected)
         mock_log.debug.assert_called_once()
         mock_filename.assert_called_once()
 
@@ -1027,14 +1025,14 @@ class TestControllers(BaseTestCase):
         """
         Test function logupload_type_request.
         """
-        from mod_ci.controllers import logupload_type_request
+        from mod_ci.controllers import upload_log_type_request
 
         mock_request = MagicMock()
         mock_log = MagicMock()
         mock_uploadfile = MagicMock()
         mock_request.files = {'file': mock_uploadfile}
 
-        logupload_type_request(mock_log, 1, MagicMock(), MagicMock(), mock_request)
+        upload_log_type_request(mock_log, 1, MagicMock(), MagicMock(), mock_request)
 
         self.assertEqual(2, mock_log.debug.call_count)
         mock_filename.assert_called_once()
@@ -1057,11 +1055,8 @@ class TestControllers(BaseTestCase):
             'test_file_id': 1
         }
         mock_filename.return_value = ''
-        expected = "EMPTY"
 
-        ret_val = upload_type_request(mock_log, 1, MagicMock(), MagicMock(), mock_request)
-
-        self.assertEqual(ret_val, expected)
+        self.assertFalse(upload_type_request(mock_log, 1, MagicMock(), MagicMock(), mock_request))
         mock_log.debug.assert_called_once()
         mock_filename.assert_called_once()
 

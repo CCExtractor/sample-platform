@@ -10,8 +10,8 @@ from multiprocessing import Process
 from typing import Any
 
 import requests
-from flask import (Blueprint, abort, flash, g, jsonify, redirect,
-                   request, url_for)
+from flask import (Blueprint, abort, flash, g, jsonify, redirect, request,
+                   url_for)
 from git import GitCommandError, InvalidGitRepositoryError, Repo
 from github import ApiError, GitHub
 from lxml import etree
@@ -343,7 +343,7 @@ def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
     try:
         shutil.rmtree(os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'unsafe-ccextractor', '.git', 'rebase-apply'))
     except OSError:
-        log.info("f[{platform}] Could not delete rebase-apply")
+        log.info(f"[{platform}] Could not delete rebase-apply")
     # If PR, merge, otherwise reset to commit
     if test.test_type == TestType.pull_request:
         # Fetch PR (stored under origin/pull/<id>/head)
@@ -413,6 +413,7 @@ def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
 
 def save_xml_to_file(xml_node, folder_name, file_name) -> None:
     """
+    Save the given XML node to a file in a certain folder.
 
     :param xml_node: The XML content element to write to the file.
     :type xml_node: Element
@@ -794,20 +795,20 @@ def progress_type_request(log, test, test_id, request) -> bool:
     # Progress, log
     status = TestStatus.from_string(request.form['status'])
     # Check whether test is not running previous status again
-    istatus = TestStatus.progress_step(status)
+    current_status = TestStatus.progress_step(status)
     message = request.form['message']
 
     if len(test.progress) != 0:
-        laststatus = TestStatus.progress_step(test.progress[-1].status)
+        last_status = TestStatus.progress_step(test.progress[-1].status)
 
-        if laststatus in [TestStatus.completed, TestStatus.canceled]:
+        if last_status in [TestStatus.completed, TestStatus.canceled]:
             return False
 
-        if laststatus > istatus:
+        if last_status > current_status:
             status = TestStatus.canceled
             message = "Duplicate Entries"
 
-        if laststatus < istatus:
+        if last_status < current_status:
             # get KVM start time for finding KVM preparation time
             kvm_entry = Kvm.query.filter(Kvm.test_id == test_id).first()
 

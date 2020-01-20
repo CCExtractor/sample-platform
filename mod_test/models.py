@@ -440,8 +440,11 @@ class TestResultFile(Base):
         :return: An HTML formatted string.
         :rtype: str
         """
+        from run import log
+
         file_ok = os.path.join(base_path, self.expected + self.regression_test_output.correct_extension)
         file_fail = os.path.join(base_path, self.got + self.regression_test_output.correct_extension)
+        log.debug(f"Generate diff for {file_ok} vs {file_fail}")
         lines_ok = open(file_ok, 'U').readlines()
         lines_fail = open(file_fail, 'U').readlines()
 

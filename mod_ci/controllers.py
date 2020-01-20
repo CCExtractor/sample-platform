@@ -278,6 +278,7 @@ def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
                 correct = etree.SubElement(file_node, 'correct')
                 # Need a path that is relative to the folder we provide inside the CI environment.
                 if last_commit_files is None:
+                    log.debug(f"Selecting original file for RT #{regression_test.id} ({category.name})")
                     correct.text = output_file.filename_correct
                 else:
                     correct.text = output_file.create_correct_filename(last_commit_files[0])

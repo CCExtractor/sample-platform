@@ -41,6 +41,9 @@ do
                     exit 1
                 fi
             fi
+			if [  -f "$file" ]; then
+            break
+            fi
         done
     fi
 done
@@ -55,7 +58,7 @@ echo "-------------------------------"
 echo ""
 echo "In order to configure the platform, we need some information from you. Please reply to the following questions:"
 echo ""
-read -e -r -p -s "Password of the 'root' user of MySQL: " -i "" db_root_password
+read -e -r -p  "Password of the 'root' user of MySQL: " -i "" db_root_password
 # Verify password
 supress_warning=$(mysql_config_editor set --login-path=root_login --host=localhost --user=root --password "${db_root_password}") >> "$install_log" 2>&1
 while ! mysql  --login-path=root_login  -e ";" ; do
@@ -154,12 +157,24 @@ echo ""
 echo "We need some information for the admin account"
 read -e -r -p "Admin username: " -i "admin" admin_name
 read -e -r -p "Admin email: " admin_email
-read -e -r -p -s "Admin password: " admin_password
-read -e -r -p -s "Confirm admin password: " confirm_admin_password
-while [ $admin_password -ne $confirm_admin_password ]; do
+while [$admin_email -z ];do
+   echo "Entered email can't be empty!"
+   echo "Please Re-enter email again ... "
+   read -e -r -p "Admin email: " admin_email
+done 
+read -e -r -p  "Admin password: " admin_password
+read -e -r -p  "Confirm admin password: " confirm_admin_password
+while [$admin_password -z ];do
+   echo "Entered password can't be empty!"
+   echo "Please Re-enter password again ... "
+   read -e -r -p  "Admin password: " admin_password
+   read -e -r -p  "Confirm admin password: " confirm_admin_password
+
+done 
+while [ $admin_password != $confirm_admin_password ]; do
     echo "Entered passwords did not match! Retrying..."
-    read -e -r -p -s "Admin password: " admin_password
-    read -e -r -p -s "Confirm admin password: " confirm_admin_password
+    read -e -r -p "Admin password: " admin_password
+    read -e -r -p "Confirm admin password: " confirm_admin_password
 done
 echo "Creating admin account: "
 python "${dir}/init_db.py" "${config_db_uri}" "${admin_name}" "${admin_email}" "${admin_password}"

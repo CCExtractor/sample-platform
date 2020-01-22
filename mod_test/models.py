@@ -440,9 +440,27 @@ class TestResultFile(Base):
         :return: An HTML formatted string.
         :rtype: str
         """
+        from run import log
+
         file_ok = os.path.join(base_path, self.expected + self.regression_test_output.correct_extension)
         file_fail = os.path.join(base_path, self.got + self.regression_test_output.correct_extension)
-        lines_ok = open(file_ok, 'U').readlines()
-        lines_fail = open(file_fail, 'U').readlines()
+        log.debug(f"Generate diff for {file_ok} vs {file_fail}")
+        lines_ok = self.read_lines(file_ok)
+        lines_fail = self.read_lines(file_fail)
 
         return diff.get_html_diff(lines_ok, lines_fail, to_view)
+
+    @staticmethod
+    def read_lines(file_name: str) -> List[str]:
+        """
+        Tries to load a file in different encodings.
+
+        :param file_name: The name to read lines from.
+        :type file_name: str
+        :return: A list of lines.
+        :rtype: List[str]
+        """
+        try:
+            return open(file_name, encoding='utf8').readlines()
+        except UnicodeDecodeError:
+            return open(file_name, encoding='cp1252').readlines()

@@ -3,17 +3,72 @@ import hashlib
 import hmac
 import json
 import subprocess
+from datetime import datetime, timedelta
 from functools import wraps
-from ipaddress import ip_address, ip_network
+from ipaddress import IPv4Address, IPv6Address, ip_address, ip_network
 from os import path
 from shutil import copyfile
-from typing import Callable
+from typing import Callable, List, Union
 
 import requests
 from flask import Blueprint, abort, g, request
 from git import InvalidGitRepositoryError, Repo
 
 mod_deploy = Blueprint('deploy', __name__)
+
+IPAddress = Union[IPv4Address, IPv6Address]
+
+cached_web_hook_blocks: List[str] = []
+cached_load_time: datetime = datetime(1970, 1, 1)
+
+
+def cache_has_expired() -> bool:
+    """
+    Check if the cache expired.
+
+    :return: True if the cache was last updated more than one hour ago.
+    :rtype: bool
+    """
+    global cached_load_time
+    return cached_load_time + timedelta(hours=1) < datetime.now()
+
+
+def get_cached_web_hook_blocks() -> List[str]:
+    """
+    Fetch the cached web hook blocks.
+
+    :return: A list of ip blocks.
+    :rtype: List[str]
+    """
+    global cached_web_hook_blocks
+    from run import config
+
+    if len(cached_web_hook_blocks) == 0 or cache_has_expired():
+        client_id = config.get('GITHUB_CLIENT_ID', '')
+        client_secret = config.get('GITHUB_CLIENT_SECRET', '')
+        meta_json = requests.get(
+            f'https://api.github.com/meta?client_id={client_id}&client_secret={client_secret}').json()
+        try:
+            cached_web_hook_blocks = meta_json['hooks']
+        except KeyError:
+            g.log.critical(f"Failed to retrieve hook IP's from GitHub! API returned {meta_json}")
+
+    return cached_web_hook_blocks
+
+
+def is_github_web_hook_ip(request_ip: IPAddress) -> bool:
+    """
+    Check if the given IP address is matching one provided by the API of GitHub.
+
+    :param request_ip: The IP address the request came from.
+    :type request_ip: IPAddress
+    :return: True if the IP address is a valid GitHub Web Hook requester.
+    :rtype: bool
+    """
+    for block in get_cached_web_hook_blocks():
+        if request_ip in ip_network(block):
+            return True
+    return False
 
 
 def request_from_github(abort_code: int = 418) -> Callable:
@@ -47,16 +102,10 @@ def request_from_github(abort_code: int = 418) -> Callable:
                     abort(abort_code)
 
                 request_ip = ip_address(u'{0}'.format(request.remote_addr))
-                meta_json = requests.get('https://api.github.com/meta').json()
-                hook_blocks = meta_json['hooks']
-
-                # Check if the POST request is from GitHub
-                for block in hook_blocks:
-                    if ip_address(request_ip) in ip_network(block):
-                        break
-                else:
-                    g.log.warning("Unauthorized attempt to deploy by IP {ip}".format(ip=request_ip))
+                if not is_github_web_hook_ip(request_ip):
+                    g.log.warning(f"Unauthorized attempt to deploy by IP {request_ip}")
                     abort(abort_code)
+
                 return f(*args, **kwargs)
         return decorated_function
     return decorator

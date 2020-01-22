@@ -1,13 +1,11 @@
 """Maintain forms related to CRUD operations on regression tests."""
 
 from flask_wtf import FlaskForm
-from wtforms import (Form, HiddenField, IntegerField, SelectField, StringField,
-                     SubmitField, validators)
-from wtforms.validators import (DataRequired, Email, NumberRange,
-                                ValidationError)
+from wtforms import (HiddenField, IntegerField, SelectField, StringField,
+                     SubmitField)
+from wtforms.validators import DataRequired, InputRequired
 
-from mod_regression.models import Category, InputType, OutputType
-from mod_sample.models import Sample
+from mod_regression.models import InputType, OutputType
 
 
 class AddCategoryForm(FlaskForm):
@@ -18,8 +16,8 @@ class AddCategoryForm(FlaskForm):
     submit = SubmitField("Add Category")
 
 
-class AddTestForm(FlaskForm):
-    """Flask form to Add Regression Test."""
+class CommonTestForm(FlaskForm):
+    """Common Flask form to manage a Regression Test."""
 
     sample_id = SelectField("Sample", coerce=int)
     command = StringField("Command")
@@ -36,8 +34,19 @@ class AddTestForm(FlaskForm):
         choices=[(o.value, o.description) for o in OutputType]
     )
     category_id = SelectField("Category", coerce=int)
-    expected_rc = IntegerField("Expected Runtime Code", [DataRequired(message="Expected Runtime Code can't be empty")])
+    expected_rc = IntegerField("Expected Runtime Code", [InputRequired(message="Expected Runtime Code can't be empty")])
+
+
+class AddTestForm(CommonTestForm):
+    """Flask form to add a Regression Test."""
+
     submit = SubmitField("Add Regression Test")
+
+
+class EditTestForm(CommonTestForm):
+    """Flask form to edit a Regression Test."""
+
+    submit = SubmitField("Edit Regression Test")
 
 
 class ConfirmationForm(FlaskForm):

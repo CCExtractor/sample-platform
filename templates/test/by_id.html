@@ -13,11 +13,13 @@
                     <tbody>
                         <tr>
                             <td>{{ test.test_type.description }}</td>
-                            {% if test.test_type == TestType.commit %}
-                                <td><a href="{{ test.github_link }}" target="_blank">{{ test.commit[:7] }}</a> (branch {{ test.branch }})</td>
-                            {% elif test.test_type == TestType.pull_request %}
-                                <td><a href="{{ test.github_link }}" target="_blank">{{ test.pr_nr }}</a></td>
+                            <td>
+                            {% if test.test_type == TestType.pull_request %}
+                                <a href="{{ test.github_link }}" target="_blank">{{ test.pr_nr }}</a> (Commit {{ test.commit[:7] }})
+                            {% elif test.test_type == TestType.commit %}
+                                <a href="{{ test.github_link }}" target="_blank">{{ test.commit[:7] }}</a> (Branch {{ test.branch }})
                             {% endif %}
+                            </td>
                         </tr>
                         <tr>
                             <td>Platform</td>

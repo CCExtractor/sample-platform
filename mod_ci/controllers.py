@@ -3,20 +3,19 @@
 import datetime
 import hashlib
 import json
-import multiprocessing
 import os
 import shutil
 import sys
 from multiprocessing import Process
-from typing import Any, Callable, List, Optional, Tuple, Type
+from typing import Any
 
-import pymysql.err
 import requests
-from flask import (Blueprint, abort, current_app, flash, g, jsonify, redirect,
-                   request, url_for)
+from flask import (Blueprint, abort, flash, g, jsonify, redirect, request,
+                   url_for)
 from git import GitCommandError, InvalidGitRepositoryError, Repo
 from github import ApiError, GitHub
 from lxml import etree
+from lxml.etree import Element
 from markdown2 import markdown
 from pymysql.err import IntegrityError
 from sqlalchemy import and_, func, or_
@@ -84,19 +83,19 @@ def start_platforms(db, repository, delay=None, platform=None) -> None:
         from flask import current_app
         if platform is None or platform == TestPlatform.linux:
             linux_kvm_name = config.get('KVM_LINUX_NAME', '')
-            log.info('setting Linux virtual machine process...')
+            log.info('Define process to run Linux VM')
             linux_process = Process(target=kvm_processor, args=(current_app._get_current_object(), db, linux_kvm_name,
                                                                 TestPlatform.linux, repository, delay,))
             linux_process.start()
-            log.info('started Linux virtual machine process...')
+            log.info('Linux VM process kicked off')
 
         if platform is None or platform == TestPlatform.windows:
             win_kvm_name = config.get('KVM_WINDOWS_NAME', '')
-            log.info('setting Windows virtual machine process...')
+            log.info('Define process to run Windows VM')
             windows_process = Process(target=kvm_processor, args=(current_app._get_current_object(), db, win_kvm_name,
                                                                   TestPlatform.windows, repository, delay,))
             windows_process.start()
-            log.info('started Windows virtual machine process...')
+            log.info('Windows VM process kicked off')
 
 
 def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
@@ -108,6 +107,8 @@ def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
     Creates testing xml files to test the change in main repo.
     Creates clone with separate branch and merge pr into it.
 
+    :param app: The Flask app
+    :type app: Flask
     :param db: database connection
     :type db: sqlalchemy.orm.scoped_session
     :param kvm_name: name for the kvm
@@ -123,66 +124,60 @@ def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
 
     github_config = get_github_config(config)
 
-    log.info("[{platform}] Running kvm_processor".format(platform=platform))
+    log.info(f"[{platform}] Running kvm_processor")
     if kvm_name == "":
-        log.critical('[{platform}] KVM name is empty!')
+        log.critical(f'[{platform}] KVM name is empty!')
         return
 
     if delay is not None:
         import time
-        log.debug('[{platform}] Sleeping for {time} seconds'.format(platform=platform, time=delay))
+        log.debug(f'[{platform}] Sleeping for {delay} seconds')
         time.sleep(delay)
 
     maintenance_mode = MaintenanceMode.query.filter(MaintenanceMode.platform == platform).first()
     if maintenance_mode is not None and maintenance_mode.disabled:
-        log.debug('[{platform}] In maintenance mode! Waiting...'.format(platform=platform))
+        log.debug(f'[{platform}] In maintenance mode! Waiting...')
         return
 
-    # Open connection to libvirt
     conn = libvirt.open("qemu:///system")
     if conn is None:
-        log.critical("[{platform}] Couldn't open connection to libvirt!".format(platform=platform))
+        log.critical(f"[{platform}] Connection to libvirt failed!")
         return
 
     try:
         vm = conn.lookupByName(kvm_name)
     except libvirt.libvirtError:
-        log.critical("[{platform}] No VM named {name} found!".format(platform=platform, name=kvm_name))
+        log.critical(f"[{platform}] No VM named {kvm_name} found!")
         return
 
     vm_info = vm.info()
     if vm_info[0] != libvirt.VIR_DOMAIN_SHUTOFF:
-        # Running, check expiry (2 hours runtime max)
+        # Running, check expiry and compare to runtime
         status = Kvm.query.filter(Kvm.name == kvm_name).first()
         max_runtime = config.get("KVM_MAX_RUNTIME", 120)
         if status is not None:
             if datetime.datetime.now() - status.timestamp >= datetime.timedelta(minutes=max_runtime):
-                # Mark entry as aborted
                 test_progress = TestProgress(status.test.id, TestStatus.canceled, 'Runtime exceeded')
                 db.add(test_progress)
                 db.delete(status)
                 db.commit()
 
-                # Abort process
                 if vm.destroy() == -1:
-                    # Failed to shut down
-                    log.critical("[{platform}] Failed to shut down {name}".format(platform=platform, name=kvm_name))
+                    log.critical(f"[{platform}] Failed to shut down {kvm_name}")
                     return
             else:
-                log.info("[{platform}] Current job not expired yet.".format(platform=platform))
+                log.info(f"[{platform}] Current job not expired yet.")
                 return
         else:
-            log.warn("[{platform}] No task, but VM is running! Hard reset necessary".format(platform=platform))
+            log.warn(f"[{platform}] No task, but VM is running! Hard reset necessary")
             if vm.destroy() == -1:
-                # Failed to shut down
-                log.critical("[{platform}] Failed to shut down {name}".format(platform=platform, name=kvm_name))
+                log.critical(f"[{platform}] Failed to shut down {kvm_name}")
                 return
 
     # Check if there's no KVM status left
     status = Kvm.query.filter(Kvm.name == kvm_name).first()
     if status is not None:
-        log.warn("[{platform}] KVM is powered off, but test {id} still present".format(
-            platform=platform, id=status.test.id))
+        log.warn(f"[{platform}] KVM is powered off, but test {status.test.id} still present, deleting entry")
         db.delete(status)
         db.commit()
 
@@ -190,9 +185,8 @@ def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
     finished_tests = db.query(TestProgress.test_id).filter(
         TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
     ).subquery()
-    fork = Fork.query.filter(Fork.github.like(
-        "%/{owner}/{repo}.git".format(owner=github_config['repository_owner'], repo=github_config['repository'])
-    )).first()
+    fork_location = f"%/{github_config['repository_owner']}/{github_config['repository']}.git"
+    fork = Fork.query.filter(Fork.github.like(fork_location)).first()
     test = Test.query.filter(
         Test.id.notin_(finished_tests), Test.platform == platform, Test.fork_id == fork.id
     ).order_by(Test.id.asc()).first()
@@ -202,29 +196,27 @@ def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
             Test.id.asc()).first()
 
     if test is None:
-        log.info('[{platform}] No more tests to run, returning'.format(platform=platform))
+        log.info(f'[{platform}] No more tests to run, returning')
         return
 
     if test.test_type == TestType.pull_request and test.pr_nr == 0:
-        log.warn('[{platform}] Test {id} is invalid, deleting'.format(platform=platform, id=test.id))
+        log.warn(f'[{platform}] Test {test.id} is invalid, deleting')
         db.delete(test)
         db.commit()
         return
 
     # Reset to snapshot
     if vm.hasCurrentSnapshot() != 1:
-        log.critical("[{platform}] VM {name} has no current snapshot set!".format(platform=platform, name=kvm_name))
+        log.critical(f"[{platform}] VM {kvm_name} has no current snapshot set!")
         return
 
     snapshot = vm.snapshotCurrent()
     if vm.revertToSnapshot(snapshot) == -1:
-        log.critical("[{platform}] Failed to revert to {snapshot} for {name}".format(
-            platform=platform, snapshot=snapshot.getName(), name=kvm_name)
-        )
+        log.critical(f"[{platform}] Failed to revert to {snapshot.getName()} for {kvm_name}")
         return
 
-    log.info("[{p}] Reverted to {snap} for {name}".format(p=platform, snap=snapshot.getName(), name=kvm_name))
-    log.debug('Starting test {id}'.format(id=test.id))
+    log.info(f"[{platform}] Reverted to {snapshot.getName()} for {kvm_name}")
+    log.debug(f'[{platform}] Starting test {test.id}')
     status = Kvm(kvm_name, test.id)
     # Prepare data
     # 0) Write url to file
@@ -243,7 +235,7 @@ def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
     commit_hash = GeneralData.query.filter(GeneralData.key == commit_name).first().value
     last_commit = Test.query.filter(and_(Test.commit == commit_hash, Test.platform == platform)).first()
 
-    log.debug("[{p}] We will compare against the results of test {id}".format(p=platform, id=last_commit.id))
+    log.debug(f"[{platform}] We will compare against the results of test {last_commit.id}")
 
     regression_ids = test.get_customized_regressiontests()
 
@@ -256,12 +248,12 @@ def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
         # Create XML file for test
         file_name = '{name}.xml'.format(name=category.name)
         single_test = etree.Element('tests')
-        check_write = False
+        should_write_xml = False
         for regression_test in category.regression_tests:
             if regression_test.id not in regression_ids:
-                log.debug(f'skipping regression test id: {regression_test.id} as not in scope of the test')
+                log.debug(f'Skipping RT #{regression_test.id} ({category.name}) as not in scope')
                 continue
-            check_write = True
+            should_write_xml = True
             entry = etree.SubElement(single_test, 'entry', id=str(regression_test.id))
             command = etree.SubElement(entry, 'command')
             command.text = regression_test.command
@@ -286,104 +278,95 @@ def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
                 correct = etree.SubElement(file_node, 'correct')
                 # Need a path that is relative to the folder we provide inside the CI environment.
                 if last_commit_files is None:
+                    log.debug(f"Selecting original file for RT #{regression_test.id} ({category.name})")
                     correct.text = output_file.filename_correct
                 else:
                     correct.text = output_file.create_correct_filename(last_commit_files[0])
 
                 expected = etree.SubElement(file_node, 'expected')
                 expected.text = output_file.filename_expected(regression_test.sample.sha)
-        # check whether category should be included or not
-        if not check_write:
+        if not should_write_xml:
             continue
-        # Save XML
-        single_test.getroottree().write(
-            os.path.join(base_folder, file_name), encoding='utf-8', xml_declaration=True, pretty_print=True
-        )
+        save_xml_to_file(single_test, base_folder, file_name)
         # Append to collection file
         test_file = etree.SubElement(multi_test, 'testfile')
         location = etree.SubElement(test_file, 'location')
         location.text = file_name
 
-    # Save collection file
-    multi_test.getroottree().write(
-        os.path.join(base_folder, 'TestAll.xml'), encoding='utf-8', xml_declaration=True, pretty_print=True
-    )
+    save_xml_to_file(multi_test, base_folder, 'TestAll.xml')
 
     # 2) Create git repo clone and merge PR into it (if necessary)
     try:
         repo = Repo(os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', kvm_name, 'unsafe-ccextractor'))
     except InvalidGitRepositoryError:
-        log.critical("[{platform}] Could not open CCExtractor's repository copy!".format(platform=platform))
+        log.critical(f"[{platform}] Could not open CCExtractor's repository copy!")
         return
 
     # Return to master
     repo.heads.master.checkout(True)
     # Update repository from upstream
     try:
-        fork_id = test.fork.id
-        fork_url = test.fork.github
-        if not check_main_repo(fork_url):
-            existing_remote = [remote.name for remote in repo.remotes]
-            remote = 'fork_{id}'.format(id=fork_id)
-            if remote in existing_remote:
+        github_url = test.fork.github
+        if is_main_repo(github_url):
+            origin = repo.remote('origin')
+        else:
+            fork_id = test.fork.id
+            remote = f'fork_{fork_id}'
+            if remote in [remote.name for remote in repo.remotes]:
                 origin = repo.remote(remote)
             else:
-                origin = repo.create_remote(remote, url=fork_url)
-        else:
-            origin = repo.remote('origin')
+                origin = repo.create_remote(remote, url=github_url)
     except ValueError:
-        log.critical("[{platform}] Origin remote doesn't exist!".format(platform=platform))
+        log.critical(f"[{platform}] Origin remote doesn't exist!")
         return
 
     fetch_info = origin.fetch()
     if len(fetch_info) == 0:
-        log.info('[{platform}] Fetch from remote returned no new data...'.format(platform=platform))
+        log.info(f'[{platform}] Fetch from remote returned no new data...')
     # Checkout to Remote Master
     repo.git.checkout(origin.refs.master)
     # Pull code (finally)
     pull_info = origin.pull('master')
     if len(pull_info) == 0:
-        log.info("[{platform}] Pull from remote returned no new data...".format(platform=platform))
-    if pull_info[0].flags > 128:
-        log.critical("[{platform}] Didn't pull any information from remote: {flags}!".format(
-            platform=platform, flags=pull_info[0].flags))
+        log.info(f"[{platform}] Pull from remote returned no new data...")
+    elif pull_info[0].flags > 128:
+        log.critical(f"[{platform}] Did not pull any information from remote: {pull_info[0].flags}!")
         return
 
+    ci_branch = 'CI_Branch'
     # Delete the test branch if it exists, and recreate
     try:
-        repo.delete_head('CI_Branch', force=True)
+        repo.delete_head(ci_branch, force=True)
     except GitCommandError:
-        log.warn("[{platform}] Could not delete CI_Branch head".format(platform=platform))
+        log.info(f"[{platform}] Could not delete CI_Branch head")
 
     # Remove possible left rebase-apply directory
     try:
         shutil.rmtree(os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'unsafe-ccextractor', '.git', 'rebase-apply'))
     except OSError:
-        log.warn("[{platform}] Could not delete rebase-apply".format(platform=platform))
+        log.info(f"[{platform}] Could not delete rebase-apply")
     # If PR, merge, otherwise reset to commit
     if test.test_type == TestType.pull_request:
         # Fetch PR (stored under origin/pull/<id>/head)
-        pull_info = origin.fetch('pull/{id}/head:CI_Branch'.format(id=test.pr_nr))
+        pull_info = origin.fetch(f'pull/{test.pr_nr}/head:{ci_branch}')
         if len(pull_info) == 0:
-            log.warn("[{platform}] Didn't pull any information from remote PR!".format(platform=platform))
-
-        if pull_info[0].flags > 128:
-            log.critical("[{platform}] Didn't pull any information from remote PR: {flags}!".format(
-                platform=platform, flags=pull_info[0].flags))
+            log.warn(f"[{platform}] Did not pull any information from remote PR!")
+        elif pull_info[0].flags > 128:
+            log.critical(f"[{platform}] Did not pull any information from remote PR: {pull_info[0].flags}!")
             return
 
         try:
-            test_branch = repo.heads['CI_Branch']
+            test_branch = repo.heads[ci_branch]
         except IndexError:
-            log.critical('CI_Branch does not exist')
+            log.critical(f'{ci_branch} does not exist')
             return
 
         test_branch.checkout(True)
 
         try:
-            pull = repository.pulls('{pr_nr}'.format(pr_nr=test.pr_nr)).get()
+            pull = repository.pulls(f'{test.pr_nr}').get()
         except ApiError as a:
-            log.error('Got an exception while fetching the PR payload! Message: {message}'.format(message=a.message))
+            log.error(f'Got an exception while fetching the PR payload! Message: {a.message}')
             return
         if pull['mergeable'] is False:
             progress = TestProgress(test.id, TestStatus.canceled, "Commit could not be merged", datetime.datetime.now())
@@ -394,24 +377,23 @@ def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
                     repository.statuses(test.commit).post(
                         state=Status.FAILURE,
                         description="Tests canceled due to merge conflict",
-                        context="CI - {name}".format(name=test.platform.value),
+                        context=f"CI - {test.platform.value}",
                         target_url=url_for('test.by_id', test_id=test.id, _external=True)
                     )
             except ApiError as a:
-                log.error('Got an exception while posting to GitHub! Message: {message}'.format(message=a.message))
+                log.error(f'Got an exception while posting to GitHub! Message: {a.message}')
             return
 
         # Merge on master if no conflict
         repo.git.merge('master')
 
     else:
-        test_branch = repo.create_head('CI_Branch', origin.refs.master)
+        test_branch = repo.create_head(ci_branch, origin.refs.master)
         test_branch.checkout(True)
         try:
             repo.head.reset(test.commit, working_tree=True)
         except GitCommandError:
-            log.warn("[{platform}] Commit {hash} for test {id} does not exist!".format(
-                platform=platform, hash=test.commit, id=test.id))
+            log.warn(f"[{platform}] Commit {test.commit} for test {test.id} does not exist!")
             return
 
     # Power on machine
@@ -419,13 +401,33 @@ def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
         vm.create()
         db.add(status)
         db.commit()
-    except libvirt.libvirtError:
-        log.critical("[{platform}] Failed to launch VM {name}".format(platform=platform, name=kvm_name))
+    except libvirt.libvirtError as e:
+        log.critical(f"[{platform}] Failed to launch VM {kvm_name}")
+        log.critical(f"Information about failure: code: {e.get_error_code()}, domain: {e.get_error_domain()}, "
+                     f"level: {e.get_error_level()}, message: {e.get_error_message()}")
     except IntegrityError:
-        log.warn("[{platform}] Duplicate entry for {id}".format(platform=platform, id=test.id))
+        log.warn(f"[{platform}] Duplicate entry for {test.id}")
 
     # Close connection to libvirt
     conn.close()
+
+
+def save_xml_to_file(xml_node, folder_name, file_name) -> None:
+    """
+    Save the given XML node to a file in a certain folder.
+
+    :param xml_node: The XML content element to write to the file.
+    :type xml_node: Element
+    :param folder_name: The folder name.
+    :type folder_name: str
+    :param file_name: The name of the file
+    :type file_name: str
+    :return: Nothing
+    :rtype: None
+    """
+    xml_node.getroottree().write(
+        os.path.join(folder_name, file_name), encoding='utf-8', xml_declaration=True, pretty_print=True
+    )
 
 
 def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0) -> None:
@@ -449,9 +451,8 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0) -> No
     """
     from run import log
 
-    fork = Fork.query.filter(
-        Fork.github.like("%/{owner}/{repo}.git".format(owner=g.github['repository_owner'], repo=g.github['repository']))
-    ).first()
+    fork_url = f"%/{g.github['repository_owner']}/{g.github['repository']}.git"
+    fork = Fork.query.filter(Fork.github.like(fork_url)).first()
 
     if test_type == TestType.pull_request:
         log.debug('pull request test type detected')
@@ -475,11 +476,11 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0) -> No
                 gh_commit.post(
                     state=Status.PENDING,
                     description="Tests queued",
-                    context="CI - {name}".format(name=platform_name),
+                    context=f"CI - {platform_name}",
                     target_url=url_for('test.by_id', test_id=test_id, _external=True)
                 )
             except ApiError as a:
-                log.critical('Could not post to GitHub! Response: {res}'.format(res=a.response))
+                log.critical(f'Could not post to GitHub! Response: {a.response}')
 
     log.debug("Created tests, waiting for cron...")
 
@@ -500,7 +501,8 @@ def inform_mailing_list(mailer, id, title, author, body) -> None:
     :type body: str
     """
     from run import get_github_issue_link
-    subject = "GitHub Issue #{issue_number}".format(issue_number=id)
+
+    subject = f"GitHub Issue #{id}"
     url = get_github_issue_link(id)
     if not mailer.send_simple_message({
         "to": "ccextractor-dev@googlegroups.com",
@@ -518,7 +520,7 @@ def get_html_issue_body(title, author, body, issue_number, url) -> Any:
     :type title: str
     :param author: author of the issue
     :type author: str
-    :param body: content of the isse
+    :param body: content of the issue
     :type body: str
     :param issue_number: issue number
     :type issue_number: int
@@ -562,13 +564,13 @@ def start_ci():
         x_hub_signature = request.headers.get('X-Hub-Signature')
 
         if not is_valid_signature(x_hub_signature, request.data, g.github['ci_key']):
-            g.log.warning('CI signature failed: {sig}'.format(sig=x_hub_signature))
+            g.log.warning(f'CI signature failed: {x_hub_signature}')
             abort(abort_code)
 
         payload = request.get_json()
 
         if payload is None:
-            g.log.warning('CI payload is empty: {payload}'.format(payload=payload))
+            g.log.warning(f'CI payload is empty')
             abort(abort_code)
 
         gh = GitHub(access_token=g.github['bot_token'])
@@ -576,10 +578,9 @@ def start_ci():
 
         if event == "push":
             g.log.debug('push event detected')
-            # If it's a push, and the 'after' hash is available, then it's a commit, so run the tests
             if 'after' in payload:
-                commit = payload['after']
-                gh_commit = repository.statuses(commit)
+                commit_hash = payload['after']
+                github_status = repository.statuses(commit_hash)
                 # Update the db to the new last commit
                 ref = repository.git().refs('heads/master').get()
                 last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
@@ -593,44 +594,43 @@ def start_ci():
 
                 last_commit.value = ref['object']['sha']
                 g.db.commit()
-                queue_test(g.db, gh_commit, commit, TestType.commit)
+                queue_test(g.db, github_status, commit_hash, TestType.commit)
             else:
                 g.log.warning('Unknown push type! Dumping payload for analysis')
-                g.log.debug(payload)
+                g.log.warning(payload)
 
         elif event == "pull_request":
-            g.log.debug('pull request event detected')
+            g.log.debug('Pull Request event detected')
             # If it's a valid PR, run the tests
-            commit = ''
-            gh_commit = None
             pr_nr = payload['pull_request']['number']
             if payload['action'] in ['opened', 'synchronize', 'reopened']:
                 try:
-                    commit = payload['pull_request']['head']['sha']
-                    gh_commit = repository.statuses(commit)
+                    commit_hash = payload['pull_request']['head']['sha']
+                    github_status = repository.statuses(commit_hash)
                 except KeyError:
-                    g.log.critical("Didn't find a SHA value for a newly opened PR!")
-                    g.log.debug(payload)
+                    g.log.error("Didn't find a SHA value for a newly opened PR!")
+                    g.log.error(payload)
+                    return 'ERROR'
 
                 # Check if user blacklisted
                 user_id = payload['pull_request']['user']['id']
                 if BlockedUsers.query.filter(BlockedUsers.user_id == user_id).first() is not None:
-                    g.log.critical("User Blacklisted")
-                    gh_commit.post(
+                    g.log.warning("User Blacklisted")
+                    github_status.post(
                         state=Status.ERROR,
                         description="CI start aborted. You may be blocked from accessing this functionality",
                         target_url=url_for('home.index', _external=True)
                     )
                     return 'ERROR'
 
-                queue_test(g.db, gh_commit, commit, TestType.pull_request, pr_nr=pr_nr)
+                queue_test(g.db, github_status, commit_hash, TestType.pull_request, pr_nr=pr_nr)
 
             elif payload['action'] == 'closed':
                 g.log.debug('PR was closed, no after hash available')
                 # Cancel running queue
                 tests = Test.query.filter(Test.pr_nr == pr_nr).all()
                 for test in tests:
-                    # Add canceled status only if the test hasn't started yet
+                    # Add cancelled status only if the test hasn't started yet
                     if len(test.progress) > 0:
                         continue
                     progress = TestProgress(test.id, TestStatus.canceled, "PR closed", datetime.datetime.now())
@@ -638,7 +638,7 @@ def start_ci():
                     repository.statuses(test.commit).post(
                         state=Status.FAILURE,
                         description="Tests canceled",
-                        context="CI - {name}".format(name=test.platform.value),
+                        context=f"CI - {test.platform.value}",
                         target_url=url_for('test.by_id', test_id=test.id, _external=True)
                     )
 
@@ -653,7 +653,6 @@ def start_ci():
             issue_author = issue_data['user']['login']
             issue_body = issue_data['body']
 
-            # Send Email to the Mailing List using the Mailer Module and Mailgun's API
             if issue_action == "opened":
                 inform_mailing_list(g.mailer, issue_id, issue_title, issue_author, issue_body)
 
@@ -663,31 +662,25 @@ def start_ci():
                 g.db.commit()
 
         elif event == "release":
-            g.log.debug("release webhook triggered")
+            g.log.debug("Release webhook triggered")
 
             release_data = payload['release']
             action = payload['action']
             release_version = release_data['tag_name']
             if release_version[0] == 'v':
                 release_version = release_version[1:]
-            # checking whether it is meant for production
             if action == "prereleased":
-                g.log.debug("error, release event meant for pre-release")
+                g.log.debug("Ignoring event meant for pre-release")
             elif action in ["deleted", "unpublished"]:
-                g.log.debug("received delete/unpublished action")
+                g.log.debug("Received delete/unpublished action")
                 CCExtractorVersion.query.filter_by(version=release_version).delete()
                 g.db.commit()
-                g.log.info("succesfully deleted release {release_version} on {action} action".format(
-                    release_version=release_version,
-                    action=action
-                ))
+                g.log.info(f"Successfully deleted release {release_version} on {action} action")
             elif action in ["edited", "published"]:
-                # Github recommends adding v to the version
-                g.log.debug("latest release version is " + str(release_version))
+                g.log.debug(f"Latest release version is {release_version}")
                 release_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first().value
                 release_date = release_data['published_at']
                 if action == "edited":
-                    # below code assumes that only one entry per release is present
                     release = CCExtractorVersion.query.filter(CCExtractorVersion.version == release_version).one()
                     release.released = datetime.datetime.strptime(release_date, '%Y-%m-%dT%H:%M:%SZ').date()
                     release.commit = release_commit
@@ -695,17 +688,13 @@ def start_ci():
                     release = CCExtractorVersion(release_version, release_date, release_commit)
                     g.db.add(release)
                 g.db.commit()
-                g.log.info("successfully updated release version with webhook action '{action}'".format(
-                    action=action
-                ))
+                g.log.info(f"Successfully updated release version with webhook action '{action}'")
                 # adding test corresponding to last commit to the baseline regression results
-                # this is not altered when a release is deleted or unpulished since it's based on commit
+                # this is not altered when a release is deleted or unpublished since it's based on commit
                 test = Test.query.filter(and_(Test.commit == release_commit,
                                          Test.platform == TestPlatform.linux)).first()
-                test_result_file = g.db.query(TestResultFile).filter(
-                    TestResultFile.test_id == test.id).subquery()
-                test_result = g.db.query(TestResult).filter(
-                    TestResult.test_id == test.id).subquery()
+                test_result_file = g.db.query(TestResultFile).filter(TestResultFile.test_id == test.id).subquery()
+                test_result = g.db.query(TestResult).filter(TestResult.test_id == test.id).subquery()
                 g.db.query(RegressionTestOutput.correct).filter(
                     and_(RegressionTestOutput.regression_id == test_result_file.c.regression_test_id,
                          test_result_file.c.got is not None)).values(test_result_file.c.got)
@@ -713,13 +702,12 @@ def start_ci():
                     RegressionTest.id == test_result.c.regression_test_id
                 ).values(test_result.c.expected_rc)
                 g.db.commit()
-                g.log.info("successfully added tests for latest release!")
+                g.log.info("Successfully added tests for latest release!")
             else:
-                g.log.warning("unsupported release action: {action}".format(action=action))
+                g.log.warning(f"Unsupported release action: {action}")
 
         else:
-            # Unknown type
-            g.log.warning('CI unrecognized event: {event}'.format(event=event))
+            g.log.warning(f'CI unrecognized event: {event}')
 
         return json.dumps({'msg': 'EOL'})
 
@@ -735,17 +723,12 @@ def update_build_badge(status, test) -> None:
     :return: null
     :rtype: null
     """
-    if test.test_type == TestType.commit and check_main_repo(test.fork.github):
+    if test.test_type == TestType.commit and is_main_repo(test.fork.github):
         parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        availableon = os.path.join(parent_dir, 'static', 'svg',
-                                   '{status}-{platform}.svg'.format(status=status.upper(),
-                                                                    platform=test.platform.value))
-        svglocation = os.path.join(parent_dir, 'static', 'img', 'status',
-                                   'build-{platform}.svg'.format(platform=test.platform.value))
-        shutil.copyfile(availableon, svglocation)
+        original_location = os.path.join(parent_dir, 'static', 'svg', f'{status.upper()}-{test.platform.values}.svg')
+        build_status_location = os.path.join(parent_dir, 'static', 'img', 'status', f'build-{test.platform.values}.svg')
+        shutil.copyfile(original_location, build_status_location)
         g.log.info('Build badge updated successfully!')
-    else:
-        return
 
 
 @mod_ci.route('/progress-reporter/<test_id>/<token>', methods=['POST'])
@@ -761,44 +744,43 @@ def progress_reporter(test_id, token):
     :rtype: None
     """
     from run import config, log
-    # Verify token
+
     test = Test.query.filter(Test.id == test_id).first()
     if test is not None and test.token == token:
         repo_folder = config.get('SAMPLE_REPOSITORY', '')
 
         if 'type' in request.form:
             if request.form['type'] == 'progress':
-                log.info('progress method triggered by progress_reporter')
-                ret_val = progress_type_request(log, test, test_id, request)
-                if ret_val == "FAIL":
+                log.info('[PROGRESS_REPORTER] Progress reported')
+                if not progress_type_request(log, test, test_id, request):
                     return "FAIL"
 
             elif request.form['type'] == 'equality':
-                log.info('equality method triggered by progress_reporter')
+                log.info('[PROGRESS_REPORTER] Equality reported')
                 equality_type_request(log, test_id, test, request)
 
             elif request.form['type'] == 'logupload':
-                log.info('logupload method triggered by progress_reporter')
-                ret_val = logupload_type_request(log, test_id, repo_folder, test, request)
-                if ret_val == "EMPTY":
+                log.info('[PROGRESS_REPORTER] Log upload')
+                if not upload_log_type_request(log, test_id, repo_folder, test, request):
                     return "EMPTY"
 
             elif request.form['type'] == 'upload':
-                log.info('upload method triggered by progress_reporter')
-                ret_val = upload_type_request(log, test_id, repo_folder, test, request)
-                if ret_val == "EMPTY":
+                log.info('[PROGRESS_REPORTER] File upload')
+                if not upload_type_request(log, test_id, repo_folder, test, request):
                     return "EMPTY"
 
             elif request.form['type'] == 'finish':
-                log.info('finish method triggered by progress_reporter')
+                log.info('[PROGRESS_REPORTER] Test finished')
                 finish_type_request(log, test_id, test, request)
+            else:
+                return "FAIL"
 
             return "OK"
 
     return "FAIL"
 
 
-def progress_type_request(log, test, test_id, request):
+def progress_type_request(log, test, test_id, request) -> bool:
     """
     Handle progress updates for progress reporter.
 
@@ -811,23 +793,21 @@ def progress_type_request(log, test, test_id, request):
     :param request: Request parameters
     :type request: Request
     """
-    # Progress, log
     status = TestStatus.from_string(request.form['status'])
-    # Check whether test is not running previous status again
-    istatus = TestStatus.progress_step(status)
+    current_status = TestStatus.progress_step(status)
     message = request.form['message']
 
     if len(test.progress) != 0:
-        laststatus = TestStatus.progress_step(test.progress[-1].status)
+        last_status = TestStatus.progress_step(test.progress[-1].status)
 
-        if laststatus in [TestStatus.completed, TestStatus.canceled]:
-            return "FAIL"
+        if last_status in [TestStatus.completed, TestStatus.canceled]:
+            return False
 
-        if laststatus > istatus:
-            status = TestStatus.canceled
+        if last_status > current_status:
+            status = TestStatus.canceled  # type: ignore
             message = "Duplicate Entries"
 
-        if laststatus < istatus:
+        if last_status < current_status:
             # get KVM start time for finding KVM preparation time
             kvm_entry = Kvm.query.filter(Kvm.test_id == test_id).first()
 
@@ -858,7 +838,7 @@ def progress_type_request(log, test, test_id, request):
     gh = GitHub(access_token=g.github['bot_token'])
     repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
     # Store the test commit for testing in case of commit
-    if status == TestStatus.completed and check_main_repo(test.fork.github):
+    if status == TestStatus.completed and is_main_repo(test.fork.github):
         commit_name = 'fetch_commit_' + test.platform.value
         commit = GeneralData.query.filter(GeneralData.key == commit_name).first()
         fetch_commit = Test.query.filter(
@@ -901,7 +881,7 @@ def progress_type_request(log, test, test_id, request):
                 parts = p.time.split(',')
                 start = datetime.datetime.strptime(parts[0], '%Y-%m-%d %H:%M:%S')
                 end = datetime.datetime.strptime(parts[-1], '%Y-%m-%d %H:%M:%S')
-                total_time += (end - start).total_seconds()
+                total_time += int((end - start).total_seconds())
 
             if len(times) != 0:
                 average_time = total_time // len(times)
@@ -996,6 +976,8 @@ def progress_type_request(log, test, test_id, request):
         # Start next test if necessary, on the same platform
         start_platforms(g.db, repository, 60, test.platform)
 
+    return True
+
 
 def equality_type_request(log, test_id, test, request):
     """
@@ -1024,7 +1006,7 @@ def equality_type_request(log, test_id, test, request):
         g.db.commit()
 
 
-def logupload_type_request(log, test_id, repo_folder, test, request):
+def upload_log_type_request(log, test_id, repo_folder, test, request) -> bool:
     """
     Handle logupload request type for progress reporter.
 
@@ -1045,7 +1027,7 @@ def logupload_type_request(log, test_id, repo_folder, test, request):
         uploaded_file = request.files['file']
         filename = secure_filename(uploaded_file.filename)
         if filename is '':
-            return 'EMPTY'
+            return False
 
         temp_path = os.path.join(repo_folder, 'TempFiles', filename)
         # Save to temporary location
@@ -1054,9 +1036,12 @@ def logupload_type_request(log, test_id, repo_folder, test, request):
 
         os.rename(temp_path, final_path)
         log.debug("Stored log file")
+        return True
+
+    return False
 
 
-def upload_type_request(log, test_id, repo_folder, test, request):
+def upload_type_request(log, test_id, repo_folder, test, request) -> bool:
     """
     Handle upload request type for progress reporter.
 
@@ -1080,7 +1065,7 @@ def upload_type_request(log, test_id, repo_folder, test, request):
         filename = secure_filename(uploaded_file.filename)
         if filename is '':
             log.warning('empty filename provided for uploading')
-            return 'EMPTY'
+            return False
         temp_path = os.path.join(repo_folder, 'TempFiles', filename)
         # Save to temporary location
         uploaded_file.save(temp_path)
@@ -1100,6 +1085,9 @@ def upload_type_request(log, test_id, repo_folder, test, request):
         result_file = TestResultFile(test.id, request.form['test_id'], rto.id, rto.correct, file_hash)
         g.db.add(result_file)
         g.db.commit()
+        return True
+
+    return False
 
 
 def finish_type_request(log, test_id, test, request):
@@ -1352,17 +1340,15 @@ def toggle_maintenance(platform, status):
     """
     result = 'failed'
     message = 'Platform Not found'
+    disabled = status == 'True'
     try:
         platform = TestPlatform.from_string(platform)
         db_mode = MaintenanceMode.query.filter(MaintenanceMode.platform == platform).first()
         if db_mode is not None:
-            db_mode.disabled = status == 'True'
+            db_mode.disabled = disabled
             g.db.commit()
             result = 'success'
-            message = '{platform} in maintenance? {status}'.format(
-                platform=platform.description,
-                status=("Yes" if db_mode.disabled else 'No')
-            )
+            message = f'{platform.description} in maintenance? {"Yes" if disabled else "No"}'
     except ValueError:
         pass
 
@@ -1397,9 +1383,9 @@ def in_maintenance_mode(platform):
     return str(status.disabled)
 
 
-def check_main_repo(repo_url) -> bool:
+def is_main_repo(repo_url) -> bool:
     """
-    Check whether the repo_url links to the main repository or not.
+    Check whether a repo_url links to the main repository or not.
 
     :param repo_url: url of fork/main repository of the user
     :type repo_url: str
@@ -1409,7 +1395,7 @@ def check_main_repo(repo_url) -> bool:
     from run import config, get_github_config
 
     gh_config = get_github_config(config)
-    return '{user}/{repo}'.format(user=gh_config['repository_owner'], repo=gh_config['repository']) in repo_url
+    return f'{gh_config["repository_owner"]}/{gh_config["repository"]}' in repo_url
 
 
 def add_customized_regression_tests(test_id) -> None:
@@ -1421,6 +1407,7 @@ def add_customized_regression_tests(test_id) -> None:
     """
     active_regression_tests = RegressionTest.query.filter(RegressionTest.active == 1).all()
     for regression_test in active_regression_tests:
+        g.log.debug(f'Adding RT #{regression_test.id} to test {test_id}')
         customized_test = CustomizedTest(test_id, regression_test.id)
         g.db.add(customized_test)
-        g.db.commit()
+    g.db.commit()

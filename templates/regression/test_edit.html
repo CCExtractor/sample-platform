@@ -1,15 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}Regression Test Edit {{ super() }}{% endblock %}
+{% block title %}Regression Test {{ regression_id }} Edit {{ super() }}{% endblock %}
 {% block body %}
     {{ super() }}
     <br />
-    <div class="grid-x">
-        <div class="callout warning">
-            <h5>Regression Test Edit</h5>
-            <p>Please edit regression test</p>
-        </div>
-    </div>
+    <h1>Regression Test Edit</h1>
+    <p>Editing regression test with id {{ regression_id }}</p>
     <form method="post" name="EditTestForm" id="EditTestForm" action="{{ url_for('.test_edit', regression_id=regression_id) }}">
         {{ form.csrf_token }}
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -25,6 +21,17 @@
                 </div>
             {% endif %}
         {% endwith %}
+        {% if form.errors %}
+            <div class="grid-x">
+                <div class="callout alert">
+                    {% for field, error in form.errors.items() %}
+                        {% for e in error %}
+                            {{ e }}<br>
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
         <div class="grid-x">
             <div class="medium-12 columns">
                 {{ macros.render_field(form.sample_id) }}

@@ -59,7 +59,7 @@ echo ""
 echo "In order to configure the platform, we need some information from you. Please reply to the following questions:"
 echo ""
 read -s -e -r -p  "Password of the 'root' user of MySQL: " -i "" db_root_password
- echo ""
+echo ""
 # Verify password
 
 supress_warning=$(mysql_config_editor set --login-path=root_login --host=localhost --user=root --password "${db_root_password}") >> "$install_log" 2>&1

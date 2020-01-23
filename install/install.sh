@@ -41,7 +41,7 @@ do
                     exit 1
                 fi
             fi
-		    if [  -f "$file" ]; then
+	    if [  -f "$file" ]; then
                 break
             fi
         done
@@ -65,6 +65,7 @@ read -s -e -r -p  "Password of the 'root' user of MySQL: " -i "" db_root_passwor
 supress_warning=$(mysql_config_editor set --login-path=root_login --host=localhost --user=root --password "${db_root_password}") >> "$install_log" 2>&1
 while ! mysql  --login-path=root_login  -e ";" ; do
     read -s -e -r -p "Invalid password, please retry: " -i "" db_root_password
+    echo "" 
     supress_warning=$(mysql_config_editor set --login-path=root_login --host=localhost --user=root --password "${db_root_password}") >> "$install_log" 2>&1
 done
 
@@ -166,7 +167,7 @@ while [$admin_email -z ];do
 done 
 read -s -e -r -p  "Admin password: " admin_password
 echo ""
-    read -s -e -r -p  "Confirm admin password: " confirm_admin_password
+read -s -e -r -p  "Confirm admin password: " confirm_admin_password
 while [$admin_password -z ];do
    echo "Entered password can't be empty!"
    echo "Please Re-enter password again ... "

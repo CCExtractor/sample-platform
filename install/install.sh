@@ -159,18 +159,14 @@ config_db_uri="mysql+pymysql://${db_user}:${db_user_password}@localhost:3306/${d
 echo ""
 echo "We need some information for the admin account"
 read -e -r -p "Admin username: " -i "admin" admin_name
-read -e -r -p "Admin email: " admin_email
+
 while [$admin_email -z ];do
-   echo "Entered email can't be empty!"
-   echo "Please Re-enter email again ... "
+   echo "Enter Admin email ( It can't be empty! )"
    read -e -r -p "Admin email: " admin_email
 done 
-read -s -e -r -p  "Admin password: " admin_password
-echo ""
-read -s -e -r -p  "Confirm admin password: " confirm_admin_password
+
 while [$admin_password -z ];do
-   echo "Entered password can't be empty!"
-   echo "Please Re-enter password again ... "
+   echo "Enter Admin password (size of password >1) "
    read -s -e -r -p  "Admin password: " admin_password
    echo " "
    read -s -e -r -p  "Confirm admin password: " confirm_admin_password

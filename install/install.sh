@@ -41,7 +41,7 @@ do
                     exit 1
                 fi
             fi
-	    if [  -f "$file" ]; then
+            if [  -f "$file" ]; then
                 break
             fi
         done

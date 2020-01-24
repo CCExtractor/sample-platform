@@ -41,6 +41,9 @@ do
                     exit 1
                 fi
             fi
+            if [  -f "$file" ]; then
+                break
+            fi
         done
     fi
 done
@@ -55,11 +58,14 @@ echo "-------------------------------"
 echo ""
 echo "In order to configure the platform, we need some information from you. Please reply to the following questions:"
 echo ""
-read -e -r -p -s "Password of the 'root' user of MySQL: " -i "" db_root_password
+read -s -e -r -p  "Password of the 'root' user of MySQL: " -i "" db_root_password
+echo ""
 # Verify password
+
 supress_warning=$(mysql_config_editor set --login-path=root_login --host=localhost --user=root --password "${db_root_password}") >> "$install_log" 2>&1
 while ! mysql  --login-path=root_login  -e ";" ; do
-    read -e -r -p -s "Invalid password, please retry: " -i "" db_root_password
+    read -s -e -r -p "Invalid password, please retry: " -i "" db_root_password
+    echo "" 
     supress_warning=$(mysql_config_editor set --login-path=root_login --host=localhost --user=root --password "${db_root_password}") >> "$install_log" 2>&1
 done
 
@@ -153,13 +159,24 @@ config_db_uri="mysql+pymysql://${db_user}:${db_user_password}@localhost:3306/${d
 echo ""
 echo "We need some information for the admin account"
 read -e -r -p "Admin username: " -i "admin" admin_name
-read -e -r -p "Admin email: " admin_email
-read -e -r -p -s "Admin password: " admin_password
-read -e -r -p -s "Confirm admin password: " confirm_admin_password
-while [ $admin_password -ne $confirm_admin_password ]; do
+
+while [$admin_email -z ];do
+   echo "Enter Admin email ( It can't be empty! )"
+   read -e -r -p "Admin email: " admin_email
+done 
+
+while [$admin_password -z ];do
+   echo "Enter Admin password (size of password >1) "
+   read -s -e -r -p  "Admin password: " admin_password
+   echo " "
+   read -s -e -r -p  "Confirm admin password: " confirm_admin_password
+
+done 
+while [ $admin_password != $confirm_admin_password ]; do
     echo "Entered passwords did not match! Retrying..."
-    read -e -r -p -s "Admin password: " admin_password
-    read -e -r -p -s "Confirm admin password: " confirm_admin_password
+    read -s -e -r -p "Admin password: " admin_password
+    echo ""
+    read -s -e -r -p "Confirm admin password: " confirm_admin_password
 done
 echo "Creating admin account: "
 python "${dir}/init_db.py" "${config_db_uri}" "${admin_name}" "${admin_email}" "${admin_password}"

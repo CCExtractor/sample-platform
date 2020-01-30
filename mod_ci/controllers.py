@@ -541,7 +541,7 @@ def get_html_issue_body(title, author, body, issue_number, url) -> Any:
 @request_from_github()
 def start_ci():
     """
-    Perform various actions when the Github webhook is triggered.
+    Perform various actions when the GitHub webhook is triggered.
 
     Reaction to the next events need to be processed
 
@@ -1192,7 +1192,7 @@ def comment_pr(test_id, state, pr_nr, platform) -> None:
     template = app.jinja_env.get_or_select_template('ci/pr_comment.txt')
     message = template.render(tests=tot, failed_tests=regression_testid_failed, test_id=test_id,
                               state=state, platform=platform)
-    log.debug('Github PR Comment Message Created for Test_id: {test_id}'.format(test_id=test_id))
+    log.debug('GitHub PR Comment Message Created for Test_id: {test_id}'.format(test_id=test_id))
     try:
         gh = GitHub(access_token=g.github['bot_token'])
         repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
@@ -1205,16 +1205,16 @@ def comment_pr(test_id, state, pr_nr, platform) -> None:
             if comment['user']['login'] == bot_name and platform in comment['body']:
                 comment_id = comment['id']
                 break
-        log.debug('Github PR Comment ID Fetched for Test_id: {test_id}'.format(test_id=test_id))
+        log.debug('GitHub PR Comment ID Fetched for Test_id: {test_id}'.format(test_id=test_id))
         if comment_id is None:
             comment = pull_request.comments().post(body=message)
             comment_id = comment['id']
         else:
             repository.issues().comments(comment_id).post(body=message)
-        log.debug('Github PR Comment ID {comment} Uploaded for Test_id: {test_id}'.format(
+        log.debug('GitHub PR Comment ID {comment} Uploaded for Test_id: {test_id}'.format(
             comment=comment_id, test_id=test_id))
     except Exception as e:
-        log.error('Github PR Comment Failed for Test_id: {test_id} with Exception {e}'.format(test_id=test_id, e=e))
+        log.error('GitHub PR Comment Failed for Test_id: {test_id} with Exception {e}'.format(test_id=test_id, e=e))
 
 
 @mod_ci.route('/show_maintenance')

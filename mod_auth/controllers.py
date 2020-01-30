@@ -118,7 +118,7 @@ def send_reset_email(usr) -> None:
 
 def github_token_validity(token: str):
     """
-    Check token validity by calling Github V3 APIs.
+    Check token validity by calling GitHub V3 APIs.
 
     :param token: The value of 'github_token' stored in the user model
     :type token: str
@@ -141,7 +141,7 @@ def github_redirect():
     """
     Create redirect URL if no github token found.
 
-    Generate Redirect url to the Github page to take user permisssion
+    Generate Redirect url to the GitHub page to take user permisssion
     only when there is no github token stored for that user session.
     """
     from run import config
@@ -153,7 +153,7 @@ def github_redirect():
             g.user.github_token = None
             g.db.commit()
         else:
-            g.log.error('Failed to validate Github token')
+            g.log.error('Failed to validate GitHub token')
             return None
 
     return 'https://github.com/login/oauth/authorize?client_id={id}&scope=public_repo'.format(id=github_clientid)
@@ -161,7 +161,7 @@ def github_redirect():
 
 def fetch_username_from_token() -> Any:
     """
-    Get username from the Github token.
+    Get username from the GitHub token.
 
     :return: username
     :rtype: str

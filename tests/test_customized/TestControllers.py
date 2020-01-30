@@ -190,7 +190,7 @@ class TestControllers(BaseTestCase):
             )
 
             self.assertEqual(response.status_code, 200)
-            self.assertIn("Error contacting Github", str(response.data))
+            self.assertIn("Error contacting GitHub", str(response.data))
 
     def test_customize_test_wrong_commit_hash(self, mock_user, mock_git, mock_requests):
         """

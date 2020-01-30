@@ -81,11 +81,11 @@ def request_from_github(abort_code: int = 418) -> Callable:
                 return 'OK'
             else:
                 # Do initial validations on required headers
-                if 'X-Github-Event' not in request.headers:
-                    g.log.critical('X-Github-Event not in headers!')
+                if 'X-GitHub-Event' not in request.headers:
+                    g.log.critical('X-GitHub-Event not in headers!')
                     abort(abort_code)
-                if 'X-Github-Delivery' not in request.headers:
-                    g.log.critical('X-Github-Delivery not in headers!')
+                if 'X-GitHub-Delivery' not in request.headers:
+                    g.log.critical('X-GitHub-Delivery not in headers!')
                     abort(abort_code)
                 if 'X-Hub-Signature' not in request.headers:
                     g.log.critical('X-Hub-Signature not in headers!')
@@ -98,7 +98,7 @@ def request_from_github(abort_code: int = 418) -> Callable:
                     abort(abort_code)
                 ua = request.headers.get('User-Agent')
                 if not ua.startswith('GitHub-Hookshot/'):
-                    g.log.critical('User-Agent does not begin with Github-Hookshot/!')
+                    g.log.critical('User-Agent does not begin with GitHub-Hookshot/!')
                     abort(abort_code)
 
                 request_ip = ip_address(u'{0}'.format(request.remote_addr))
@@ -196,5 +196,5 @@ def deploy():
     # Reload platform service
     g.log.info('Platform upgraded to commit {commit}'.format(commit=commit_hash))
     subprocess.Popen(["sudo", "service", "platform", "reload"])
-    g.log.info('Sample platform synced with Github!')
+    g.log.info('Sample platform synced with GitHub!')
     return json.dumps({'msg': 'Platform upgraded to commit {commit}'.format(commit=commit_hash)})

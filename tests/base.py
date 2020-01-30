@@ -153,7 +153,7 @@ def generate_signature(data, private_key):
 
 def generate_git_api_header(event, sig):
     """
-    Create header for Github API Request, based on header information from https://developer.github.com/webhooks/.
+    Create header for GitHub API Request, based on header information from https://developer.github.com/webhooks/.
 
     :param event: Name of the event type that triggered the delivery.
     :param sig: The HMAC hex digest of the response body. The HMAC hex digest is generated
@@ -161,7 +161,7 @@ def generate_git_api_header(event, sig):
     """
     return Headers([
         ('X-GitHub-Event', event),
-        ('X-Github-Delivery', '72d3162e-cc78-11e3-81ab-4c9367dc0958'),
+        ('X-GitHub-Delivery', '72d3162e-cc78-11e3-81ab-4c9367dc0958'),
         ('X-Hub-Signature', 'sha1={0}'.format(sig)),
         ('User-Agent', 'GitHub-Hookshot/044aadd'),
         ('Content-Type', 'application/json'),

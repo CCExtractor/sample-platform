@@ -147,7 +147,7 @@ class TestLogOut(BaseTestCase):
         self.assert_template_used('auth/login.html')
 
 
-class TestGithubFunctions(BaseTestCase):
+class TestGitHubFunctions(BaseTestCase):
 
     @mock.patch('requests.Session')
     @mock.patch('mod_auth.controllers.g')

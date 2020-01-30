@@ -116,14 +116,14 @@ echo ""
 echo "For the following questions, press enter to leave a field blank."
 read -e -r -p "(Sub)domain this will be running on? " -i "" config_server_name
 read -e -r -p "Application root (if not a whole (sub)domain, enter the path. None if whole (sub)domain): " -i "None" config_application_root
-read -e -r -p "Github Token (Generate here : https://help.github.com/articles/creating-an-access-token-for-command-line-use/): " -i "" github_token
-read -e -r -p "Github Owner Name : " -i "CCExtractor" github_owner_name
-read -e -r -p "Github repository : " -i "ccextractor" github_repository
+read -e -r -p "GitHub Token (Generate here : https://help.github.com/articles/creating-an-access-token-for-command-line-use/): " -i "" github_token
+read -e -r -p "GitHub Owner Name : " -i "CCExtractor" github_owner_name
+read -e -r -p "GitHub repository : " -i "ccextractor" github_repository
 read -e -r -p "Email Domain : " -i "${config_server_name}" email_domain
 read -e -r -p "Email API key (Generate one here https://www.mailgun.com/) : " -i "" email_api_key
 hmac_key=$(< /dev/urandom tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
-read -e -r -p "Github Automated Deploy Webhook Secret (More info : https://developer.github.com/webhooks/) : " -i "" github_deploy_key
-read -e -r -p "Github CI Webhook Secret (More info: https://developer.github.com/webhooks/) : " -i "" github_ci_key
+read -e -r -p "GitHub Automated Deploy Webhook Secret (More info : https://developer.github.com/webhooks/) : " -i "" github_deploy_key
+read -e -r -p "GitHub CI Webhook Secret (More info: https://developer.github.com/webhooks/) : " -i "" github_ci_key
 read -e -r -p "KVM Linux Name: " -i "" kvm_linux_name
 read -e -r -p "KVM Windows Name: " -i "" kvm_windows_name
 read -e -r -p "KVM Max Runtime (In minutes): " -i "120" kvm_max_runtime

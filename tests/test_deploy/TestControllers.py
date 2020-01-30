@@ -36,27 +36,27 @@ class TestControllers(BaseTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Hi", str(response.data))
 
-    def test_headers_missing_X_Github_Event(self, mock_request_get):
+    def test_headers_missing_X_GitHub_Event(self, mock_request_get):
         """
-        Test missing X-Github-Event header.
+        Test missing X-GitHub-Event header.
         """
         mock_request_get.return_value.json.return_value = {"hooks": ['0.0.0.0']}
         sig = generate_signature(str(json.dumps({})).encode('utf-8'), g.github['ci_key'])
         headers = generate_git_api_header('push', sig)
-        headers.remove('X-Github-Event')
+        headers.remove('X-GitHub-Event')
 
         response = self.app.test_client().post('/deploy', headers=headers, environ_overrides=WSGI_ENVIRONMENT)
 
         self.assertEqual(response.status_code, 418)
 
-    def test_headers_missing_X_Github_Delivery(self, mock_request_get):
+    def test_headers_missing_X_GitHub_Delivery(self, mock_request_get):
         """
-        Test missing X-Github-Delivery header.
+        Test missing X-GitHub-Delivery header.
         """
         mock_request_get.return_value.json.return_value = {"hooks": ['0.0.0.0']}
         sig = generate_signature(str(json.dumps({})).encode('utf-8'), g.github['ci_key'])
         headers = generate_git_api_header('push', sig)
-        headers.remove('X-Github-Delivery')
+        headers.remove('X-GitHub-Delivery')
 
         response = self.app.test_client().post('/deploy', headers=headers, environ_overrides=WSGI_ENVIRONMENT)
 

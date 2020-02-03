@@ -137,7 +137,7 @@ class TestControllers(BaseTestCase):
         self.assertEqual(response.status_code, 418)
         mock_valid_sign.assert_called_once()
         mock_g.log.warning.assert_called_once()
-        mock_request_get.assert_called_once_with('https://api.github.com/meta')
+        mock_request_get.assert_called_once_with('https://api.github.com/meta?client_id=&client_secret=')
 
     @mock.patch('mod_deploy.controllers.is_valid_signature', return_value=True)
     @mock.patch('mod_deploy.controllers.g')
@@ -160,7 +160,7 @@ class TestControllers(BaseTestCase):
         self.assertEqual(response.status_code, 418)
         mock_valid_sign.assert_called_once()
         mock_g.log.warning.assert_called_once()
-        mock_request_get.assert_called_once_with('https://api.github.com/meta')
+        mock_request_get.assert_called_once_with('https://api.github.com/meta?client_id=&client_secret=')
 
     @mock.patch('mod_deploy.controllers.is_valid_signature', return_value=True)
     @mock.patch('mod_deploy.controllers.g')
@@ -186,7 +186,7 @@ class TestControllers(BaseTestCase):
         self.assertIn('Not master', str(response.data))
         mock_valid_sign.assert_called_once()
         mock_g.log.warning.assert_not_called()
-        mock_request_get.assert_called_once_with('https://api.github.com/meta')
+        mock_request_get.assert_called_once_with('https://api.github.com/meta?client_id=&client_secret=')
 
     @mock.patch('mod_deploy.controllers.Repo')
     @mock.patch('mod_deploy.controllers.is_valid_signature', return_value=True)

@@ -115,7 +115,7 @@ def mock_api_request_github(url, data=None, timeout=None):
                              'state': 'open'}, 201)
     elif url == "https://api.github.com/repos/test/test_repo/commits/mockWillReturn500":
         return MockResponse({}, 500)
-    elif url == "https://api.github.com/meta":
+    elif url == "https://api.github.com/meta?client_id=&client_secret=":
         return MockResponse({'verifiable_password_authentication': True,
                              'github_services_sha': 'abcdefg',
                              'hooks': [

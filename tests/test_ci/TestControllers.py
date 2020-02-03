@@ -26,7 +26,7 @@ class MockPlatform:
 
     def __init__(self, platform):
         self.platform = platform
-        self.value = 'platform'
+        self.values = 'platform'
 
 
 class MockFork:
@@ -849,7 +849,7 @@ class TestControllers(BaseTestCase):
         mock_test_obj.token = "token"
         mock_test.query.filter.return_value.first.return_value = mock_test_obj
         mock_request.form = {'type': 'logupload'}
-        mock_logupload_type.return_value = "EMPTY"
+        mock_logupload_type.return_value = False
 
         expected_ret = "EMPTY"
 

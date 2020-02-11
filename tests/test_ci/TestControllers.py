@@ -26,7 +26,7 @@ class MockPlatform:
 
     def __init__(self, platform):
         self.platform = platform
-        self.value = 'platform'
+        self.values = 'platform'
 
 
 class MockFork:
@@ -70,7 +70,7 @@ class TestControllers(BaseTestCase):
 
         self.assertEqual(1, mock_process.call_count)
         self.assertEqual(2, mock_log.info.call_count)
-        mock_log.info.assert_called_with('started Linux virtual machine process...')
+        mock_log.info.assert_called_with('Linux VM process kicked off')
 
     @mock.patch('mod_ci.controllers.Process')
     @mock.patch('run.log')
@@ -82,7 +82,7 @@ class TestControllers(BaseTestCase):
 
         self.assertEqual(1, mock_process.call_count)
         self.assertEqual(2, mock_log.info.call_count)
-        mock_log.info.assert_called_with('started Windows virtual machine process...')
+        mock_log.info.assert_called_with('Windows VM process kicked off')
 
     @mock.patch('run.log')
     def test_kvm_processor_empty_kvm_name(self, mock_log):
@@ -522,7 +522,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_ping(self, mock_request):
         """
-        Check webhook release update CCExtractor Version
+        Check webhook release update CCExtractor Version for ping.
         """
         with self.app.test_client() as c:
             data = {'action': 'published',
@@ -536,7 +536,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_release(self, mock_request):
         """
-        Check webhook release update CCExtractor Version
+        Check webhook release update CCExtractor Version for release.
         """
         with self.app.test_client() as c:
             # Full Release with version with 2.1
@@ -602,7 +602,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_prerelease(self, mock_request):
         """
-        Check webhook release update CCExtractor Version
+        Check webhook release update CCExtractor Version for prerelease.
         """
         with self.app.test_client() as c:
             # Full Release with version with 2.1
@@ -733,7 +733,7 @@ class TestControllers(BaseTestCase):
         mock_issue.query.filter(mock_issue.issue_id == '1234')
         mock_mailing.assert_called_once_with(mock.ANY, '1234', 'testTitle', 'testAuthor', 'testing')
 
-    @mock.patch('mod_ci.controllers.check_main_repo')
+    @mock.patch('mod_ci.controllers.is_main_repo')
     @mock.patch('mod_ci.controllers.shutil')
     def test_update_build_badge(self, mock_shutil, mock_check_repo):
         """
@@ -777,7 +777,7 @@ class TestControllers(BaseTestCase):
         mock_test_obj.token = "token"
         mock_test.query.filter.return_value.first.return_value = mock_test_obj
         mock_request.form = {'type': 'progress'}
-        mock_progress_type.return_value = "FAIL"
+        mock_progress_type.return_value = False
 
         expected_ret = "FAIL"
 
@@ -838,7 +838,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_ci.controllers.request')
     @mock.patch('mod_ci.controllers.Test')
-    @mock.patch('mod_ci.controllers.logupload_type_request')
+    @mock.patch('mod_ci.controllers.upload_log_type_request')
     def test_progress_reporter_logupload_type_empty(self, mock_logupload_type, mock_test, mock_request):
         """
         Test progress_reporter with request type logupload returning 'EMPTY'.
@@ -849,7 +849,7 @@ class TestControllers(BaseTestCase):
         mock_test_obj.token = "token"
         mock_test.query.filter.return_value.first.return_value = mock_test_obj
         mock_request.form = {'type': 'logupload'}
-        mock_logupload_type.return_value = "EMPTY"
+        mock_logupload_type.return_value = False
 
         expected_ret = "EMPTY"
 
@@ -862,7 +862,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_ci.controllers.request')
     @mock.patch('mod_ci.controllers.Test')
-    @mock.patch('mod_ci.controllers.logupload_type_request')
+    @mock.patch('mod_ci.controllers.upload_log_type_request')
     def test_progress_reporter_logupload_type(self, mock_logupload_type, mock_test, mock_request):
         """
         Test progress_reporter with request type logupload.
@@ -897,7 +897,7 @@ class TestControllers(BaseTestCase):
         mock_test_obj.token = "token"
         mock_test.query.filter.return_value.first.return_value = mock_test_obj
         mock_request.form = {'type': 'upload'}
-        mock_upload_type.return_value = "EMPTY"
+        mock_upload_type.return_value = False
 
         expected_ret = "EMPTY"
 

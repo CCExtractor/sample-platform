@@ -1116,7 +1116,7 @@ def finish_type_request(log, test_id, test, request):
         log.error('Could not save the results: {msg}'.format(msg=e))
 
 
-def set_avg_time(platform: Test.platform, process_type: str, time_taken: int) -> None:
+def set_avg_time(platform, process_type: str, time_taken: int) -> None:
     """
     Set average platform preparation time.
 

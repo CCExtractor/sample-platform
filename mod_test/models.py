@@ -453,7 +453,7 @@ class TestResultFile(Base):
     @staticmethod
     def read_lines(file_name: str) -> List[str]:
         """
-        Tries to load a file in different encodings.
+        Try to load a file in different encodings.
 
         :param file_name: The name to read lines from.
         :type file_name: str

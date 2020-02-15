@@ -101,7 +101,7 @@ def send_reset_email(usr) -> None:
     """
     from run import app
     expires = int(time.time()) + 86400
-    content_to_hash = "{id}|{expiry}|{passwd}".format(id=usr.id, expiry=expires, passwd=usr.password)
+    content_to_hash = f"{usr.id}|{expires}|{usr.password}"
     mac = generate_hmac_hash(app.config.get('HMAC_KEY', ''), content_to_hash)
     template = app.jinja_env.get_or_select_template('email/recovery_link.txt')
     message = template.render(
@@ -126,11 +126,11 @@ def github_token_validity(token: str):
     :rtype: bool
     """
     from run import config
-    github_clientid = config.get('GITHUB_CLIENT_ID', '')
-    github_clientsecret = config.get('GITHUB_CLIENT_SECRET', '')
-    url = 'https://api.github.com/applications/{id}/tokens/{token}'.format(id=github_clientid, token=token)
+    github_client_id = config.get('GITHUB_CLIENT_ID', '')
+    github_client_secret = config.get('GITHUB_CLIENT_SECRET', '')
+    url = f'https://api.github.com/applications/{github_client_id}/tokens/{token}'
     session = requests.Session()
-    session.auth = (github_clientid, github_clientsecret)
+    session.auth = (github_client_id, github_client_secret)
     response = session.get(url)
 
     return response.status_code == 200
@@ -145,7 +145,7 @@ def github_redirect():
     only when there is no github token stored for that user session.
     """
     from run import config
-    github_clientid = config.get('GITHUB_CLIENT_ID', '')
+    github_client_id = config.get('GITHUB_CLIENT_ID', '')
     github_token = g.user.github_token
     if github_token is not None:
         validity = github_token_validity(github_token)
@@ -156,7 +156,7 @@ def github_redirect():
             g.log.error('Failed to validate GitHub token')
             return None
 
-    return 'https://github.com/login/oauth/authorize?client_id={id}&scope=public_repo'.format(id=github_clientid)
+    return f'https://github.com/login/oauth/authorize?client_id={github_client_id}&scope=public_repo'
 
 
 def fetch_username_from_token() -> Any:
@@ -202,15 +202,13 @@ def github_callback():
         r = requests.post(url, params=payload, headers=headers)
         response = r.json()
 
-        # get access_token from response and store in session
         if 'access_token' in response:
             user = User.query.filter(User.id == g.user.id).first()
             user.github_token = response['access_token']
             g.db.commit()
         else:
-            g.log.error('github didn\'t return an access token')
+            g.log.error("GitHub didn't return an access token")
 
-        # send authenticated user where they're supposed to go
         return redirect(url_for('auth.manage'))
 
     return '', 404
@@ -220,28 +218,22 @@ def github_callback():
 @template_renderer()
 def login() -> Union[Response, Dict[str, Union[str, LoginForm]]]:
     """Route for handling the login page."""
-    # fetching redirect_location from the request
     redirect_location = request.args.get('next', '')
-
-    # redirect already logged in user
 
     if session.get('user_id', None) is not None:
         flash('You are already logged in!', 'alert')
         if len(redirect_location) == 0:
             return redirect("/")
-        else:
-            return redirect(url_for(redirect_location))
+        return redirect(url_for(redirect_location))
 
     form = LoginForm(request.form)
     if form.validate_on_submit():
-        user = User.query.filter_by(email=form.email.data).first()
-        # saving session and redirecting on valid password
-        if user and user.is_password_valid(form.password.data):
-            session['user_id'] = user.id
+        user_to_login = User.query.filter_by(email=form.email.data).first()
+        if user_to_login and user_to_login.is_password_valid(form.password.data):
+            session['user_id'] = user_to_login.id
             if len(redirect_location) == 0:
                 return redirect("/")
-            else:
-                return redirect(url_for(redirect_location))
+            return redirect(url_for(redirect_location))
 
         flash('Wrong username or password', 'error-message')
 
@@ -262,9 +254,9 @@ def reset():
     """
     form = ResetForm(request.form)
     if form.validate_on_submit():
-        user = User.query.filter_by(email=form.email.data).first()
-        if user is not None:
-            send_reset_email(user)
+        user_to_reset = User.query.filter_by(email=form.email.data).first()
+        if user_to_reset is not None:
+            send_reset_email(user_to_reset)
         flash('If an account was linked to the provided email address, an email with reset instructions has been sent. '
               'Please check your inbox.', 'success')
         form = ResetForm(None)
@@ -287,13 +279,11 @@ def complete_reset(uid, expires, mac):
     :type mac: str
     """
     from run import app
-    # Check if time expired
-    now = int(time.time())
-    if now <= expires:
-        user = User.query.filter_by(id=uid).first()
-        if user is not None:
-            # Validate HMAC
-            content_to_hash = "{id}|{expiry}|{passwd}".format(id=uid, expiry=expires, passwd=user.password)
+
+    if int(time.time()) <= expires:
+        user_to_reset = User.query.filter_by(id=uid).first()
+        if user_to_reset is not None:
+            content_to_hash = f"{uid}|{expires}|{user_to_reset.password}"
             real_hash = generate_hmac_hash(app.config.get('HMAC_KEY', ''), content_to_hash)
             try:
                 authentic = hmac.compare_digest(real_hash, mac)
@@ -304,16 +294,16 @@ def complete_reset(uid, expires, mac):
             if authentic:
                 form = CompleteResetForm(request.form)
                 if form.validate_on_submit():
-                    user.password = User.generate_hash(form.password.data)
+                    user_to_reset.password = User.generate_hash(form.password.data)
                     g.db.commit()
                     template = app.jinja_env.get_or_select_template('email/password_reset.txt')
-                    message = template.render(name=user.name)
+                    message = template.render(name=user_to_reset.name)
                     g.mailer.send_simple_message({
-                        "to": user.email,
+                        "to": user_to_reset.email,
                         "subject": "CCExtractor CI platform password reset",
                         "text": message
                     })
-                    session['user_id'] = user.id
+                    session['user_id'] = user_to_reset.id
                     return redirect("/")
                 return {
                     'form': form,
@@ -336,10 +326,10 @@ def signup() -> Dict[str, SignupForm]:
     if form.validate_on_submit():
         if is_email(form.email.data):
             # Check if user exists
-            user = User.query.filter_by(email=form.email.data).first()
-            if user is None:
+            user_that_exists = User.query.filter_by(email=form.email.data).first()
+            if user_that_exists is None:
                 expires = int(time.time()) + 86400
-                content_to_hash = "{email}|{expiry}".format(email=form.email.data, expiry=expires)
+                content_to_hash = f"{form.email.data}|{expires}"
                 hmac_hash = generate_hmac_hash(app.config.get('HMAC_KEY', ''), content_to_hash)
                 # New user
                 template = app.jinja_env.get_or_select_template('email/registration_email.txt')
@@ -349,7 +339,7 @@ def signup() -> Dict[str, SignupForm]:
             else:
                 # Existing user
                 template = app.jinja_env.get_or_select_template('email/registration_existing.txt')
-                message = template.render(url=url_for('.reset', _external=True), name=user.name)
+                message = template.render(url=url_for('.reset', _external=True), name=user_that_exists.name)
             if g.mailer.send_simple_message({
                 "to": form.email.data,
                 "subject": "CCExtractor CI platform registration",
@@ -384,11 +374,9 @@ def complete_signup(email: str, expires: int,
     :type mac: str
     """
     from run import app
-    # Check if time expired
-    now = int(time.time())
-    if now <= expires:
-        # Validate HMAC
-        content_to_hash = "{email}|{expiry}".format(email=email, expiry=expires)
+
+    if int(time.time()) <= expires:
+        content_to_hash = f"{email}|{expires}"
         real_hash = generate_hmac_hash(app.config.get('HMAC_KEY', ''), content_to_hash)
         try:
             authentic = hmac.compare_digest(real_hash, mac)
@@ -398,21 +386,20 @@ def complete_signup(email: str, expires: int,
             authentic = real_hash == mac
         if authentic:
             # Check if email already exists (sign up twice with same email)
-            user = User.query.filter_by(email=email).first()
-            if user is not None:
+            user_that_exists = User.query.filter_by(email=email).first()
+            if user_that_exists is not None:
                 flash('There is already a user with this email address registered.', 'error-message')
                 return redirect(url_for('.signup'))
             form = CompleteSignupForm()
             if form.validate_on_submit():
-                user = User(form.name.data, email=email, password=User.generate_hash(form.password.data))
-                g.db.add(user)
+                user_to_register = User(form.name.data, email=email, password=User.generate_hash(form.password.data))
+                g.db.add(user_to_register)
                 g.db.commit()
-                session['user_id'] = user.id
-                # Send email
+                session['user_id'] = user_to_register.id
                 template = app.jinja_env.get_or_select_template('email/registration_ok.txt')
-                message = template.render(name=user.name)
+                message = template.render(name=user_to_register.name)
                 g.mailer.send_simple_message({
-                    "to": user.email,
+                    "to": user_to_register.email,
                     "subject": "Welcome to the CCExtractor CI platform",
                     "text": message
                 })
@@ -467,31 +454,31 @@ def manage():
     from run import app
     form = AccountForm(request.form, g.user)
     if form.validate_on_submit():
-        user = User.query.filter(User.id == g.user.id).first()
+        user_to_update = User.query.filter(User.id == g.user.id).first()
         old_email = None
         password = False
-        if user.email != form.email.data:
-            old_email = user.email
-            user.email = form.email.data
+        if user_to_update.email != form.email.data:
+            old_email = user_to_update.email
+            user_to_update.email = form.email.data
         if len(form.new_password.data) >= 10:
             password = True
-            user.password = User.generate_hash(form.new_password.data)
-        if user.name != form.name.data:
-            user.name = form.name.data
-        g.user = user
+            user_to_update.password = User.generate_hash(form.new_password.data)
+        if user_to_update.name != form.name.data:
+            user_to_update.name = form.name.data
+        g.user = user_to_update
         g.db.commit()
         if old_email is not None:
             template = app.jinja_env.get_or_select_template('email/email_changed.txt')
-            message = template.render(name=user.name, email=user.email)
+            message = template.render(name=user_to_update.name, email=user_to_update.email)
             g.mailer.send_simple_message({
-                "to": [old_email, user.email],
+                "to": [old_email, user_to_update.email],
                 "subject": "CCExtractor CI platform email changed",
                 "text": message
             })
         if password:
             template = app.jinja_env.get_or_select_template('email/password_changed.txt')
-            message = template.render(name=user.name)
-            to = user.email if old_email is None else [old_email, user.email]
+            message = template.render(name=user_to_update.name)
+            to = user_to_update.email if old_email is None else [old_email, user_to_update.email]
             g.mailer.send_simple_message({
                 "to": to,
                 "subject": "CCExtractor CI platform password changed",
@@ -597,7 +584,6 @@ def role(uid):
         form = RoleChangeForm(request.form)
         form.role.choices = [(r.name, r.description) for r in Role]
         if form.validate_on_submit():
-            # Update role
             usr.role = Role.from_string(form.role.data)
             g.db.commit()
             return redirect(url_for('.users'))
@@ -630,8 +616,8 @@ def deactivate(uid):
             form = DeactivationForm(request.form)
             if form.validate_on_submit():
                 # Deactivate user
-                usr.name = "Anonymized {id}".format(id=usr.id)
-                usr.email = "unknown{id}@ccextractor.org".format(id=usr.id)
+                usr.name = f"Anonymous {usr.id}"
+                usr.email = f"unknown{usr.id}@ccextractor.org"
                 usr.password = User.create_random_password(16)
                 g.db.commit()
                 if g.user.role == Role.admin:

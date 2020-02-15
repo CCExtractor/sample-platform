@@ -64,7 +64,7 @@ class User(Base):
          of the User model
         :rtype str(name): str
         """
-        return '<User {name}>'.format(name=self.name)
+        return f'<User {self.name}>'
 
     @staticmethod
     def generate_hash(password: str) -> str:

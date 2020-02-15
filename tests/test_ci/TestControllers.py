@@ -256,7 +256,7 @@ class TestControllers(BaseTestCase):
         pull_info = GitPullInfo(flags=0)
         origin.pull.return_value = [pull_info]
         cron(testing=True)
-        fork_url = f"https://github.com/{self.user.name}/{g.github[\"
+        fork_url = f"https://github.com/{self.user.name}/{g.github['repository']}.git"
         repo.create_remote.assert_called_with("fork_2", url=fork_url)
         repo.create_head.assert_called_with("CI_Branch", origin.refs.master)
 

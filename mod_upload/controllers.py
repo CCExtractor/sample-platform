@@ -121,7 +121,7 @@ def ftp_index():
     """Root for ftp connection."""
     from run import config
 
-    credentials = retrieve_ftp_credentials()
+    credentials = retrieve_ftp_credentials(g.user.id)
 
     return {
         'host': config.get('SERVER_NAME', ''),
@@ -131,10 +131,18 @@ def ftp_index():
     }
 
 
-def retrieve_ftp_credentials():
-    credentials = FTPCredentials.query.filter(FTPCredentials.user_id == g.user.id).first()
+def retrieve_ftp_credentials(user_id: int) -> FTPCredentials:
+    """
+    Fetch credentials for the given user id. Will create them if they are not yet present.
+
+    :param user_id: The user id to retrieve credentials for.
+    :type user_id: int
+    :return: FTP credentials for the user
+    :rtype: FTPCredentials
+    """
+    credentials = FTPCredentials.query.filter(FTPCredentials.user_id == user_id).first()
     if credentials is None:
-        credentials = FTPCredentials(g.user.id)
+        credentials = FTPCredentials(user_id)
         g.db.add(credentials)
         g.db.commit()
         g.log.info("New FTP credentials added to database")
@@ -147,7 +155,7 @@ def ftp_filezilla():
     """Root for FileZilla ftp connection."""
     from run import config
 
-    credentials = retrieve_ftp_credentials()
+    credentials = retrieve_ftp_credentials(g.user.id)
 
     response = make_response(
         render_template(
@@ -518,7 +526,19 @@ def upload_ftp(db, path) -> None:
         add_sample_to_queue(file_hash, intermediate_path, user.id, db)
 
 
-def remove_forbidden_file(file_extension, file_path, user):
+def remove_forbidden_file(file_extension: str, file_path: str, user: User) -> bool:
+    """
+    Remove the given file if the extension is not allowed.
+
+    :param file_extension: The file extension to check.
+    :type file_extension: str
+    :param file_path: The path to the uploaded file.
+    :type file_path: str
+    :param user: The user that uploaded the file.
+    :type user: User
+    :return: True if the file was removed, False otherwise.
+    :rtype: bool
+    """
     from run import log
     dotless_extension = file_extension[1:]
     forbidden = ForbiddenExtension.query.filter(ForbiddenExtension.extension == dotless_extension).first()

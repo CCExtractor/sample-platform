@@ -36,7 +36,7 @@ class MediaInfoFetcher:
             except Exception:
                 raise InvalidMediaInfoError("No Mediainfo root element present")
             if 'MediaInfo' not in doc:
-                raise InvalidMediaInfoError("No Mediainfo root element present")
+                raise InvalidMediaInfoError("Mediainfo xml root element not present")
 
             self.media_info = doc['Mediainfo']
             self.video_tracks = []      # type: List

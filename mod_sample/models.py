@@ -10,7 +10,15 @@ import database
 from database import Base, DeclEnum
 
 
-def get_extension(extension):
+def get_extension(extension: str) -> str:
+    """
+    Return the extension with a dot.
+
+    :param extension: The extension to format.
+    :type extension: str
+    :return: Return the extension with a dot or empty if no extension.
+    :rtype: str
+    """
     return ("." + extension) if len(extension) > 0 else ""
 
 

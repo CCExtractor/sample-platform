@@ -63,7 +63,7 @@ class EnumSymbol(object):
     """Define a fixed symbol tied to a parent class."""
 
     def __init__(self, cls_: Any, name: str, value: str, description: str) -> None:
-        """Initilize EnumSymbol with class, name, value and description."""
+        """Initialize EnumSymbol with class, name, value and description."""
         self.cls_ = cls_
         self.name = name
         self.value = value
@@ -102,7 +102,7 @@ class EnumMeta(type):
 
     def __init__(self, classname: str, bases: Union[Tuple[Type[DeclEnum]], Tuple[Type[object]]],
                  dict_: Dict[str, Union[str, Tuple[str, str], classmethod, staticmethod]]) -> None:
-        """Initilize EnumMeta with class, name, value and description."""
+        """Initialize EnumMeta with class, name, value and description."""
         self._reg: Dict
         self._reg = reg = self._reg.copy()
         for k, v in dict_.items():
@@ -140,7 +140,7 @@ class DeclEnum(object, metaclass=EnumMeta):
         try:
             return cls._reg[value]
         except KeyError:
-            print("Invalid value for {name}: {value}".format(name=cls.__name__, value=value))
+            print(f"Invalid value for {cls.__name__}: {value}")
             raise EnumParsingException
 
     @classmethod

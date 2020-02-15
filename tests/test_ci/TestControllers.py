@@ -44,7 +44,7 @@ class MockTest:
         self.platform = MockPlatform(TestPlatform.linux)
 
 
-WSGI_ENVIRONMENT = {'REMOTE_ADDR': '192.30.252.0'}
+WSGI_ENVIRONMENT = {'REMOTE_ADDR': "192.30.252.0"}
 
 
 class TestControllers(BaseTestCase):
@@ -70,7 +70,7 @@ class TestControllers(BaseTestCase):
 
         self.assertEqual(1, mock_process.call_count)
         self.assertEqual(2, mock_log.info.call_count)
-        mock_log.info.assert_called_with('Linux VM process kicked off')
+        mock_log.info.assert_called_with("Linux VM process kicked off")
 
     @mock.patch('mod_ci.controllers.Process')
     @mock.patch('run.log')
@@ -82,7 +82,7 @@ class TestControllers(BaseTestCase):
 
         self.assertEqual(1, mock_process.call_count)
         self.assertEqual(2, mock_log.info.call_count)
-        mock_log.info.assert_called_with('Windows VM process kicked off')
+        mock_log.info.assert_called_with("Windows VM process kicked off")
 
     @mock.patch('run.log')
     def test_kvm_processor_empty_kvm_name(self, mock_log):
@@ -202,8 +202,8 @@ class TestControllers(BaseTestCase):
         repository = git_mock(access_token=g.github['bot_token']).repos(
             g.github['repository_owner'])(g.github['repository'])
         pull_request = repository.issues(1)
-        message = ('<b>CCExtractor CI platform</b> finished running the '
-                   'test files on <b>linux</b>. Below is a summary of the test results')
+        message = ("<b>CCExtractor CI platform</b> finished running the "
+                   "test files on <b>linux</b>. Below is a summary of the test results")
         pull_request.comments().get.return_value = [{'user': {'login': g.github['bot_name']},
                                                     'id': 1, 'body': message}]
         # Comment on test that fails some/all regression tests
@@ -256,9 +256,9 @@ class TestControllers(BaseTestCase):
         pull_info = GitPullInfo(flags=0)
         origin.pull.return_value = [pull_info]
         cron(testing=True)
-        fork_url = 'https://github.com/{user}/{repo}.git'.format(user=self.user.name, repo=g.github['repository'])
-        repo.create_remote.assert_called_with('fork_2', url=fork_url)
-        repo.create_head.assert_called_with('CI_Branch', origin.refs.master)
+        fork_url = f"https://github.com/{self.user.name}/{g.github[\"
+        repo.create_remote.assert_called_with("fork_2", url=fork_url)
+        repo.create_head.assert_called_with("CI_Branch", origin.refs.master)
 
     @mock.patch('github.GitHub')
     @mock.patch('git.Repo')
@@ -354,8 +354,7 @@ class TestControllers(BaseTestCase):
                      Link to Issue: https://www.github.com/test_owner/test_repo/issues/matejmecka\n\n
                      Some random string(https://github.com/Some random string)\n\n\n
                      Lorem Ipsum sit dolor amet...\n        """
-        email = inform_mailing_list(mock_email, "matejmecka", "2430", "Some random string",
-                                    "Lorem Ipsum sit dolor amet...")
+        inform_mailing_list(mock_email, "matejmecka", "2430", "Some random string", "Lorem Ipsum sit dolor amet...")
 
         mock_email.send_simple_message.assert_called_once_with(
             {
@@ -392,13 +391,10 @@ class TestControllers(BaseTestCase):
         """
         Check adding a user to block list.
         """
-        self.create_user_with_role(
-            self.user.name, self.user.email, self.user.password, Role.admin)
+        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
         with self.app.test_client() as c:
-            response = c.post(
-                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
-            response = c.post(
-                '/blocked_users', data=dict(user_id=1, comment="Bad user", add=True))
+            c.post("/account/login", data=self.create_login_form_data(self.user.email, self.user.password))
+            c.post("/blocked_users", data=dict(user_id=1, comment="Bad user", add=True))
             self.assertNotEqual(BlockedUsers.query.filter(BlockedUsers.user_id == 1).first(), None)
             with c.session_transaction() as session:
                 flash_message = dict(session['_flashes']).get('message')
@@ -409,13 +405,10 @@ class TestControllers(BaseTestCase):
         """
         Check adding invalid user id to block list.
         """
-        self.create_user_with_role(
-            self.user.name, self.user.email, self.user.password, Role.admin)
+        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
         with self.app.test_client() as c:
-            response = c.post(
-                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
-            response = c.post(
-                '/blocked_users', data=dict(user_id=0, comment="Bad user", add=True))
+            c.post("/account/login", data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post("/blocked_users", data=dict(user_id=0, comment="Bad user", add=True))
             self.assertEqual(BlockedUsers.query.filter(BlockedUsers.user_id == 0).first(), None)
             self.assertIn("GitHub User ID not filled in", str(response.data))
 
@@ -427,10 +420,8 @@ class TestControllers(BaseTestCase):
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
         with self.app.test_client() as c:
-            response = c.post(
-                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
-            response = c.post(
-                '/blocked_users', data=dict(comment="Bad user", add=True))
+            c.post("/account/login", data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post("/blocked_users", data=dict(comment="Bad user", add=True))
             self.assertEqual(BlockedUsers.query.filter(BlockedUsers.user_id.is_(None)).first(), None)
             self.assertIn("GitHub User ID not filled in", str(response.data))
 
@@ -442,13 +433,11 @@ class TestControllers(BaseTestCase):
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
         with self.app.test_client() as c:
-            response = c.post(
-                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            c.post("/account/login", data=self.create_login_form_data(self.user.email, self.user.password))
             blocked_user = BlockedUsers(1, "Bad user")
             g.db.add(blocked_user)
             g.db.commit()
-            response = c.post(
-                '/blocked_users', data=dict(user_id=1, comment="Bad user", add=True))
+            c.post("/blocked_users", data=dict(user_id=1, comment="Bad user", add=True))
             with c.session_transaction() as session:
                 flash_message = dict(session['_flashes']).get('message')
             self.assertEqual(flash_message, "User already blocked.")
@@ -461,14 +450,12 @@ class TestControllers(BaseTestCase):
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
         with self.app.test_client() as c:
-            response = c.post(
-                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            c.post("/account/login", data=self.create_login_form_data(self.user.email, self.user.password))
             blocked_user = BlockedUsers(1, "Bad user")
             g.db.add(blocked_user)
             g.db.commit()
             self.assertNotEqual(BlockedUsers.query.filter(BlockedUsers.comment == "Bad user").first(), None)
-            response = c.post(
-                '/blocked_users', data=dict(user_id=1, remove=True))
+            c.post("/blocked_users", data=dict(user_id=1, remove=True))
             self.assertEqual(BlockedUsers.query.filter(BlockedUsers.user_id == 1).first(), None)
             with c.session_transaction() as session:
                 flash_message = dict(session['_flashes']).get('message')
@@ -482,10 +469,8 @@ class TestControllers(BaseTestCase):
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
         with self.app.test_client() as c:
-            response = c.post(
-                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
-            response = c.post(
-                '/blocked_users', data=dict(user_id=7355608, remove=True))
+            c.post("/account/login", data=self.create_login_form_data(self.user.email, self.user.password))
+            c.post("/blocked_users", data=dict(user_id=7355608, remove=True))
             with c.session_transaction() as session:
                 flash_message = dict(session['_flashes']).get('message')
             self.assertEqual(flash_message, "No such user in Blacklist")
@@ -498,10 +483,8 @@ class TestControllers(BaseTestCase):
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
         with self.app.test_client() as c:
-            response = c.post(
-                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
-            response = c.post(
-                '/blocked_users', data=dict(remove=True))
+            c.post("/account/login", data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post("/blocked_users", data=dict(remove=True))
             self.assertIn("GitHub User ID not filled in", str(response.data))
 
     @mock.patch('requests.get', side_effect=mock_api_request_github)
@@ -512,11 +495,10 @@ class TestControllers(BaseTestCase):
         with self.app.test_client() as c:
             # non GitHub ip address
             wsgi_environment = {'REMOTE_ADDR': '0.0.0.0'}
-            data = {'action': 'published',
-                    'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': '0.0.1'}}
-            response = c.post(
-                '/start-ci', environ_overrides=wsgi_environment,
-                data=json.dumps(data), headers=self.generate_header(data, 'ping'))
+            data = {'action': "published",
+                    'release': {'prerelease': False, 'published_at': "2018-05-30T20:18:44Z", 'tag_name': "0.0.1"}}
+            response = c.post("/start-ci", environ_overrides=wsgi_environment,
+                              data=json.dumps(data), headers=self.generate_header(data, "ping"))
             self.assertNotEqual(response.status_code, 200)
 
     @mock.patch('requests.get', side_effect=mock_api_request_github)

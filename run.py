@@ -188,7 +188,7 @@ def not_found(error: NotFound):
 @template_renderer('500.html', 500)
 def internal_error(error: InternalServerError):
     """Handle internal server error."""
-    log.debug('500 error: {err}'.format(err=error))
+    log.debug(f'500 error: {error}')
     log.debug('Stacktrace:')
     log.debug(traceback.format_exc())
     return

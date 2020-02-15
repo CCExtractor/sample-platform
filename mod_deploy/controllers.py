@@ -79,34 +79,27 @@ def request_from_github(abort_code: int = 418) -> Callable:
         def decorated_function(*args, **kwargs):
             if request.method != 'POST':
                 return 'OK'
-            else:
-                # Do initial validations on required headers
-                if 'X-GitHub-Event' not in request.headers:
-                    g.log.critical('X-GitHub-Event not in headers!')
-                    abort(abort_code)
-                if 'X-GitHub-Delivery' not in request.headers:
-                    g.log.critical('X-GitHub-Delivery not in headers!')
-                    abort(abort_code)
-                if 'X-Hub-Signature' not in request.headers:
-                    g.log.critical('X-Hub-Signature not in headers!')
-                    abort(abort_code)
-                if not request.is_json:
-                    g.log.critical('Request is not JSON!')
-                    abort(abort_code)
-                if 'User-Agent' not in request.headers:
-                    g.log.critical('User-Agent not in headers!')
-                    abort(abort_code)
-                ua = request.headers.get('User-Agent')
-                if not ua.startswith('GitHub-Hookshot/'):
-                    g.log.critical('User-Agent does not begin with GitHub-Hookshot/!')
+
+            request_ip = ip_address(f"{request.remote_addr}")
+            if not is_github_web_hook_ip(request_ip):
+                g.log.warning(f"Unauthorized attempt to deploy by IP {request_ip}")
+                abort(abort_code)
+
+            for header in ['X-GitHub-Event', 'X-GitHub-Delivery', 'X-Hub-Signature', 'User-Agent']:
+                if header not in request.headers:
+                    g.log.critical(f"{header} not in headers!")
                     abort(abort_code)
 
-                request_ip = ip_address(u'{0}'.format(request.remote_addr))
-                if not is_github_web_hook_ip(request_ip):
-                    g.log.warning(f"Unauthorized attempt to deploy by IP {request_ip}")
-                    abort(abort_code)
+            ua = request.headers.get('User-Agent')
+            if not ua.startswith('GitHub-Hookshot/'):
+                g.log.critical("User-Agent does not begin with GitHub-Hookshot/!")
+                abort(abort_code)
 
-                return f(*args, **kwargs)
+            if not request.is_json:
+                g.log.critical("Request is not JSON!")
+                abort(abort_code)
+
+            return f(*args, **kwargs)
         return decorated_function
     return decorator
 
@@ -138,43 +131,41 @@ def deploy():
 
     event = request.headers.get('X-GitHub-Event')
     if event == "ping":
-        g.log.info('deploy endpoint pinged!')
-        return json.dumps({'msg': 'Hi!'})
+        g.log.info("deploy endpoint pinged!")
+        return json.dumps({'msg': "Hi!"})
     if event != "push":
-        g.log.info('deploy endpoint received unaccepted push request!')
+        g.log.info("deploy endpoint received unaccepted push request!")
         return json.dumps({'msg': "Wrong event type"})
 
     x_hub_signature = request.headers.get('X-Hub-Signature')
-    # webhook content type should be application/json for request.data to have the payload
+    # web hook content type should be application/json for request.data to have the payload
     # request.data is empty in case of x-www-form-urlencoded
     if not is_valid_signature(x_hub_signature, request.data, g.github['deploy_key']):
-        g.log.warning('Deploy signature failed: {sig}'.format(sig=x_hub_signature))
+        g.log.warning(f"Deploy signature failed: {x_hub_signature}")
         abort(abort_code)
 
     payload = request.get_json()
     if payload is None:
-        g.log.warning('Deploy payload is empty: {payload}'.format(payload=payload))
+        g.log.warning(f"Deploy payload is empty: {payload}")
         abort(abort_code)
 
     if payload['ref'] != 'refs/heads/master':
-        return json.dumps({'msg': 'Not master; ignoring'})
+        return json.dumps({'msg': "Not master; ignoring"})
 
-    # Update code
     try:
         repo = Repo(app.config['INSTALL_FOLDER'])
     except InvalidGitRepositoryError:
-        return json.dumps({'msg': 'Folder is not a valid git directory'})
+        return json.dumps({'msg': "Folder is not a valid git directory"})
 
     try:
         origin = repo.remote('origin')
     except ValueError:
-        return json.dumps({'msg': 'Remote origin does not exist'})
+        return json.dumps({'msg': "Remote origin does not exist"})
 
     fetch_info = origin.fetch()
     if len(fetch_info) == 0:
         return json.dumps({'msg': "Didn't fetch any information from remote!"})
 
-    # Pull code (finally)
     pull_info = origin.pull()
 
     if len(pull_info) == 0:
@@ -184,17 +175,15 @@ def deploy():
         return json.dumps({'msg': "Didn't pull any information from remote!"})
 
     commit_hash = pull_info[0].commit.hexsha
-    build_commit = 'build_commit = "{commit}"'.format(commit=commit_hash)
+    build_commit = f'build_commit = "{commit_hash}"'
     with open('build_commit.py', 'w') as f:
         f.write(build_commit)
 
-    # Update runCI
     run_ci_repo = path.join(app.config['INSTALL_FOLDER'], 'install', 'ci-vm', 'ci-linux', 'ci', 'runCI')
     run_ci_nfs = path.join(app.config['SAMPLE_REPOSITORY'], 'vm_data', app.config['KVM_LINUX_NAME'], 'runCI')
     copyfile(run_ci_repo, run_ci_nfs)
 
-    # Reload platform service
-    g.log.info('Platform upgraded to commit {commit}'.format(commit=commit_hash))
+    g.log.info(f"Platform upgraded to commit {commit_hash}")
     subprocess.Popen(["sudo", "service", "platform", "reload"])
-    g.log.info('Sample platform synced with GitHub!')
-    return json.dumps({'msg': 'Platform upgraded to commit {commit}'.format(commit=commit_hash)})
+    g.log.info("Sample platform synced with GitHub!")
+    return json.dumps({'msg': f"Platform upgraded to commit {commit_hash}"})

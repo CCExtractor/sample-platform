@@ -152,7 +152,7 @@ def sample_by_id(sample_id):
     if sample is not None:
         return display_sample_info(sample)
 
-    raise SampleNotFoundException('Sample with id {id} not found.'.format(id=sample_id))
+    raise SampleNotFoundException(f"Sample with id {sample_id} not found.")
 
 
 @mod_sample.route('/<regex("[A-Za-z0-9]+"):sample_hash>')
@@ -171,7 +171,7 @@ def sample_by_hash(sample_hash):
     if sample is not None:
         return display_sample_info(sample)
 
-    raise SampleNotFoundException('Sample with hash {hash} not found.'.format(hash=sample_hash))
+    raise SampleNotFoundException(f"Sample with hash {sample_hash} not found.")
 
 
 @mod_sample.route('/download/<sample_id>')
@@ -212,9 +212,9 @@ def download_sample_media_info(sample_id):
         if os.path.isfile(media_info_path):
             return serve_file_download(sample.sha + '.xml', 'TestFiles', 'media-download', 'media', 'text/xml')
 
-        raise SampleNotFoundException('Media information for sample {id} not found'.format(id=sample.id))
+        raise SampleNotFoundException(f"Media information for sample {sample.id} not found")
 
-    raise SampleNotFoundException('Sample with id {id} not found'.format(id=sample_id))
+    raise SampleNotFoundException(f"Sample with id {sample_id} not found")
 
 
 @mod_sample.route('/download/<sample_id>/additional/<additional_id>')
@@ -233,13 +233,11 @@ def download_sample_additional(sample_id, additional_id):
     """
     sample = Sample.query.filter(Sample.id == sample_id).first()
     if sample is not None:
-        # Fetch additional info
         extra = ExtraFile.query.filter(ExtraFile.id == additional_id).first()
         if extra is not None:
             return serve_file_download(extra.filename, 'TestFiles', 'media-download', 'extra')
-        raise SampleNotFoundException('Extra file {a_id} for sample {s_id} not found'.format(
-            a_id=additional_id, s_id=sample.id))
-    raise SampleNotFoundException('Sample with id {id} not found'.format(id=sample_id))
+        raise SampleNotFoundException(f"Extra file {additional_id} for sample {sample.id} not found")
+    raise SampleNotFoundException(f"Sample with id {sample_id} not found")
 
 
 @mod_sample.route('/edit/<sample_id>', methods=['GET', 'POST'])
@@ -272,7 +270,7 @@ def edit_sample(sample_id):
             upload.platform = Platform.from_string(form.platform.data)
             upload.parameters = form.parameters.data
             g.db.commit()
-            g.log.info(f'sample with id: {sample_id} updated')
+            g.log.info(f"sample with id: {sample_id} updated")
             return redirect(url_for('.sample_by_id', sample_id=sample.id))
 
         if not form.is_submitted():
@@ -287,7 +285,7 @@ def edit_sample(sample_id):
             'form': form
         }
 
-    raise SampleNotFoundException('Sample with id {id} not found'.format(id=sample_id))
+    raise SampleNotFoundException(f"Sample with id {sample_id} not found")
 
 
 @mod_sample.route('/delete/<sample_id>', methods=['GET', 'POST'])
@@ -319,14 +317,14 @@ def delete_sample(sample_id):
             os.remove(os.path.join(basedir, sample.filename))
             g.db.delete(sample)
             g.db.commit()
-            g.log.warning(f'sample with id: {sample_id} deleted')
+            g.log.warning(f"sample with id: {sample_id} deleted")
             return redirect(url_for('.index'))
 
         return {
             'sample': sample,
             'form': form
         }
-    raise SampleNotFoundException('Sample with id {id} not found'.format(id=sample_id))
+    raise SampleNotFoundException(f"Sample with id {sample_id} not found")
 
 
 @mod_sample.route('/delete/<sample_id>/additional/<additional_id>', methods=['GET', 'POST'])
@@ -340,7 +338,7 @@ def delete_sample_additional(sample_id, additional_id):
     :param sample_id: id of the sample
     :type sample_id: int
     :param additional_id: id of the sample's additional
-    :type additiona_id: int
+    :type additional_id: int
     :raises SampleNotFoundException: when sample id is not found
     :return: form to edit sample
     :rtype: dict
@@ -348,17 +346,15 @@ def delete_sample_additional(sample_id, additional_id):
     from run import config
     sample = Sample.query.filter(Sample.id == sample_id).first()
     if sample is not None:
-        # Fetch additional info
         extra = ExtraFile.query.filter(ExtraFile.id == additional_id).first()
         if extra is not None:
-            # Process or render form
             form = DeleteAdditionalSampleForm(request.form)
             if form.validate_on_submit():
                 basedir = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'TestFiles')
                 os.remove(os.path.join(basedir, 'extra', extra.filename))
                 g.db.delete(extra)
                 g.db.commit()
-                g.log.warning(f'additional with id: {additional_id} for sample with id: {sample_id} deleted')
+                g.log.warning(f"additional with id: {additional_id} for sample with id: {sample_id} deleted")
                 return redirect(url_for('.sample_by_id', sample_id=sample.id))
 
             return {
@@ -366,6 +362,5 @@ def delete_sample_additional(sample_id, additional_id):
                 'extra': extra,
                 'form': form
             }
-        raise SampleNotFoundException('Extra file {f_id} for sample {s_id} not found'.format(
-            f_id=additional_id, s_id=sample.id))
-    raise SampleNotFoundException('Sample with id {id} not found'.format(id=sample_id))
+        raise SampleNotFoundException(f"Extra file {additional_id} for sample {sample.id} not found")
+    raise SampleNotFoundException(f"Sample with id {sample_id} not found")

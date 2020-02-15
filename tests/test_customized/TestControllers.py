@@ -70,8 +70,8 @@ class TestControllers(BaseTestCase):
             self.assertEqual(response.status_code, 200)
             self.assert_template_used('custom/index.html')
             custom_test = TestFork.query.filter(TestFork.user_id == g.user.id).first()
-            mock_requests.assert_called_with('https://api.github.com/repos/{user}/{repo}/commits/{hash}'.format(
-                user=self.user.name, repo=g.github['repository'], hash=commit_hash))
+            mock_requests.assert_called_with(
+                f"https://api.github.com/repos/{self.user.name}/{g.github['repository']}/commits/{commit_hash}")
             self.assertNotEqual(custom_test, None)
 
     def test_customize_test_creates_fork_if_not_exists(self, mock_user, mock_git, mock_requests):
@@ -117,9 +117,7 @@ class TestControllers(BaseTestCase):
         num_commits = 4
         for i in range(num_commits):
             commit_hash = self.create_random_string()
-            url = 'https://github.com/{user}/{repo}/commit/{hash}'.format(
-                user=return_git_user(), repo=g.github['repository'], hash=commit_hash
-            )
+            url = f"https://github.com/{return_git_user()}/{g.github['repository']}/commit/{commit_hash}"
             commits.append({'html_url': url, 'sha': commit_hash})
         with self.app.test_client() as c:
             c.post('/account/login', data=self.create_login_form_data(self.user.email, self.user.password))

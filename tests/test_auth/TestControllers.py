@@ -88,21 +88,20 @@ class CompleteSignUp(BaseTestCase):
 
     def setUp(self):
         self.time_of_hash = int(time.time())
-        content_to_hash = "{email}|{expiry}".format(email=signup_information['valid_email'], expiry=self.time_of_hash)
+        content_to_hash = f"{signup_information['valid_email']}|{self.time_of_hash}"
         self.hash = generate_hmac_hash(self.app.config.get('HMAC_KEY', ''), content_to_hash)
-        content_to_hash = "{email}|{expiry}".format(email=signup_information['existing_user_email'],
-                                                    expiry=self.time_of_hash)
+        content_to_hash = f"{signup_information['existing_user_email']}|{self.time_of_hash}"
         self.existing_user_hash = generate_hmac_hash(self.app.config.get('HMAC_KEY', ''), content_to_hash)
 
     def test_if_link_expired(self):
         response = self.complete_signup(signup_information['valid_email'], self.time_of_hash + 3600, self.hash)
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b'The request to complete the registration was invalid.', response.data)
+        self.assertIn(b"The request to complete the registration was invalid.", response.data)
 
     def test_if_wrong_link(self):
         response = self.complete_signup(signup_information['existing_user_email'], self.time_of_hash, self.hash)
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b'The request to complete the registration was invalid.', response.data)
+        self.assertIn(b"The request to complete the registration was invalid.", response.data)
 
     def test_if_valid_link(self):
         response = self.complete_signup(signup_information['valid_email'], self.time_of_hash, self.hash)
@@ -114,7 +113,7 @@ class CompleteSignUp(BaseTestCase):
                                         name=signup_information['existing_user_name'], password='', password_repeat='')
         self.assertEqual(response.status_code, 200)
         self.assert_template_used('auth/complete_signup.html')
-        self.assertIn(b'Password is not filled in', response.data)
+        self.assertIn(b"Password is not filled in", response.data)
 
     def test_if_password_length_is_invalid(self):
         response = self.complete_signup(signup_information['valid_email'], self.time_of_hash, self.hash,
@@ -122,7 +121,7 @@ class CompleteSignUp(BaseTestCase):
                                         password_repeat='small')
         self.assertEqual(response.status_code, 200)
         self.assert_template_used('auth/complete_signup.html')
-        self.assertIn(b'Password needs to be between', response.data)
+        self.assertIn(b"Password needs to be between", response.data)
 
     def test_if_passwords_dont_match(self):
         response = self.complete_signup(signup_information['valid_email'], self.time_of_hash, self.hash,
@@ -130,7 +129,7 @@ class CompleteSignUp(BaseTestCase):
                                         password_repeat='another_password')
         self.assertEqual(response.status_code, 200)
         self.assert_template_used('auth/complete_signup.html')
-        self.assertIn(b'The password needs to match the new password', response.data)
+        self.assertIn(b"The password needs to match the new password", response.data)
 
     def complete_signup(self, email, expires, mac, name='', password='', password_repeat=''):
         return self.app.test_client().post(url_for('auth.complete_signup', email=email, expires=expires, mac=mac),
@@ -143,7 +142,7 @@ class TestLogOut(BaseTestCase):
     def test_if_logout_redirects_to_login(self):
         response = self.app.test_client().get(url_for('auth.logout'), follow_redirects=True)
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b'You have been logged out', response.data)
+        self.assertIn(b"You have been logged out", response.data)
         self.assert_template_used('auth/login.html')
 
 
@@ -158,10 +157,10 @@ class TestGitHubFunctions(BaseTestCase):
         """
         mock_user_model.query.filter.return_value.first.return_value = MockUser()
 
-        returnValue = fetch_username_from_token()
+        return_value = fetch_username_from_token()
 
         mock_user_model.query.filter.assert_called_once_with(mock_user_model.id == mock_g.user.id)
-        self.assertIsNone(returnValue)
+        self.assertIsNone(return_value)
         mock_session.assert_not_called()
         mock_g.log.error.assert_not_called()
 
@@ -175,11 +174,11 @@ class TestGitHubFunctions(BaseTestCase):
         mock_user_model.query.filter.return_value.first.return_value = MockUser(github_token='token')
         mock_session.return_value.get.return_value.json.return_value = {'login': 'username'}
 
-        returnValue = fetch_username_from_token()
+        return_value = fetch_username_from_token()
 
         mock_user_model.query.filter.assert_called_once_with(mock_user_model.id == mock_g.user.id)
         mock_session.assert_called_once()
-        self.assertEqual(returnValue, 'username', "unexpected return value")
+        self.assertEqual(return_value, 'username', "unexpected return value")
         mock_g.log.error.assert_not_called()
 
     @mock.patch('requests.Session')
@@ -192,12 +191,12 @@ class TestGitHubFunctions(BaseTestCase):
         mock_user_model.query.filter.return_value.first.return_value = MockUser(github_token='token')
         mock_session.return_value.get.side_effect = Exception
 
-        returnValue = fetch_username_from_token()
+        return_value = fetch_username_from_token()
 
         mock_user_model.query.filter.assert_called_once_with(mock_user_model.id == mock_g.user.id)
         mock_session.assert_called_once()
-        self.assertIsNone(returnValue)
-        mock_g.log.error.assert_called_once_with('Failed to fetch the user token')
+        self.assertIsNone(return_value)
+        mock_g.log.error.assert_called_once_with("Failed to fetch the user token")
 
     @mock.patch('requests.post')
     def test_github_callback_empty_post(self, mock_post):
@@ -205,7 +204,7 @@ class TestGitHubFunctions(BaseTestCase):
         Send empty post request to github_callback.
         """
         with self.app.test_client() as client:
-            response = client.post('/account/github_callback')
+            response = client.post("/account/github_callback")
 
         self.assertEqual(response.status_code, 404)
         mock_post.assert_not_called()
@@ -216,7 +215,7 @@ class TestGitHubFunctions(BaseTestCase):
         Send empty get request to github_callback.
         """
         with self.app.test_client() as client:
-            response = client.get('/account/github_callback')
+            response = client.get("/account/github_callback")
 
         self.assertEqual(response.status_code, 404)
         mock_post.assert_not_called()
@@ -231,7 +230,7 @@ class TestGitHubFunctions(BaseTestCase):
         mock_post.return_value.json.return_value = {}
 
         with self.app.test_client() as client:
-            response = client.get('/account/github_callback', query_string={'code': 'secret'})
+            response = client.get("/account/github_callback", query_string={'code': 'secret'})
 
         self.assertEqual(response.status_code, 302)
         mock_post.assert_called_once()
@@ -249,7 +248,7 @@ class TestGitHubFunctions(BaseTestCase):
         mock_post.return_value.json.return_value = {'access_token': 'test'}
 
         with self.app.test_client() as client:
-            response = client.get('/account/github_callback', query_string={'code': 'secret'})
+            response = client.get("/account/github_callback", query_string={'code': 'secret'})
 
         self.assertEqual(response.status_code, 302)
         mock_post.assert_called_once()
@@ -265,10 +264,9 @@ class TestGitHubFunctions(BaseTestCase):
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin, self.user.github_token)
         with self.app.test_client() as c:
+            c.post("/account/login", data=self.create_login_form_data(self.user.email, self.user.password))
             response = c.post(
-                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
-            response = c.post(
-                '/account/manage', data=dict(
+                "/account/manage", data=dict(
                     current_password=self.user.password,
                     name="T1duS",
                     email=self.user.email
@@ -297,15 +295,15 @@ class ManageAccount(BaseTestCase):
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
         with self.app.test_client() as c:
+            c.post("/account/login", data=self.create_login_form_data(self.user.email, self.user.password))
+            new_user_name = "T1duS"
             response = c.post(
-                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
-            response = c.post(
-                '/account/manage', data=dict(
+                "/account/manage", data=dict(
                     current_password=self.user.password,
-                    name="T1duS",
+                    name=new_user_name,
                     email=self.user.email
                 ))
-            user = User.query.filter(User.name == "T1duS").first()
+            user = User.query.filter(User.name == new_user_name).first()
             self.assertNotEqual(user, None)
             self.assertIn("Settings saved", str(response.data))
 
@@ -316,15 +314,15 @@ class ManageAccount(BaseTestCase):
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
         with self.app.test_client() as c:
+            c.post("/account/login", data=self.create_login_form_data(self.user.email, self.user.password))
+            new_user_email = "valid@gmail.com"
             response = c.post(
-                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
-            response = c.post(
-                '/account/manage', data=dict(
+                "/account/manage", data=dict(
                     current_password=self.user.password,
                     name=self.user.name,
-                    email="valid@gmail.com"
+                    email=new_user_email
                 ))
-            user = User.query.filter(User.email == "valid@gmail.com").first()
+            user = User.query.filter(User.email == new_user_email).first()
             self.assertNotEqual(user, None)
             self.assertIn("Settings saved", str(response.data))
 
@@ -335,15 +333,15 @@ class ManageAccount(BaseTestCase):
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
         with self.app.test_client() as c:
+            c.post("/account/login", data=self.create_login_form_data(self.user.email, self.user.password))
+            invalid_new_email = "invalid@gg"
             response = c.post(
-                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
-            response = c.post(
-                '/account/manage', data=dict(
+                "/account/manage", data=dict(
                     current_password=self.user.password,
                     name=self.user.name,
-                    email="invalid@gg"
+                    email=invalid_new_email
                 ))
-            user = User.query.filter(User.email == "invalid@gg").first()
+            user = User.query.filter(User.email == invalid_new_email).first()
             self.assertEqual(user, None)
             self.assertNotIn("Settings saved", str(response.data))
             self.assertIn("entered value is not a valid email address", str(response.data))
@@ -357,13 +355,13 @@ class ManageAccount(BaseTestCase):
         """
         Test sending recovery email to user.
         """
-        user = MockUser(1, 'testuser', 'dummy@test.org', 'dummy')
+        user = MockUser(1, "testuser", "dummy@test.org", "dummy")
         mock_mailer.send_simple_message.return_value = True
 
         send_reset_email(user)
 
         mock_hash.assert_called_once()
-        mock_app.jinja_env.get_or_select_template.assert_called_once_with('email/recovery_link.txt')
+        mock_app.jinja_env.get_or_select_template.assert_called_once_with("email/recovery_link.txt")
         mock_url_for.assert_called_once()
         mock_mailer.send_simple_message.assert_called_once()
         mock_flash.assert_not_called()
@@ -377,26 +375,26 @@ class ManageAccount(BaseTestCase):
         """
         Test sending recovery email to user.
         """
-        user = MockUser(1, 'testuser', 'dummy@test.org', 'dummy')
+        user = MockUser(1, "testuser", "dummy@test.org", "dummy")
         mock_mailer.send_simple_message.return_value = False
 
         send_reset_email(user)
 
         mock_hash.assert_called_once()
-        mock_app.jinja_env.get_or_select_template.assert_called_once_with('email/recovery_link.txt')
+        mock_app.jinja_env.get_or_select_template.assert_called_once_with("email/recovery_link.txt")
         mock_url_for.assert_called_once()
         mock_mailer.send_simple_message.assert_called_once()
-        mock_flash.assert_called_once_with('Could not send an email. Please get in touch', 'error-message')
+        mock_flash.assert_called_once_with("Could not send an email. Please get in touch", "error-message")
 
     def test_account_reset_get(self):
         """
         Test account reset endpoint with GET.
         """
         with self.app.test_client() as client:
-            response = client.get('/account/reset')
+            response = client.get("/account/reset")
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn('Recover password', str(response.data))
+        self.assertIn("Recover password", str(response.data))
 
     @mock.patch('mod_auth.controllers.flash')
     @mock.patch('mod_auth.controllers.send_reset_email')
@@ -406,14 +404,15 @@ class ManageAccount(BaseTestCase):
         Test account reset endpoint with POST where user doesn't exist
         """
         mock_user_model.query.filter_by.return_value.first.return_value = None
-        form_data = {'email': 'example@test.org'}
+        email_to_test = "example@test.org"
+        form_data = {'email': email_to_test}
 
         with self.app.test_client() as client:
-            response = client.post('/account/reset', data=form_data)
+            response = client.post("/account/reset", data=form_data)
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn('Recover password', str(response.data))
-        mock_user_model.query.filter_by.assert_called_once_with(email='example@test.org')
+        self.assertIn("Recover password", str(response.data))
+        mock_user_model.query.filter_by.assert_called_once_with(email=email_to_test)
         mock_mail.assert_not_called()
         mock_flash.assert_called_once()
 
@@ -425,14 +424,15 @@ class ManageAccount(BaseTestCase):
         Test account reset endpoint with POST where user does exist
         """
         mock_user_model.query.filter_by.return_value.first.return_value = "user"
-        form_data = {'email': 'example@test.org'}
+        email_to_test = "example@test.org"
+        form_data = {'email': email_to_test}
 
         with self.app.test_client() as client:
-            response = client.post('/account/reset', data=form_data)
+            response = client.post("/account/reset", data=form_data)
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn('Recover password', str(response.data))
-        mock_user_model.query.filter_by.assert_called_once_with(email='example@test.org')
+        self.assertIn("Recover password", str(response.data))
+        mock_user_model.query.filter_by.assert_called_once_with(email=email_to_test)
         mock_mail.assert_called_once_with("user")
         mock_flash.assert_called_once()
 
@@ -447,10 +447,10 @@ class ManageAccount(BaseTestCase):
         time_expired = 100
 
         with self.app.test_client() as client:
-            response = client.post('/account/reset/1/{}/some_mac'.format(time_expired))
+            response = client.post(f"/account/reset/1/{time_expired}/some_mac")
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn('Redirecting...', str(response.data))
+        self.assertIn("Redirecting...", str(response.data))
         mock_flash.assert_called_once()
 
     @mock.patch('mod_auth.controllers.User')
@@ -463,15 +463,15 @@ class ManageAccount(BaseTestCase):
         """
         time_now = 100
         mock_time.return_value = time_now
-        mock_user.query.filter_by.return_value.first.return_value = MockUser(email='mock',
-                                                                             name='dummy',
-                                                                             password='psswd')
+        mock_user.query.filter_by.return_value.first.return_value = MockUser(email="mock",
+                                                                             name="dummy",
+                                                                             password="psswd")
 
         with self.app.test_client() as client:
-            response = client.get('/account/reset/1/{}/some_mac'.format(time_now))
+            response = client.get(f"/account/reset/1/{time_now}/some_mac")
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn('Please enter your new password below', str(response.data))
+        self.assertIn("Please enter your new password below", str(response.data))
         mock_user.query.filter_by.assert_called_once_with(id=1)
         mock_hmac.assert_called_once()
         mock_flash.assert_not_called()
@@ -488,15 +488,16 @@ class ManageAccount(BaseTestCase):
         """
         time_now = 100
         mock_time.return_value = time_now
-        mock_user.query.filter_by.return_value.first.return_value = MockUser(email='mock',
-                                                                             name='dummy',
-                                                                             password='psswd')
+        mock_user.query.filter_by.return_value.first.return_value = MockUser(email="mock",
+                                                                             name="dummy",
+                                                                             password="psswd")
 
         with self.app.test_client() as client:
-            response = client.post('/account/reset/1/{}/some_mac'.format(time_now),
+            new_password = "abcdEFGH@1234"
+            response = client.post(f"/account/reset/1/{time_now}/some_mac",
                                    data={
-                                       'Password': 'abcdEFGH@1234',
-                                       'Repeat password': 'abcdEFGH@1234',
+                                       'Password': new_password,
+                                       'Repeat password': new_password,
                                        'Reset password': True
             })
 
@@ -519,10 +520,10 @@ class ManageAccount(BaseTestCase):
         time_expired = 100
 
         with self.app.test_client() as client:
-            response = client.post('/account/complete_signup/email/{}/some_mac'.format(time_expired))
+            response = client.post(f"/account/complete_signup/email/{time_expired}/some_mac")
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn('Redirecting...', str(response.data))
+        self.assertIn("Redirecting...", str(response.data))
         mock_flash.assert_called_once()
 
     @mock.patch('mod_auth.controllers.User')
@@ -535,18 +536,18 @@ class ManageAccount(BaseTestCase):
         """
         time_now = 100
         mock_time.return_value = time_now
-        mock_user.query.filter_by.return_value.first.return_value = MockUser(email='mock',
-                                                                             name='dummy',
-                                                                             password='psswd')
+        mock_user.query.filter_by.return_value.first.return_value = MockUser(email="mock",
+                                                                             name="dummy",
+                                                                             password="psswd")
 
         with self.app.test_client() as client:
-            response = client.post('/account/complete_signup/email/{}/some_mac'.format(time_now))
+            response = client.post(f"/account/complete_signup/email/{time_now}/some_mac")
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn('Redirecting...', str(response.data))
+        self.assertIn("Redirecting...", str(response.data))
         mock_hmac.assert_called_once()
         mock_user.query.filter_by.assert_called_once_with(email='email')
-        mock_flash.assert_called_once_with(mock.ANY, 'error-message')
+        mock_flash.assert_called_once_with(mock.ANY, "error-message")
 
     @mock.patch('mod_auth.controllers.User')
     @mock.patch('mod_auth.controllers.flash')
@@ -565,10 +566,10 @@ class ManageAccount(BaseTestCase):
         mock_user.return_value = MockUser(id=1)
 
         with self.app.test_client() as client:
-            response = client.post('/account/complete_signup/email/{}/some_mac'.format(time_now))
+            response = client.post(f"/account/complete_signup/email/{time_now}/some_mac")
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn('Redirecting...', str(response.data))
+        self.assertIn("Redirecting...", str(response.data))
         mock_hmac.assert_called_once()
         mock_user.query.filter_by.assert_called_once_with(email='email')
         mock_form.assert_called_once_with()
@@ -589,7 +590,7 @@ class ManageUsers(BaseTestCase):
         """
 
         with self.app.test_client() as client:
-            response = client.get('/account/user/2')
+            response = client.get("/account/user/2")
 
         self.assertEqual(response.status_code, 302)
 
@@ -711,7 +712,7 @@ class ManageUsers(BaseTestCase):
         mock_user.query.filter_by.return_value.first.return_value = MockUser(id=1, role=None)
         mock_g.user = MockUser(id=1, role="None")
 
-        response = deactivate(1)
+        deactivate(1)
 
         mock_user.query.filter_by.assert_called_once_with(id=1)
         mock_form.assert_called_once()

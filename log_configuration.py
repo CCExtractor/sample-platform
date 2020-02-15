@@ -20,7 +20,7 @@ class LogConfiguration:
         else:
             self._consoleLogger.setLevel(logging.INFO)
         # create a file handler
-        path = os.path.join(folder, 'logs', '{name}.log'.format(name=filename))
+        path = os.path.join(folder, 'logs', f'{filename}.log')
         self._fileLogger = logging.handlers.RotatingFileHandler(path, maxBytes=1024 * 1024, backupCount=20)
         self._fileLogger.setLevel(logging.DEBUG)
         # create a logging format

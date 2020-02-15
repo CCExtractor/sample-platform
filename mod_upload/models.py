@@ -76,7 +76,7 @@ class Upload(Base):
         :return: Returns the string containing 'id' field of the Upload model
         :rtype: str
         """
-        return '<Upload {id}>'.format(id=self.id)
+        return f"<Upload {self.id}>"
 
 
 class QueuedSample(Base):
@@ -118,7 +118,7 @@ class QueuedSample(Base):
         :return: Returns the string containing 'sha' and 'extension' field of the QueuedSample model
         :rtype: str
         """
-        return "{sha}{extension}".format(sha=self.sha, extension=self.extension)
+        return f"{self.sha}{self.extension}"
 
 
 class UploadLog(Base):
@@ -203,7 +203,7 @@ class FTPCredentials(Base):
         self.password = password
 
         if home_directory is None:
-            home_directory = '/home/{uid}'.format(uid=user_id)
+            home_directory = f'/home/{user_id}'
         self.dir = home_directory
 
     @staticmethod

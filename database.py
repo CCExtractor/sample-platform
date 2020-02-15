@@ -94,7 +94,7 @@ class EnumSymbol(object):
         :return: object representation
         :rtype: str
         """
-        return "<{name}>".format(name=self.name)
+        return f"<{self.name}>"
 
 
 class EnumMeta(type):

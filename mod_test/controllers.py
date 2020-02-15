@@ -49,8 +49,7 @@ def not_found(error):
 @template_renderer()
 def index():
     """Show index page for tests."""
-    fork = Fork.query.filter(Fork.github.like(("%/{owner}/{repo}.git").format(owner=g.github['repository_owner'],
-                                                                              repo=g.github['repository']))).first()
+    fork = Fork.query.filter(Fork.github.like(f"%/{g.github['repository_owner']}/{g.github['repository']}.git")).first()
     return {
         'tests': Test.query.order_by(Test.id.desc()).limit(50).all(),
         'TestType': TestType,
@@ -70,7 +69,7 @@ def get_data_for_test(test, title=None) -> Dict[str, Any]:
     :rtype: dict
     """
     if title is None:
-        title = 'test {id}'.format(id=test.id)
+        title = f"test {test.id}"
 
     populated_categories = g.db.query(regressionTestLinkTable.c.category_id).subquery()
     categories = Category.query.filter(Category.id.in_(populated_categories)).order_by(Category.name.asc()).all()
@@ -219,8 +218,8 @@ def by_id(test_id):
     """
     test = Test.query.filter(Test.id == test_id).first()
     if test is None:
-        g.log.error(f'test with id: {test_id} not found!')
-        raise TestNotFoundException('Test with id {id} does not exist'.format(id=test_id))
+        g.log.error(f"test with id: {test_id} not found!")
+        raise TestNotFoundException(f"Test with id {test_id} does not exist")
 
     return get_data_for_test(test)
 
@@ -246,14 +245,12 @@ def ccextractor_version(ccx_version):
         test = Test.query.filter(Test.commit == version.commit).first()
 
         if test is None:
-            g.log.error(f'test with commit {version.commit} not found!')
-            raise TestNotFoundException(
-                'There are no tests available for CCExtractor version {version}'.format(version=version.version)
-            )
+            g.log.error(f"test with commit {version.commit} not found!")
+            raise TestNotFoundException(f"There are no tests available for CCExtractor version {version.version}")
 
-        return get_data_for_test(test, 'CCExtractor {version}'.format(version=version.version))
+        return get_data_for_test(test, f"CCExtractor {version.version}")
 
-    raise TestNotFoundException('There is no CCExtractor version known as {version}'.format(version=ccx_version))
+    raise TestNotFoundException(f"There is no CCExtractor version known as {ccx_version}")
 
 
 @mod_test.route('/commit/<commit_hash>')
@@ -264,8 +261,8 @@ def by_commit(commit_hash):
 
     Look up the hash, find a test for it and redirect.
 
-    :param ccx_version: commit hash
-    :type ccx_version: str
+    :param commit_hash: commit hash
+    :type commit_hash: str
     :raises TestNotFoundException: when no test is found for the commit
     :return: test data
     :rtype: dict
@@ -273,10 +270,10 @@ def by_commit(commit_hash):
     test = Test.query.filter(Test.commit == commit_hash).first()
 
     if test is None:
-        g.log.error(f'test with commit hash {commit_hash} not found!')
-        raise TestNotFoundException('There is no test available for commit {commit}'.format(commit=commit_hash))
+        g.log.error(f"test with commit hash {commit_hash} not found!")
+        raise TestNotFoundException(f"There is no test available for commit {commit_hash}")
 
-    return get_data_for_test(test, 'commit {commit}'.format(commit=commit_hash))
+    return get_data_for_test(test, f"commit {commit_hash}")
 
 
 @mod_test.route('/master/<platform>')
@@ -294,17 +291,17 @@ def latest_commit_info(platform):
     try:
         platform = TestPlatform.from_string(platform)
     except ValueError:
-        g.log.critical(f'platform {platform} is not supported!')
+        g.log.critical(f"platform {platform} is not supported!")
         abort(404)
     # Look up the hash of the latest commit
     commit_hash = GeneralData.query.filter(GeneralData.key == 'fetch_commit_' + platform.value).first().value
     test = Test.query.filter(Test.commit == commit_hash, Test.platform == platform).first()
 
     if test is None:
-        g.log.error(f'test with commit hash {commit_hash} not found in {str(platform)}!')
-        raise TestNotFoundException('There is no test available for commit {commit}'.format(commit=commit_hash))
+        g.log.error(f"test with commit hash {commit_hash} not found in {str(platform)}!")
+        raise TestNotFoundException(f"There is no test available for commit {commit_hash}")
 
-    return get_data_for_test(test, 'master {commit}'.format(commit=commit_hash))
+    return get_data_for_test(test, f"master {commit_hash}")
 
 
 @mod_test.route('/diff/<test_id>/<regression_test_id>/<output_id>', defaults={'to_view': 1})
@@ -331,7 +328,6 @@ def generate_diff(test_id: int, regression_test_id: int, output_id: int, to_view
     """
     from run import config
 
-    # Fetch test
     result = TestResultFile.query.filter(and_(
         TestResultFile.test_id == test_id,
         TestResultFile.regression_test_id == regression_test_id,
@@ -349,16 +345,11 @@ def generate_diff(test_id: int, regression_test_id: int, output_id: int, to_view
                 diff_html_text,
                 mimetype='text/html',
                 headers={
-                    "Content-disposition":
-                        "attachment; filename=test{testid}_regression{regrid}_output{outid}.html".format(
-                            testid=test_id,
-                            regrid=regression_test_id,
-                            outid=output_id
-                        )
+                    'Content-disposition':
+                        f"attachment; filename=test{test_id}_regression{regression_test_id}_output{output_id}.html"
                 }
             )
-        else:
-            abort(403, 'generate_diff')
+        abort(403, 'generate_diff')
 
     abort(404)
 
@@ -379,15 +370,15 @@ def download_build_log_file(test_id):
     test = Test.query.filter(Test.id == test_id).first()
 
     if test is not None:
-        # Fetch logfile
-        log_file_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'LogFiles', test_id + '.txt')
+        file_name = f"{test_id}.txt"
+        log_file_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'LogFiles', file_name)
 
         if os.path.isfile(log_file_path):
-            return serve_file_download(test_id + '.txt', 'LogFiles', 'logfile-download', content_type='text/plain')
+            return serve_file_download(file_name, 'LogFiles', 'logfile-download', content_type='text/plain')
 
-        raise TestNotFoundException('Build log for Test {id} not found'.format(id=test_id))
+        raise TestNotFoundException(f"Build log for Test {test_id} not found")
 
-    raise TestNotFoundException('Test with id {id} not found'.format(id=test_id))
+    raise TestNotFoundException(f"Test with id {test_id} not found")
 
 
 @mod_test.route('/restart_test/<test_id>', methods=['GET', 'POST'])
@@ -404,13 +395,13 @@ def restart_test(test_id):
     test = Test.query.filter(Test.id == test_id).first()
     test_fork = TestFork.query.filter(TestFork.user_id == g.user.id, TestFork.test_id == test_id).first()
     if not g.user.is_admin and test_fork is None:
-        g.log.warning('user with id: {g.user.id} tried to access restricted endpoint')
+        g.log.warning(f"user with id: {g.user.id} tried to access restricted endpoint")
         abort(403)
     TestResultFile.query.filter(TestResultFile.test_id == test.id).delete()
     TestResult.query.filter(TestResult.test_id == test.id).delete()
     TestProgress.query.filter(TestProgress.test_id == test.id).delete()
     g.db.commit()
-    g.log.info(f'test with id: {test_id} restarted')
+    g.log.info(f"test with id: {test_id} restarted")
     return redirect(url_for('.by_id', test_id=test.id))
 
 
@@ -428,7 +419,7 @@ def stop_test(test_id):
     test = Test.query.filter(Test.id == test_id).first()
     test_fork = TestFork.query.filter(TestFork.user_id == g.user.id, TestFork.test_id == test_id).first()
     if not g.user.is_admin and test_fork is None:
-        g.log.warning('user with id: {g.user.id} tried to access restricted endpoint')
+        g.log.warning(f"user with id: {g.user.id} tried to access restricted endpoint")
         abort(403)
     message = "Canceled by user"
     if g.user.is_admin:
@@ -436,5 +427,5 @@ def stop_test(test_id):
     test_progress = TestProgress(test.id, TestStatus.canceled, message)
     g.db.add(test_progress)
     g.db.commit()
-    g.log.info(f'test with id: {test_id} stopped')
+    g.log.info(f"test with id: {test_id} stopped")
     return redirect(url_for('.by_id', test_id=test.id))

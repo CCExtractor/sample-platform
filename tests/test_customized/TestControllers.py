@@ -173,7 +173,7 @@ class TestControllers(BaseTestCase):
 
     def test_customize_test_github_server_error(self, mock_user, mock_git, mock_requests):
         """
-        Test in case github ever returns a 500 error
+        Test in case GitHub ever returns a 500 error
         """
 
         import mod_customized.controllers

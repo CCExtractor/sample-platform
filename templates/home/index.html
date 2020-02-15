@@ -14,7 +14,7 @@
                 <li>Get information on previously submitted samples</li>
                 <li>Run the regression tests</li>
                 {% if test_access %}
-                <li><a href="{{ url_for('custom.index')}}"> Run your own tests </a>if you have <a href="{{url_for('auth.manage')}}">linked</a> your github</li>
+                <li><a href="{{ url_for('custom.index')}}"> Run your own tests </a>if you have <a href="{{url_for('auth.manage')}}">linked</a> your GitHub</li>
                 {% else %}
                 <li>"Want to run your own tests? Send the admins a request" if you don't have the permissions yet</li>
                 {% endif %}

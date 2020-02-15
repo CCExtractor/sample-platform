@@ -510,7 +510,7 @@ class TestControllers(BaseTestCase):
         Check webhook fails when ping with wrong url
         """
         with self.app.test_client() as c:
-            # non github ip address
+            # non GitHub ip address
             wsgi_environment = {'REMOTE_ADDR': '0.0.0.0'}
             data = {'action': 'published',
                     'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': '0.0.1'}}
@@ -542,7 +542,7 @@ class TestControllers(BaseTestCase):
             # Full Release with version with 2.1
             data = {'action': 'published',
                     'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': 'v2.1'}}
-            # one of ip address from github webhook
+            # one of ip address from GitHub web hook
             last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
             # abcdefgh is the new commit after previous version defined in base.py
             last_commit.value = 'abcdefgh'
@@ -663,7 +663,7 @@ class TestControllers(BaseTestCase):
 
         data = {'action': 'closed',
                 'pull_request': {'number': '1234'}}
-        # one of ip address from github webhook
+        # one of ip address from GitHub web hook
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
@@ -1194,7 +1194,7 @@ class TestControllers(BaseTestCase):
 
         :param data: payload for the event
         :type data: dict
-        :param event: the github event to be triggered
+        :param event: the GitHub event to be triggered
         :type event: str
         """
         sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])

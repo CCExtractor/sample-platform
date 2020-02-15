@@ -137,11 +137,11 @@ def date_time_format(value: datetime, fmt: str = '%Y-%m-%d %H:%M:%S') -> str:
 
 def get_github_issue_link(issue_id: int) -> str:
     """
-    Get github issue link from issue_id.
+    Get GitHub issue link from issue_id.
 
-    :param issue_id: id of the github issue
+    :param issue_id: id of the GitHub issue
     :type issue_id: int
-    :return: URL to the github issue
+    :return: URL to the GitHub issue
     :rtype: str
     """
     return f'https://www.github.com/{config.get("GITHUB_OWNER", "")}/' \

@@ -95,12 +95,12 @@ class Fork(Base):
 
     @property
     def github_url(self):
-        """Get github url of the fork."""
+        """Get GitHub url of the fork."""
         return self.github.replace('.git', '')
 
     @property
     def github_name(self):
-        """Get github name of the fork's user."""
+        """Get GitHub name of the fork's user."""
         return self.github_url.replace('https://github.com/', '')
 
 
@@ -188,7 +188,7 @@ class Test(Base):
     @property
     def github_link(self):
         """
-        Generate github link to view the pr or commit.
+        Generate GitHub link to view the PR or commit.
 
         :return: url
         :rtype: str

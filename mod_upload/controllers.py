@@ -113,10 +113,10 @@ def make_github_issue(title, body=None, labels=None) -> Any:
     r = session.post(url, json.dumps(issue))    # type: ignore
 
     if r.status_code == 201:
-        g.log.info('new github issue created')
+        g.log.info('new GitHub issue created')
         return r.json()
 
-    g.log.error('failed to create github issue')
+    g.log.error('failed to create GitHub issue')
     g.log.debug(str(r.json()))
     return 'ERROR'
 

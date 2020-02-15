@@ -139,10 +139,10 @@ def github_token_validity(token: str):
 @mod_auth.route('/github_redirect', methods=['GET', 'POST'])
 def github_redirect():
     """
-    Create redirect URL if no github token found.
+    Create redirect URL if no GitHub token found.
 
-    Generate Redirect url to the GitHub page to take user permisssion
-    only when there is no github token stored for that user session.
+    Generate Redirect url to the GitHub page to take user permission
+    only when there is no GitHub token stored for that user session.
     """
     from run import config
     github_client_id = config.get('GITHUB_CLIENT_ID', '')
@@ -189,8 +189,8 @@ def github_callback():
     from run import config
     if 'code' in request.args:
         """
-        request access_token to the github in place of payload
-        payload contains client id, secret and temporary github code
+        request access_token to the GitHub in place of payload
+        payload contains client id, secret and temporary GitHub code
         """
         url = 'https://github.com/login/oauth/access_token'
         payload = {

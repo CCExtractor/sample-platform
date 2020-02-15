@@ -1152,7 +1152,7 @@ def set_avg_time(platform, process_type: str, time_taken: int) -> None:
 
 def comment_pr(test_id, state, pr_nr, platform) -> None:
     """
-    Upload the test report to the github PR as comment.
+    Upload the test report to the GitHub PR as comment.
 
     :param test_id: The identity of Test whose report will be uploaded
     :type test_id: str
@@ -1196,7 +1196,7 @@ def comment_pr(test_id, state, pr_nr, platform) -> None:
     try:
         gh = GitHub(access_token=g.github['bot_token'])
         repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
-        # Pull requests are just issues with code, so github consider pr comments in issues
+        # Pull requests are just issues with code, so GitHub considers PR comments in issues
         pull_request = repository.issues(pr_nr)
         comments = pull_request.comments().get()
         bot_name = g.github['bot_name']

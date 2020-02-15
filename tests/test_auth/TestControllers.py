@@ -237,7 +237,7 @@ class TestGitHubFunctions(BaseTestCase):
         mock_post.assert_called_once()
         mock_user_model.query.filter.assert_called_once()
         mock_g.db.commit.assert_not_called()
-        mock_g.log.error.assert_called_once_with('github didn\'t return an access token')
+        mock_g.log.error.assert_called_once_with("GitHub didn't return an access token")
 
     @mock.patch('mod_auth.controllers.User')
     @mock.patch('mod_auth.controllers.g')
@@ -260,7 +260,7 @@ class TestGitHubFunctions(BaseTestCase):
 
     def test_github_redirect(self):
         """
-        Test editing account where github token is not null
+        Test editing account where GitHub token is not null
         """
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin, self.user.github_token)

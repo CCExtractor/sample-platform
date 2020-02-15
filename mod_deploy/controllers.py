@@ -1,4 +1,4 @@
-"""contain methods to maintain github hooks based on automatic deploy."""
+"""contain methods to maintain GitHub hooks based on automatic deploy."""
 import hashlib
 import hmac
 import json
@@ -72,7 +72,7 @@ def is_github_web_hook_ip(request_ip: IPAddress) -> bool:
 
 
 def request_from_github(abort_code: int = 418) -> Callable:
-    """Provide decorator to handle request from github on the webhook."""
+    """Provide decorator to handle request from GitHub on the web hook."""
     def decorator(f):
         """Decorate the function to check if a request is a GitHub hook request."""
         @wraps(f)

@@ -75,10 +75,8 @@ def index():
             commit_hash = fork_test_form.commit_hash.data
             repo = g.github['repository']
             platforms = fork_test_form.platform.data
-            api_url = ('https://api.github.com/repos/{user}/{repo}/commits/{hash}').format(
-                user=username, repo=repo, hash=commit_hash
-            )
-            # Show error if github fails to recognize commit
+            api_url = f'https://api.github.com/repos/{username}/{repo}/commits/{commit_hash}'
+            # Show error if GitHub fails to recognize commit
             response = requests.get(api_url)
             if response.status_code == 500:
                 fork_test_form.commit_hash.errors.append('Error contacting GitHub')

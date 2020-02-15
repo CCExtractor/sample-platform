@@ -96,7 +96,7 @@ def _process(test_result: str, correct: str, suffix_id: str) -> Tuple[str, str]:
     events_test.sort()
     events_correct.sort()
 
-    html_test = create_diff_entries(suffix_id, 'test', events_test, tr_compr)
+    html_test = create_diff_entries(suffix_id, 'test_result', events_test, tr_compr)
     html_correct = create_diff_entries(suffix_id, 'correct', events_correct, cr_compr)
 
     return f'<div class="diff-div-text">{html_test}</div>', f'<div class="diff-div-text">{html_correct}</div>'
@@ -113,7 +113,7 @@ def create_diff_entries(suffix_id: str, id_name: str, events: List[List[object]]
             result += compressed_data[idx]
             idx += 1
         if event[1] == 'OPEN':
-            cl = f'<div class="diff-same-region" id="{event[2]}_diff_same_{id_name}_result_{suffix_id}">'
+            cl = f'<div class="diff-same-region" id="{event[2]}_diff_same_{id_name}_{suffix_id}">'
             result += cl
         else:
             result += '</div>'

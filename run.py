@@ -61,8 +61,8 @@ log_configuration = LogConfiguration(app.root_path,        # type: ignore # type
 log = log_configuration.create_logger("Platform")
 
 
-def install_secret_keys(application: Flask, secret_session: str = 'secret_key',
-                        secret_csrf: str = 'secret_csrf') -> None:
+def load_secret_keys(application: Flask, secret_session: str = 'secret_key',
+                     secret_csrf: str = 'secret_csrf') -> None:
     """
     Configure the SECRET_KEY from a file in the instance directory.
 
@@ -78,8 +78,8 @@ def install_secret_keys(application: Flask, secret_session: str = 'secret_key',
         traceback.print_exc()
         print('Error: No secret key. Create it with:')
         if not os.path.isdir(os.path.dirname(session_file_path)):
-            print('mkdir -p', os.path.dirname(session_file_path))
-        print('head -c 24 /dev/urandom >', session_file_path)
+            print(f'mkdir -p {os.path.dirname(session_file_path)}')
+        print(f'head -c 24 /dev/urandom > {session_file_path}')
         do_exit = True
 
     try:
@@ -88,8 +88,8 @@ def install_secret_keys(application: Flask, secret_session: str = 'secret_key',
     except IOError:
         print('Error: No secret CSRF key. Create it with:')
         if not os.path.isdir(os.path.dirname(csrf_file_path)):
-            print('mkdir -p', os.path.dirname(csrf_file_path))
-        print('head -c 24 /dev/urandom >', csrf_file_path)
+            print(f'mkdir -p {os.path.dirname(csrf_file_path)}')
+        print(f'head -c 24 /dev/urandom > {csrf_file_path}')
         do_exit = True
 
     if do_exit:
@@ -97,7 +97,7 @@ def install_secret_keys(application: Flask, secret_session: str = 'secret_key',
 
 
 if 'TESTING' not in os.environ or os.environ['TESTING'] == 'False':
-    install_secret_keys(app)
+    load_secret_keys(app)
 
 
 def sub_menu_open(menu_entries: List[Dict[str, str]], active_route: str) -> bool:
@@ -144,11 +144,8 @@ def get_github_issue_link(issue_id: int) -> str:
     :return: URL to the github issue
     :rtype: str
     """
-    return 'https://www.github.com/{org}/{repo}/issues/{id}'.format(
-        org=config.get('GITHUB_OWNER', ''),
-        repo=config.get('GITHUB_REPOSITORY', ''),
-        id=issue_id
-    )
+    return f'https://www.github.com/{config.get("GITHUB_OWNER", "")}/' \
+           f'{config.get("GITHUB_REPOSITORY", "")}/issues/{issue_id}'
 
 
 def filename(filepath: str) -> str:
@@ -176,7 +173,7 @@ class RegexConverter(BaseConverter):
         self.regex = items[0]
 
 
-# Allow regexes in routes
+# Allow regexps in routes
 app.url_map.converters['regex'] = RegexConverter
 
 
@@ -203,7 +200,7 @@ def forbidden(error: Forbidden) -> Dict[str, str]:
     """Handle unauthorized and forbidden access error."""
     user_name = 'Guest' if g.user is None else g.user.name
     user_role = 'Guest' if g.user is None else g.user.role.value
-    log.debug('{u} (role: {r}) tried to access {page}'.format(u=user_name, r=user_role, page=error.description))
+    log.debug(f'{user_name} (role: {user_role}) tried to access {error.description}')
 
     return {
         'user_role': user_role,

@@ -35,7 +35,7 @@ class MediaInfoFetcher:
                 doc = xmltodict.parse(fd.read())
             except Exception:
                 raise InvalidMediaInfoError("No Mediainfo root element present")
-            if 'MediaInfo' not in doc:
+            if 'Mediainfo' not in doc:
                 raise InvalidMediaInfoError("Mediainfo xml root element not present")
 
             self.media_info = doc['Mediainfo']

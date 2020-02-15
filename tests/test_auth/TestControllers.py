@@ -494,11 +494,10 @@ class ManageAccount(BaseTestCase):
 
         with self.app.test_client() as client:
             new_password = "abcdEFGH@1234"
-            response = client.post(f"/account/reset/1/{time_now}/some_mac",
-                                   data={
-                                       'Password': new_password,
-                                       'Repeat password': new_password,
-                                       'Reset password': True
+            response = client.post(f"/account/reset/1/{time_now}/some_mac", data={
+                'Password': new_password,
+                'Repeat password': new_password,
+                'Reset password': True
             })
 
         self.assertEqual(response.status_code, 302)

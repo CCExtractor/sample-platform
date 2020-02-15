@@ -3,7 +3,6 @@
 from __future__ import print_function
 
 import os
-import sys
 import traceback
 from datetime import datetime
 from exceptions import (IncompleteConfigException, MissingConfigError,
@@ -262,24 +261,3 @@ app.register_blueprint(mod_deploy)
 app.register_blueprint(mod_test, url_prefix="/test")
 app.register_blueprint(mod_ci)
 app.register_blueprint(mod_customized, url_prefix='/custom')
-
-if __name__ == '__main__':
-    # Run in development mode; Werkzeug server
-    # Load variables for running (if defined)
-    ssl_context = host = None
-    proto = 'https'
-    key = app.config.get('SSL_KEY', 'cert/key.key')
-    cert = app.config.get('SSL_CERT', 'cert/cert.cert')
-
-    if len(key) == 0 or len(cert) == 0:
-        ssl_context = 'adhoc'
-    else:
-        ssl_context = (cert, key)   # type: ignore
-
-    server_name = app.config.get('0.0.0.0')
-    port = app.config.get('SERVER_PORT', 443)
-
-    print('Server should be running soon on {0}://{1}:{2}'.format(proto, server_name, port))
-    if server_name != '127.0.0.1':
-        host = '0.0.0.0'
-    app.run(host, port, app.config['DEBUG'], ssl_context=ssl_context)

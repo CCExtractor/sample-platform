@@ -7,7 +7,7 @@ from os import path
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 if len(sys.argv) != 5:
-    print('Invalid number of arguments. Expected 5 arguments, got {x}'.format(x=len(sys.argv)))
+    print(f'Invalid number of arguments. Expected 5 arguments, got {len(sys.argv)}')
     exit()
 
 
@@ -19,14 +19,13 @@ def run():
     # Check if there's at least one admin user
     admin = User.query.filter(User.role == Role.admin).first()
     if admin is not None:
-        print("Admin already exists: {name}".format(name=admin.name))
+        print(f"Admin already exists: {admin.name}")
         return
 
-    user = User(sys.argv[2], Role.admin, sys.argv[3],
-                User.generate_hash(sys.argv[4]))
+    user = User(sys.argv[2], Role.admin, sys.argv[3], User.generate_hash(sys.argv[4]))
     db.add(user)
     db.commit()
-    print("Admin user created with name: {name}".format(name=user.name))
+    print(f"Admin user created with name: {user.name}")
 
 
 run()

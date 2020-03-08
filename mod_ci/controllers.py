@@ -246,7 +246,7 @@ def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
         if len(category.regression_tests) == 0:
             continue
         # Create XML file for test
-        file_name = '{name}.xml'.format(name=category.name)
+        file_name = f'{category.name}.xml'
         single_test = etree.Element('tests')
         should_write_xml = False
         for regression_test in category.regression_tests:
@@ -851,7 +851,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
 
     # If status is complete, remove the Kvm entry
     if status in [TestStatus.completed, TestStatus.canceled]:
-        log.debug("Test {id} has been {status}".format(id=test_id, status=status))
+        log.debug(f"Test {test_id} has been {status}")
         var_average = 'average_time_' + test.platform.value
         current_average = GeneralData.query.filter(GeneralData.key == var_average).first()
         average_time = 0
@@ -922,7 +922,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
     # Post status update
     state = Status.PENDING
     target_url = url_for('test.by_id', test_id=test.id, _external=True)
-    context = "CI - {name}".format(name=test.platform.value)
+    context = f"CI - {test.platform.value}"
 
     if status == TestStatus.canceled:
         state = Status.ERROR
@@ -949,9 +949,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
                 TestResultFile.got.isnot(None)
             )
         ).scalar()
-        log.debug('Test {id} completed: {crashes} crashes, {results} results'.format(
-            id=test.id, crashes=crashes, results=results
-        ))
+        log.debug(f'Test {test.id} completed: {crashes} crashes, {results} results')
         if crashes > 0 or results > 0:
             state = Status.FAILURE
             message = 'Not all tests completed successfully, please check'
@@ -970,7 +968,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
     try:
         gh_commit.post(state=state, description=message, context=context, target_url=target_url)
     except ApiError as a:
-        log.error('Got an exception while posting to GitHub! Message: {message}'.format(message=a.message))
+        log.error(f'Got an exception while posting to GitHub! Message: {a.message}')
 
     if status in [TestStatus.completed, TestStatus.canceled]:
         # Start next test if necessary, on the same platform
@@ -992,14 +990,12 @@ def equality_type_request(log, test_id, test, request):
     :param request: Request parameters
     :type request: Request
     """
-    log.debug('Equality for {t}/{rt}/{rto}'.format(
-        t=test_id, rt=request.form['test_id'], rto=request.form['test_file_id'])
-    )
+    log.debug(f'Equality for {test_id}/{request.form["test_id"]}/{request.form["test_file_id"]}')
     rto = RegressionTestOutput.query.filter(RegressionTestOutput.id == request.form['test_file_id']).first()
 
     if rto is None:
         # Equality posted on a file that's ignored presumably
-        log.info('No rto for {test_id}: {test}'.format(test_id=test_id, test=request.form['test_id']))
+        log.info(f'No rto for {test_id}: {request.form["test_id"]}')
     else:
         result_file = TestResultFile(test.id, request.form['test_id'], rto.id, rto.correct)
         g.db.add(result_file)
@@ -1021,7 +1017,7 @@ def upload_log_type_request(log, test_id, repo_folder, test, request) -> bool:
     :param request: Request parameters
     :type request: Request
     """
-    log.debug("Received log file for test {id}".format(id=test_id))
+    log.debug(f"Received log file for test {test_id}")
     # File upload, process
     if 'file' in request.files:
         uploaded_file = request.files['file']
@@ -1032,7 +1028,7 @@ def upload_log_type_request(log, test_id, repo_folder, test, request) -> bool:
         temp_path = os.path.join(repo_folder, 'TempFiles', filename)
         # Save to temporary location
         uploaded_file.save(temp_path)
-        final_path = os.path.join(repo_folder, 'LogFiles', '{id}{ext}'.format(id=test.id, ext='.txt'))
+        final_path = os.path.join(repo_folder, 'LogFiles', f"{test.id}.txt")
 
         os.rename(temp_path, final_path)
         log.debug("Stored log file")
@@ -1056,9 +1052,8 @@ def upload_type_request(log, test_id, repo_folder, test, request) -> bool:
     :param request: Request parameters
     :type request: Request
     """
-    log.debug('Upload for {t}/{rt}/{rto}'.format(
-        t=test_id, rt=request.form['test_id'], rto=request.form['test_file_id'])
-    )
+    log.debug(f'Upload for {test_id}/{request.form["test_id"]}/{request.form["test_file_id"]}'
+              )
     # File upload, process
     if 'file' in request.files:
         uploaded_file = request.files['file']
@@ -1077,7 +1072,7 @@ def upload_type_request(log, test_id, repo_folder, test, request) -> bool:
         file_hash = hash_sha256.hexdigest()
         filename, file_extension = os.path.splitext(filename)
         final_path = os.path.join(
-            repo_folder, 'TestResults', '{hash}{ext}'.format(hash=file_hash, ext=file_extension)
+            repo_folder, 'TestResults', f'{file_hash}{file_extension}'
         )
         os.rename(temp_path, final_path)
         rto = RegressionTestOutput.query.filter(
@@ -1103,7 +1098,7 @@ def finish_type_request(log, test_id, test, request):
     :param request: Request parameters
     :type request: Request
     """
-    log.debug('Finish for {t}/{rt}'.format(t=test_id, rt=request.form['test_id']))
+    log.debug(f"Finish for {test_id}/{request.form['test_id']}")
     regression_test = RegressionTest.query.filter(RegressionTest.id == request.form['test_id']).first()
     result = TestResult(
         test.id, regression_test.id, request.form['runTime'],
@@ -1113,10 +1108,10 @@ def finish_type_request(log, test_id, test, request):
     try:
         g.db.commit()
     except IntegrityError as e:
-        log.error('Could not save the results: {msg}'.format(msg=e))
+        log.error(f"Could not save the results: {e}")
 
 
-def set_avg_time(platform: Test.platform, process_type: str, time_taken: int) -> None:
+def set_avg_time(platform, process_type: str, time_taken: int) -> None:
     """
     Set average platform preparation time.
 
@@ -1152,7 +1147,7 @@ def set_avg_time(platform: Test.platform, process_type: str, time_taken: int) ->
 
 def comment_pr(test_id, state, pr_nr, platform) -> None:
     """
-    Upload the test report to the github PR as comment.
+    Upload the test report to the GitHub PR as comment.
 
     :param test_id: The identity of Test whose report will be uploaded
     :type test_id: str
@@ -1192,11 +1187,11 @@ def comment_pr(test_id, state, pr_nr, platform) -> None:
     template = app.jinja_env.get_or_select_template('ci/pr_comment.txt')
     message = template.render(tests=tot, failed_tests=regression_testid_failed, test_id=test_id,
                               state=state, platform=platform)
-    log.debug('GitHub PR Comment Message Created for Test_id: {test_id}'.format(test_id=test_id))
+    log.debug(f"GitHub PR Comment Message Created for Test_id: {test_id}")
     try:
         gh = GitHub(access_token=g.github['bot_token'])
         repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
-        # Pull requests are just issues with code, so github consider pr comments in issues
+        # Pull requests are just issues with code, so GitHub considers PR comments in issues
         pull_request = repository.issues(pr_nr)
         comments = pull_request.comments().get()
         bot_name = g.github['bot_name']
@@ -1205,16 +1200,15 @@ def comment_pr(test_id, state, pr_nr, platform) -> None:
             if comment['user']['login'] == bot_name and platform in comment['body']:
                 comment_id = comment['id']
                 break
-        log.debug('GitHub PR Comment ID Fetched for Test_id: {test_id}'.format(test_id=test_id))
+        log.debug(f"GitHub PR Comment ID Fetched for Test_id: {test_id}")
         if comment_id is None:
             comment = pull_request.comments().post(body=message)
             comment_id = comment['id']
         else:
             repository.issues().comments(comment_id).post(body=message)
-        log.debug('GitHub PR Comment ID {comment} Uploaded for Test_id: {test_id}'.format(
-            comment=comment_id, test_id=test_id))
+        log.debug(f"GitHub PR Comment ID {comment_id} Uploaded for Test_id: {test_id}")
     except Exception as e:
-        log.error('GitHub PR Comment Failed for Test_id: {test_id} with Exception {e}'.format(test_id=test_id, e=e))
+        log.error(f"GitHub PR Comment Failed for Test_id: {test_id} with Exception {e}")
 
 
 @mod_ci.route('/show_maintenance')
@@ -1248,11 +1242,11 @@ def blocked_users():
     blocked_users = BlockedUsers.query.order_by(BlockedUsers.user_id)
 
     # Initialize usernames dictionary
-    usernames = {u.user_id: 'Error, cannot get username' for u in blocked_users}
+    usernames = {u.user_id: "Error, cannot get username" for u in blocked_users}
     for key in usernames.keys():
         # Fetch usernames from GitHub API
         try:
-            api_url = requests.get('https://api.github.com/user/{}'.format(key), timeout=10)
+            api_url = requests.get(f"https://api.github.com/user/{key}", timeout=10)
             userdata = api_url.json()
             # Set values to the actual usernames if no errors
             usernames[key] = userdata['login']
@@ -1292,14 +1286,13 @@ def blocked_users():
                         repository.statuses(test.commit).post(
                             state=Status.FAILURE,
                             description="Tests canceled since user blacklisted",
-                            context="CI - {name}".format(name=test.platform.value),
+                            context=f"CI - {test.platform.value}",
                             target_url=url_for('test.by_id', test_id=test.id, _external=True)
                         )
                     except ApiError as a:
-                        g.log.error('Got an exception while posting to GitHub! Message: {message}'.format(
-                            message=a.message))
+                        g.log.error(f"Got an exception while posting to GitHub! Message: {a.message}")
         except ApiError as a:
-            g.log.error('Pull Requests of Blocked User could not be fetched: {res}'.format(res=a.response))
+            g.log.error(f"Pull Requests of Blocked User could not be fetched: {a.response}")
 
         return redirect(url_for('.blocked_users'))
 
@@ -1308,12 +1301,12 @@ def blocked_users():
     if remove_user_form.remove.data and remove_user_form.validate_on_submit():
         blocked_user = BlockedUsers.query.filter_by(user_id=remove_user_form.user_id.data).first()
         if blocked_user is None:
-            flash('No such user in Blacklist')
+            flash("No such user in Blacklist")
             return redirect(url_for('.blocked_users'))
 
         g.db.delete(blocked_user)
         g.db.commit()
-        flash('User removed successfully.')
+        flash("User removed successfully.")
         return redirect(url_for('.blocked_users'))
 
     return{

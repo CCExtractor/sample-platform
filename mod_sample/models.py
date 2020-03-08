@@ -10,6 +10,18 @@ import database
 from database import Base, DeclEnum
 
 
+def get_extension(extension: str) -> str:
+    """
+    Return the extension with a dot.
+
+    :param extension: The extension to format.
+    :type extension: str
+    :return: Return the extension with a dot or empty if no extension.
+    :rtype: str
+    """
+    return ("." + extension) if len(extension) > 0 else ""
+
+
 class Sample(Base):
     """Model to store and manage sample."""
 
@@ -45,13 +57,12 @@ class Sample(Base):
         :return: Returns the string containing 'sha' field of the Category model
         :rtype: str
         """
-        return '<Sample {hash}>'.format(hash=self.sha)
+        return f"<Sample {self.sha}>"
 
     @property
     def filename(self):
         """Return the full filename of the sample."""
-        extension = ("." + self.extension) if len(self.extension) > 0 else ""
-        return "{sha}{extension}".format(sha=self.sha, extension=extension)
+        return f'{self.sha}{get_extension(self.extension)}'
 
 
 class ExtraFile(Base):
@@ -88,7 +99,7 @@ class ExtraFile(Base):
         :return: Returns the string containing 'sha' field of the ExtraFile model
         :rtype: str
         """
-        return '<Sample extra for {id}>'.format(id=self.sample_id)
+        return f"<Sample extra for {self.sample_id}>"
 
     @property
     def short_name(self, length=5):     # type: ignore
@@ -100,10 +111,7 @@ class ExtraFile(Base):
         :return: A short name consisting of the first x characters of the hash, the id and the file extension.
         :rtype: str
         """
-        return "{short}_{id}.{extension}".format(
-            short=self.sample.sha[:length], id=self.id,
-            extension=self.extension
-        )
+        return f"{self.sample.sha[:length]}_{self.id}.{get_extension(self.extension)}"
 
     @property
     def filename(self):
@@ -113,8 +121,7 @@ class ExtraFile(Base):
         :return: Returns the full name of the file using the hash, id and file extension.
         :rtype: str
         """
-        extension = ("." + self.extension) if len(self.extension) > 0 else ""
-        return "{sha}_{id}{extension}".format(sha=self.sample.sha, id=self.id, extension=extension)
+        return f"{self.sample.sha}_{self.id}{get_extension(self.extension)}"
 
 
 class ForbiddenExtension(Base):
@@ -140,33 +147,33 @@ class ForbiddenExtension(Base):
         :return: Returns the string containing 'extension' field of the ForbiddenExtension model
         :rtype: str
         """
-        return '<Forbidden extension {extension}>'.format(extension=self.extension)
+        return f"<Forbidden extension {self.extension}>"
 
 
 class ForbiddenMimeType(Base):
-    """Model to store and manage forbidden mimetype."""
+    """Model to store and manage forbidden mime-type."""
 
     __tablename__ = 'mimetype_forbidden'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     mimetype = Column(String(64), primary_key=True)
 
-    def __init__(self, mimetype) -> None:
+    def __init__(self, mime_type) -> None:
         """
         Parametrized constructor for the ForbiddenMimeType model.
 
-        :param mimetype: The value of the 'mimetype' field of ForbiddenMimeType model
-        :type mimetype: str
+        :param mime_type: The value of the 'mime-type' field of ForbiddenMimeType model
+        :type mime_type: str
         """
-        self.mimetype = mimetype
+        self.mimetype = mime_type
 
     def __repr__(self) -> str:
         """
-        Represent a ForbiddenMimeType Model by its 'mimetype' Field.
+        Represent a ForbiddenMimeType Model by its 'mime-type' Field.
 
-        :return: Returns the string containing 'mimetype' field of the ForbiddenMimeType model
+        :return: Returns the string containing 'mime-type' field of the ForbiddenMimeType model
         :rtype: str
         """
-        return '<Forbidden MimeType {mime}>'.format(mime=self.mimetype)
+        return f"<Forbidden MimeType {self.mimetype}>"
 
 
 class Issue(Base):

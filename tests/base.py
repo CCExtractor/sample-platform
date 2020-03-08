@@ -59,13 +59,13 @@ def mock_decorator(f):
 
 def generate_keys():
     from utility import ROOT_DIR
-    secret_csrf_path = "{path}secret_csrf".format(path=os.path.join(ROOT_DIR, ""))
-    secret_key_path = "{path}secret_key".format(path=os.path.join(ROOT_DIR, ""))
+    secret_csrf_path = f"{os.path.join(ROOT_DIR, '')}secret_csrf"
+    secret_key_path = f"{os.path.join(ROOT_DIR, '')}secret_key"
     if not os.path.exists(secret_csrf_path):
-        secret_csrf_cmd = "head -c 24 /dev/urandom > {path}".format(path=secret_csrf_path)
+        secret_csrf_cmd = f"head -c 24 /dev/urandom > {secret_csrf_path}"
         os.system(secret_csrf_cmd)
     if not os.path.exists(secret_key_path):
-        secret_key_cmd = "head -c 24 /dev/urandom > {path}".format(path=secret_key_path)
+        secret_key_cmd = f"head -c 24 /dev/urandom > {secret_key_path}"
         os.system(secret_key_cmd)
 
     return {'secret_csrf_path': secret_csrf_path, 'secret_key_path': secret_key_path}
@@ -83,18 +83,18 @@ def load_config(file):
         'DATABASE_URI': 'sqlite:///:memory:',
         'WTF_CSRF_ENABLED': False,
         'SQLALCHEMY_POOL_SIZE': 1,
-        'GITHUB_DEPLOY_KEY': 'test_deploy',
-        'GITHUB_CI_KEY': 'test_ci',
-        'GITHUB_TOKEN': '',
-        'GITHUB_BOT': '',
-        'GITHUB_OWNER': 'test_owner',
-        'GITHUB_REPOSITORY': 'test_repo',
-        'HMAC_KEY': 'test_key',
-        'MIN_PWD_LEN': '10',
-        'MAX_PWD_LEN': '500',
-        'SAMPLE_REPOSITORY': 'temp',
-        'KVM_LINUX_NAME': 'linux-test',
-        'KVM_WINDOWS_NAME': 'window-test',
+        'GITHUB_DEPLOY_KEY': "test_deploy",
+        'GITHUB_CI_KEY': "test_ci",
+        'GITHUB_TOKEN': "",
+        'GITHUB_BOT': "",
+        'GITHUB_OWNER': "test_owner",
+        'GITHUB_REPOSITORY': "test_repo",
+        'HMAC_KEY': "test_key",
+        'MIN_PWD_LEN': 10,
+        'MAX_PWD_LEN': 500,
+        'SAMPLE_REPOSITORY': "temp",
+        'KVM_LINUX_NAME': "linux-test",
+        'KVM_WINDOWS_NAME': "window-test",
         'SECRET_KEY': secret_key,
         'CSRF_SESSION_KEY': secret_csrf
     }
@@ -109,18 +109,18 @@ def mock_api_request_github(url, data=None, timeout=None):
         return MockResponse({"login": url.split("/")[-1]}, 200)
     elif url == "https://api.github.com/repos/test_owner/test_repo/issues":
         return MockResponse({'number': 1,
-                             'title': 'test title',
-                             'user': {'login': 'test_user'},
-                             'created_at': '2011-04-14T16:00:49Z',
-                             'state': 'open'}, 201)
+                             'title': "test title",
+                             'user': {'login': "test_user"},
+                             'created_at': "2011-04-14T16:00:49Z",
+                             'state': "open"}, 201)
     elif url == "https://api.github.com/repos/test/test_repo/commits/mockWillReturn500":
         return MockResponse({}, 500)
-    elif url == "https://api.github.com/meta":
+    elif url == "https://api.github.com/meta?client_id=&client_secret=":
         return MockResponse({'verifiable_password_authentication': True,
-                             'github_services_sha': 'abcdefg',
+                             'github_services_sha': "abcdefg",
                              'hooks': [
-                                 '192.30.252.0/22',
-                                 '185.199.108.0/22'
+                                 "192.30.252.0/22",
+                                 "185.199.108.0/22"
                              ]}, 200)
 
     return MockResponse({}, 404)
@@ -128,10 +128,10 @@ def mock_api_request_github(url, data=None, timeout=None):
 
 # TODO: replace this with something smarter
 signup_information = {
-    'valid_email': 'someone@example.com',
-    'existing_user_email': 'dummy@example.com',
-    'existing_user_name': 'dummy',
-    'existing_user_pwd': 'dummy_pwd',
+    'valid_email': "someone@example.com",
+    'existing_user_email': "dummy@example.com",
+    'existing_user_name': "dummy",
+    'existing_user_pwd': "dummy_pwd",
     'existing_user_role': Role.user
 }
 
@@ -161,10 +161,10 @@ def generate_git_api_header(event, sig):
     """
     return Headers([
         ('X-GitHub-Event', event),
-        ('X-GitHub-Delivery', '72d3162e-cc78-11e3-81ab-4c9367dc0958'),
-        ('X-Hub-Signature', 'sha1={0}'.format(sig)),
-        ('User-Agent', 'GitHub-Hookshot/044aadd'),
-        ('Content-Type', 'application/json'),
+        ('X-GitHub-Delivery', "72d3162e-cc78-11e3-81ab-4c9367dc0958"),
+        ('X-Hub-Signature', f"sha1={sig}"),
+        ('User-Agent', "GitHub-Hookshot/044aadd"),
+        ('Content-Type', "application/json"),
         ('Content-Length', 6615)
     ])
 
@@ -176,7 +176,7 @@ class BaseTestCase(TestCase):
         Create an instance of the app with the testing configuration
         :return:
         """
-        user = namedtuple('user', 'name password email github_token')
+        user = namedtuple('user', "name password email github_token")
         self.user = user(name="test", password="test123",
                          email="test@example.com", github_token="abcdefgh")
         from run import app
@@ -190,18 +190,17 @@ class BaseTestCase(TestCase):
         g.db.execute('pragma foreign_keys=on')
 
         general_data = [
-            GeneralData('last_commit', '1978060bf7d2edd119736ba3ba88341f3bec3323'),
-            GeneralData('fetch_commit_' + TestPlatform.linux.value, '1978060bf7d2edd119736ba3ba88341f3bec3323'),
-            GeneralData('fetch_commit_' + TestPlatform.windows.value, '1978060bf7d2edd119736ba3ba88341f3bec3323')
+            GeneralData('last_commit', "1978060bf7d2edd119736ba3ba88341f3bec3323"),
+            GeneralData(f'fetch_commit_{TestPlatform.linux.value}', "1978060bf7d2edd119736ba3ba88341f3bec3323"),
+            GeneralData(f'fetch_commit_{TestPlatform.windows.value}', "1978060bf7d2edd119736ba3ba88341f3bec3323")
         ]
         g.db.add_all(general_data)
 
         self.ccextractor_version = CCExtractorVersion(
-            '1.2.3', '2013-02-27T19:35:32Z', '1978060bf7d2edd119736ba3ba88341f3bec3323')
+            "1.2.3", "2013-02-27T19:35:32Z", "1978060bf7d2edd119736ba3ba88341f3bec3323")
         g.db.add(self.ccextractor_version)
 
-        fork = Fork('https://github.com/{user}/{repo}.git'.format(user=g.github['repository_owner'],
-                                                                  repo=g.github['repository']))
+        fork = Fork(f"https://github.com/{g.github['repository_owner']}/{g.github['repository']}.git")
         g.db.add(fork)
         g.db.commit()
 
@@ -211,25 +210,25 @@ class BaseTestCase(TestCase):
         g.db.commit()
 
         test = [
-            Test(TestPlatform.linux, TestType.pull_request, 1, 'master', '1978060bf7d2edd119736ba3ba88341f3bec3323', 1),
-            Test(TestPlatform.linux, TestType.pull_request, 1, 'master', 'abcdefgh', 1)
+            Test(TestPlatform.linux, TestType.pull_request, 1, "master", "1978060bf7d2edd119736ba3ba88341f3bec3323", 1),
+            Test(TestPlatform.linux, TestType.pull_request, 1, "master", "abcdefgh", 1)
         ]
         g.db.add_all(test)
         g.db.commit()
 
         categories = [
-            Category('Broken', 'Samples that are broken'),
-            Category('DVB', 'Samples that contain DVB subtitles'),
-            Category('DVD', 'Samples that contain DVD subtitles'),
-            Category('MP4', 'Samples that are stored in the MP4 format'),
-            Category('General', 'General regression samples')
+            Category("Broken", "Samples that are broken"),
+            Category("DVB", "Samples that contain DVB subtitles"),
+            Category("DVD", "Samples that contain DVD subtitles"),
+            Category("MP4", "Samples that are stored in the MP4 format"),
+            Category("General", "General regression samples")
         ]
         g.db.add_all(categories)
         g.db.commit()
 
         samples = [
-            Sample('sample1', 'ts', 'sample1'),
-            Sample('sample2', 'ts', 'sample2')
+            Sample("sample1", "ts", "sample1"),
+            Sample("sample2", "ts", "sample2")
         ]
         g.db.add_all(samples)
         g.db.commit()
@@ -241,8 +240,8 @@ class BaseTestCase(TestCase):
         g.db.add_all(upload)
         g.db.commit()
         regression_tests = [
-            RegressionTest(1, '-autoprogram -out=ttxt -latin1 -2', InputType.file, OutputType.file, 3, 10),
-            RegressionTest(2, '-autoprogram -out=ttxt -latin1 -ucla', InputType.file, OutputType.file, 1, 10)
+            RegressionTest(1, "-autoprogram -out=ttxt -latin1 -2", InputType.file, OutputType.file, 3, 10),
+            RegressionTest(2, "-autoprogram -out=ttxt -latin1 -ucla", InputType.file, OutputType.file, 1, 10)
         ]
         g.db.add_all(regression_tests)
         g.db.commit()
@@ -250,18 +249,18 @@ class BaseTestCase(TestCase):
         categories[0].regression_tests.append(regression_tests[0])
         categories[2].regression_tests.append(regression_tests[1])
         regression_test_outputs = [
-            RegressionTestOutput(1, 'sample_out1', '.srt', ''),
-            RegressionTestOutput(2, 'sample_out2', '.srt', '')
+            RegressionTestOutput(1, "sample_out1", ".srt", ""),
+            RegressionTestOutput(2, "sample_out2", ".srt", "")
         ]
         g.db.add_all(regression_test_outputs)
         g.db.commit()
 
         test_result_progress = [
-            TestProgress(1, TestStatus.preparation, "Test 1 preperation"),
+            TestProgress(1, TestStatus.preparation, "Test 1 preparation"),
             TestProgress(1, TestStatus.building, "Test 1 building"),
             TestProgress(1, TestStatus.testing, "Test 1 testing"),
             TestProgress(1, TestStatus.completed, "Test 1 completed"),
-            TestProgress(2, TestStatus.preparation, "Test 2 preperation"),
+            TestProgress(2, TestStatus.preparation, "Test 2 preparation"),
             TestProgress(2, TestStatus.building, "Test 2 building"),
             TestProgress(2, TestStatus.testing, "Test 2 testing"),
             TestProgress(2, TestStatus.completed, "Test 2 completed")
@@ -279,18 +278,18 @@ class BaseTestCase(TestCase):
         g.db.commit()
 
         test_result_files = [
-            TestResultFile(1, 1, 1, 'sample_out1'),
-            TestResultFile(1, 2, 2, 'sample_out2'),
-            TestResultFile(2, 1, 1, 'sample_out1'),
-            TestResultFile(2, 2, 2, 'sample_out2', 'out2')
+            TestResultFile(1, 1, 1, "sample_out1"),
+            TestResultFile(1, 2, 2, "sample_out2"),
+            TestResultFile(2, 1, 1, "sample_out1"),
+            TestResultFile(2, 2, 2, "sample_out2", "out2")
         ]
         g.db.add_all(test_result_files)
         g.db.commit()
 
-        forbidden_mime = ForbiddenMimeType('application/javascript')
+        forbidden_mime = ForbiddenMimeType("application/javascript")
         forbidden_ext = [
-            ForbiddenExtension('js'),
-            ForbiddenExtension('com')
+            ForbiddenExtension("js"),
+            ForbiddenExtension("com")
         ]
         g.db.add(forbidden_mime)
         g.db.add_all(forbidden_ext)
@@ -323,7 +322,7 @@ class BaseTestCase(TestCase):
         Create a test on fork based on commit and platform
         """
         from flask import g
-        fork_url = 'https://github.com/{user}/{repo}.git'.format(user=self.user.name, repo=g.github['repository'])
+        fork_url = f"https://github.com/{self.user.name}/{g.github['repository']}.git"
         fork = Fork(fork_url)
         g.db.add(fork)
         g.db.commit()

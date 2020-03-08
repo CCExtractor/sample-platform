@@ -15,7 +15,7 @@ class mock_application:
 
 class TestRun(BaseTestCase):
 
-    def test_install_secret_keys_files_present(self):
+    def test_load_secret_keys_files_present(self):
         secrets = tempfile.NamedTemporaryFile()
         csrf = tempfile.NamedTemporaryFile()
         application = mock_application()
@@ -26,8 +26,8 @@ class TestRun(BaseTestCase):
             f.write('csrf')
 
         with provide_file_at_root('config.py'):
-            from run import install_secret_keys
-            install_secret_keys(application, secrets.name, csrf.name)
+            from run import load_secret_keys
+            load_secret_keys(application, secrets.name, csrf.name)
 
         secrets.close()
         csrf.close()
@@ -35,7 +35,7 @@ class TestRun(BaseTestCase):
         self.assertEqual(application.config['SECRET_KEY'], b'secret', 'secret key not loaded properly')
         self.assertEqual(application.config['CSRF_SESSION_KEY'], b'csrf', 'csrf session key not loaded properly')
 
-    def test_install_secret_keys_secrets_not_present(self):
+    def test_load_secret_keys_secrets_not_present(self):
         secrets = tempfile.NamedTemporaryFile()
         csrf = "notAvailable"
         application = mock_application()
@@ -44,16 +44,16 @@ class TestRun(BaseTestCase):
             f.write('secret')
 
         with provide_file_at_root('config.py'):
-            from run import install_secret_keys
+            from run import load_secret_keys
             with self.assertRaises(SystemExit) as cmd:
-                install_secret_keys(application, secrets.name, csrf)
+                load_secret_keys(application, secrets.name, csrf)
 
         secrets.close()
 
         self.assertEqual(application.config['SECRET_KEY'], b'secret', 'secret key not loaded properly')
         self.assertEquals(cmd.exception.code, 1, 'function exited with a wrong code')
 
-    def test_install_secret_keys_csrf_not_present(self):
+    def test_load_secret_keys_csrf_not_present(self):
         secrets = "notAvailable"
         csrf = tempfile.NamedTemporaryFile()
         application = mock_application()
@@ -62,9 +62,9 @@ class TestRun(BaseTestCase):
             f.write('csrf')
 
         with provide_file_at_root('config.py'):
-            from run import install_secret_keys
+            from run import load_secret_keys
             with self.assertRaises(SystemExit) as cmd:
-                install_secret_keys(application, secrets, csrf.name)
+                load_secret_keys(application, secrets, csrf.name)
 
         csrf.close()
 

@@ -27,8 +27,8 @@ class Mailer:
         :type sender_name: str
         """
         self.auth = ("api", api_key)
-        self.api_url = "https://api.mailgun.net/v3/{domain}".format(domain=domain)
-        self.sender = "{sender} <noreply@{domain}>".format(sender=sender_name, domain=domain)
+        self.api_url = f"https://api.mailgun.net/v3/{domain}"
+        self.sender = f"{sender_name} <noreply@{domain}>"
 
     def send_simple_message(self, data: Dict) -> Response:
         """
@@ -41,7 +41,7 @@ class Mailer:
         """
         data['from'] = self.sender
         try:
-            return requests.post("{url}/messages".format(url=self.api_url), auth=self.auth, data=data)
+            return requests.post(f"{self.api_url}/messages", auth=self.auth, data=data)
         except (requests.HTTPError, requests.ConnectionError):
             traceback.print_exc()
             raise FailedToSendMail

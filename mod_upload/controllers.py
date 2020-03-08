@@ -8,13 +8,13 @@ import os
 import shutil
 import traceback
 from exceptions import QueuedSampleNotFoundException
-from typing import Any, Callable, List, Optional, Tuple, Type
+from typing import Any
 
 import magic
 import requests
 from flask import (Blueprint, flash, g, make_response, redirect,
                    render_template, request, url_for)
-from git import GitCommandError, InvalidGitRepositoryError, Repo
+from git import InvalidGitRepositoryError, Repo
 from werkzeug.utils import secure_filename
 
 from decorators import get_menu_entries, template_renderer
@@ -103,7 +103,7 @@ def make_github_issue(title, body=None, labels=None) -> Any:
     issue = {'title': title,
              'body': body,
              'labels': labels}
-    r = session.post(url, json.dumps(issue))    # type: ignore
+    r = session.post(url, json.dumps(issue))
 
     if r.status_code == 201:
         g.log.info("new GitHub issue created")

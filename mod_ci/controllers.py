@@ -1022,7 +1022,7 @@ def upload_log_type_request(log, test_id, repo_folder, test, request) -> bool:
     if 'file' in request.files:
         uploaded_file = request.files['file']
         filename = secure_filename(uploaded_file.filename)
-        if filename is '':
+        if filename == '':
             return False
 
         temp_path = os.path.join(repo_folder, 'TempFiles', filename)
@@ -1058,7 +1058,7 @@ def upload_type_request(log, test_id, repo_folder, test, request) -> bool:
     if 'file' in request.files:
         uploaded_file = request.files['file']
         filename = secure_filename(uploaded_file.filename)
-        if filename is '':
+        if filename == '':
             log.warning('empty filename provided for uploading')
             return False
         temp_path = os.path.join(repo_folder, 'TempFiles', filename)

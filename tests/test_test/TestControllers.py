@@ -14,10 +14,10 @@ class TestControllers(BaseTestCase):
     def create_completed_regression_t_entries(test_id, regression_tests):
         from flask import g
         test_result_progress = [
-            TestProgress(test_id, TestStatus.preparation, "Test {0} preparation".format(test_id)),
-            TestProgress(test_id, TestStatus.building, "Test {0} building".format(test_id)),
-            TestProgress(test_id, TestStatus.testing, "Test {0} testing".format(test_id)),
-            TestProgress(test_id, TestStatus.completed, "Test {0} completed".format(test_id)),
+            TestProgress(test_id, TestStatus.preparation, f"Test {test_id} preparation"),
+            TestProgress(test_id, TestStatus.building, f"Test {test_id} building"),
+            TestProgress(test_id, TestStatus.testing, f"Test {test_id} testing"),
+            TestProgress(test_id, TestStatus.completed, f"Test {test_id} completed"),
         ]
         g.db.add_all(test_result_progress)
         test_results = [

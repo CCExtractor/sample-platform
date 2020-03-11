@@ -91,17 +91,17 @@ class Fork(Base):
 
     def __repr__(self) -> str:
         """Represent fork with fork id."""
-        return '<Fork {id}>'.format(id=self.id)
+        return f"<Fork {self.id}>"
 
     @property
     def github_url(self):
-        """Get github url of the fork."""
+        """Get GitHub url of the fork."""
         return self.github.replace('.git', '')
 
     @property
     def github_name(self):
-        """Get github name of the fork's user."""
-        return self.github_url.replace('https://github.com/', '')
+        """Get GitHub name of the fork's user."""
+        return self.github_url.replace("https://github.com/", '')
 
 
 class Test(Base):
@@ -159,7 +159,7 @@ class Test(Base):
         :return: Returns the string containing 'id' field of the Test model
         :rtype: str
         """
-        return '<TestEntry {id}>'.format(id=self.id)
+        return f"<TestEntry {self.id}>"
 
     @property
     def finished(self):
@@ -188,7 +188,7 @@ class Test(Base):
     @property
     def github_link(self):
         """
-        Generate github link to view the pr or commit.
+        Generate GitHub link to view the PR or commit.
 
         :return: url
         :rtype: str
@@ -200,7 +200,7 @@ class Test(Base):
             test_type = 'pull'
             test_id = self.pr_nr
 
-        return "{base}/{test_type}/{test_id}".format(base=self.fork.github_url, test_type=test_type, test_id=test_id)
+        return f"{self.fork.github_url}/{test_type}/{test_id}"
 
     def progress_data(self) -> Dict[str, Any]:
         """
@@ -311,7 +311,7 @@ class TestProgress(Base):
         :return: Returns the string containing 'id' and 'status' field of the Test model
         :rtype: str
         """
-        return '<TestStatus {id}: {status}>'.format(id=self.test_id, status=self.status)
+        return f"<TestStatus {self.test_id}: {self.status}>"
 
     @orm.reconstructor
     def may_the_timezone_be_with_it(self):
@@ -363,13 +363,8 @@ class TestResult(Base):
         'runtime' field of the TestResult model.
         :rtype: str
         """
-        return '<TestResult {tid},{rid}: {code} (expected {expected} in {time} ms>'.format(
-            tid=self.test_id,
-            rid=self.regression_test_id,
-            code=self.exit_code,
-            expected=self.expected_rc,
-            time=self.runtime
-        )
+        return f"<TestResult {self.test_id},{self.regression_test_id}: {self.exit_code} " \
+               f"(expected {self.expected_rc} in {self.runtime} ms>"
 
 
 class TestResultFile(Base):
@@ -422,12 +417,8 @@ class TestResultFile(Base):
         field of the TestResultFile model
         :rtype: str
         """
-        return '<TestResultFile {tid},{rid},{oid}: {equal}>'.format(
-            tid=self.test_id,
-            rid=self.regression_test_id,
-            oid=self.regression_test_output_id,
-            equal="Equal" if self.got is None else "Unequal"
-        )
+        result = "Equal" if self.got is None else "Unequal"
+        return f"<TestResultFile {self.test_id},{self.regression_test_id},{self.regression_test_output_id}: {result}>"
 
     def generate_html_diff(self, base_path: str, to_view: bool = True) -> str:
         """
@@ -453,7 +444,7 @@ class TestResultFile(Base):
     @staticmethod
     def read_lines(file_name: str) -> List[str]:
         """
-        Tries to load a file in different encodings.
+        Try to load a file in different encodings.
 
         :param file_name: The name to read lines from.
         :type file_name: str

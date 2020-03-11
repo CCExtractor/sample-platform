@@ -3,7 +3,6 @@
 from __future__ import print_function
 
 import os
-import sys
 import traceback
 from datetime import datetime
 from exceptions import (IncompleteConfigException, MissingConfigError,
@@ -62,8 +61,8 @@ log_configuration = LogConfiguration(app.root_path,        # type: ignore # type
 log = log_configuration.create_logger("Platform")
 
 
-def install_secret_keys(application: Flask, secret_session: str = 'secret_key',
-                        secret_csrf: str = 'secret_csrf') -> None:
+def load_secret_keys(application: Flask, secret_session: str = 'secret_key',
+                     secret_csrf: str = 'secret_csrf') -> None:
     """
     Configure the SECRET_KEY from a file in the instance directory.
 
@@ -79,8 +78,8 @@ def install_secret_keys(application: Flask, secret_session: str = 'secret_key',
         traceback.print_exc()
         print('Error: No secret key. Create it with:')
         if not os.path.isdir(os.path.dirname(session_file_path)):
-            print('mkdir -p', os.path.dirname(session_file_path))
-        print('head -c 24 /dev/urandom >', session_file_path)
+            print(f'mkdir -p {os.path.dirname(session_file_path)}')
+        print(f'head -c 24 /dev/urandom > {session_file_path}')
         do_exit = True
 
     try:
@@ -89,8 +88,8 @@ def install_secret_keys(application: Flask, secret_session: str = 'secret_key',
     except IOError:
         print('Error: No secret CSRF key. Create it with:')
         if not os.path.isdir(os.path.dirname(csrf_file_path)):
-            print('mkdir -p', os.path.dirname(csrf_file_path))
-        print('head -c 24 /dev/urandom >', csrf_file_path)
+            print(f'mkdir -p {os.path.dirname(csrf_file_path)}')
+        print(f'head -c 24 /dev/urandom > {csrf_file_path}')
         do_exit = True
 
     if do_exit:
@@ -98,7 +97,7 @@ def install_secret_keys(application: Flask, secret_session: str = 'secret_key',
 
 
 if 'TESTING' not in os.environ or os.environ['TESTING'] == 'False':
-    install_secret_keys(app)
+    load_secret_keys(app)
 
 
 def sub_menu_open(menu_entries: List[Dict[str, str]], active_route: str) -> bool:
@@ -138,18 +137,15 @@ def date_time_format(value: datetime, fmt: str = '%Y-%m-%d %H:%M:%S') -> str:
 
 def get_github_issue_link(issue_id: int) -> str:
     """
-    Get github issue link from issue_id.
+    Get GitHub issue link from issue_id.
 
-    :param issue_id: id of the github issue
+    :param issue_id: id of the GitHub issue
     :type issue_id: int
-    :return: URL to the github issue
+    :return: URL to the GitHub issue
     :rtype: str
     """
-    return 'https://www.github.com/{org}/{repo}/issues/{id}'.format(
-        org=config.get('GITHUB_OWNER', ''),
-        repo=config.get('GITHUB_REPOSITORY', ''),
-        id=issue_id
-    )
+    return f'https://www.github.com/{config.get("GITHUB_OWNER", "")}/' \
+           f'{config.get("GITHUB_REPOSITORY", "")}/issues/{issue_id}'
 
 
 def filename(filepath: str) -> str:
@@ -177,7 +173,7 @@ class RegexConverter(BaseConverter):
         self.regex = items[0]
 
 
-# Allow regexes in routes
+# Allow regexps in routes
 app.url_map.converters['regex'] = RegexConverter
 
 
@@ -192,7 +188,7 @@ def not_found(error: NotFound):
 @template_renderer('500.html', 500)
 def internal_error(error: InternalServerError):
     """Handle internal server error."""
-    log.debug('500 error: {err}'.format(err=error))
+    log.debug(f'500 error: {error}')
     log.debug('Stacktrace:')
     log.debug(traceback.format_exc())
     return
@@ -204,7 +200,7 @@ def forbidden(error: Forbidden) -> Dict[str, str]:
     """Handle unauthorized and forbidden access error."""
     user_name = 'Guest' if g.user is None else g.user.name
     user_role = 'Guest' if g.user is None else g.user.role.value
-    log.debug('{u} (role: {r}) tried to access {page}'.format(u=user_name, r=user_role, page=error.description))
+    log.debug(f'{user_name} (role: {user_role}) tried to access {error.description}')
 
     return {
         'user_role': user_role,
@@ -262,24 +258,3 @@ app.register_blueprint(mod_deploy)
 app.register_blueprint(mod_test, url_prefix="/test")
 app.register_blueprint(mod_ci)
 app.register_blueprint(mod_customized, url_prefix='/custom')
-
-if __name__ == '__main__':
-    # Run in development mode; Werkzeug server
-    # Load variables for running (if defined)
-    ssl_context = host = None
-    proto = 'https'
-    key = app.config.get('SSL_KEY', 'cert/key.key')
-    cert = app.config.get('SSL_CERT', 'cert/cert.cert')
-
-    if len(key) == 0 or len(cert) == 0:
-        ssl_context = 'adhoc'
-    else:
-        ssl_context = (cert, key)   # type: ignore
-
-    server_name = app.config.get('0.0.0.0')
-    port = app.config.get('SERVER_PORT', 443)
-
-    print('Server should be running soon on {0}://{1}:{2}'.format(proto, server_name, port))
-    if server_name != '127.0.0.1':
-        host = '0.0.0.0'
-    app.run(host, port, app.config['DEBUG'], ssl_context=ssl_context)

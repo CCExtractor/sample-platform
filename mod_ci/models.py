@@ -35,8 +35,7 @@ class BlockedUsers(Base):
 
     def __repr__(self) -> str:
         """Represent  blocked users with id and comment."""
-        return "<BlockedUsers(user_id='{id}', comment='{comment}')>".format(
-            id=self.user_id, comment=self.comment)
+        return f"<BlockedUsers(user_id='{self.user_id}', comment='{self.comment}')>"
 
 
 class Kvm(Base):
@@ -77,11 +76,11 @@ class Kvm(Base):
          'test_id' field of the Kvm model
         :rtype str(test_id): str
         """
-        return '<KVM test running: {id}>'.format(id=self.test_id)
+        return f'<KVM test running: {self.test_id}>'
 
 
 class MaintenanceMode(Base):
-    """Model to maintain maitenance status of platforms."""
+    """Model to maintain maintenance status of platforms."""
 
     __tablename__ = 'maintenance_mode'
     __table_args__ = {'mysql_engine': 'InnoDB'}
@@ -93,11 +92,10 @@ class MaintenanceMode(Base):
         """
         Parametrized constructor for the MaintenanceMode model.
 
-        :param platform: The value of the 'platform' field of
-         MaintenanceMode model
+        :param platform: The value of the 'platform' field of MaintenanceMode model
         :type platform: TestPlatform
-        :param disabled: mode
-        :type disabled: bool
+        :param mode: Should the platform be in maintenance mode?
+        :type mode: bool
         """
         self.platform = platform
         self.disabled = mode
@@ -110,4 +108,4 @@ class MaintenanceMode(Base):
          'platform' and 'status' field of the MaintenanceMode model
         :rtype str(platform, status): str
         """
-        return '<Platform {p}, maintenance {status}>'.format(p=self.platform.description, status=self.disabled)
+        return f"<Platform {self.platform.description}, maintenance {self.disabled}>"

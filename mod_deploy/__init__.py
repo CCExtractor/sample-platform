@@ -1,1 +1,1 @@
-"""contains methods and classes for github hooks based on auto deployment."""
+"""contains methods and classes for GitHub hooks based on auto deployment."""

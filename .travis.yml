@@ -2,11 +2,14 @@ dist: xenial
 language: python
 python:
   - 3.7
+  - 3.8
+  - 3.8-dev
   - nightly
 matrix:
   # allow failing builds on specified python versions
   allow_failures:
     - python: nightly
+    - python: 3.8-dev
 
 # environment variables
 env:

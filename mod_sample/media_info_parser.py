@@ -25,26 +25,26 @@ class MediaInfoFetcher:
 
     def __init__(self, sample) -> None:
         from run import config
-        # Fetch media info
+
         media_info_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'TestFiles', 'media', sample.sha + '.xml')
-        if os.path.isfile(media_info_path):
-            with open(media_info_path) as fd:
-                try:
-                    doc = xmltodict.parse(fd.read())
-                except Exception:
-                    raise InvalidMediaInfoError('No Mediainfo root element present')
-                if 'Mediainfo' in doc:
-                    self.media_info = doc['Mediainfo']
-                    self.video_tracks = []      # type: List
-                    self.caption_tracks = []    # type: List
-                    self.audio_tracks = []      # type: List
-                    self.other_tracks = []      # type: List
-                    self.general_track = {}     # type: Dict
-                    self.parsed = False
-                else:
-                    raise InvalidMediaInfoError('No Mediainfo root element present')
-        else:
-            raise InvalidMediaInfoError('File {path} not found'.format(path=media_info_path))
+        if not os.path.isfile(media_info_path):
+            raise InvalidMediaInfoError(f"File {media_info_path} not found")
+
+        with open(media_info_path) as fd:
+            try:
+                doc = xmltodict.parse(fd.read())
+            except Exception:
+                raise InvalidMediaInfoError("No Mediainfo root element present")
+            if 'Mediainfo' not in doc:
+                raise InvalidMediaInfoError("Mediainfo xml root element not present")
+
+            self.media_info = doc['Mediainfo']
+            self.video_tracks = []      # type: List
+            self.caption_tracks = []    # type: List
+            self.audio_tracks = []      # type: List
+            self.other_tracks = []      # type: List
+            self.general_track = {}     # type: Dict
+            self.parsed = False
 
     def get_media_info(self, force_parse=False) -> Optional[List[Dict[str, Any]]]:
         """Get media info from the sample file."""
@@ -81,17 +81,17 @@ class MediaInfoFetcher:
             self.general_track = {}
             self.parsed = False
 
-        try:
-            file_info = self.media_info['File']
-            if 'track' in file_info:
-                for track in file_info['track']:
-                    self._process_track(track)
-                # Ran through all tracks, no errors, so parsed successfully
-                self.parsed = True
-            else:
-                raise InvalidMediaInfoError('No tracks present in XML')
-        except KeyError:
-            raise InvalidMediaInfoError('No File element present in XML')
+        if 'File' not in self.media_info:
+            raise InvalidMediaInfoError("No File element present in XML")
+
+        file_info = self.media_info['File']
+        if 'track' not in file_info:
+            raise InvalidMediaInfoError("No tracks present in XML")
+
+        for track in file_info['track']:
+            self._process_track(track)
+
+        self.parsed = True
 
     def _process_track(self, track) -> None:
         """
@@ -104,19 +104,17 @@ class MediaInfoFetcher:
         if type(track) is not OrderedDict:
             return
         if '@type' not in track:
-            raise InvalidMediaInfoError('Track file does not contain a type')
+            raise InvalidMediaInfoError("Track file does not contain a type")
         track_type = track['@type']
         if track_type == 'General':
             self._process_general(track)
         elif track_type == 'Video':
             self._process_video(track)
         elif track_type == 'Audio':
-            # Implement at some point
+            # TODO: Implement at some point
             pass
         elif track_type == 'Text':
             self._process_text(track)
-        # Other tracks are ignored for now
-        return
 
     def _process_generic(self, track, keys) -> dict:
         """
@@ -157,37 +155,37 @@ class MediaInfoFetcher:
         :rtype: dict
         """
         result = self._process_generic(track, ['Display_aspect_ratio', 'Writing_library', 'Duration', 'Codec_ID'])
-        # Append non standard ones
+
         if 'Width' in track and 'Height' in track:
-            result['Resolution'] = '{width} x {height}'.format(width=track['Width'], height=track['Height'])
+            result['Resolution'] = f"{track['Width']} x {track['Height']}"
 
         if 'Format' in track:
             v_format = track['Format']
             if 'Format_Info' in track:
-                v_format += ' ({info})'.format(info=track['Format_Info'])
+                v_format += f" ({track['Format_Info']})"
             result['Format'] = v_format
 
         if 'Frame_rate' in track:
             v_rate = track['Frame_rate']
             if 'Frame_rate_mode' in track:
-                v_rate += ' (mode: {mode})'.format(mode=track['Frame_rate_mode'])
+                v_rate += f" (mode: {track['Frame_rate_mode']})"
             result['Frame rate'] = v_rate
 
         if 'Scan_type' in track:
             v_scan = track['Scan_type']
             if 'Scan_order' in track:
-                v_scan += ' ({order})'.format(order=track['Scan_order'])
+                v_scan += f" ({track['Scan_order']})"
             result['Scan type'] = v_scan
 
-        name = 'Stream nr. {number}'.format(number=len(self.video_tracks))
+        name = f"Stream nr. {len(self.video_tracks)}"
         if 'ID' in track:
-            name = 'ID: {number}'.format(number=track['ID'])
+            name = f"ID: {track['ID']}"
 
         self.video_tracks.append({'name': name, 'value': result})
 
     def _process_text(self, track) -> None:
         self.caption_tracks.append({
-            'name': 'ID: {number}'.format(number=track['ID']),
+            'name': f"ID: {track['ID']}",
             'value': self._process_generic(track, ['Format', 'Menu_ID', 'Muxing_mode'])
         })
 

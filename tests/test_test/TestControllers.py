@@ -166,16 +166,6 @@ class TestControllers(BaseTestCase):
         mock_jsonify.assert_called_once()
 
     @mock.patch('mod_test.controllers.TestResultFile')
-    def test_generate_diff_abort_403(self, mock_test_result_file):
-        """
-        Try to generate diff without xhr request
-        """
-        from mod_test.controllers import generate_diff
-
-        with self.assertRaises(Forbidden):
-            generate_diff(1, 1, 1)
-
-    @mock.patch('mod_test.controllers.TestResultFile')
     @mock.patch('mod_test.controllers.request')
     def test_generate_diff_abort_404(self, mock_request, mock_test_result_file):
         """

@@ -343,7 +343,7 @@ def generate_diff(test_id: int, regression_test_id: int, output_id: int, to_view
 
         if to_view == 1:
             return result.generate_html_diff(path)
-        elif to_view == 0:
+        else:
             diff_html_text = result.generate_html_diff(path, to_view=False)
             return Response(
                 diff_html_text,
@@ -357,8 +357,6 @@ def generate_diff(test_id: int, regression_test_id: int, output_id: int, to_view
                         )
                 }
             )
-        else:
-            abort(403, 'generate_diff')
 
     abort(404)
 

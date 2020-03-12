@@ -46,11 +46,11 @@ def run():
     gen_data = GeneralData('last_commit', '71dffd6eb30c1f4b5cf800307de845072ce33262')
     entries.append(gen_data)
 
-    regresstion_test_output = [
+    regression_test_output = [
         RegressionTestOutput(1, "test1", "srt", "test1.srt"),
         RegressionTestOutput(2, "test2", "srt", "test2.srt")
     ]
-    entries.extend(regresstion_test_output)
+    entries.extend(regression_test_output)
 
     for entry in entries:
         try:

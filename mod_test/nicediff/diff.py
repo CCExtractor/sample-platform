@@ -96,34 +96,29 @@ def _process(test_result: str, correct: str, suffix_id: str) -> Tuple[str, str]:
     events_test.sort()
     events_correct.sort()
 
-    html_test = ''
-    idx = 0
-    for event in events_test:
-        while idx < event[0]:   # type: ignore
-            html_test += tr_compr[idx]
-            idx += 1
-        if event[1] == 'OPEN':
-            _id = "{region}_diff_same_test_result_{suffix}".format(region=event[2], suffix=suffix_id)
-            cl = '<div class="diff-same-region" id="{id}">'.format(id=_id)
-            html_test += cl
-        else:
-            html_test += '</div>'
-    html_test += ''.join(tr_compr[idx:])
+    html_test = create_diff_entries(suffix_id, 'test_result', events_test, tr_compr)
+    html_correct = create_diff_entries(suffix_id, 'correct', events_correct, cr_compr)
 
-    html_correct = ''
+    return f'<div class="diff-div-text">{html_test}</div>', f'<div class="diff-div-text">{html_correct}</div>'
+
+
+def create_diff_entries(suffix_id: str, id_name: str, events: List[List[object]], compressed_data: List[str]) -> str:
+    """
+    Create the diff entries for the correct or wrong side.
+    """
+    result = ''
     idx = 0
-    for event in events_correct:
-        while idx < event[0]:   # type: ignore
-            html_correct += cr_compr[idx]
+    for event in events:
+        while idx < event[0]:  # type: ignore
+            result += compressed_data[idx]
             idx += 1
         if event[1] == 'OPEN':
-            _id = "{region}_diff_same_correct_{suffix}".format(region=event[2], suffix=suffix_id)
-            cl = '<div class="diff-same-region" id="{id}">'.format(id=_id)
-            html_correct += cl
+            cl = f'<div class="diff-same-region" id="{event[2]}_diff_same_{id_name}_{suffix_id}">'
+            result += cl
         else:
-            html_correct += '</div>'
-    html_correct += ''.join(cr_compr[idx:])
-    return '<div class="diff-div-text">' + html_test + '</div>', '<div class="diff-div-text">' + html_correct + '</div>'
+            result += '</div>'
+    result += ''.join(compressed_data[idx:])
+    return result
 
 
 # return generated difference in HTML formatted table
@@ -156,7 +151,6 @@ def get_html_diff(test_correct_lines: List[str], test_res_lines: List[str], to_v
         till = res_len
 
     for line in range(use):
-        # stop at 50 lines if test-data for viewing
         if to_view and number_of_noted_diff_lines >= MAX_NUMBER_OF_LINES_TO_VIEW:
             break
 
@@ -166,15 +160,15 @@ def get_html_diff(test_correct_lines: List[str], test_res_lines: List[str], to_v
     <table>"""
         actual, expected = _process(test_res_lines[line], test_correct_lines[line], suffix_id=str(line))
 
-        html += """
+        html += f"""
         <tr>
-            <td class="diff-table-td" style="width: 30px;">{line_id}</td>
-            <td class="diff-table-td">{a}</td>
+            <td class="diff-table-td" style="width: 30px;">{line + 1}</td>
+            <td class="diff-table-td">{actual}</td>
         </tr>
         <tr>
             <td class="diff-table-td" style="width: 30px;"></td>
-            <td class="diff-table-td">{b}</td>
-        </tr>""".format(line_id=line + 1, a=actual, b=expected)
+            <td class="diff-table-td">{expected}</td>
+        </tr>"""
         html += """
     </table>"""
 
@@ -193,28 +187,28 @@ def get_html_diff(test_correct_lines: List[str], test_res_lines: List[str], to_v
 
         if till == res_len:
             output, _ = _process(test_res_lines[line], " ", suffix_id=str(line))
-            html += """
+            html += f"""
             <tr>
-                <td class="diff-table-td" style="width: 30px;">{line_id}</td>
-                <td class="diff-table-td">{a}</td>
+                <td class="diff-table-td" style="width: 30px;">{line + 1}</td>
+                <td class="diff-table-td">{output}</td>
             </tr>
             <tr>
                 <td class="diff-table-td" style="width: 30px;"></td>
                 <td class="diff-table-td"></td>
             </tr>
-            """.format(line_id=line + 1, a=output)
+            """
         else:
             _, output = _process(" ", test_correct_lines[line], suffix_id=str(line))
-            html += """
+            html += f"""
             <tr>
-                <td class="diff-table-td" style="width: 30px;">{line_id}</td>
+                <td class="diff-table-td" style="width: 30px;">{line + 1}</td>
                 <td class="diff-table-td"></td>
             </tr>
             <tr>
                 <td class="diff-table-td" style="width: 30px;"></td>
-                <td class="diff-table-td">{b}</td>
+                <td class="diff-table-td">{output}</td>
             </tr>
-            """.format(line_id=line + 1, b=output)
+            """
 
         html += """
     <table>"""

@@ -44,8 +44,7 @@ def valid_password(form: CompleteSignupForm, field: PasswordField) -> None:
         raise ValidationError('new password cannot be empty')
     if pass_size < min_pwd_len or pass_size > max_pwd_len:
         raise ValidationError(
-            'Password needs to be between {min_pwd_len} and {max_pwd_len} characters long (you entered {char})'.format(
-                min_pwd_len=min_pwd_len, max_pwd_len=max_pwd_len, char=pass_size)
+            f'Password needs to be between {min_pwd_len} and {max_pwd_len} characters long (you entered {pass_size})'
         )
 
 
@@ -59,7 +58,6 @@ def email_not_in_use(has_user_field: bool = False) -> Callable:
     """
     def _email_not_in_use(form, field):
         user_id = -1 if not has_user_field else form.user.id
-        # Check if email is not already in use
         user = User.query.filter(User.email == field.data).first()
         if user is not None and user.id != user_id and len(field.data) > 0:
             raise ValidationError('This address is already in use')
@@ -151,11 +149,11 @@ class AccountForm(FlaskForm):
         :param field: The data value for the 'password' entered by User
         :type field : PasswordField
         """
-        if form.user is not None:
-            if not form.user.is_password_valid(field.data):
-                raise ValidationError('Invalid password')
-        else:
+        if form.user is None:
             raise ValidationError('User instance not passed to form validation')
+
+        if not form.user.is_password_valid(field.data):
+            raise ValidationError('Invalid password')
 
     @staticmethod
     def validate_new_password(form, field) -> None:
@@ -183,7 +181,6 @@ class AccountForm(FlaskForm):
         :type field : PasswordField
         """
         if form.email is not None:
-            # Email form is present, so it's optional
             if len(field.data) == 0 and len(form.new_password.data) == 0:
                 return
 

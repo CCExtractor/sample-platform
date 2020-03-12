@@ -1,9 +1,10 @@
-codecov==2.0.15
+codecov==2.0.16
 nose-cov==1.6
 pycodestyle==2.5.0
-pydocstyle==3.0.0
-dodgy==0.1.9
-isort==4.3.20
-mypy==0.701
-Flask-Testing==0.7.1
+pydocstyle==5.0.2
+dodgy==0.2.1
+isort==4.3.21
+mypy==0.770
+Werkzeug==0.16.1
+Flask-Testing==0.8.0
 blinker==1.4

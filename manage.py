@@ -1,12 +1,9 @@
 #!/usr/local/bin/python3
 """Root module to manage flask script commands."""
-import os
-import unittest
 from exceptions import CCExtractorEndedWithNonZero, MissingPathToCCExtractor
 
 from flask_script import Command, Manager
 
-from mod_regression.controllers import mod_regression
 from mod_regression.update_regression import update_expected_results
 from run import app
 
@@ -25,13 +22,13 @@ class UpdateResults(Command):
     capture_all_args = True
 
     def run(self, remaining):
-        """Driver function for update subcommand."""
+        """Driver function for update command."""
         if len(remaining) == 0:
             print('path to ccextractor is missing')
             raise MissingPathToCCExtractor
 
         path_to_ccex = remaining[0]
-        print('path to ccextractor: ' + str(path_to_ccex))
+        print(f'path to ccextractor: {path_to_ccex}')
 
         if not update_expected_results(path_to_ccex):
             print('update function errored')

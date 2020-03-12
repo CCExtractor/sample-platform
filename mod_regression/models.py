@@ -55,7 +55,7 @@ class Category(Base):
         :return: Returns the string containing 'name' field of the Category model
         :rtype: str
         """
-        return '<Category {name}>'.format(name=self.name)
+        return f"<Category {self.name}>"
 
 
 class InputType(DeclEnum):
@@ -129,7 +129,7 @@ class RegressionTest(Base):
         :return: Returns the string containing 'id' field of the RegressionTest model
         :rtype: str
         """
-        return '<RegressionTest {id}>'.format(id=self.id)
+        return f"<RegressionTest {self.id}>"
 
 
 class RegressionTestOutput(Base):
@@ -173,7 +173,7 @@ class RegressionTestOutput(Base):
         :return: Returns the string containing 'id' field of the RegressionTestOutput model.
         :rtype: str
         """
-        return '<RegressionTestOutput {id}>'.format(id=self.id)
+        return f"<RegressionTestOutput {self.id}>"
 
     @property
     def filename_correct(self):
@@ -194,7 +194,7 @@ class RegressionTestOutput(Base):
         :return: String containing name, expected filename, particular extension
         :rtype: str
         """
-        return "{sha}{extra}{ext}".format(sha=sample_hash, extra=self.expected_filename, ext=self.correct_extension)
+        return f"{sample_hash}{self.expected_filename}{self.correct_extension}"
 
     def create_correct_filename(self, name) -> str:
         """
@@ -205,4 +205,4 @@ class RegressionTestOutput(Base):
         :return: correct file name with extension
         :rtype: str
         """
-        return "{name}{ext}".format(name=name, ext=self.correct_extension)
+        return f"{name}{self.correct_extension}"

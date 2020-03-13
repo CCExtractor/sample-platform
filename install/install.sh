@@ -5,6 +5,8 @@
 # More information can be found on:
 # https://github.com/CCExtractor/sample-platform
 #
+
+
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 root_dir=$( cd "${dir}"/../ && pwd)
 clear
@@ -27,7 +29,7 @@ echo ""
 echo "* Updating package list"
 apt-get update >> "$install_log" 2>&1
 echo "* Installing nginx, python, pip, kvm, libvirt and virt-manager"
-apt-get -q -y install nginx python python-dev python3-libvirt libxslt1-dev libxml2-dev python-pip qemu-kvm libvirt-bin virt-manager mediainfo >> "$install_log" 2>&1
+apt-get -q -y install nginx python3 python-dev python3-libvirt libxslt1-dev libxml2-dev python-pip qemu-kvm libvirt-bin virt-manager mediainfo >> "$install_log" 2>&1
 for file in /etc/init.d/mysql*
 do
     if [ ! -f "$file" ]; then
@@ -48,7 +50,7 @@ do
     fi
 done
 echo "* Update pip, setuptools and wheel"
-python -m pip install --upgrade pip setuptools wheel >> "$install_log" 2>&1
+python3 -m pip install --upgrade pip setuptools wheel >> "$install_log" 2>&1
 echo "* Installing pip dependencies"
 pip install -r "${root_dir}/requirements.txt" >> "$install_log" 2>&1
 echo ""
@@ -179,12 +181,12 @@ while [ $admin_password != $confirm_admin_password ]; do
     read -s -e -r -p "Confirm admin password: " confirm_admin_password
 done
 echo "Creating admin account: "
-python "${dir}/init_db.py" "${config_db_uri}" "${admin_name}" "${admin_email}" "${admin_password}"
+python3 "${dir}/init_db.py" "${config_db_uri}" "${admin_name}" "${admin_email}" "${admin_password}"
 # Create sample database if user wanted to
 if [ "${sample_response}" == 'y' ]; then
     echo "Creating sample database.."
     cp -r sample_files/* "${sample_repository}/TestFiles"
-    python "${dir}/sample_db.py" "${config_db_uri}"
+    python3 "${dir}/sample_db.py" "${config_db_uri}"
 fi
 echo ""
 echo "-------------------------------"
@@ -224,6 +226,8 @@ MAX_PWD_LEN = $max_pwd_len
 # Ensure the files are executable by www-data
 chown -R www-data:www-data "${root_dir}" "${sample_repository}"
 echo "* Creating startup script"
+
+
 
 {
     cp "${dir}/platform" /etc/init.d/platform

@@ -506,6 +506,7 @@ def upload_ftp(db, path) -> None:
         return
 
     guessed_extension = mimetypes.guess_extension(uploaded_mime_type)
+    log.debug(f"Mimetype {uploaded_mime_type} creates guessed extension {guessed_extension}")
     if guessed_extension is not None and remove_forbidden_file(guessed_extension, upload_path, user):
         return
 

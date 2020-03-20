@@ -541,6 +541,7 @@ def remove_forbidden_file(file_extension: str, file_path: str, user: User) -> bo
     """
     from run import log
     dotless_extension = file_extension[1:]
+    log.debug(f"Retrieved {dotless_extension} from {file_extension}")
     forbidden = ForbiddenExtension.query.filter(ForbiddenExtension.extension == dotless_extension).first()
     if forbidden is not None:
         log.error(f"User {user.name} tried to upload a file with a forbidden extension ({dotless_extension})!")

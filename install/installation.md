@@ -83,6 +83,13 @@ sudo python bootstrap_gunicorn.py
 * If `gunicorn` boots up successfully, most relevant logs will be stored in
  the `logs` directory. Otherwise they'll likely be in `syslog`.
 
+* If it shows the error regarding the `libvirt`, then there is missing `fftw3.h` file. Try the following:
+```
+sudo apt-get install libvirt-dev
+sudo apt-get install libfftw3-dev
+sudo apt-get install libsndfile1-dev
+```
+
 ## Nginx configuration for X-Accel-Redirect
 
 To serve files without any scripting language overhead, the X-Accel-Redirect 

@@ -183,7 +183,7 @@ class TestControllers(BaseTestCase):
         """
         from mod_test.controllers import generate_diff
 
-        mock_request.is_xhr = True
+        mock_request.accept_mimetypes.best = 'application/json'
         mock_test_result_file.query.filter.return_value.first.return_value = None
 
         with self.assertRaises(NotFound):
@@ -197,7 +197,7 @@ class TestControllers(BaseTestCase):
         """
         from mod_test.controllers import generate_diff
 
-        mock_request.is_xhr = True
+        mock_request.accept_mimetypes.best = 'application/json'
 
         response = generate_diff(1, 1, 1)
 
@@ -213,7 +213,7 @@ class TestControllers(BaseTestCase):
         """
         from mod_test.controllers import generate_diff
 
-        mock_request.is_xhr = True
+        mock_request.accept_mimetypes.best = 'application/json'
 
         response = generate_diff(1, 1, 1, to_view=0)
 

@@ -25,32 +25,33 @@ def eq(a: List[str], b: List[str], same_regions: Optional[List[List[int]]] = Non
         rez = []    # type: Union[int, Any, List[str]]
         best_len, a_iter, b_iter = -1, -1, -1
         find = False
-        for l in range(min(len(a), len(b)), 0, -1):
+        for line in range(min(len(a), len(b)), 0, -1):
             if find:
                 break
 
-            for i in range(len(a) - l + 1):
+            for i in range(len(a) - line + 1):
                 if find:
                     break
 
-                for j in range(len(b) - l + 1):
-                    if a[i:i + l] != b[j:j + l]:
+                for j in range(len(b) - line + 1):
+                    if a[i:i + line] != b[j:j + line]:
                         continue
 
                     find = True
                     sub_a_beg = a[0:i]
                     sub_b_beg = b[0:j]
                     _e1 = eq(sub_a_beg, sub_b_beg)[0]
-                    sub_a_end = a[i + l:]
-                    sub_b_end = b[j + l:]
+                    sub_a_end = a[i + line:]
+                    sub_b_end = b[j + line:]
                     _e2 = eq(sub_a_end, sub_b_end)[0]
 
-                    if _e1 + _e2 + l > e:   # type: ignore
-                        e = _e1 + _e2 + l   # type: ignore
-                        best_len = l
+                    if _e1 + _e2 + line > e:   # type: ignore
+                        e = _e1 + _e2 + line   # type: ignore
+                        best_len = line
                         a_iter = i
                         b_iter = j
-                        rez = (eq(sub_a_beg, sub_b_beg)[1] + a[i: i + l] + eq(sub_a_end, sub_b_end)[1])  # type: ignore
+                        rez = (eq(sub_a_beg, sub_b_beg)[1] + a[i: i + line] + eq(sub_a_end,  # type: ignore
+                                                                                 sub_b_end)[1])
 
         index[zip_(a)] = index.get(zip_(a), dict())
         index[zip_(a)][zip_(b)] = [e, rez, a_iter, b_iter, best_len]

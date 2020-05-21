@@ -50,7 +50,7 @@ def eq(a: List[str], b: List[str], same_regions: Optional[List[List[int]]] = Non
                         best_len = line
                         a_iter = i
                         b_iter = j
-                        rez = (eq(sub_a_beg, sub_b_beg)[1] + a[i: i + line] + # type: ignore
+                        rez = (eq(sub_a_beg, sub_b_beg)[1] + a[i: i + line] +  # type: ignore
                                eq(sub_a_end, sub_b_end)[1])  # type: ignore
 
         index[zip_(a)] = index.get(zip_(a), dict())

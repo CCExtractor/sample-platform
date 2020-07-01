@@ -42,5 +42,5 @@ def about():
 
 @mod_home.route('/download_ccx')
 def download_ccx():
-    path_to_tester = path.join(app.config['SAMPLE_REPOSITORY'], 'vm_data', app.config['KVM_WINDOWS_NAME'], 'ccextractortester')
+    path_to_tester = path.join(app.config['SAMPLE_REPOSITORY'], 'TestSuite', 'ccextractortester')
     return send_file(path_to_tester, as_attachment=True, attachment_filename='ccextractortester.exe')

@@ -39,8 +39,3 @@ def index():
 def about():
     """Render about page."""
     return {}
-
-@mod_home.route('/download_ccx')
-def download_ccx():
-    path_to_tester = '/repository/testsuite.tar'
-    return send_file(path_to_tester, as_attachment=True, attachment_filename='testsuite.tar')

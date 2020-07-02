@@ -42,5 +42,5 @@ def about():
 
 @mod_home.route('/download_ccx')
 def download_ccx():
-    path_to_tester = '/repository/TestSuite/CCExtractorTester.exe'
-    return send_file(path_to_tester, as_attachment=True, attachment_filename='ccextractortester.exe')
+    path_to_tester = '/repository/testsuite.tar'
+    return send_file(path_to_tester, as_attachment=True, attachment_filename='testsuite.tar')

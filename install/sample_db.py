@@ -9,12 +9,13 @@ sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 
 def run():
+    from database import create_session
+    from mod_auth.models import User
     from mod_home.models import CCExtractorVersion, GeneralData
-    from mod_regression.models import Category, RegressionTest, InputType, OutputType, RegressionTestOutput
+    from mod_regression.models import (Category, InputType, OutputType,
+                                       RegressionTest, RegressionTestOutput)
     from mod_sample.models import Sample
     from mod_upload.models import Upload
-    from mod_auth.models import User
-    from database import create_session
 
     db = create_session(sys.argv[1])
 

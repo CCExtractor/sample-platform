@@ -109,6 +109,7 @@ class TestControllers(BaseTestCase):
 
     def test_customize_test_creates_with_select_arr(self, mock_user, mock_git, mock_requests):
         from flask import g
+
         import mod_customized.controllers
         reload(mod_customized.controllers)
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.tester)

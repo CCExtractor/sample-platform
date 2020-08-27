@@ -2,7 +2,6 @@
 
 import json
 import os
-from exceptions import SampleNotFoundException
 from operator import and_
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
@@ -10,6 +9,7 @@ import requests
 from flask import Blueprint, g, make_response, redirect, request, url_for
 
 from decorators import template_renderer
+from exceptions import SampleNotFoundException
 from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role
 from mod_home.models import CCExtractorVersion, GeneralData

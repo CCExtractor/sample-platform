@@ -5,8 +5,6 @@ from __future__ import print_function
 import os
 import traceback
 from datetime import datetime
-from exceptions import (IncompleteConfigException, MissingConfigError,
-                        SecretKeyInstallationException)
 from typing import Any, Dict, List, Optional
 
 from flask import Flask, g
@@ -19,6 +17,8 @@ from werkzeug.utils import ImportStringError
 from config_parser import parse_config
 from database import Base, create_session
 from decorators import template_renderer
+from exceptions import (IncompleteConfigException, MissingConfigError,
+                        SecretKeyInstallationException)
 from log_configuration import LogConfiguration
 from mailer import Mailer
 from mod_auth.controllers import mod_auth

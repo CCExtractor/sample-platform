@@ -87,7 +87,8 @@ class TestControllers(BaseTestCase):
         """
         Test function download_sample to raise SampleNotFoundException.
         """
-        from mod_sample.controllers import download_sample, SampleNotFoundException
+        from mod_sample.controllers import (SampleNotFoundException,
+                                            download_sample)
 
         mock_sample.query.filter.return_value.first.return_value = None
 
@@ -119,7 +120,8 @@ class TestControllers(BaseTestCase):
         """
         Test function download_sample_media_info with wrong path for media info.
         """
-        from mod_sample.controllers import download_sample_media_info, SampleNotFoundException
+        from mod_sample.controllers import (SampleNotFoundException,
+                                            download_sample_media_info)
 
         mock_os.path.isfile.return_value = False
 
@@ -136,7 +138,8 @@ class TestControllers(BaseTestCase):
         """
         Test function download_sample_media_info to raise SampleNotFoundException.
         """
-        from mod_sample.controllers import download_sample_media_info, SampleNotFoundException
+        from mod_sample.controllers import (SampleNotFoundException,
+                                            download_sample_media_info)
 
         mock_sample.query.filter.return_value.first.return_value = None
 
@@ -168,7 +171,8 @@ class TestControllers(BaseTestCase):
         """
         Test function download_sample_additional to raise SampleNotFoundException.
         """
-        from mod_sample.controllers import download_sample_additional, SampleNotFoundException
+        from mod_sample.controllers import (SampleNotFoundException,
+                                            download_sample_additional)
 
         mock_sample.query.filter.return_value.first.return_value = None
 
@@ -185,7 +189,8 @@ class TestControllers(BaseTestCase):
         """
         Test function download_sample_additional to raise SampleNotFoundException when extra file not found.
         """
-        from mod_sample.controllers import download_sample_additional, SampleNotFoundException
+        from mod_sample.controllers import (SampleNotFoundException,
+                                            download_sample_additional)
 
         mock_extra.query.filter.return_value.first.return_value = None
 

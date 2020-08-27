@@ -43,6 +43,7 @@ class TestControllers(BaseTestCase):
                               data=dict(file=test_file),
                               follow_redirects=True)
             import os
+
             from run import config
             self.assertEqual(response.status_code, 200)
             temp_path = os.path.join(config.get(
@@ -191,6 +192,7 @@ class TestControllers(BaseTestCase):
         Test creating hash for temp file.
         """
         from tempfile import NamedTemporaryFile
+
         from mod_upload.controllers import create_hash_for_sample
 
         f = NamedTemporaryFile()

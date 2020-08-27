@@ -224,7 +224,8 @@ class TestControllers(BaseTestCase):
         """
         Try to download build log for invalid test.
         """
-        from mod_test.controllers import download_build_log_file, TestNotFoundException
+        from mod_test.controllers import (TestNotFoundException,
+                                          download_build_log_file)
 
         mock_test.query.filter.return_value.first.return_value = None
 
@@ -239,7 +240,8 @@ class TestControllers(BaseTestCase):
         """
         Try to download build log for invalid file path.
         """
-        from mod_test.controllers import download_build_log_file, TestNotFoundException
+        from mod_test.controllers import (TestNotFoundException,
+                                          download_build_log_file)
 
         mock_os.path.isfile.side_effect = TestNotFoundException('msg')
 
@@ -256,7 +258,8 @@ class TestControllers(BaseTestCase):
         """
         Try to download build log.
         """
-        from mod_test.controllers import download_build_log_file, TestNotFoundException
+        from mod_test.controllers import (TestNotFoundException,
+                                          download_build_log_file)
 
         response = download_build_log_file('1')
 

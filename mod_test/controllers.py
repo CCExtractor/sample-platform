@@ -2,7 +2,6 @@
 
 import os
 from datetime import datetime
-from exceptions import TestNotFoundException
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 from flask import (Blueprint, Response, abort, g, jsonify, make_response,
@@ -12,6 +11,7 @@ from sqlalchemy import and_, func
 from sqlalchemy.sql import label
 
 from decorators import template_renderer
+from exceptions import TestNotFoundException
 from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role
 from mod_ci.models import Kvm

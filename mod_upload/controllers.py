@@ -7,7 +7,6 @@ import mimetypes
 import os
 import shutil
 import traceback
-from exceptions import QueuedSampleNotFoundException
 from typing import Any
 
 import magic
@@ -18,6 +17,7 @@ from git import InvalidGitRepositoryError, Repo
 from werkzeug.utils import secure_filename
 
 from decorators import get_menu_entries, template_renderer
+from exceptions import QueuedSampleNotFoundException
 from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role, User
 from mod_home.models import CCExtractorVersion
@@ -382,6 +382,7 @@ def delete_id(upload_id):
     :rtype: dict
     """
     from run import config
+
     # Fetch upload id
     queued_sample = QueuedSample.query.filter(QueuedSample.id == upload_id).first()
     if queued_sample is not None:
@@ -457,6 +458,7 @@ def add_sample_to_queue(file_hash, temp_path, user_id, db) -> None:
     :rtype: void
     """
     from run import config
+
     # Fetch file name from file path
     uploaded_file = os.path.basename(temp_path)
     filename, file_extension = os.path.splitext(uploaded_file)
@@ -481,7 +483,7 @@ def upload_ftp(db, path) -> None:
     :param path: path to sample file
     :type path: str
     """
-    from run import log, config
+    from run import config, log
     upload_path = str(path)
     path_parts = upload_path.split(os.path.sep)
     # We assume /home/{uid}/ as specified in the model

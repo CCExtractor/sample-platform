@@ -167,8 +167,9 @@ class TestUpdateRegression(BaseTestCase):
         """
         Test run_ccex with proper arguments but failure of subprocess.
         """
-        from mod_regression.update_regression import Test
         from subprocess import CalledProcessError
+
+        from mod_regression.update_regression import Test
 
         mock_subprocess.run.side_effect = CalledProcessError(1, 'cmd')
         mock_subprocess.CalledProcessError = CalledProcessError

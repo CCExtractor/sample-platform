@@ -77,7 +77,7 @@ def start_platforms(db, repository, delay=None, platform=None) -> None:
 
     We use multiprocessing module which bypasses Python GIL to make use of multiple cores of the processor.
     """
-    from run import config, log, app
+    from run import app, config, log
 
     with app.app_context():
         from flask import current_app
@@ -120,7 +120,7 @@ def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
     :param delay: time delay after which to start kvm processor
     :type delay: int
     """
-    from run import config, log, get_github_config
+    from run import config, get_github_config, log
 
     github_config = get_github_config(config)
 

@@ -176,7 +176,8 @@ class TestControllers(BaseTestCase):
     def test_comments_successfully_in_passed_pr_test(self, git_mock):
         import mod_ci.controllers
         reload(mod_ci.controllers)
-        from mod_ci.controllers import comment_pr, Status
+        from mod_ci.controllers import Status, comment_pr
+
         # Comment on test that passes all regression tests
         comment_pr(1, Status.SUCCESS, 1, 'linux')
         git_mock.assert_called_with(access_token=g.github['bot_token'])
@@ -198,7 +199,7 @@ class TestControllers(BaseTestCase):
     def test_comments_successfuly_in_failed_pr_test(self, git_mock):
         import mod_ci.controllers
         reload(mod_ci.controllers)
-        from mod_ci.controllers import comment_pr, Status
+        from mod_ci.controllers import Status, comment_pr
         repository = git_mock(access_token=g.github['bot_token']).repos(
             g.github['repository_owner'])(g.github['repository'])
         pull_request = repository.issues(1)
@@ -237,14 +238,15 @@ class TestControllers(BaseTestCase):
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.tester)
         self.create_forktest("own-fork-commit", TestPlatform.linux)
-        import mod_ci.cron
         import mod_ci.controllers
+        import mod_ci.cron
         reload(mod_ci.cron)
         reload(mod_ci.controllers)
         from mod_ci.cron import cron
         conn = mock_libvirt()
         vm = conn.lookupByName()
         import libvirt
+
         # mocking the libvirt kvm to shut down
         vm.info.return_value = [libvirt.VIR_DOMAIN_SHUTOFF]
         # Setting current snapshot of libvirt
@@ -270,14 +272,15 @@ class TestControllers(BaseTestCase):
                                                          mock_rmtree, mock_libvirt, mock_repo, mock_git):
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.tester)
         self.create_forktest("own-fork-commit", TestPlatform.linux)
-        import mod_ci.cron
         import mod_ci.controllers
+        import mod_ci.cron
         reload(mod_ci.cron)
         reload(mod_ci.controllers)
         from mod_ci.cron import cron
         conn = mock_libvirt()
         vm = conn.lookupByName()
         import libvirt
+
         # mocking the libvirt kvm to shut down
         vm.info.return_value = [libvirt.VIR_DOMAIN_SHUTOFF]
         # Setting current snapshot of libvirt
@@ -304,8 +307,8 @@ class TestControllers(BaseTestCase):
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.tester)
         self.create_forktest("own-fork-commit", TestPlatform.linux, regression_tests=[2])
-        import mod_ci.cron
         import mod_ci.controllers
+        import mod_ci.cron
         reload(mod_ci.cron)
         reload(mod_ci.controllers)
         from mod_ci.cron import cron
@@ -1118,8 +1121,9 @@ class TestControllers(BaseTestCase):
         """
         Test function finish_type_request with error in database commit.
         """
-        from mod_ci.controllers import finish_type_request
         from pymysql.err import IntegrityError
+
+        from mod_ci.controllers import finish_type_request
 
         mock_log = MagicMock()
         mock_request = MagicMock()

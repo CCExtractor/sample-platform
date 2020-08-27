@@ -1,11 +1,12 @@
 """handles the mailing operations across the app."""
 
 import traceback
-from exceptions import FailedToSendMail
 from typing import Dict
 
 import requests
 from requests.models import Response
+
+from exceptions import FailedToSendMail
 
 
 class Mailer:

@@ -4,7 +4,6 @@ from __future__ import annotations
 import re
 import traceback
 from abc import ABCMeta
-from exceptions import EnumParsingException, FailedToSpawnDBSession
 from typing import Any, Dict, Iterator, Tuple, Type, Union
 
 from sqlalchemy import create_engine
@@ -14,6 +13,8 @@ from sqlalchemy.ext.declarative import DeclarativeMeta, declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.sql.schema import Column, Table
 from sqlalchemy.sql.sqltypes import Enum, SchemaType, TypeDecorator
+
+from exceptions import EnumParsingException, FailedToSpawnDBSession
 
 
 class DeclarativeABCMeta(DeclarativeMeta, ABCMeta):

@@ -1,9 +1,8 @@
 #!/usr/local/bin/python3
 """Root module to manage flask script commands."""
-from exceptions import CCExtractorEndedWithNonZero, MissingPathToCCExtractor
-
 from flask_script import Command, Manager
 
+from exceptions import CCExtractorEndedWithNonZero, MissingPathToCCExtractor
 from mod_regression.update_regression import update_expected_results
 from run import app
 

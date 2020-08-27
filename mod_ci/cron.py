@@ -10,11 +10,12 @@ sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 def cron(testing=False):
     """Script to run from cron for Sampleplatform."""
-    from mod_ci.controllers import start_platforms, kvm_processor, TestPlatform
     from flask import current_app
-    from run import config, log
-    from database import create_session
     from github import GitHub
+
+    from database import create_session
+    from mod_ci.controllers import TestPlatform, kvm_processor, start_platforms
+    from run import config, log
 
     log.info('Run the cron for kicking off CI platform(s).')
     # Create session

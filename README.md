@@ -133,8 +133,8 @@ We use `isort` to introduce a style on how imports should be made.
 Please check your imports before making a commit using the following commands.
 
 ```bash
-isort --rc --diff .     # see proposed changes without applying them
-isort -rc --atomic .    # apply changes to import order without breaking syntax
+isort . --diff      # see proposed changes without applying them
+isort . --atomic    # apply changes to import order without breaking syntax
 ```
 
 ### Generate Typing And Annotations
@@ -169,7 +169,7 @@ merge-pyi -i path/to/.py/file .pytype/pyi/path/to/.pyi/file     # apply the sugg
 Once you've generated the annotations using the above tools, follow the below procedure.
 
 ```bash
-isort -rc --atmoic /path/to/new.py/file                                    # sort the imports
+isort --atmoic /path/to/new.py/file                                        # sort the imports
 mypy /path/to/new.py/file                                                  # fix the errors reported by mypy
 git diff /path/to/new.py/file                                              # manually check the file for missing typings
 pycodestyle ./ --config=./.pycodestylerc                                   # to check for PEP8 violations

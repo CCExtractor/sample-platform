@@ -1,7 +1,7 @@
 codecov==2.1.9
 nose-cov==1.6
 pycodestyle==2.6.0
-pydocstyle==5.1.0
+pydocstyle==5.1.1
 dodgy==0.2.1
 isort==5.4.2
 mypy==0.782

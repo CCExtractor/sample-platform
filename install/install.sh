@@ -160,12 +160,12 @@ echo ""
 echo "We need some information for the admin account"
 read -e -r -p "Admin username: " -i "admin" admin_name
 
-while [$admin_email -z ];do
+while [ -z $admin_email ];do
    echo "Enter Admin email ( It can't be empty! )"
    read -e -r -p "Admin email: " admin_email
 done 
 
-while [$admin_password -z ];do
+while [ -z $admin_password ];do
    echo "Enter Admin password (size of password >1) "
    read -s -e -r -p  "Admin password: " admin_password
    echo " "

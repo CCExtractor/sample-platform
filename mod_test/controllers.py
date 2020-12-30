@@ -133,16 +133,16 @@ def get_data_for_test(test, title=None) -> Dict[str, Any]:
             test_error = False
             # A test fails if:
             # - Exit code is not what we expected
-            # - There are result files but one of them is not identical
+            # - There are result files but none of them matches expected result
             # - There are no result files but there should have been
             result = category_test['result']
             if result is not None and result.exit_code != result.expected_rc:
                 test_error = True
             if len(category_test['files']) > 0:
                 for result_file in category_test['files']:
-                    if result_file.got is not None and result.exit_code == 0:
-                        test_error = True
+                    if result_file.got is None and result.exit_code == result.expected_rc:  #If one of the files matches expected result, the test will be passed
                         break
+                    test_error = True   #If none of the files above match their expected results, program counter will reach here.
             else:
                 # We need to check if the regression test had any file that shouldn't have been ignored.
                 outputs = RegressionTestOutput.query.filter(and_(

@@ -84,7 +84,7 @@ db_user_exists=$(mysql --login-path=root_login -sse "SELECT EXISTS(SELECT 1 FROM
 
 if [ "${db_user_exists}" = 0 ]; then
     rand_pass=$(< /dev/urandom tr -dc 'a-zA-Z0-9' | fold -w 16 | head -n 1)
-    read -e -r -p -s "Password for ${db_user} (will be created): " -i "${rand_pass}" db_user_password
+    read -e -r -p "Password for ${db_user} (will be created): " -i "${rand_pass}" db_user_password
     # Attempt to create the user
     mysql --login-path=root_login -e "CREATE USER '${db_user}'@'localhost' IDENTIFIED BY '${db_user_password}';" >> "$install_log" 2>&1
     db_user_exists=$(mysql --login-path=root_login -sse "SELECT EXISTS(SELECT 1 FROM mysql.user WHERE user = '$db_user')")
@@ -93,11 +93,11 @@ if [ "${db_user_exists}" = 0 ]; then
         exit -1
     fi
 else
-    read -e -r -p -s "Password for ${db_user}: " db_user_password
+    read -s -e -r -p "Password for ${db_user}: " db_user_password
     supress_warning=$(mysql_config_editor set --login-path=check_login --host=localhost --user="${db_user}" --password "${db_root_password}") >> "$install_log" 2>&1
     # Check if we have access
     while ! mysql  --login-path=check_login  -e ";" ; do
-       read -e -r -p -s "Invalid password, please retry: " -i "" db_user_password
+       read -s -e -r -p "Invalid password, please retry: " -i "" db_user_password
        supress_warning=$(mysql_config_editor set --login-path=check_login --host=localhost --user="${db_user}" --password "${db_root_password}") >> "$install_log" 2>&1
     done
 fi
@@ -160,12 +160,12 @@ echo ""
 echo "We need some information for the admin account"
 read -e -r -p "Admin username: " -i "admin" admin_name
 
-while [$admin_email -z ];do
+while [ -z $admin_email ];do
    echo "Enter Admin email ( It can't be empty! )"
    read -e -r -p "Admin email: " admin_email
 done 
 
-while [$admin_password -z ];do
+while [ -z $admin_password ];do
    echo "Enter Admin password (size of password >1) "
    read -s -e -r -p  "Admin password: " admin_password
    echo " "

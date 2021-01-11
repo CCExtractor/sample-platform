@@ -4,7 +4,7 @@ pycodestyle==2.6.0
 pydocstyle==5.1.1
 dodgy==0.2.1
 isort==5.5.4
-mypy==0.782
+mypy==0.790
 Werkzeug==1.0.1
 Flask-Testing==0.8.0
 blinker==1.4

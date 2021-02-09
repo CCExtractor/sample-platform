@@ -75,7 +75,7 @@
                         </table>
                     </div>
                 {% else %}
-                      <p>This test is still queued. There are {{ next }} tests queued before this one. Based on the average runtime, this test will be finished in {{ hr }} hours {{ min }} minutes.</p>     
+                      <p>This test is still queued. There are {{ next }} tests queued before this one. Based on the average runtime, this test will be finished in {{ hr }} hours {{ min }} minutes.</p>
                 {% endif %}
                 {% if test.finished %}
                     {% if test.failed %}
@@ -110,17 +110,25 @@
                                                 <td data-title="Exit Code">{{ test.result.exit_code }}{{ '' if test.result.exit_code == test.result.expected_rc else ' (Expected '~test.result.expected_rc~')' }}</td>
                                                 <td data-title="Result">
                                                     {% for file in test.files -%}
+                                                        {% if file.got is not none %}
+                                                          {% set no_error = namespace(found=False) %}
+                                                          {% for output_file in file.regression_test_output.multiple_files %}
+                                                            {% if file.got == output_file.file_hashes %}
+                                                              {% set no_error.found = True %}
+                                                              {% break %}
+                                                            {%- endif %}
+                                                          {%- endfor %}
+                                                        {%- endif %}
                                                         {% if test.result.exit_code != test.result.expected_rc %}
-                                                            {% if file.got is none -%}
+                                                            {% if file.got is none or no_error.found-%}
                                                                 Fail
                                                             {% else %}
                                                                 <a href="#" class="diff_link" data-test="{{ file.test_id }}" data-regression="{{ file.regression_test_id }}" data-output="{{ file.regression_test_output_id }}">Fail</a>
                                                             {%- endif %}
-                                                        {% elif file.got is none or test.result.exit_code != 0 -%}
+                                                        {% elif file.got is none or no_error.found or test.result.exit_code != 0 -%}
                                                             Pass
                                                         {% else %}
-                                                            <a href="#" class="diff_link" data-test="{{ file.test_id }}" data-regression="{{ file.regression_test_id }}" data-output="{{ file.regression_test_output_id }}">Fail</a>
-                                                        {%- endif %}
+                                                            <a href="#" class="diff_link" data-test="{{ file.test_id }}" data-regression="{{ file.regression_test_id }}" data-output="{{ file.regression_test_output_id }}">Fail</a>                                                        {%- endif %}
                                                         {% if not loop.last %}<br />{% endif %}
                                                     {% else %}
                                                         No files expected for this test
@@ -210,7 +218,7 @@
                 20000
             );
             {% endif %}
-            
+
             $('.category-header').on('click', function(){
                 var id = $(this).data('category');
                 $('table[data-category="'+id+'"]').toggleClass('hide');

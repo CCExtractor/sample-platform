@@ -6,10 +6,13 @@ from flask import (Blueprint, abort, flash, g, jsonify, redirect, request,
 from decorators import template_renderer
 from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role
+from sqlalchemy import and_, func
 from mod_regression.forms import (AddCategoryForm, AddTestForm,
-                                  ConfirmationForm, EditTestForm)
+                                  ConfirmationForm, EditTestForm, AddCorrectOutputForm, RemoveCorrectOutputForm)
 from mod_regression.models import (Category, InputType, OutputType,
-                                   RegressionTest, RegressionTestOutput)
+                                   RegressionTest, RegressionTestOutput,RegressionTestOutputFiles)
+from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
+                             TestResult, TestResultFile, TestStatus, TestType)
 from mod_sample.models import Sample
 from utility import serve_file_download
 
@@ -195,14 +198,22 @@ def toggle_active_status(regression_id):
     })
 
 
-@mod_regression.route('/test/<regression_test_output_id>/download', methods=['GET'])
-def test_result_file(regression_test_output_id):
+@mod_regression.route('/test/<regression_test_output_id>/download/<multiple_files>', methods=['GET'])
+def test_result_file(regression_test_output_id , multiple_files):
     """View the output files of the regression test."""
-    rto = RegressionTestOutput.query.filter(RegressionTestOutput.id == regression_test_output_id).first()
-    if rto is None:
-        g.log.error(f'requested regression test output with id: {regression_test_output_id} not found!')
-        abort(404)
-    return serve_file_download(rto.filename_correct, 'TestResults', 'regression-download')
+    if multiple_files=='True':
+        rtof = RegressionTestOutputFiles.query.filter(RegressionTestOutputFiles.id == regression_test_output_id).first()
+        print(rtof)
+        if rtof is None:
+            g.log.error(f'requested regression test output file with id: {regression_test_output_id} not found!')
+            abort(404)
+        return serve_file_download(rtof.file_hashes+rtof.output.correct_extension, 'TestResults', 'regression-download')
+    else:
+        rto = RegressionTestOutput.query.filter(RegressionTestOutput.id == regression_test_output_id).first()
+        if rto is None:
+            g.log.error(f'requested regression test output with id: {regression_test_output_id} not found!')
+            abort(404)
+        return serve_file_download(rto.filename_correct, 'TestResults', 'regression-download')
 
 
 @mod_regression.route('/test/new', methods=['GET', 'POST'])
@@ -318,3 +329,78 @@ def category_add():
         flash('New Category Added')
         return redirect(url_for('.index'))
     return {'form': form}
+
+
+@mod_regression.route('/test/<regression_id>/output/new', methods=['GET', 'POST'])
+@template_renderer()
+@login_required
+@check_access_rights([Role.contributor, Role.admin])
+def output_add(regression_id):
+    """
+    Add New Output.
+
+    Requires contributor or admin role.
+
+    param regression_id : The ID of the Regression Test
+    type regression_id : int
+    """
+    test = RegressionTest.query.filter(RegressionTest.id == regression_id).first()
+
+    if test is None:
+        g.log.error(f'requested regression test with id: {regression_id} not found!')
+        abort(404)
+
+    form = AddCorrectOutputForm(request.form)
+    test_result = TestResultFile.query.filter(
+        and_(TestResultFile.regression_test_id == regression_id, TestResultFile.got != None)
+    ).order_by(TestResultFile.test_id.desc()).limit(10).all()
+    test_files = []
+    for result in test_result:
+        append = True
+        for output_file in result.regression_test_output.multiple_files:
+           if result.got == output_file.file_hashes:
+               append = False
+               break
+        if append==True:
+            test_files.append(result)
+    form.output_file.choices=[(output.id,output.filename_correct+' (original)') for output in test.output_files]
+    form.test_id.choices = [('Test id '+str(result.test_id)+' with output '+ result.got) for result in test_files]
+    if form.validate_on_submit():
+        test_data = form.test_id.data.strip().split()
+        new_output = RegressionTestOutputFiles(
+            regression_test_output_id=form.output_file.data,
+            file_hashes=test_data[5]
+        )
+        g.db.add(new_output)
+        g.db.commit()
+        return redirect(url_for('.test_view', regression_id=regression_id))
+    return {'form': form, 'regression_id': regression_id}
+
+@mod_regression.route('/test/<regression_id>/output/remove', methods=['GET', 'POST'])
+@template_renderer()
+@login_required
+@check_access_rights([Role.contributor, Role.admin])
+def output_remove(regression_id):
+    """
+    Remove an Output File.
+
+    Requires contributor or admin role.
+
+    param regression_id : The ID of the Regression Test
+    type regression_id : int
+    """
+    test = RegressionTest.query.filter(RegressionTest.id == regression_id).first()
+
+    if test is None:
+        g.log.error(f'requested regression test with id: {regression_id} not found!')
+        abort(404)
+
+    form = RemoveCorrectOutputForm(request.form)
+    form.output_file.choices=[(a.id,a.file_hashes+' (variant)') for r in test.output_files for a in r.multiple_files]
+    if form.validate_on_submit():
+        variant_file = RegressionTestOutputFiles.query.filter(RegressionTestOutputFiles.id == form.output_file.data).first()
+        g.db.delete(variant_file)
+        g.db.commit()
+        g.log.warning(f'Output file with id: {form.output_file.data} deleted!')
+        return redirect(url_for('.test_view', regression_id=regression_id))
+    return {'form': form, 'regression_id': regression_id}

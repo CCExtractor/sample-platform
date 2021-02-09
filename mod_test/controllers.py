@@ -133,7 +133,8 @@ def get_data_for_test(test, title=None) -> Dict[str, Any]:
             test_error = False
             # A test fails if:
             # - Exit code is not what we expected
-            # - There are result files but one of the files is [not identical and not one of the multiple correct output files]
+            # - There are result files but one of the files is [not identical
+            # and not one of the multiple correct output files]
             # - There are no result files but there should have been
             result = category_test['result']
             if result is not None and result.exit_code != result.expected_rc:

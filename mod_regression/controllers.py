@@ -10,7 +10,7 @@ from sqlalchemy import and_, func
 from mod_regression.forms import (AddCategoryForm, AddTestForm,
                                   ConfirmationForm, EditTestForm, AddCorrectOutputForm, RemoveCorrectOutputForm)
 from mod_regression.models import (Category, InputType, OutputType,
-                                   RegressionTest, RegressionTestOutput,RegressionTestOutputFiles)
+                                   RegressionTest, RegressionTestOutput, RegressionTestOutputFiles)
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
                              TestResult, TestResultFile, TestStatus, TestType)
 from mod_sample.models import Sample
@@ -199,9 +199,9 @@ def toggle_active_status(regression_id):
 
 
 @mod_regression.route('/test/<regression_test_output_id>/download/<multiple_files>', methods=['GET'])
-def test_result_file(regression_test_output_id , multiple_files):
+def test_result_file(regression_test_output_id, multiple_files):
     """View the output files of the regression test."""
-    if multiple_files=='True':
+    if multiple_files == 'True':
         rtof = RegressionTestOutputFiles.query.filter(RegressionTestOutputFiles.id == regression_test_output_id).first()
         print(rtof)
         if rtof is None:
@@ -352,19 +352,19 @@ def output_add(regression_id):
 
     form = AddCorrectOutputForm(request.form)
     test_result = TestResultFile.query.filter(
-        and_(TestResultFile.regression_test_id == regression_id, TestResultFile.got != None)
+        and_(TestResultFile.regression_test_id == regression_id, TestResultFile.got is not None)
     ).order_by(TestResultFile.test_id.desc()).limit(10).all()
     test_files = []
     for result in test_result:
         append = True
         for output_file in result.regression_test_output.multiple_files:
-           if result.got == output_file.file_hashes:
-               append = False
-               break
-        if append==True:
+            if result.got == output_file.file_hashes:
+                append = False
+                break
+        if append:
             test_files.append(result)
-    form.output_file.choices=[(output.id,output.filename_correct+' (original)') for output in test.output_files]
-    form.test_id.choices = [('Test id '+str(result.test_id)+' with output '+ result.got) for result in test_files]
+    form.output_file.choices = [(output.id, output.filename_correct + ' (original)') for output in test.output_files]
+    form.test_id.choices = [('Test id ' + str(result.test_id) + ' with output ' + result.got) for result in test_files]
     if form.validate_on_submit():
         test_data = form.test_id.data.strip().split()
         new_output = RegressionTestOutputFiles(
@@ -375,6 +375,7 @@ def output_add(regression_id):
         g.db.commit()
         return redirect(url_for('.test_view', regression_id=regression_id))
     return {'form': form, 'regression_id': regression_id}
+
 
 @mod_regression.route('/test/<regression_id>/output/remove', methods=['GET', 'POST'])
 @template_renderer()
@@ -396,9 +397,12 @@ def output_remove(regression_id):
         abort(404)
 
     form = RemoveCorrectOutputForm(request.form)
-    form.output_file.choices=[(a.id,a.file_hashes+' (variant)') for r in test.output_files for a in r.multiple_files]
+    form.output_file.choices = [(a.id, a.file_hashes + ' (variant)')
+                                for r in test.output_files for a in r.multiple_files]
     if form.validate_on_submit():
-        variant_file = RegressionTestOutputFiles.query.filter(RegressionTestOutputFiles.id == form.output_file.data).first()
+        variant_file = RegressionTestOutputFiles.query.filter(
+                        RegressionTestOutputFiles.id == form.output_file.data
+                        ).first()
         g.db.delete(variant_file)
         g.db.commit()
         g.log.warning(f'Output file with id: {form.output_file.data} deleted!')

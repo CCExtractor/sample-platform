@@ -56,13 +56,12 @@ class ConfirmationForm(FlaskForm):
     submit = SubmitField('Confirm')
 
 class AddCorrectOutputForm(FlaskForm):
-    """Flask form to Add Category."""
+    """Flask form to Add correct output."""
     output_file = SelectField("Choose an original file to which the variant file should be attached to", [DataRequired(message="Output cannot be empty")],coerce=int)
     test_id = SelectField("Choose a Result file from previous Test runs", [DataRequired(message="Output cannot be empty")])
     submit = SubmitField("Add Output")
 
 class RemoveCorrectOutputForm(FlaskForm):
-    """Flask form to Add Category."""
+    """Flask form to Remove correct output."""
     output_file = SelectField("Choose an output file (variant)", [DataRequired(message="Output cannot be empty")],coerce=int)
     submit = SubmitField("Remove Output")
-    

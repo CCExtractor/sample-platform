@@ -63,11 +63,11 @@ class AddCorrectOutputForm(FlaskForm):
         "Choose an original file to which the variant file should be attached to",
         [DataRequired(message="Output cannot be empty")],
         coerce=int
-        )
+    )
     test_id = SelectField(
         "Choose a Result file from previous Test runs",
         [DataRequired(message="Output cannot be empty")]
-        )
+    )
     submit = SubmitField("Add Output")
 
 
@@ -78,5 +78,5 @@ class RemoveCorrectOutputForm(FlaskForm):
         "Choose an output file (variant)",
         [DataRequired(message="Output cannot be empty")],
         coerce=int
-        )
+    )
     submit = SubmitField("Remove Output")

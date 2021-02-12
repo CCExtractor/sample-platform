@@ -220,7 +220,7 @@ class RegressionTestOutputFiles(Base):
     regression_test_output_id = Column(
         Integer,
         ForeignKey('regression_test_output.id', onupdate='CASCADE', ondelete='RESTRICT')
-        )
+    )
     output = relationship('RegressionTestOutput', back_populates='multiple_files')
 
     def __init__(self, file_hashes, regression_test_output_id) -> None:

@@ -217,7 +217,7 @@ def multiple_test_result_file(regression_test_output_id):
     if rtof is None:
         g.log.error(f'requested regression test output file with id: {regression_test_output_id} not found!')
         abort(404)
-    return serve_file_download(rtof.file_hashes+rtof.output.correct_extension, 'TestResults', 'regression-download')
+    return serve_file_download(rtof.file_hashes + rtof.output.correct_extension, 'TestResults', 'regression-download')
 
 
 @mod_regression.route('/test/new', methods=['GET', 'POST'])
@@ -405,8 +405,8 @@ def output_remove(regression_id):
                                 for r in test.output_files for a in r.multiple_files]
     if form.validate_on_submit():
         variant_file = RegressionTestOutputFiles.query.filter(
-                        RegressionTestOutputFiles.id == form.output_file.data
-                        ).first()
+            RegressionTestOutputFiles.id == form.output_file.data
+        ).first()
         g.db.delete(variant_file)
         g.db.commit()
         g.log.warning(f'Output file with id: {form.output_file.data} deleted!')

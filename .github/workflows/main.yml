@@ -1,4 +1,4 @@
-name: Travis replacement
+name: Run tests and code checks
 
 on:
   push:

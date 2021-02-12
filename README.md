@@ -1,6 +1,6 @@
 # CCExtractor Sample Platform
 
-[![Build Status](https://travis-ci.org/CCExtractor/sample-platform.svg?branch=master)](https://travis-ci.org/CCExtractor/sample-platform) [![codecov](https://codecov.io/gh/CCExtractor/sample-platform/branch/master/graph/badge.svg)](https://codecov.io/gh/CCExtractor/sample-platform) [![Dependabot Status](https://api.dependabot.com/badges/status?host=github&repo=CCExtractor/sample-platform)](https://dependabot.com)
+[![Run tests and code checks](https://github.com/CCExtractor/sample-platform/workflows/Run%20tests%20and%20code%20checks/badge.svg)](https://github.com/CCExtractor/sample-platform/actions?query=workflow%3A%22Run+tests+and+code+checks%22) [![codecov](https://codecov.io/gh/CCExtractor/sample-platform/branch/master/graph/badge.svg)](https://codecov.io/gh/CCExtractor/sample-platform)
 
 This repository contains the code for a platform that manages a test suite bot, sample upload and more. This platform allows for a unified place to
 report errors, submit samples, view existing samples and more. It was

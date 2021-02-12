@@ -1,7 +1,7 @@
 from importlib import reload
+from unittest import mock
 
 from flask import g
-from mock import mock
 
 from mod_home.models import CCExtractorVersion
 from mod_sample.media_info_parser import InvalidMediaInfoError
@@ -53,7 +53,7 @@ class TestControllers(BaseTestCase):
         import mod_sample.controllers
         reload(mod_sample.controllers)
         sample = Sample.query.filter(Sample.sha == 'sample1').first()
-        from mock import Mock
+        from unittest.mock import Mock
         media_info_fetcher = mock_media(sample)
         media_info_fetcher.get_media_info.side_effect = raise_media_exception
         response = self.app.test_client().get('/sample/sample1')

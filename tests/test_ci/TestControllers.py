@@ -1,8 +1,9 @@
 import json
 from importlib import reload
+from unittest import mock
+from unittest.mock import MagicMock
 
 from flask import g
-from mock import MagicMock, mock
 from werkzeug.datastructures import Headers
 
 from mod_auth.models import Role

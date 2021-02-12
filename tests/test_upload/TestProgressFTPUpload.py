@@ -1,4 +1,4 @@
-from mock import mock
+from unittest import mock
 
 from tests.base import BaseTestCase
 

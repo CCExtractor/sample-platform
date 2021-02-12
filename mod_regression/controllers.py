@@ -2,18 +2,20 @@
 
 from flask import (Blueprint, abort, flash, g, jsonify, redirect, request,
                    url_for)
+from sqlalchemy import and_, func
 
 from decorators import template_renderer
 from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role
-from sqlalchemy import and_, func
-from mod_regression.forms import (AddCategoryForm, AddTestForm,
-                                  ConfirmationForm, EditTestForm, AddCorrectOutputForm, RemoveCorrectOutputForm)
+from mod_regression.forms import (AddCategoryForm, AddCorrectOutputForm,
+                                  AddTestForm, ConfirmationForm, EditTestForm,
+                                  RemoveCorrectOutputForm)
 from mod_regression.models import (Category, InputType, OutputType,
-                                   RegressionTest, RegressionTestOutput, RegressionTestOutputFiles)
+                                   RegressionTest, RegressionTestOutput,
+                                   RegressionTestOutputFiles)
+from mod_sample.models import Sample
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
                              TestResult, TestResultFile, TestStatus, TestType)
-from mod_sample.models import Sample
 from utility import serve_file_download
 
 mod_regression = Blueprint('regression', __name__)

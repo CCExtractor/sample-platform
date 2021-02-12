@@ -8,3 +8,4 @@ mypy==0.782
 Werkzeug==1.0.1
 Flask-Testing==0.8.0
 blinker==1.4
+mock==4.0.3 

@@ -1,7 +1,7 @@
 from importlib import reload
+from unittest import mock
 
 from flask import g
-from mock import mock
 from sqlalchemy import and_
 
 from mod_auth.models import Role

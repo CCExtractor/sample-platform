@@ -1,7 +1,6 @@
 import os
 import tempfile
-
-from mock import mock
+from unittest import mock
 
 from tests.base import BaseTestCase, provide_file_at_root
 

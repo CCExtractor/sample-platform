@@ -1,6 +1,5 @@
 import unittest
-
-from mock import mock
+from unittest import mock
 
 from mailer import Mailer
 

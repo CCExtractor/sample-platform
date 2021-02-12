@@ -1,8 +1,8 @@
 from importlib import reload
 from io import BytesIO
+from unittest import mock
 
 from flask import g, url_for
-from mock import mock
 
 from mod_auth.models import Role
 from mod_sample.models import Issue, Sample

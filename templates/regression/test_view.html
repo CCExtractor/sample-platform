@@ -18,7 +18,7 @@
                 <ul>
                 <li><a target="_blank" href="{{ url_for('regression.test_result_file', regression_test_output_id=test.output_files[i].id, multiple_files=False) }}">{{ test.output_files[i].filename_correct }} (original)</a></li>
                 {% for output_file in test.output_files[i].multiple_files %}
-                <li><a target="_blank" href="{{ url_for('regression.test_result_file', regression_test_output_id=output_file.id, multiple_files=True) }}">{{ output_file.file_hashes+output_file.output.correct_extension }} (variant)</a></li>
+                <li><a target="_blank" href="{{ url_for('regression.multiple_test_result_file', regression_test_output_id=output_file.id) }}">{{ output_file.file_hashes+output_file.output.correct_extension }} (variant)</a></li>
                 {% endfor %}
                 </ul>
                 </li>

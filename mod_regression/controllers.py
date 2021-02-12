@@ -198,22 +198,24 @@ def toggle_active_status(regression_id):
     })
 
 
-@mod_regression.route('/test/<regression_test_output_id>/download/<multiple_files>', methods=['GET'])
-def test_result_file(regression_test_output_id, multiple_files):
+@mod_regression.route('/test/<regression_test_output_id>/download', methods=['GET'])
+def test_result_file(regression_test_output_id):
     """View the output files of the regression test."""
-    if multiple_files == 'True':
-        rtof = RegressionTestOutputFiles.query.filter(RegressionTestOutputFiles.id == regression_test_output_id).first()
-        print(rtof)
-        if rtof is None:
-            g.log.error(f'requested regression test output file with id: {regression_test_output_id} not found!')
-            abort(404)
-        return serve_file_download(rtof.file_hashes+rtof.output.correct_extension, 'TestResults', 'regression-download')
-    else:
-        rto = RegressionTestOutput.query.filter(RegressionTestOutput.id == regression_test_output_id).first()
-        if rto is None:
-            g.log.error(f'requested regression test output with id: {regression_test_output_id} not found!')
-            abort(404)
-        return serve_file_download(rto.filename_correct, 'TestResults', 'regression-download')
+    rto = RegressionTestOutput.query.filter(RegressionTestOutput.id == regression_test_output_id).first()
+    if rto is None:
+        g.log.error(f'requested regression test output with id: {regression_test_output_id} not found!')
+        abort(404)
+    return serve_file_download(rto.filename_correct, 'TestResults', 'regression-download')
+
+
+@mod_regression.route('/test/<regression_test_output_id>/download/variant', methods=['GET'])
+def multiple_test_result_file(regression_test_output_id):
+    """View the output files of the regression test (variants)."""
+    rtof = RegressionTestOutputFiles.query.filter(RegressionTestOutputFiles.id == regression_test_output_id).first()
+    if rtof is None:
+        g.log.error(f'requested regression test output file with id: {regression_test_output_id} not found!')
+        abort(404)
+    return serve_file_download(rtof.file_hashes+rtof.output.correct_extension, 'TestResults', 'regression-download')
 
 
 @mod_regression.route('/test/new', methods=['GET', 'POST'])

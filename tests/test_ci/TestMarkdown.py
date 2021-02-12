@@ -91,8 +91,8 @@ class TestMarkdown(BaseTestCase):
         """
         test addition of target="_blank" attribute to anchor tags
         """
-        mkdown_test1 = "[I'll open in new tab](www.example.com)"
-        expected_test1 = """<p><a target="_blank" href="www.example.com">I'll open in new tab</a></p>\n"""
+        mkdown_test1 = "[new tab](www.example.com)"
+        expected_test1 = """<p><a rel="noopener" target="_blank" href="www.example.com">new tab</a></p>\n"""
 
         html_test1 = markdown(mkdown_test1, extras=["target-blank-links"])
 

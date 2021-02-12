@@ -1,8 +1,8 @@
 import json
 from tempfile import gettempdir
+from unittest import mock
 
 from flask import g
-from mock import mock
 
 from mod_deploy.controllers import requests
 from tests.base import (BaseTestCase, generate_git_api_header,

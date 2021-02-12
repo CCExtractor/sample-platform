@@ -1,6 +1,5 @@
 import json
-
-from mock import mock
+from unittest import mock
 
 from config_parser import parse_config
 from tests.base import BaseTestCase, provide_file_at_root

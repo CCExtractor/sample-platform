@@ -1,7 +1,7 @@
 from importlib import reload
+from unittest import mock
 
 from flask import g
-from mock import mock
 
 from mod_home.models import CCExtractorVersion
 from mod_sample.media_info_parser import InvalidMediaInfoError

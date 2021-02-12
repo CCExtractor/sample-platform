@@ -211,7 +211,7 @@ class RegressionTestOutput(Base):
 
 
 class RegressionTestOutputFiles(Base):
-    """Model to store multiple correct output files for a regression_test"""
+    """Model to store multiple correct output files for a regression_test."""
 
     __tablename__ = 'regression_test_output_files'
     __table_args__ = {'mysql_engine': 'InnoDB'}

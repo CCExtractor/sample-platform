@@ -58,6 +58,7 @@ class ConfirmationForm(FlaskForm):
 
 class AddCorrectOutputForm(FlaskForm):
     """Flask form to Add correct output."""
+
     output_file = SelectField(
         "Choose an original file to which the variant file should be attached to",
         [DataRequired(message="Output cannot be empty")],
@@ -72,6 +73,7 @@ class AddCorrectOutputForm(FlaskForm):
 
 class RemoveCorrectOutputForm(FlaskForm):
     """Flask form to Remove correct output."""
+
     output_file = SelectField(
         "Choose an output file (variant)",
         [DataRequired(message="Output cannot be empty")],

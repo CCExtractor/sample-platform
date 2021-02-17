@@ -55,9 +55,9 @@ except KeyError:
     raise IncompleteConfigException()
 
 # Init logger
-log_configuration = LogConfiguration(app.root_path,        # type: ignore # type error skipped since flask
-                                     'platform',           # now gives as Str but not yet updated in mypy
-                                     app.config['DEBUG'])  # https://github.com/python/typeshed/issues/2791
+log_configuration = LogConfiguration(app.root_path,
+                                     'platform',
+                                     app.config['DEBUG'])
 log = log_configuration.create_logger("Platform")
 
 
@@ -69,8 +69,8 @@ def load_secret_keys(application: Flask, secret_session: str = 'secret_key',
     If the file does not exist, print instructions to create it from a shell with a random key, then exit.
     """
     do_exit = False
-    session_file_path = os.path.join(application.root_path, secret_session)  # type: ignore # same issue as L42
-    csrf_file_path = os.path.join(application.root_path, secret_csrf)        # type: ignore # same issue as L42
+    session_file_path = os.path.join(application.root_path, secret_session)
+    csrf_file_path = os.path.join(application.root_path, secret_csrf)
     try:
         with open(session_file_path, 'rb') as session_file:
             application.config['SECRET_KEY'] = session_file.read()

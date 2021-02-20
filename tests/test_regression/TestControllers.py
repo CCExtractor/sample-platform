@@ -230,109 +230,6 @@ class TestControllers(BaseTestCase):
             ))
             self.assertNotEqual(RegressionTest.query.filter(RegressionTest.id == 3).first(), None)
 
-    def test_add_output(self):
-        """
-        Check if it will add an output
-        """
-        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
-
-        with self.app.test_client() as c:
-            c.post('/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
-            c.post('/regression/test/2/output/new',
-                   data=dict(output_file=2, test_id="Test id 2 with output out2", submit=True))
-            self.assertNotEqual(
-                RegressionTestOutputFiles.query.filter(
-                    and_(
-                        RegressionTestOutputFiles.regression_test_output_id == 2,
-                        RegressionTestOutputFiles.file_hashes == "out2"
-                    )
-                ).first(),
-                None
-            )
-
-    def test_add_output_wrong_regression_test(self):
-        """
-        Check it will throw 404 for a regression_test which does't exist
-        """
-        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
-
-        with self.app.test_client() as c:
-            c.post('/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
-            response = c.post(
-                '/regression/test/69420/output/new',
-                data=dict(output_file=2, test_id="Test id 2 with output out2", submit=True)
-            )
-            self.assertEqual(response.status_code, 404)
-
-    def test_add_output_without_login(self):
-        response = self.app.test_client().get('/regression/test/69420/output/new')
-        self.assertEqual(response.status_code, 302)
-        self.assertIn(b'/account/login?next=regression.output_add', response.data)
-
-    def test_remove_output(self):
-        """
-        Check if it will remove an output
-        """
-        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
-        rtof = RegressionTestOutputFiles.query.filter(
-            and_(
-                RegressionTestOutputFiles.regression_test_output_id == 2,
-                RegressionTestOutputFiles.file_hashes == "bluedabadee"
-            )
-        ).first()
-        with self.app.test_client() as c:
-            c.post('/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
-            response = c.post(
-                '/regression/test/2/output/remove',
-                data=dict(output_file=rtof.id, submit=True)
-            )
-            self.assertEqual(response.status_code, 302)
-            self.assertEqual(
-                RegressionTestOutputFiles.query.filter(
-                    and_(
-                        RegressionTestOutputFiles.id == rtof.id
-                    )
-                ).first(),
-                None
-            )
-
-    def test_remove_output_wrong_regression_test(self):
-        """
-        Check it will throw 404 for a regression_test which does't exist
-        """
-        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
-
-        with self.app.test_client() as c:
-            c.post('/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
-            response = c.post(
-                '/regression/test/69420/output/remove',
-                data=dict(output_file=2, test_id="Test id 2 with output out2", submit=True)
-            )
-            self.assertEqual(response.status_code, 404)
-
-    def test_remove_output_without_login(self):
-        response = self.app.test_client().get('/regression/test/69420/output/remove')
-        self.assertEqual(response.status_code, 302)
-        self.assertIn(b'/account/login?next=regression.output_remove', response.data)
-
-    def test_add_test_empty_erc(self):
-        """
-        Check it will not add a regression test with empty Expected Runtime Code
-        """
-        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
-
-        with self.app.test_client() as c:
-            c.post('/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
-            c.post('/regression/test/new', data=dict(
-                sample_id=1,
-                command="-autoprogram -out=ttxt -latin1 -2",
-                input_type=InputType.file,
-                output_type=OutputType.file,
-                category_id=1,
-                submit=True,
-            ))
-            self.assertEqual(RegressionTest.query.filter(RegressionTest.id == 3).first(), None)
-
     def test_add_test_empty_erc(self):
         """
         Check it will not add a regression test with empty Expected Runtime Code
@@ -524,3 +421,146 @@ class TestControllers(BaseTestCase):
         """
         response = self.app.test_client().get('/regression/sample/13423423')
         self.assertEqual(response.status_code, 404)
+
+    def test_add_output(self):
+        """
+        Check if, it will add an output
+        """
+        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
+
+        with self.app.test_client() as c:
+            c.post('/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            c.post('/regression/test/2/output/new',
+                   data=dict(output_file=2, test_id="Test id 2 with output out2", submit=True))
+            self.assertNotEqual(
+                RegressionTestOutputFiles.query.filter(
+                    and_(
+                        RegressionTestOutputFiles.regression_test_output_id == 2,
+                        RegressionTestOutputFiles.file_hashes == "out2"
+                    )
+                ).first(),
+                None
+            )
+
+    def test_add_output_wrong_regression_test(self):
+        """
+        Check it will throw 404 for a regression_test which does't exist
+        """
+        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
+
+        with self.app.test_client() as c:
+            c.post('/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/regression/test/69420/output/new',
+                data=dict(output_file=2, test_id="Test id 2 with output out2", submit=True)
+            )
+            self.assertEqual(response.status_code, 404)
+
+    def test_add_output_without_login(self):
+        response = self.app.test_client().get('/regression/test/69420/output/new')
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(b'/account/login?next=regression.output_add', response.data)
+
+    def test_remove_output(self):
+        """
+        Check if, it will remove an output
+        """
+        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
+        rtof = RegressionTestOutputFiles.query.filter(
+            and_(
+                RegressionTestOutputFiles.regression_test_output_id == 2,
+                RegressionTestOutputFiles.file_hashes == "bluedabadee"
+            )
+        ).first()
+        with self.app.test_client() as c:
+            c.post('/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/regression/test/2/output/remove',
+                data=dict(output_file=rtof.id, submit=True)
+            )
+            self.assertEqual(response.status_code, 302)
+            self.assertEqual(
+                RegressionTestOutputFiles.query.filter(
+                    and_(
+                        RegressionTestOutputFiles.id == rtof.id
+                    )
+                ).first(),
+                None
+            )
+
+    def test_remove_output_wrong_regression_test(self):
+        """
+        Check it will throw 404 for a regression_test which does't exist
+        """
+        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
+
+        with self.app.test_client() as c:
+            c.post('/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post(
+                '/regression/test/69420/output/remove',
+                data=dict(output_file=2, submit=True)
+            )
+            self.assertEqual(response.status_code, 404)
+
+    def test_remove_output_without_login(self):
+        response = self.app.test_client().get('/regression/test/69420/output/remove')
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(b'/account/login?next=regression.output_remove', response.data)
+
+    def test_add_output_empty_got(self):
+        """
+        Check if, it will add an output with empty got
+        """
+        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
+
+        with self.app.test_client() as c:
+            c.post('/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            c.post('/regression/test/2/output/new',
+                   data=dict(output_file=1, submit=True))
+            self.assertEqual(
+                RegressionTestOutputFiles.query.filter(
+                    and_(
+                        RegressionTestOutputFiles.regression_test_output_id == 1,
+                    )
+                ).count(),
+                0
+            )
+
+    def test_add_output_empty_output_file(self):
+        """
+        Check if, it will add an output with empty rto
+        """
+        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
+
+        with self.app.test_client() as c:
+            c.post('/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            c.post('/regression/test/2/output/new',
+                   data=dict(test_id="Test id 2 with output demogorgans", submit=True))
+            self.assertEqual(
+                RegressionTestOutputFiles.query.filter(
+                    and_(
+                        RegressionTestOutputFiles.file_hashes == "demogorgans",
+                    )
+                ).count(),
+                0
+            )
+
+    def test_add_output_wrong_rto_id(self):
+        """
+        Check if, it will add an output with wrong regression_test_output_id
+        """
+        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
+
+        with self.app.test_client() as c:
+            c.post('/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            c.post('/regression/test/2/output/new',
+                   data=dict(output_file=69420, test_id="Test id 2 with output out2", submit=True))
+            self.assertEqual(
+                RegressionTestOutputFiles.query.filter(
+                    and_(
+                        RegressionTestOutputFiles.regression_test_output_id == 69420,
+                        RegressionTestOutputFiles.file_hashes == "out2"
+                    )
+                ).first(),
+                None
+            )

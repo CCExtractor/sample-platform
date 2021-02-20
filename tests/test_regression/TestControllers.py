@@ -239,7 +239,7 @@ class TestControllers(BaseTestCase):
         with self.app.test_client() as c:
             c.post('/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
             c.post('/regression/test/2/output/new',
-                   data=dict(output_file=2, test_id="Test id 2 with output out2",submit=True))
+                   data=dict(output_file=2, test_id="Test id 2 with output out2", submit=True))
             self.assertNotEqual(
                 RegressionTestOutputFiles.query.filter(
                     and_(

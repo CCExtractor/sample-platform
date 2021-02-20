@@ -1,12 +1,13 @@
 from unittest import mock
 
 from flask import g
+from sqlalchemy import and_
 from werkzeug.exceptions import NotFound
 
 from mod_auth.models import Role
 from mod_customized.models import CustomizedTest
 from mod_regression.models import (Category, InputType, OutputType,
-                                   RegressionTest)
+                                   RegressionTest, RegressionTestOutputFiles)
 from mod_sample.models import Sample
 from mod_test.models import Test
 from tests.base import BaseTestCase
@@ -53,6 +54,19 @@ class TestControllers(BaseTestCase):
 
         mock_regression_output.query.filter.assert_called_once_with(mock_regression_output.id == 1)
 
+    @mock.patch('mod_regression.controllers.RegressionTestOutputFiles')
+    def test_download_result_file_not_found_variant(self, mock_regression_output_file):
+        """
+        Test that non-existent result file gives 404.
+        """
+        from mod_regression.controllers import multiple_test_result_file
+        mock_regression_output_file.query.filter.return_value.first.return_value = None
+
+        with self.assertRaises(NotFound):
+            multiple_test_result_file(1)
+
+        mock_regression_output_file.query.filter.assert_called_once_with(mock_regression_output_file.id == 1)
+
     @mock.patch('mod_regression.controllers.serve_file_download')
     @mock.patch('mod_regression.controllers.RegressionTestOutput')
     def test_download_result_file(self, mock_regression_output, mock_serve):
@@ -64,6 +78,19 @@ class TestControllers(BaseTestCase):
         response = test_result_file(1)
 
         mock_regression_output.query.filter.assert_called_once_with(mock_regression_output.id == 1)
+        mock_serve.assert_called_once()
+
+    @mock.patch('mod_regression.controllers.serve_file_download')
+    @mock.patch('mod_regression.controllers.RegressionTestOutputFiles')
+    def test_download_result_file_variant(self, mock_regression_output_file, mock_serve):
+        """
+        Test that correct result file triggers serve download for variants.
+        """
+        from mod_regression.controllers import multiple_test_result_file
+
+        response = multiple_test_result_file(1)
+
+        mock_regression_output_file.query.filter.assert_called_once_with(mock_regression_output_file.id == 1)
         mock_serve.assert_called_once()
 
     def test_regression_test_deletion_Without_login(self):
@@ -202,6 +229,26 @@ class TestControllers(BaseTestCase):
                 submit=True,
             ))
             self.assertNotEqual(RegressionTest.query.filter(RegressionTest.id == 3).first(), None)
+
+    def test_add_output(self):
+        """
+        Check if it will add an output
+        """
+        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
+
+        with self.app.test_client() as c:
+            c.post('/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            c.post('/regression/test/2/output/new',
+                   data=dict(output_file=2, test_id="Test id 2 with output out2",submit=True))
+            self.assertNotEqual(
+                RegressionTestOutputFiles.query.filter(
+                    and_(
+                        RegressionTestOutputFiles.regression_test_output_id == 2,
+                        RegressionTestOutputFiles.file_hashes == "out2"
+                    )
+                ).first(),
+                None
+            )
 
     def test_add_test_empty_erc(self):
         """

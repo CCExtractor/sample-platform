@@ -66,7 +66,8 @@ class AddCorrectOutputForm(FlaskForm):
     )
     test_id = SelectField(
         "Choose a Result file from previous Test runs",
-        [DataRequired(message="Output cannot be empty")]
+        [DataRequired(message="Output cannot be empty")],
+        coerce=str,
     )
     submit = SubmitField("Add Output")
 

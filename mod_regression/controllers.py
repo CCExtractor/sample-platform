@@ -356,7 +356,7 @@ def output_add(regression_id):
 
     form = AddCorrectOutputForm(request.form)
     test_result = TestResultFile.query.filter(
-        and_(TestResultFile.regression_test_id == regression_id, TestResultFile.got is not None)
+        and_(TestResultFile.regression_test_id == regression_id, TestResultFile.got.isnot(None))
     ).order_by(TestResultFile.test_id.desc()).limit(10).all()
     test_files = []
     for result in test_result:
@@ -377,6 +377,7 @@ def output_add(regression_id):
         )
         g.db.add(new_output)
         g.db.commit()
+        g.log.warning(f'Output file for RegressionTestOutput id: {form.output_file.data} added!')
         return redirect(url_for('.test_view', regression_id=regression_id))
     return {'form': form, 'regression_id': regression_id}
 

@@ -6,6 +6,7 @@ List of models corresponding to mysql tables:
         'Category' => 'category',
         'RegressionTest' => 'regression_test',
         'RegressionTestOutput' => 'regression_test_output'
+        'RegressionTestOutputFiles' => 'regression_test_output_files'
     ]
 """
 
@@ -144,6 +145,7 @@ class RegressionTestOutput(Base):
     correct_extension = Column(String(64), nullable=False)  # contains the .
     expected_filename = Column(Text())
     ignore = Column(Boolean(), default=False)
+    multiple_files = relationship('RegressionTestOutputFiles', back_populates='output')
 
     def __init__(self, regression_id, correct, correct_extension, expected_filename, ignore=False) -> None:
         """
@@ -206,3 +208,38 @@ class RegressionTestOutput(Base):
         :rtype: str
         """
         return f"{name}{self.correct_extension}"
+
+
+class RegressionTestOutputFiles(Base):
+    """Model to store multiple correct output files for a regression_test."""
+
+    __tablename__ = 'regression_test_output_files'
+    __table_args__ = {'mysql_engine': 'InnoDB'}
+    id = Column(Integer, primary_key=True)
+    file_hashes = Column(Text())
+    regression_test_output_id = Column(
+        Integer,
+        ForeignKey('regression_test_output.id', onupdate='CASCADE', ondelete='RESTRICT')
+    )
+    output = relationship('RegressionTestOutput', back_populates='multiple_files')
+
+    def __init__(self, file_hashes, regression_test_output_id) -> None:
+        """
+        Parametrized constructor for the RegressionTestOutput model.
+
+        :param regression_test_output_id: ForeignKey refering to id of RegressionTestOutput model
+        :type regression_id: int
+        :param file_hashes: The value of the 'file_hashes' field of RegressionTestOutputFiles model
+        :type correct: str
+        """
+        self.file_hashes = file_hashes
+        self.regression_test_output_id = regression_test_output_id
+
+    def __repr__(self) -> str:
+        """
+        Represent a RegressionTestOutputFile Model by its 'id' Field.
+
+        :return: Returns the string containing 'id' field of the RegressionTestOutputFile model.
+        :rtype: str
+        """
+        return f"{self.id}"

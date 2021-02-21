@@ -13,16 +13,24 @@
             <p>Output type: {{ test.output_type.description }}</p>
             <p>Output files:</p>
             <ul>
-                {% for output_file in test.output_files %}
-                <li><a target="_blank" href="{{ url_for('regression.test_result_file', regression_test_output_id=output_file.id) }}">{{ output_file.filename_correct }}</a></li>
-                {% endfor %}            
-            </ul>            
+                {% for i in range(test.output_files|length) %}
+                <li><p> Output File {{i+1}}:</p>
+                <ul>
+                <li><a target="_blank" href="{{ url_for('regression.test_result_file', regression_test_output_id=test.output_files[i].id, multiple_files=False) }}">{{ test.output_files[i].filename_correct }} (original)</a></li>
+                {% for output_file in test.output_files[i].multiple_files %}
+                <li><a target="_blank" href="{{ url_for('regression.multiple_test_result_file', regression_test_output_id=output_file.id) }}">{{ output_file.file_hashes+output_file.output.correct_extension }} (variant)</a></li>
+                {% endfor %}
+                </ul>
+                </li>
+                {% endfor %}
+            </ul>
         </div>
         <div class="column medium-3">
             {% if user is not none and user.has_role('contributor') %}
             <h5>Regression tests</h5>
             <ul class="no-bullet">
-                <li>Coming soon</li>
+              <li><i class="fa fa-plus-circle"></i> <a href="{{ url_for('.output_add', regression_id=test.id) }}">Add new Output file</a></li>
+              <li><i class="fa fa-minus-circle"></i> <a href="{{ url_for('.output_remove', regression_id=test.id) }}">Remove Output file</a></li>
             </ul>
             {% endif %}
         </div>

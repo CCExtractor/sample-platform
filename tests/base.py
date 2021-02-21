@@ -12,7 +12,8 @@ from mod_auth.models import Role, User
 from mod_customized.models import CustomizedTest, TestFork
 from mod_home.models import CCExtractorVersion, GeneralData
 from mod_regression.models import (Category, InputType, OutputType,
-                                   RegressionTest, RegressionTestOutput)
+                                   RegressionTest, RegressionTestOutput,
+                                   RegressionTestOutputFiles)
 from mod_sample.models import ForbiddenExtension, ForbiddenMimeType, Sample
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
                              TestResult, TestResultFile, TestStatus, TestType)
@@ -253,6 +254,10 @@ class BaseTestCase(TestCase):
             RegressionTestOutput(2, "sample_out2", ".srt", "")
         ]
         g.db.add_all(regression_test_outputs)
+        g.db.commit()
+
+        rtof = RegressionTestOutputFiles("bluedabadee", 2)
+        g.db.add(rtof)
         g.db.commit()
 
         test_result_progress = [

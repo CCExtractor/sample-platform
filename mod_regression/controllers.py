@@ -357,18 +357,19 @@ def output_add(regression_id):
     form = AddCorrectOutputForm(request.form)
     test_result = TestResultFile.query.filter(
         and_(TestResultFile.regression_test_id == regression_id, TestResultFile.got.isnot(None))
-    ).order_by(TestResultFile.test_id.desc()).limit(10).all()
+    ).order_by(TestResultFile.test_id.desc()).limit(50).all()
     test_files = []
     for result in test_result:
-        append = True
-        for output_file in result.regression_test_output.multiple_files:
-            if result.got == output_file.file_hashes:
-                append = False
-                break
-        if append:
-            test_files.append(result)
+        if result.got not in check_doubles:
+            append = True
+            for output_file in result.regression_test_output.multiple_files:
+                if result.got.strip() == output_file.file_hashes.strip():
+                    append = False
+                    break
+            if append:
+                check_doubles[result.got] = int(result.test_id)
     form.output_file.choices = [(output.id, output.filename_correct + ' (original)') for output in test.output_files]
-    form.test_id.choices = [('Test id ' + str(result.test_id) + ' with output ' + result.got) for result in test_files]
+    form.test_id.choices = [('Test id ' + str(test_id) + ' with output ' + got) for got,test_id in check_doubles.items()]
     if form.validate_on_submit():
         test_data = form.test_id.data.strip().split()
         new_output = RegressionTestOutputFiles(

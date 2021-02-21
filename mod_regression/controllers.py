@@ -369,7 +369,7 @@ def output_add(regression_id):
             if append:
                 check_doubles[result.got] = int(result.test_id)
     form.output_file.choices = [(output.id, output.filename_correct + ' (original)') for output in test.output_files]
-    form.test_id.choices = [('Test id ' + str(test_id) + ' with output ' + got) for got,test_id in check_doubles.items()]
+    form.test_id.choices = [('Test id ' + str(test_id) + ' with output ' + got) for got, test_id in check_doubles.items()]
     if form.validate_on_submit():
         test_data = form.test_id.data.strip().split()
         new_output = RegressionTestOutputFiles(

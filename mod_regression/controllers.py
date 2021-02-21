@@ -358,7 +358,6 @@ def output_add(regression_id):
     test_result = TestResultFile.query.filter(
         and_(TestResultFile.regression_test_id == regression_id, TestResultFile.got.isnot(None))
     ).order_by(TestResultFile.test_id.desc()).limit(50).all()
-    test_files = []
     check_doubles = {}
     for result in test_result:
         if result.got not in check_doubles:

@@ -240,6 +240,7 @@ class BaseTestCase(TestCase):
         ]
         g.db.add_all(upload)
         g.db.commit()
+
         regression_tests = [
             RegressionTest(1, "-autoprogram -out=ttxt -latin1 -2", InputType.file, OutputType.file, 3, 10),
             RegressionTest(2, "-autoprogram -out=ttxt -latin1 -ucla", InputType.file, OutputType.file, 1, 10)

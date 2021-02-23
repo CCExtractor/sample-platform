@@ -7,9 +7,10 @@ from werkzeug.exceptions import NotFound
 from mod_auth.models import Role
 from mod_customized.models import CustomizedTest
 from mod_regression.models import (Category, InputType, OutputType,
-                                   RegressionTest, RegressionTestOutputFiles)
+                                   RegressionTest, RegressionTestOutput,
+                                   RegressionTestOutputFiles)
 from mod_sample.models import Sample
-from mod_test.models import Test
+from mod_test.models import Test, TestResultFile
 from tests.base import BaseTestCase
 
 
@@ -490,7 +491,7 @@ class TestControllers(BaseTestCase):
 
     def test_remove_output_wrong_regression_test(self):
         """
-        Check it will throw 404 for a regression_test which does't exist
+        Check it will throw 404 for a regression_test which doesn't exist
         """
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
 
@@ -503,6 +504,9 @@ class TestControllers(BaseTestCase):
             self.assertEqual(response.status_code, 404)
 
     def test_remove_output_without_login(self):
+        """
+        Check it removes output without login
+        """
         response = self.app.test_client().get('/regression/test/69420/output/remove')
         self.assertEqual(response.status_code, 302)
         self.assertIn(b'/account/login?next=regression.output_remove', response.data)
@@ -563,4 +567,35 @@ class TestControllers(BaseTestCase):
                     )
                 ).first(),
                 None
+            )
+
+    def test_add_test_output_and_check_double_hashes(self):
+        """
+        Check if the add output method checks for double hashes
+        """
+        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
+        add_rt_rto_trf = [
+            RegressionTest(1, "-autoprogram -out=ttxt -latin1 -2", InputType.file, OutputType.file, 3, 0),
+            RegressionTestOutput(3, "sample_out3", ".srt", ""),
+            RegressionTestOutput(3, "sample_out4", ".srt", ""),
+            TestResultFile(2, 3, 3, "sample_out3", "out3"),
+            TestResultFile(2, 3, 4, "sample_out4", "out3")
+        ]
+        g.db.add_all(add_rt_rto_trf)
+        g.db.commit()
+        self.assertEqual(
+            TestResultFile.query.filter(
+                TestResultFile.got == "out3"
+            ).count(),
+            2
+        )
+        with self.app.test_client() as c:
+            c.post('/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            c.post('/regression/test/3/output/new',
+                   data=dict(output_file=3, test_id="Test id 2 with output out3", submit=True))
+            self.assertEqual(
+                RegressionTestOutputFiles.query.filter(
+                    RegressionTestOutputFiles.file_hashes == "out3"
+                ).count(),
+                1
             )

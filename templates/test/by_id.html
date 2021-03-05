@@ -54,6 +54,7 @@
                 <br class="clear" />
                 {% if test.progress|length > 0 %}
                     <input type="button" id="progress_button" class="button" value="Show test progress" />
+                    <a target="_blank" class="button" href = "{{ url_for('test.download_build_log_file',test_id=test.id) }}">Show log file</a>
                     <div style="overflow-x:auto;">
                         <table id="progress_table" class="hide striped">
                             <thead>
@@ -81,7 +82,7 @@
                     {% if test.failed %}
                         <h2>An error occurred</h2>
                         <p>Something went wrong while the tests where running. You should be able to see in the bar above during which stage it went wrong exactly.</p>
-                        <p>If you have build errors, you can access a log file with build errors <a target="_blank" href = "{{ url_for('test.download_build_log_file',test_id=test.id) }}">here</a>.</p>
+                        <p>If you have build errors, you can access the above log file with build errors.</p>
                     {% else %}
                         <h2>Test results</h2>
                         <p>Click on the category names to expand the results, and on "Fail" to see the differences.</p>

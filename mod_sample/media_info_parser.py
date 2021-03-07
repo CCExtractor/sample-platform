@@ -215,9 +215,15 @@ class MediaInfoFetcher:
         process = subprocess.Popen(['mediainfo', '--Output=XML', media_path], stdout=output_handle)
         process.wait()
         if os.path.isfile(media_info_path):
-            # Load media info
+            # Load media info, and replace full pathname
             tree = etree.parse(media_info_path)
-
+            root = tree.getroot()
+            try:
+                for rootElems in root:
+                    if rootElems.tag.split('}')[1] == 'media':
+                        rootElems.set("ref", media_path.replace(media_folder, ''))
+            except Exception as e:
+                raise
             # Store
             tree.write(media_info_path, encoding='utf-8', xml_declaration=True, pretty_print=True)
             # Return instance

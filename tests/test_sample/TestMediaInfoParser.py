@@ -25,7 +25,7 @@ class TestMediaInfoFetcher(BaseTestCase):
         """
         Test initialisation of MediaInfoFetcher.
         """
-        mock_xml.parse.return_value = {'Mediainfo': 'test'}
+        mock_xml.parse.return_value = {'MediaInfo': 'test'}
 
         MediaInfoFetcher(MockSample())
 
@@ -104,7 +104,7 @@ class TestMediaInfoFetcher(BaseTestCase):
         """
         # set new mocks to eradicate interference with other usage
         MOCK_MediaInfoFetcher = mock.MagicMock()
-        MOCK_MediaInfoFetcher.media_info = {'File': OrderedDict()}
+        MOCK_MediaInfoFetcher.media_info = {'media': OrderedDict()}
 
         with self.assertRaises(InvalidMediaInfoError):
             MediaInfoFetcher._process_tracks(MOCK_MediaInfoFetcher)
@@ -115,7 +115,7 @@ class TestMediaInfoFetcher(BaseTestCase):
         """
         # set new mocks to eradicate interference with other usage
         MOCK_MediaInfoFetcher = mock.MagicMock()
-        MOCK_MediaInfoFetcher.media_info = {'File': OrderedDict([('track', ['track1'])])}
+        MOCK_MediaInfoFetcher.media_info = {'media': OrderedDict([('track', ['track1'])])}
 
         MediaInfoFetcher._process_tracks(MOCK_MediaInfoFetcher)
 
@@ -193,11 +193,13 @@ class TestMediaInfoFetcher(BaseTestCase):
         Test replacement of key '_' with " " using _process_generic method.
         """
         MOCK_MediaInfoFetcher.reset_mock()
-        keys = ['some_key']
-        track = OrderedDict([('some_key', 'test')])
+        keys = ['some_key', 'FileSize', 'Duration']
+        track = OrderedDict([('some_key', 'test'), ('FileSize', '1048576'), ('Duration', '60')])
 
         result = MediaInfoFetcher._process_generic(MOCK_MediaInfoFetcher, track, keys)
         self.assertEqual(result['some key'], track['some_key'])
+        self.assertEqual(result['FileSize'], '1.0 MB')
+        self.assertEqual(result['Duration'], '1m 0s')
 
     def test__process_general(self):
         """
@@ -205,7 +207,7 @@ class TestMediaInfoFetcher(BaseTestCase):
         """
         MOCK_MediaInfoFetcher.reset_mock()
         track = {}
-        key_list = ['Format', 'File_size', 'Duration', 'Codec_ID']
+        key_list = ['Format', 'FileSize', 'Duration', 'CodecID']
 
         MediaInfoFetcher._process_general(MOCK_MediaInfoFetcher, track)
 
@@ -220,14 +222,13 @@ class TestMediaInfoFetcher(BaseTestCase):
             'Width': 10,
             'Height': 10,
             'Format': 'mp4',
-            'Format_Info': 'video_content',
-            'Frame_rate': '30',
-            'Frame_rate_mode': 'fps',
-            'Scan_type': 'test',
-            'Scan_order': 'vertical',
+            'FrameRate': '30',
+            'FrameRate_mode': 'fps',
+            'ScanType': 'test',
+            'ScanOrder': 'vertical',
             'ID': 'test'
         }
-        key_list = ['Display_aspect_ratio', 'Writing_library', 'Duration', 'Codec_ID']
+        key_list = ['DisplayAspectRatio', 'Encoded_Library', 'Duration', 'CodecID']
 
         MediaInfoFetcher._process_video(MOCK_MediaInfoFetcher, track)
 
@@ -240,7 +241,7 @@ class TestMediaInfoFetcher(BaseTestCase):
         """
         MOCK_MediaInfoFetcher.reset_mock()
         track = {'ID': 'test'}
-        key_list = ['Format', 'Menu_ID', 'Muxing_mode']
+        key_list = ['Format', 'MenuID', 'MuxingMode']
 
         MediaInfoFetcher._process_text(MOCK_MediaInfoFetcher, track)
 
@@ -285,7 +286,6 @@ class TestMediaInfoFetcher(BaseTestCase):
         """
         mock_sys.platform = 'linux'
         mock_os.path.isfile.return_value = True
-
         response = MediaInfoFetcher.generate_media_xml(MockSample())
 
         self.assertEqual(response, mock_media_info_fetcher())

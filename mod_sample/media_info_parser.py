@@ -35,10 +35,10 @@ class MediaInfoFetcher:
                 doc = xmltodict.parse(fd.read())
             except Exception:
                 raise InvalidMediaInfoError("No Mediainfo root element present")
-            if 'Mediainfo' not in doc:
+            if 'MediaInfo' not in doc:
                 raise InvalidMediaInfoError("Mediainfo xml root element not present")
 
-            self.media_info = doc['Mediainfo']
+            self.media_info = doc['MediaInfo']
             self.video_tracks = []      # type: List
             self.caption_tracks = []    # type: List
             self.audio_tracks = []      # type: List
@@ -81,10 +81,10 @@ class MediaInfoFetcher:
             self.general_track = {}
             self.parsed = False
 
-        if 'File' not in self.media_info:
-            raise InvalidMediaInfoError("No File element present in XML")
+        if 'media' not in self.media_info:
+            raise InvalidMediaInfoError("No media element present in XML")
 
-        file_info = self.media_info['File']
+        file_info = self.media_info['media']
         if 'track' not in file_info:
             raise InvalidMediaInfoError("No tracks present in XML")
 
@@ -132,6 +132,12 @@ class MediaInfoFetcher:
         for key in keys:
             if key in track:
                 result[key.replace('_', ' ')] = track[key]
+        if 'FileSize' in result:
+            fileSize = round(float(result['FileSize']) / 1048576, 2)
+            result['FileSize'] = f'{fileSize} MB'
+        if 'Duration' in result:
+            min, sec = divmod(round(float(result['Duration'])), 60)
+            result['Duration'] = f'{min}m {sec}s'
         return result
 
     def _process_general(self, track) -> None:
@@ -143,7 +149,7 @@ class MediaInfoFetcher:
         :return: parsed information
         :rtype: dict
         """
-        self.general_track = self._process_generic(track, ['Format', 'File_size', 'Duration', 'Codec_ID'])
+        self.general_track = self._process_generic(track, ['Format', 'FileSize', 'Duration', 'CodecID'])
 
     def _process_video(self, track) -> None:
         """
@@ -154,27 +160,24 @@ class MediaInfoFetcher:
         :return: parsed information and name
         :rtype: dict
         """
-        result = self._process_generic(track, ['Display_aspect_ratio', 'Writing_library', 'Duration', 'Codec_ID'])
+        result = self._process_generic(track, ['DisplayAspectRatio', 'Encoded_Library', 'Duration', 'CodecID'])
 
         if 'Width' in track and 'Height' in track:
             result['Resolution'] = f"{track['Width']} x {track['Height']}"
 
         if 'Format' in track:
-            v_format = track['Format']
-            if 'Format_Info' in track:
-                v_format += f" ({track['Format_Info']})"
-            result['Format'] = v_format
+            result['Format'] = track['Format']
 
-        if 'Frame_rate' in track:
-            v_rate = track['Frame_rate']
-            if 'Frame_rate_mode' in track:
-                v_rate += f" (mode: {track['Frame_rate_mode']})"
+        if 'FrameRate' in track:
+            v_rate = track['FrameRate']
+            if 'FrameRate_mode' in track:
+                v_rate += f" (mode: {track['FrameRate_mode']})"
             result['Frame rate'] = v_rate
 
-        if 'Scan_type' in track:
-            v_scan = track['Scan_type']
-            if 'Scan_order' in track:
-                v_scan += f" ({track['Scan_order']})"
+        if 'ScanType' in track:
+            v_scan = track['ScanType']
+            if 'ScanOrder' in track:
+                v_scan += f" ({track['ScanOrder']})"
             result['Scan type'] = v_scan
 
         name = f"Stream nr. {len(self.video_tracks)}"
@@ -186,7 +189,7 @@ class MediaInfoFetcher:
     def _process_text(self, track) -> None:
         self.caption_tracks.append({
             'name': f"ID: {track['ID']}",
-            'value': self._process_generic(track, ['Format', 'Menu_ID', 'Muxing_mode'])
+            'value': self._process_generic(track, ['Format', 'MenuID', 'MuxingMode'])
         })
 
     @staticmethod
@@ -214,11 +217,12 @@ class MediaInfoFetcher:
         if os.path.isfile(media_info_path):
             # Load media info, and replace full pathname
             tree = etree.parse(media_info_path)
-            for elem in tree.xpath("//track[@type='General']"):
-                for child in elem:
-                    if child.tag == 'Complete_name':
-                        child.text = child.text.replace(media_folder, '')
-                        break
+            root = tree.getroot()
+
+            for rootElems in root:
+                if etree.QName(rootElems).localname == 'media':
+                    rootElems.set("ref", media_path.replace(media_folder, ''))
+                    break
             # Store
             tree.write(media_info_path, encoding='utf-8', xml_declaration=True, pretty_print=True)
             # Return instance

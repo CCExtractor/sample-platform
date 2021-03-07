@@ -133,10 +133,10 @@ class MediaInfoFetcher:
             if key in track:
                 result[key.replace('_', ' ')] = track[key]
         if 'FileSize' in result:
-            fileSize = round(float(result['FileSize'])/1048576,2)
+            fileSize = round(float(result['FileSize']) / 1048576, 2)
             result['FileSize'] = f'{fileSize} MB'
         if 'Duration' in result:
-            min, sec = divmod(round(float(result['Duration'])),60)
+            min, sec = divmod(round(float(result['Duration'])), 60)
             result['Duration'] = f'{min}m {sec}s'
         return result
 

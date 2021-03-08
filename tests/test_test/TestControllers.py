@@ -133,7 +133,7 @@ class TestControllers(BaseTestCase):
         result = get_data_for_test(mock_test)
 
         self.assertIsInstance(result, dict)
-        self.assertEqual(5, mock_g.db.query.call_count)
+        self.assertEqual(6, mock_g.db.query.call_count)
         mock_category.query.filter.assert_called_once()
         mock_gen_data.query.filter.assert_called()
 

@@ -479,7 +479,6 @@ class TestControllers(BaseTestCase):
                 flash_message = dict(session['_flashes']).get('message')
             self.assertEqual(flash_message, "No such user in Blacklist")
 
-
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_wrong_url(self, mock_request):
         """

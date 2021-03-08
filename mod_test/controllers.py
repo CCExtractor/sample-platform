@@ -92,6 +92,7 @@ def get_data_for_test(test, title=None) -> Dict[str, Any]:
         average_prep_time = int(float(GeneralData.query.filter(GeneralData.key == prep_average_key).first().value))
         average_build_time = int(float(GeneralData.query.filter(GeneralData.key == build_average_key).first().value))
 
+        test_progress_last_entry = g.db.query(func.max(TestProgress.test_id)).first()
         queued_kvm = g.db.query(Kvm.test_id).filter(Kvm.test_id < test.id).subquery()
         queued_kvm_entries = g.db.query(Test.id).filter(
             and_(Test.id.in_(queued_kvm), Test.platform == test.platform)
@@ -100,7 +101,7 @@ def get_data_for_test(test, title=None) -> Dict[str, Any]:
             TestProgress.test_id.in_(queued_kvm_entries)
         ).group_by(TestProgress.test_id).all()
         number_kvm_test = g.db.query(Test.id).filter(
-            and_(Test.id.in_(queued_kvm), Test.platform == test.platform)
+            and_(Test.id > test_progress_last_entry[0], Test.id < test.id, Test.platform == test.platform)
         ).count()
         average_duration = float(GeneralData.query.filter(GeneralData.key == var_average).first().value)
         queued_tests = number_kvm_test

@@ -27,7 +27,7 @@ from decorators import get_menu_entries, template_renderer
 from mailer import Mailer
 from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role
-from mod_ci.forms import AddUsersToBlacklist, RemoveUsersFromBlacklist
+from mod_ci.forms import AddUsersToBlacklist, DeleteUserForm
 from mod_ci.models import BlockedUsers, Kvm, MaintenanceMode
 from mod_customized.models import CustomizedTest
 from mod_deploy.controllers import is_valid_signature, request_from_github
@@ -1296,24 +1296,38 @@ def blocked_users():
 
         return redirect(url_for('.blocked_users'))
 
-    # Define removeUserForm processing
-    remove_user_form = RemoveUsersFromBlacklist()
-    if remove_user_form.remove.data and remove_user_form.validate_on_submit():
-        blocked_user = BlockedUsers.query.filter_by(user_id=remove_user_form.user_id.data).first()
-        if blocked_user is None:
-            flash("No such user in Blacklist")
-            return redirect(url_for('.blocked_users'))
+    return{
+        'addUserForm': add_user_form,
+        'blocked_users': blocked_users,
+        'usernames': usernames
+    }
 
+
+@mod_ci.route('/blocked_users/<blocked_user_id>', methods=['GET', 'POST'])
+@login_required
+@check_access_rights([Role.admin])
+@template_renderer()
+def blocked_users_remove(blocked_user_id):
+    """
+    Render the blocked_users_remove template.
+
+    Removes user from the list of blacklisted users.
+    """
+    blocked_user = BlockedUsers.query.filter_by(user_id=blocked_user_id).first()
+    if blocked_user is None:
+        flash("No such user in Blacklist")
+        return redirect(url_for('.blocked_users'))
+
+    form = DeleteUserForm(request.form)
+    if form.validate_on_submit():
         g.db.delete(blocked_user)
         g.db.commit()
         flash("User removed successfully.")
         return redirect(url_for('.blocked_users'))
 
     return{
-        'addUserForm': add_user_form,
-        'removeUserForm': remove_user_form,
-        'blocked_users': blocked_users,
-        'usernames': usernames
+        'blocked_user_id': blocked_user_id,
+        'form': form
     }
 
 

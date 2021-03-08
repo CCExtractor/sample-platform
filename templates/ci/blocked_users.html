@@ -29,6 +29,7 @@
                     <th>GitHub User ID</th>
                     <th>Username</th>
                     <th>Comment</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -37,6 +38,7 @@
                     <td>{{ u.user_id }}</td>
                     <td>{{ usernames[u.user_id] }}</td>
                     <td>{{ u.comment }}</td>
+                    <td><a href="{{ url_for('.blocked_users_remove', blocked_user_id=u.user_id) }}" title="Remove"><i class="fa fa-remove"></i></a></td>
                 </tr>
             {% endfor %}
             </tbody>
@@ -67,31 +69,6 @@
             </div>
             <div class="medium-12 columns">
                 {{ macros.render_field(addUserForm.add) }}
-            </div>
-        </div>
-    </form>
-    <div class="grid-x">
-        <h1>Remove Blocked Users</h1>
-    </div>
-    <form method="post" name="removeUserForm" id="removeUserForm" action="{{ url_for('.blocked_users') }}">
-        {{ removeUserForm.csrf_token }}
-        {% if removeUserForm.errors %}
-            <div class="grid-x">
-                <div class="callout alert">
-                    {% for field, error in removeUserForm.errors.items() %}
-                        {% for e in error %}
-                            {{ e }}<br>
-                        {% endfor %}
-                    {% endfor %}
-                </div>
-            </div>
-        {% endif %}
-        <div class="grid-x">
-            <div class="medium-12 columns">
-                {{ macros.render_field(removeUserForm.user_id) }}
-            </div>
-            <div class="medium-12 columns">
-                {{ macros.render_field(removeUserForm.remove) }}
             </div>
         </div>
     </form>

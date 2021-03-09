@@ -1296,14 +1296,14 @@ def blocked_users():
 
         return redirect(url_for('.blocked_users'))
 
-    return{
+    return {
         'addUserForm': add_user_form,
         'blocked_users': blocked_users,
         'usernames': usernames
     }
 
 
-@mod_ci.route('/blocked_users/<blocked_user_id>', methods=['GET', 'POST'])
+@mod_ci.route('/blocked_users/<int:blocked_user_id>', methods=['GET', 'POST'])
 @login_required
 @check_access_rights([Role.admin])
 @template_renderer()
@@ -1325,7 +1325,7 @@ def blocked_users_remove(blocked_user_id):
         flash("User removed successfully.")
         return redirect(url_for('.blocked_users'))
 
-    return{
+    return {
         'blocked_user_id': blocked_user_id,
         'form': form
     }

@@ -480,19 +480,6 @@ class TestControllers(BaseTestCase):
             self.assertEqual(flash_message, "No such user in Blacklist")
 
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_add_blocked_users_empty_id(self, mock_request):
-        """
-        Check adding blank user id to block list.
-        """
-        self.create_user_with_role(
-            self.user.name, self.user.email, self.user.password, Role.admin)
-        with self.app.test_client() as c:
-            c.post("/account/login", data=self.create_login_form_data(self.user.email, self.user.password))
-            response = c.post("/blocked_users", data=dict(comment="Bad user", add=True))
-            self.assertEqual(BlockedUsers.query.filter(BlockedUsers.user_id.is_(None)).first(), None)
-            self.assertIn("GitHub User ID not filled in", str(response.data))
-
-    @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_remove_blocked_users_invalid_id(self, mock_request):
         """
         Check invalid id for the blocked_user url.

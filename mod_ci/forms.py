@@ -13,8 +13,7 @@ class AddUsersToBlacklist(FlaskForm):
     add = SubmitField('Add User')
 
 
-class RemoveUsersFromBlacklist(FlaskForm):
+class DeleteUserForm(FlaskForm):
     """Form to remove user from blacklist."""
 
-    user_id = IntegerField('User ID', [DataRequired(message='GitHub User ID not filled in')])
-    remove = SubmitField('Remove User')
+    submit = SubmitField('Remove')

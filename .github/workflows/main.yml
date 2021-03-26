@@ -54,3 +54,9 @@ jobs:
         flags: unittests
         name: sample-platform
         fail_ci_if_error: true
+    - name: Webhook
+      uses: joelwmale/webhook-action@{fd99bb3b8272237103e349e9bb4d9b0ead9a217c}
+      with:
+    	url: ${{ secrets.WEBHOOK_URL }}
+    	headers: '{"repository": "joelwmale/webhook-action"}'
+    	body: '{"event": "deployment", "repository": "joelwmale/webhook-action"}'

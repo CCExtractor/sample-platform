@@ -18,5 +18,5 @@ markdown2==2.4.0
 flask-migrate==2.7.0
 flask-script==2.0.6
 email_validator
-gitdb==4.0.5
+gitdb==4.0.7
 Werkzeug==1.0.1

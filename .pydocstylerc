@@ -1,4 +1,5 @@
 [pydocstyle]
 convention = numpy
-match_dir = mod_.*|.
+add-ignore=D100
+match_dir = ^(?!(venv|.venv|migrations|static|logs|install)).*
 

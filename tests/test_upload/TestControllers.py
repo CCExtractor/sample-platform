@@ -188,9 +188,7 @@ class TestControllers(BaseTestCase):
     #     mock_sample.query.filter.assert_called_once_with(mock_sample.id == 1)
 
     def test_create_hash_for_sample(self):
-        """
-        Test creating hash for temp file.
-        """
+        """Test creating hash for temp file."""
         from tempfile import NamedTemporaryFile
 
         from mod_upload.controllers import create_hash_for_sample

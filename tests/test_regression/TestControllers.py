@@ -16,11 +16,13 @@ from tests.base import BaseTestCase
 
 class TestControllers(BaseTestCase):
     def test_root(self):
+        """Check index template usage."""
         response = self.app.test_client().get('/regression/')
         self.assertEqual(response.status_code, 200)
         self.assert_template_used('regression/index.html')
 
     def test_specific_regression_test_loads(self):
+        """Check specific regression test loading."""
         response = self.app.test_client().get('/regression/test/1/view')
         self.assertEqual(response.status_code, 200)
         self.assert_template_used('regression/test_view.html')
@@ -28,6 +30,7 @@ class TestControllers(BaseTestCase):
         self.assertIn(regression_test.command, str(response.data))
 
     def test_regression_test_status_toggle(self):
+        """Check status toggling."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
 
         with self.app.test_client() as c:
@@ -44,9 +47,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_regression.controllers.RegressionTestOutput')
     def test_download_result_file_not_found(self, mock_regression_output):
-        """
-        Test that non-existent result file gives 404.
-        """
+        """Test that non-existent result file gives 404."""
         from mod_regression.controllers import test_result_file
         mock_regression_output.query.filter.return_value.first.return_value = None
 
@@ -57,9 +58,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_regression.controllers.RegressionTestOutputFiles')
     def test_download_result_file_not_found_variant(self, mock_regression_output_file):
-        """
-        Test that non-existent result file gives 404.
-        """
+        """Test that non-existent result file gives 404."""
         from mod_regression.controllers import multiple_test_result_file
         mock_regression_output_file.query.filter.return_value.first.return_value = None
 
@@ -71,9 +70,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_regression.controllers.serve_file_download')
     @mock.patch('mod_regression.controllers.RegressionTestOutput')
     def test_download_result_file(self, mock_regression_output, mock_serve):
-        """
-        Test that correct result file triggers serve download.
-        """
+        """Test that correct result file triggers serve download."""
         from mod_regression.controllers import test_result_file
 
         response = test_result_file(1)
@@ -84,9 +81,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_regression.controllers.serve_file_download')
     @mock.patch('mod_regression.controllers.RegressionTestOutputFiles')
     def test_download_result_file_variant(self, mock_regression_output_file, mock_serve):
-        """
-        Test that correct result file triggers serve download for variants.
-        """
+        """Test that correct result file triggers serve download for variants."""
         from mod_regression.controllers import multiple_test_result_file
 
         response = multiple_test_result_file(1)
@@ -95,15 +90,13 @@ class TestControllers(BaseTestCase):
         mock_serve.assert_called_once()
 
     def test_regression_test_deletion_Without_login(self):
+        """Check that it will move to the login page."""
         response = self.app.test_client().get('/regression/test/9432/delete')
         self.assertEqual(response.status_code, 302)
         self.assertIn(b'/account/login?next=regression.test_delete', response.data)
 
     def test_delete_if_will_throw_404(self):
-        """
-        Check if it will throw an error 404
-        :return:
-        """
+        """Check if it will throw an error 404."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
 
         with self.app.test_client() as c:
@@ -112,11 +105,7 @@ class TestControllers(BaseTestCase):
             self.assertEqual(response.status_code, 404)
 
     def test_delete(self):
-        """
-        Check it will delete RegressionTest as well as the Customized test
-        linked with it
-        """
-
+        """Check it will delete RegressionTest as well as the Customized test linked with it."""
         customized_test = CustomizedTest(test_id=1, regression_id=1)
         g.db.add(customized_test)
         g.db.commit()
@@ -139,9 +128,7 @@ class TestControllers(BaseTestCase):
             self.assertEqual(CustomizedTest.query.filter(CustomizedTest.regression_id == 1).first(), None)
 
     def test_add_category(self):
-        """
-        Check it will add a category
-        """
+        """Check it will add a category."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
 
         with self.app.test_client() as c:
@@ -151,9 +138,7 @@ class TestControllers(BaseTestCase):
             self.assertNotEqual(Category.query.filter(Category.name == "Lost").first(), None)
 
     def test_add_category_empty(self):
-        """
-        Check it won't add a category with an empty name
-        """
+        """Check it won't add a category with an empty name."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
 
         with self.app.test_client() as c:
@@ -165,9 +150,7 @@ class TestControllers(BaseTestCase):
             self.assertEqual(Category.query.filter(Category.description == "And Lost").first(), None)
 
     def test_edit_category(self):
-        """
-        Check it will edit a category
-        """
+        """Check it will edit a category."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
 
         with self.app.test_client() as c:
@@ -180,9 +163,7 @@ class TestControllers(BaseTestCase):
             self.assertNotEqual(Category.query.filter(Category.name == "Sheldon").first(), None)
 
     def test_edit_category_empty(self):
-        """
-        Check it won't edit a category with an empty name
-        """
+        """Check it won't edit a category with an empty name."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
 
         with self.app.test_client() as c:
@@ -196,9 +177,7 @@ class TestControllers(BaseTestCase):
             self.assertNotEqual(Category.query.filter(Category.name == "C-137").first(), None)
 
     def test_edit_wrong_category(self):
-        """
-        Check it will throw 404 if trying to edit a category which doesn't exist
-        """
+        """Check it will throw 404 if trying to edit a category which doesn't exist."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
 
         with self.app.test_client() as c:
@@ -213,9 +192,7 @@ class TestControllers(BaseTestCase):
             self.assertEqual(response.status_code, 404)
 
     def test_add_test(self):
-        """
-        Check it will add a regression test
-        """
+        """Check it will add a regression test."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
 
         with self.app.test_client() as c:
@@ -232,9 +209,7 @@ class TestControllers(BaseTestCase):
             self.assertNotEqual(RegressionTest.query.filter(RegressionTest.id == 3).first(), None)
 
     def test_add_test_empty_erc(self):
-        """
-        Check it will not add a regression test with empty Expected Runtime Code
-        """
+        """Check it will not add a regression test with empty Expected Runtime Code."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
 
         with self.app.test_client() as c:
@@ -255,10 +230,7 @@ class TestControllers(BaseTestCase):
         self.assertIn(b'/account/login?next=regression.category_delete', response.data)
 
     def test_category_delete_if_will_throw_404(self):
-        """
-        Check if it will throw an error 404
-        :return:
-        """
+        """Check if it will throw an error 404."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
 
         with self.app.test_client() as c:
@@ -268,11 +240,7 @@ class TestControllers(BaseTestCase):
             self.assertEqual(response_regression.status_code, 404)
 
     def test_category_delete(self):
-        """
-        Check it will delete the Category
-        :return:
-        """
-
+        """Check it will delete the Category."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
 
         with self.app.test_client() as c:
@@ -286,9 +254,7 @@ class TestControllers(BaseTestCase):
             self.assertEqual(response.status_code, 302)
 
     def test_edit_test(self):
-        """
-        Check it will edit a regression test
-        """
+        """Check it will edit a regression test."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
 
         with self.app.test_client() as c:
@@ -315,9 +281,7 @@ class TestControllers(BaseTestCase):
                 self.fail("No tests in category")
 
     def test_edit_test_empty_erc(self):
-        """
-        Check it will not edit a regression test with empty Expected Runtime Code
-        """
+        """Check it will not edit a regression test with empty Expected Runtime Code."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
 
         with self.app.test_client() as c:
@@ -344,9 +308,7 @@ class TestControllers(BaseTestCase):
                 self.assertNotEqual(i.id, 1)
 
     def test_edit_wrong_test(self):
-        """
-        Check it will throw 404 if trying to edit a regression test which doesn't exist
-        """
+        """Check it will throw 404 if trying to edit a regression test which doesn't exist."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
 
         with self.app.test_client() as c:
@@ -363,9 +325,7 @@ class TestControllers(BaseTestCase):
             self.assertEqual(response_regression.status_code, 404)
 
     def test_edit_test_same_category(self):
-        """
-        Check it won't create problems edit a regression test and not changing its category
-        """
+        """Check it won't create problems edit a regression test and not changing its category."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
 
         with self.app.test_client() as c:
@@ -389,16 +349,12 @@ class TestControllers(BaseTestCase):
                 self.fail("No tests in category")
 
     def test_if_test_regression_view_throws_a_not_found_error(self):
-        """
-        Check if the test doesn't exist and will throw an error 404
-        """
+        """Check if the test doesn't exist and will throw an error 404."""
         response = self.app.test_client().get('regression/test/1337/view')
         self.assertEqual(response.status_code, 404)
 
     def test_if_test_toggle_view_throws_a_not_found_error(self):
-        """
-        Check if the test toggle doesn't exist and will throw an error 404
-        """
+        """Check if the test toggle doesn't exist and will throw an error 404."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
 
         with self.app.test_client() as c:
@@ -408,25 +364,19 @@ class TestControllers(BaseTestCase):
             self.assertEqual(response.status_code, 404)
 
     def test_sample_view(self):
-        """
-        Test if it'll return a valid sample
-        """
+        """Test if it'll return a valid sample."""
         response = self.app.test_client().get('/regression/sample/1')
         sample = Sample.query.filter(Sample.id == 1).first()
         self.assertEqual(response.status_code, 200)
         self.assert_context('sample', sample)
 
     def test_sample_view_nonexistent(self):
-        """
-        Test if it'll return a valid sample
-        """
+        """Test if it'll return a valid sample."""
         response = self.app.test_client().get('/regression/sample/13423423')
         self.assertEqual(response.status_code, 404)
 
     def test_add_output(self):
-        """
-        Check if, it will add an output
-        """
+        """Check if, it will add an output."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
 
         with self.app.test_client() as c:
@@ -444,9 +394,7 @@ class TestControllers(BaseTestCase):
             )
 
     def test_add_output_wrong_regression_test(self):
-        """
-        Check it will throw 404 for a regression_test which does't exist
-        """
+        """Check it will throw 404 for a regression_test which does't exist."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
 
         with self.app.test_client() as c:
@@ -463,9 +411,7 @@ class TestControllers(BaseTestCase):
         self.assertIn(b'/account/login?next=regression.output_add', response.data)
 
     def test_remove_output(self):
-        """
-        Check if, it will remove an output
-        """
+        """Check if, it will remove an output."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
         rtof = RegressionTestOutputFiles.query.filter(
             and_(
@@ -490,9 +436,7 @@ class TestControllers(BaseTestCase):
             )
 
     def test_remove_output_wrong_regression_test(self):
-        """
-        Check it will throw 404 for a regression_test which doesn't exist
-        """
+        """Check it will throw 404 for a regression_test which doesn't exist."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
 
         with self.app.test_client() as c:
@@ -504,17 +448,13 @@ class TestControllers(BaseTestCase):
             self.assertEqual(response.status_code, 404)
 
     def test_remove_output_without_login(self):
-        """
-        Check it removes output without login
-        """
+        """Check it removes output without login."""
         response = self.app.test_client().get('/regression/test/69420/output/remove')
         self.assertEqual(response.status_code, 302)
         self.assertIn(b'/account/login?next=regression.output_remove', response.data)
 
     def test_add_output_empty_got(self):
-        """
-        Check if, it will add an output with empty got
-        """
+        """Check if, it will add an output with empty got."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
 
         with self.app.test_client() as c:
@@ -531,9 +471,7 @@ class TestControllers(BaseTestCase):
             )
 
     def test_add_output_empty_output_file(self):
-        """
-        Check if, it will add an output with empty rto
-        """
+        """Check if, it will add an output with empty rto."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
 
         with self.app.test_client() as c:
@@ -550,9 +488,7 @@ class TestControllers(BaseTestCase):
             )
 
     def test_add_output_wrong_rto_id(self):
-        """
-        Check if, it will add an output with wrong regression_test_output_id
-        """
+        """Check if, it will add an output with wrong regression_test_output_id."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
 
         with self.app.test_client() as c:
@@ -570,9 +506,7 @@ class TestControllers(BaseTestCase):
             )
 
     def test_add_test_output_and_check_double_hashes(self):
-        """
-        Check if the add output method checks for double hashes
-        """
+        """Check if the add output method checks for double hashes."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
         add_rt_rto_trf = [
             RegressionTest(1, "-autoprogram -out=ttxt -latin1 -2", InputType.file, OutputType.file, 3, 0),

@@ -104,9 +104,7 @@ def _process(test_result: str, correct: str, suffix_id: str) -> Tuple[str, str]:
 
 
 def create_diff_entries(suffix_id: str, id_name: str, events: List[List[object]], compressed_data: List[str]) -> str:
-    """
-    Create the diff entries for the correct or wrong side.
-    """
+    """Create the diff entries for the correct or wrong side."""
     result = ''
     idx = 0
     for event in events:

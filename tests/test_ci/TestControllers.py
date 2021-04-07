@@ -53,9 +53,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.Process')
     @mock.patch('run.log')
     def test_start_platform_none_specified(self, mock_log, mock_process):
-        """
-        Test that both platforms run with no platform value is passed.
-        """
+        """Test that both platforms run with no platform value is passed."""
         start_platforms(mock.ANY, mock.ANY)
 
         self.assertEqual(2, mock_process.call_count)
@@ -64,9 +62,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.Process')
     @mock.patch('run.log')
     def test_start_platform_linux_specified(self, mock_log, mock_process):
-        """
-        Test that only linux platform runs.
-        """
+        """Test that only linux platform runs."""
         start_platforms(mock.ANY, mock.ANY, platform=TestPlatform.linux)
 
         self.assertEqual(1, mock_process.call_count)
@@ -76,9 +72,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.Process')
     @mock.patch('run.log')
     def test_start_platform_windows_specified(self, mock_log, mock_process):
-        """
-        Test that only windows platform runs.
-        """
+        """Test that only windows platform runs."""
         start_platforms(mock.ANY, mock.ANY, platform=TestPlatform.windows)
 
         self.assertEqual(1, mock_process.call_count)
@@ -87,9 +81,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('run.log')
     def test_kvm_processor_empty_kvm_name(self, mock_log):
-        """
-        Test that kvm processor fails with empty kvm name.
-        """
+        """Test that kvm processor fails with empty kvm name."""
         from mod_ci.controllers import kvm_processor
 
         resp = kvm_processor(mock.ANY, mock.ANY, "", mock.ANY, mock.ANY, mock.ANY)
@@ -101,9 +93,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('run.log')
     @mock.patch('mod_ci.controllers.MaintenanceMode')
     def test_kvm_processor_maintenance_mode(self, mock_maintenance, mock_log):
-        """
-        Test that kvm processor does not run when in mentainenace.
-        """
+        """Test that kvm processor does not run when in mentainenace."""
         from mod_ci.controllers import kvm_processor
 
         class MockMaintence:
@@ -123,9 +113,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('run.log')
     @mock.patch('mod_ci.controllers.MaintenanceMode')
     def test_kvm_processor_conn_fail(self, mock_maintenance, mock_log, mock_libvirt):
-        """
-        Test that kvm processor logs critically when conn cannot be established.
-        """
+        """Test that kvm processor logs critically when conn cannot be established."""
         from mod_ci.controllers import kvm_processor
 
         mock_libvirt.open.return_value = None
@@ -141,9 +129,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.GeneralData')
     @mock.patch('mod_ci.controllers.g')
     def test_set_avg_time_first(self, mock_g, mock_gd):
-        """
-        Test setting average time for the first time.
-        """
+        """Test setting average time for the first time."""
         from mod_ci.controllers import set_avg_time
 
         mock_gd.query.filter.return_value.first.return_value = None
@@ -159,9 +145,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.GeneralData')
     @mock.patch('mod_ci.controllers.g')
     def test_set_avg_time(self, mock_g, mock_gd, mock_int):
-        """
-        Test setting average time for NOT first time.
-        """
+        """Test setting average time for NOT first time."""
         from mod_ci.controllers import set_avg_time
 
         mock_int.return_value = 5
@@ -349,9 +333,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mailer.Mailer')
     @mock.patch('mod_ci.controllers.get_html_issue_body')
     def test_inform_mailing_list(self, mock_get_html_issue_body, mock_email):
-        """
-        Test the inform_mailing_list function
-        """
+        """Test the inform_mailing_list function."""
         from mod_ci.controllers import inform_mailing_list
 
         mock_get_html_issue_body.return_value = """2430 - Some random string\n\n
@@ -375,9 +357,7 @@ class TestControllers(BaseTestCase):
     @staticmethod
     @mock.patch('mod_ci.controllers.markdown')
     def test_get_html_issue_body(mock_markdown):
-        """
-        Test the get_html_issue_body for correct email formatting
-        """
+        """Test the get_html_issue_body for correct email formatting."""
         from mod_ci.controllers import get_html_issue_body
 
         title = "[BUG] Test Title"
@@ -392,9 +372,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_add_blocked_users(self, mock_request):
-        """
-        Check adding a user to block list.
-        """
+        """Check adding a user to block list."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
         with self.app.test_client() as c:
             c.post("/account/login", data=self.create_login_form_data(self.user.email, self.user.password))
@@ -406,9 +384,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_add_blocked_users_wrong_id(self, mock_request):
-        """
-        Check adding invalid user id to block list.
-        """
+        """Check adding invalid user id to block list."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
         with self.app.test_client() as c:
             c.post("/account/login", data=self.create_login_form_data(self.user.email, self.user.password))
@@ -418,9 +394,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_add_blocked_users_empty_id(self, mock_request):
-        """
-        Check adding blank user id to block list.
-        """
+        """Check adding blank user id to block list."""
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
         with self.app.test_client() as c:
@@ -431,9 +405,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_add_blocked_users_already_exists(self, mock_request):
-        """
-        Check adding existing blocked user again.
-        """
+        """Check adding existing blocked user again."""
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
         with self.app.test_client() as c:
@@ -448,9 +420,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_remove_blocked_users(self, mock_request):
-        """
-        Check removing user from block list.
-        """
+        """Check removing user from block list."""
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
         with self.app.test_client() as c:
@@ -467,9 +437,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_remove_blocked_users_wrong_id(self, mock_request):
-        """
-        Check removing non existing id from block list.
-        """
+        """Check removing non existing id from block list."""
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
         with self.app.test_client() as c:
@@ -481,9 +449,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_remove_blocked_users_invalid_id(self, mock_request):
-        """
-        Check invalid id for the blocked_user url.
-        """
+        """Check invalid id for the blocked_user url."""
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
         with self.app.test_client() as c:
@@ -493,9 +459,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_wrong_url(self, mock_request):
-        """
-        Check webhook fails when ping with wrong url
-        """
+        """Check webhook fails when ping with wrong url."""
         with self.app.test_client() as c:
             # non GitHub ip address
             wsgi_environment = {'REMOTE_ADDR': '0.0.0.0'}
@@ -507,9 +471,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_ping(self, mock_request):
-        """
-        Check webhook release update CCExtractor Version for ping.
-        """
+        """Check webhook release update CCExtractor Version for ping."""
         with self.app.test_client() as c:
             data = {'action': 'published',
                     'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': '0.0.1'}}
@@ -521,9 +483,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_release(self, mock_request):
-        """
-        Check webhook release update CCExtractor Version for release.
-        """
+        """Check webhook release update CCExtractor Version for release."""
         with self.app.test_client() as c:
             # Full Release with version with 2.1
             data = {'action': 'published',
@@ -541,9 +501,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_release_edited(self, mock_request):
-        """
-        Check webhook action "edited" updates the specified version.
-        """
+        """Check webhook action "edited" updates the specified version."""
         from datetime import datetime
         with self.app.test_client() as c:
             release = CCExtractorVersion('2.1', '2018-05-30T20:18:44Z', 'abcdefgh')
@@ -565,9 +523,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_release_deleted(self, mock_request):
-        """
-        Check webhook action "delete" removes the specified version.
-        """
+        """Check webhook action "delete" removes the specified version."""
         with self.app.test_client() as c:
             release = CCExtractorVersion('2.1', '2018-05-30T20:18:44Z', 'abcdefgh')
             g.db.add(release)
@@ -587,9 +543,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_prerelease(self, mock_request):
-        """
-        Check webhook release update CCExtractor Version for prerelease.
-        """
+        """Check webhook release update CCExtractor Version for prerelease."""
         with self.app.test_client() as c:
             # Full Release with version with 2.1
             data = {'action': 'prereleased',
@@ -608,9 +562,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_push_no_after(self, mock_request):
-        """
-        Test webhook triggered with push event without 'after' in payload.
-        """
+        """Test webhook triggered with push event without 'after' in payload."""
         data = {'no_after': 'test'}
         with self.app.test_client() as c:
             response = c.post(
@@ -622,9 +574,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.GitHub')
     @mock.patch('mod_ci.controllers.GeneralData')
     def test_webhook_push_valid(self, mock_gd, mock_github, mock_queue_test, mock_request):
-        """
-        Test webhook triggered with push event with valid data.
-        """
+        """Test webhook triggered with push event with valid data."""
         data = {'after': 'abcdefgh'}
         with self.app.test_client() as c:
             response = c.post(
@@ -638,9 +588,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.Test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_pr_closed(self, mock_request, mock_test):
-        """
-        Test webhook triggered with pull_request event with closed action.
-        """
+        """Test webhook triggered with pull_request event with closed action."""
         class MockTest:
             def __init__(self):
                 self.id = 1
@@ -662,9 +610,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.queue_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_pr_opened_blocked(self, mock_request, mock_queue_test, mock_github, mock_blocked):
-        """
-        Test webhook triggered with pull_request event with opened action for blocked user.
-        """
+        """Test webhook triggered with pull_request event with opened action for blocked user."""
         class MockTest:
             def __init__(self):
                 self.id = 1
@@ -684,9 +630,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.queue_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_pr_opened(self, mock_request, mock_queue_test, mock_github, mock_blocked):
-        """
-        Test webhook triggered with pull_request event with opened action.
-        """
+        """Test webhook triggered with pull_request event with opened action."""
         mock_blocked.query.filter.return_value.first.return_value = None
 
         data = {'action': 'opened',
@@ -704,9 +648,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     @mock.patch('mod_ci.controllers.Issue')
     def test_webhook_issue_opened(self, mock_issue, mock_requests, mock_mailing):
-        """
-        Test webhook triggered with issues event with opened action.
-        """
+        """Test webhook triggered with issues event with opened action."""
         data = {'action': 'opened',
                 'issue': {'number': '1234', 'title': 'testTitle', 'body': 'testing', 'state': 'opened',
                           'user': {'login': 'testAuthor'}}}
@@ -722,9 +664,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.is_main_repo')
     @mock.patch('mod_ci.controllers.shutil')
     def test_update_build_badge(self, mock_shutil, mock_check_repo):
-        """
-        Test update_build_badge function.
-        """
+        """Test update_build_badge function."""
         from mod_ci.controllers import update_build_badge
 
         update_build_badge('pass', MockTest())
@@ -735,9 +675,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.request')
     @mock.patch('mod_ci.controllers.Test')
     def test_progress_reporter_no_test(self, mock_test, mock_request):
-        """
-        Test progress_reporter with no test found.
-        """
+        """Test progress_reporter with no test found."""
         from mod_ci.controllers import progress_reporter
 
         mock_test.query.filter.return_value.first.return_value = None
@@ -754,9 +692,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.Test')
     @mock.patch('mod_ci.controllers.progress_type_request')
     def test_progress_reporter_progress_type_fail(self, mock_progress_type, mock_test, mock_request):
-        """
-        Test progress_reporter with failing of request type progress.
-        """
+        """Test progress_reporter with failing of request type progress."""
         from mod_ci.controllers import progress_reporter
 
         mock_test_obj = MagicMock()
@@ -778,9 +714,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.Test')
     @mock.patch('mod_ci.controllers.progress_type_request')
     def test_progress_reporter_progress_type(self, mock_progress_type, mock_test, mock_request):
-        """
-        Test progress_reporter with request type progress.
-        """
+        """Test progress_reporter with request type progress."""
         from mod_ci.controllers import progress_reporter
 
         mock_test_obj = MagicMock()
@@ -802,9 +736,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.Test')
     @mock.patch('mod_ci.controllers.equality_type_request')
     def test_progress_reporter_equality_type(self, mock_equality_type, mock_test, mock_request):
-        """
-        Test progress_reporter with request type equality.
-        """
+        """Test progress_reporter with request type equality."""
         from mod_ci.controllers import progress_reporter
 
         mock_test_obj = MagicMock()
@@ -826,9 +758,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.Test')
     @mock.patch('mod_ci.controllers.upload_log_type_request')
     def test_progress_reporter_logupload_type_empty(self, mock_logupload_type, mock_test, mock_request):
-        """
-        Test progress_reporter with request type logupload returning 'EMPTY'.
-        """
+        """Test progress_reporter with request type logupload returning 'EMPTY'."""
         from mod_ci.controllers import progress_reporter
 
         mock_test_obj = MagicMock()
@@ -850,9 +780,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.Test')
     @mock.patch('mod_ci.controllers.upload_log_type_request')
     def test_progress_reporter_logupload_type(self, mock_logupload_type, mock_test, mock_request):
-        """
-        Test progress_reporter with request type logupload.
-        """
+        """Test progress_reporter with request type logupload."""
         from mod_ci.controllers import progress_reporter
 
         mock_test_obj = MagicMock()
@@ -874,9 +802,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.Test')
     @mock.patch('mod_ci.controllers.upload_type_request')
     def test_progress_reporter_upload_type_empty(self, mock_upload_type, mock_test, mock_request):
-        """
-        Test progress_reporter with request type upload with returning 'EMPTY'.
-        """
+        """Test progress_reporter with request type upload with returning 'EMPTY'."""
         from mod_ci.controllers import progress_reporter
 
         mock_test_obj = MagicMock()
@@ -898,9 +824,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.Test')
     @mock.patch('mod_ci.controllers.upload_type_request')
     def test_progress_reporter_upload_type(self, mock_upload_type, mock_test, mock_request):
-        """
-        Test progress_reporter with request type upload.
-        """
+        """Test progress_reporter with request type upload."""
         from mod_ci.controllers import progress_reporter
 
         mock_test_obj = MagicMock()
@@ -922,9 +846,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.Test')
     @mock.patch('mod_ci.controllers.finish_type_request')
     def test_progress_reporter_finish_type(self, mock_finish_type, mock_test, mock_request):
-        """
-        Test progress_reporter with request type finish.
-        """
+        """Test progress_reporter with request type finish."""
         from mod_ci.controllers import progress_reporter
 
         mock_test_obj = MagicMock()
@@ -944,9 +866,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_ci.controllers.RegressionTestOutput')
     def test_equality_type_request_rto_none(self, mock_rto):
-        """
-        Test function equality_type_request when rto is None.
-        """
+        """Test function equality_type_request when rto is None."""
         from mod_ci.controllers import equality_type_request
 
         mock_request = MagicMock()
@@ -967,9 +887,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.TestResultFile')
     @mock.patch('mod_ci.controllers.RegressionTestOutput')
     def test_equality_type_request_rto_exists(self, mock_rto, mock_result_file, mock_g):
-        """
-        Test function equality_type_request when rto exists.
-        """
+        """Test function equality_type_request when rto exists."""
         from mod_ci.controllers import equality_type_request
 
         mock_request = MagicMock()
@@ -990,9 +908,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_ci.controllers.secure_filename')
     def test_logupload_type_request_empty(self, mock_filename):
-        """
-        Test function logupload_type_request when filename is empty.
-        """
+        """Test function logupload_type_request when filename is empty."""
         from mod_ci.controllers import upload_log_type_request
 
         mock_log = MagicMock()
@@ -1008,9 +924,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.os')
     @mock.patch('mod_ci.controllers.secure_filename')
     def test_logupload_type_request(self, mock_filename, mock_os):
-        """
-        Test function logupload_type_request.
-        """
+        """Test function logupload_type_request."""
         from mod_ci.controllers import upload_log_type_request
 
         mock_request = MagicMock()
@@ -1028,9 +942,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_ci.controllers.secure_filename')
     def test_upload_type_request_empty(self, mock_filename):
-        """
-        Test function upload_type_request when filename is empty.
-        """
+        """Test function upload_type_request when filename is empty."""
         from mod_ci.controllers import upload_type_request
 
         mock_request = MagicMock()
@@ -1056,9 +968,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.secure_filename')
     def test_upload_type_request(self, mock_filename, mock_os, mock_open, mock_iter,
                                  mock_g, mock_rto, mock_result_file, mock_hashlib):
-        """
-        Test function upload_type_request.
-        """
+        """Test function upload_type_request."""
         from mod_ci.controllers import upload_type_request
 
         mock_upload_file = MagicMock()
@@ -1094,9 +1004,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.TestResult')
     @mock.patch('mod_ci.controllers.g')
     def test_finish_type_request(self, mock_g, mock_result, mock_rt):
-        """
-        Test function finish_type_request without exception occurring.
-        """
+        """Test function finish_type_request without exception occurring."""
         from mod_ci.controllers import finish_type_request
 
         mock_log = MagicMock()
@@ -1119,9 +1027,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.TestResult')
     @mock.patch('mod_ci.controllers.g')
     def test_finish_type_request_with_error(self, mock_g, mock_result, mock_rt):
-        """
-        Test function finish_type_request with error in database commit.
-        """
+        """Test function finish_type_request with error in database commit."""
         from pymysql.err import IntegrityError
 
         from mod_ci.controllers import finish_type_request
@@ -1145,9 +1051,7 @@ class TestControllers(BaseTestCase):
         mock_log.error.assert_called_once()
 
     def test_in_maintenance_mode_ValueError(self):
-        """
-        Test in_maintenance_mode function with invalid platform.
-        """
+        """Test in_maintenance_mode function with invalid platform."""
         with self.app.test_client() as c:
             response = c.post(
                 '/maintenance/invalid')
@@ -1155,9 +1059,7 @@ class TestControllers(BaseTestCase):
         self.assertIsNotNone(response.data, b'ERROR')
 
     def test_in_maintenance_mode_linux(self):
-        """
-        Test in_maintenance_mode function with linux platform.
-        """
+        """Test in_maintenance_mode function with linux platform."""
         with self.app.test_client() as c:
             response = c.post(
                 '/maintenance/linux')
@@ -1165,9 +1067,7 @@ class TestControllers(BaseTestCase):
         self.assertIsNotNone(response.data)
 
     def test_in_maintenance_mode_windows(self):
-        """
-        Test in_maintenance_mode function with windows platform.
-        """
+        """Test in_maintenance_mode function with windows platform."""
         with self.app.test_client() as c:
             response = c.post(
                 '/maintenance/windows')

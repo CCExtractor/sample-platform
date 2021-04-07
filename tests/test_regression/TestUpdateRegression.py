@@ -7,9 +7,7 @@ from tests.base import BaseTestCase
 class TestUpdateRegression(BaseTestCase):
 
     def test_update_expected_results_not_path(self):
-        """
-        Test updating when ccextractor path is not correct.
-        """
+        """Test updating when ccextractor path is not correct."""
         from mod_regression.update_regression import update_expected_results
 
         expected = False
@@ -21,9 +19,7 @@ class TestUpdateRegression(BaseTestCase):
     @mock.patch('mod_regression.update_regression.os')
     @mock.patch('mod_regression.update_regression.create_session')
     def test_update_expected_results_zero_regressions(self, mock_session, mock_os):
-        """
-        Test updating when there are no regression tests.
-        """
+        """Test updating when there are no regression tests."""
         from mod_regression.update_regression import update_expected_results
 
         mock_os.path.isfile.return_value = True
@@ -37,9 +33,7 @@ class TestUpdateRegression(BaseTestCase):
     @mock.patch('mod_regression.update_regression.os')
     @mock.patch('mod_regression.update_regression.Test')
     def test_update_expected_results_(self, mock_test, mock_os):
-        """
-        Test updating regression tests.
-        """
+        """Test updating regression tests."""
         from mod_regression.update_regression import update_expected_results
 
         mock_os.path.isfile.return_value = True
@@ -56,9 +50,7 @@ class TestUpdateRegression(BaseTestCase):
         self.assertEqual(mock_test.run_ccex.call_count, num_tests)
 
     def test_Test_initiation(self):
-        """
-        Test initiation of Test class with mock arguments.
-        """
+        """Test initiation of Test class with mock arguments."""
         from mod_regression.update_regression import Test
 
         filename = 'some.txt'
@@ -76,9 +68,7 @@ class TestUpdateRegression(BaseTestCase):
         self.assertEqual(test.output, output)
 
     def test_Test_get_inputfilepath(self):
-        """
-        Test method get_inputfilepath of Test class.
-        """
+        """Test method get_inputfilepath of Test class."""
         from mod_regression.update_regression import Test
         from run import config
 
@@ -92,9 +82,7 @@ class TestUpdateRegression(BaseTestCase):
         self.assertEqual(filepath, expected)
 
     def test_Test_get_outputfilepath(self):
-        """
-        Test method get_inputfilepath of Test class.
-        """
+        """Test method get_inputfilepath of Test class."""
         from mod_regression.update_regression import Test
         from run import config
 
@@ -114,9 +102,7 @@ class TestUpdateRegression(BaseTestCase):
     @mock.patch('mod_regression.update_regression.subprocess')
     @mock.patch('mod_regression.update_regression.open')
     def test_Test_run_ccex(self, mock_open, mock_subprocess):
-        """
-        Test run_ccex with proper arguments and no failure.
-        """
+        """Test run_ccex with proper arguments and no failure."""
         from mod_regression.update_regression import Test
 
         mock_subprocess.run.return_value.returncode = 0
@@ -139,9 +125,7 @@ class TestUpdateRegression(BaseTestCase):
     @mock.patch('mod_regression.update_regression.subprocess')
     @mock.patch('mod_regression.update_regression.open')
     def test_Test_run_ccex_with_error(self, mock_open, mock_subprocess):
-        """
-        Test run_ccex with proper arguments and failure of ccextractor.
-        """
+        """Test run_ccex with proper arguments and failure of ccextractor."""
         from mod_regression.update_regression import Test
 
         mock_subprocess.run.return_value.returncode = 1
@@ -164,9 +148,7 @@ class TestUpdateRegression(BaseTestCase):
     @mock.patch('mod_regression.update_regression.subprocess')
     @mock.patch('mod_regression.update_regression.open')
     def test_Test_run_ccex_with_process_failure(self, mock_open, mock_subprocess):
-        """
-        Test run_ccex with proper arguments but failure of subprocess.
-        """
+        """Test run_ccex with proper arguments but failure of subprocess."""
         from subprocess import CalledProcessError
 
         from mod_regression.update_regression import Test

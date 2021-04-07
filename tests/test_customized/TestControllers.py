@@ -171,10 +171,7 @@ class TestControllers(BaseTestCase):
             self.assertNotIn(1, regression_tests)
 
     def test_customize_test_github_server_error(self, mock_user, mock_git, mock_requests):
-        """
-        Test in case GitHub ever returns a 500 error
-        """
-
+        """Test in case GitHub ever returns a 500 error."""
         import mod_customized.controllers
         reload(mod_customized.controllers)
 
@@ -192,10 +189,7 @@ class TestControllers(BaseTestCase):
             self.assertIn("Error contacting GitHub", str(response.data))
 
     def test_customize_test_wrong_commit_hash(self, mock_user, mock_git, mock_requests):
-        """
-        Test in case if a wrong hash is submitted
-        """
-
+        """Test in case if a wrong hash is submitted."""
         import mod_customized.controllers
         reload(mod_customized.controllers)
 

@@ -95,25 +95,19 @@ class TestControllers(BaseTestCase):
             self.assert403(response)
 
     def test_get_json_data_throw_not_found_error(self):
-        """
-        Test if get_json_data throws Error 404
-        """
+        """Test if get_json_data throws Error 404."""
         response = self.app.test_client().get('/test/get_json_data/99999')
         self.assertEqual(response.json['status'], 'failure')
         self.assertEqual(response.json['error'], 'Test not found')
 
     def test_get_nonexistent_test(self):
-        """
-        Test if it'll return a 404 on a non existent test
-        """
+        """Test if it'll return a 404 on a non existent test."""
         response = self.app.test_client().get('/test/99999')
         self.assertEqual(response.status_code, 404)
         self.assert_template_used('test/test_not_found.html')
 
     def test_ccextractor_version_not_found(self):
-        """
-        Test View for CCExtractor Test if test won't be found
-        """
+        """Test View for CCExtractor Test if test won't be found."""
         response = self.app.test_client().get('/test/ccextractor/0.8494')
         self.assertEqual(response.status_code, 404)
         self.assert_template_used('test/test_not_found.html')
@@ -123,9 +117,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_test.controllers.Category')
     @mock.patch('mod_test.controllers.TestProgress')
     def test_data_for_test(self, mock_test_progress, mock_category, mock_gen_data, mock_g):
-        """
-        Test get_data_for_test method.
-        """
+        """Test get_data_for_test method."""
         from mod_test.controllers import get_data_for_test
 
         mock_test = mock.MagicMock()
@@ -139,9 +131,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_test.controllers.Test')
     def test_get_json_data_no_test(self, mock_test):
-        """
-        Try to get json data when Test not present.
-        """
+        """Try to get json data when Test not present."""
         from mod_test.controllers import get_json_data
 
         mock_test.query.filter.return_value.first.return_value = None
@@ -155,9 +145,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_test.controllers.jsonify')
     @mock.patch('mod_test.controllers.Test')
     def test_get_json_data(self, mock_test, mock_jsonify):
-        """
-        Try to get json data.
-        """
+        """Try to get json data."""
         from mod_test.controllers import get_json_data
 
         result = get_json_data(1)
@@ -167,9 +155,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_test.controllers.TestResultFile')
     def test_generate_diff_abort_403(self, mock_test_result_file):
-        """
-        Try to generate diff without xhr request
-        """
+        """Try to generate diff without xhr request."""
         from mod_test.controllers import generate_diff
 
         with self.assertRaises(Forbidden):
@@ -178,9 +164,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_test.controllers.TestResultFile')
     @mock.patch('mod_test.controllers.request')
     def test_generate_diff_abort_404(self, mock_request, mock_test_result_file):
-        """
-        Try to generate diff when test file not present.
-        """
+        """Try to generate diff when test file not present."""
         from mod_test.controllers import generate_diff
 
         mock_request.accept_mimetypes.best = 'application/json'
@@ -192,9 +176,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_test.controllers.TestResultFile')
     @mock.patch('mod_test.controllers.request')
     def test_generate_diff(self, mock_request, mock_test_result_file):
-        """
-        Test to generate diff.
-        """
+        """Test to generate diff."""
         from mod_test.controllers import generate_diff
 
         mock_request.accept_mimetypes.best = 'application/json'
@@ -208,9 +190,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_test.controllers.request')
     @mock.patch('mod_test.controllers.Response')
     def test_generate_diff_download(self, mock_response, mock_request, mock_test_result_file):
-        """
-        Test to download generated diff.
-        """
+        """Test to download generated diff."""
         from mod_test.controllers import generate_diff
 
         mock_request.accept_mimetypes.best = 'application/json'
@@ -221,9 +201,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_test.controllers.Test')
     def test_download_build_log_file_test_not_found(self, mock_test):
-        """
-        Try to download build log for invalid test.
-        """
+        """Try to download build log for invalid test."""
         from mod_test.controllers import (TestNotFoundException,
                                           download_build_log_file)
 
@@ -237,9 +215,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_test.controllers.os')
     @mock.patch('mod_test.controllers.Test')
     def test_download_build_log_file_log_not_file(self, mock_test, mock_os):
-        """
-        Try to download build log for invalid file path.
-        """
+        """Try to download build log for invalid file path."""
         from mod_test.controllers import (TestNotFoundException,
                                           download_build_log_file)
 
@@ -255,9 +231,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_test.controllers.Test')
     @mock.patch('mod_test.controllers.serve_file_download')
     def test_download_build_log_file(self, mock_serve, mock_test, mock_os):
-        """
-        Try to download build log.
-        """
+        """Try to download build log."""
         from mod_test.controllers import (TestNotFoundException,
                                           download_build_log_file)
 

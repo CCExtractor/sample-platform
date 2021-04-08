@@ -18,12 +18,14 @@ from tests.base import (BaseTestCase, generate_git_api_header,
 
 
 class MockKVM:
+    """Mock KVM object."""
 
     def __init__(self, name):
         self.name = name
 
 
 class MockPlatform:
+    """Mock platform object."""
 
     def __init__(self, platform):
         self.platform = platform
@@ -31,12 +33,14 @@ class MockPlatform:
 
 
 class MockFork:
+    """Mock fork object."""
 
     def __init__(self, *args, **kwargs):
         self.github = None
 
 
 class MockTest:
+    """Mock test object."""
 
     def __init__(self):
         self.id = 1
@@ -49,6 +53,7 @@ WSGI_ENVIRONMENT = {'REMOTE_ADDR': "192.30.252.0"}
 
 
 class TestControllers(BaseTestCase):
+    """Test CI-related controllers."""
 
     @mock.patch('mod_ci.controllers.Process')
     @mock.patch('run.log')
@@ -159,6 +164,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('github.GitHub')
     def test_comments_successfully_in_passed_pr_test(self, git_mock):
+        """Check comments in passed PR test."""
         import mod_ci.controllers
         reload(mod_ci.controllers)
         from mod_ci.controllers import Status, comment_pr
@@ -182,6 +188,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('github.GitHub')
     def test_comments_successfuly_in_failed_pr_test(self, git_mock):
+        """Check comments in failed PR test."""
         import mod_ci.controllers
         reload(mod_ci.controllers)
         from mod_ci.controllers import Status, comment_pr
@@ -208,6 +215,7 @@ class TestControllers(BaseTestCase):
             assert False, "Message not Correct"
 
     def test_check_main_repo_returns_in_false_url(self):
+        """Test main repo checking."""
         from mod_ci.controllers import is_main_repo
         assert is_main_repo('random_user/random_repo') is False
         assert is_main_repo('test_owner/test_repo') is True
@@ -220,6 +228,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('lxml.etree')
     def test_customize_tests_run_on_fork_if_no_remote(self, mock_etree, mock_open,
                                                       mock_rmtree, mock_libvirt, mock_repo, mock_git):
+        """Test customize tests running on the fork without remote."""
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.tester)
         self.create_forktest("own-fork-commit", TestPlatform.linux)
@@ -255,6 +264,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('lxml.etree')
     def test_customize_tests_run_on_fork_if_remote_exist(self, mock_etree, mock_open,
                                                          mock_rmtree, mock_libvirt, mock_repo, mock_git):
+        """Test customize tests running on the fork with remote."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.tester)
         self.create_forktest("own-fork-commit", TestPlatform.linux)
         import mod_ci.controllers
@@ -289,6 +299,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('lxml.etree')
     def test_customize_tests_run_on_selected_regression_tests(self, mock_etree, mock_open,
                                                               mock_rmtree, mock_libvirt, mock_repo, mock_git):
+        """Test customize tests running on the selected regression tests."""
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.tester)
         self.create_forktest("own-fork-commit", TestPlatform.linux, regression_tests=[2])
@@ -317,6 +328,7 @@ class TestControllers(BaseTestCase):
         assert (single_test, 'entry', str(1)) not in mock_etree.call_args_list
 
     def test_customizedtest_added_to_queue(self):
+        """Test queue with a customized test addition."""
         regression_test = RegressionTest.query.filter(RegressionTest.id == 1).first()
         regression_test.active = False
         g.db.add(regression_test)

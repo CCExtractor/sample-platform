@@ -6,7 +6,7 @@ from tests.base import BaseTestCase
 
 
 class TestUtility(BaseTestCase):
-    """Test c"""
+    """Test utility helpers."""
 
     @mock.patch('utility.path')
     def test_serve_file_download(self, mock_path):

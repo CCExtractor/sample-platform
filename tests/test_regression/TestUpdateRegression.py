@@ -5,6 +5,7 @@ from tests.base import BaseTestCase
 
 
 class TestUpdateRegression(BaseTestCase):
+    """Test regression tests updating."""
 
     def test_update_expected_results_not_path(self):
         """Test updating when ccextractor path is not correct."""

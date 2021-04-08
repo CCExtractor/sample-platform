@@ -7,11 +7,14 @@ from tests.base import BaseTestCase
 
 
 class Field:
+    """Mock object for fields."""
+
     def __init__(self, data):
         self.data = data
 
 
 class TestForm(BaseTestCase):
+    """Test form fields validation."""
 
     def test_unique_username(self):
         """Test that username is always unique."""

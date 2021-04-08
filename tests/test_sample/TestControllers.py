@@ -10,18 +10,22 @@ from tests.base import BaseTestCase
 
 
 def raise_media_exception():
+    """Raise error about failed media info generation."""
     raise InvalidMediaInfoError('Could not generate media info')
 
 
 class TestControllers(BaseTestCase):
+    """Test sample pages."""
 
     def test_root(self):
+        """Test the access of the sample index page."""
         response = self.app.test_client().get('/sample/')
         self.assertEqual(response.status_code, 200)
         self.assert_template_used('sample/index.html')
 
     @mock.patch('mod_sample.media_info_parser.MediaInfoFetcher')
     def test_sample_pass(self, mock_media):
+        """Test the access and data of the passed sample info page."""
         import mod_sample.controllers
         reload(mod_sample.controllers)
         response = self.app.test_client().get('/sample/sample1')
@@ -35,6 +39,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_sample.media_info_parser.MediaInfoFetcher')
     def test_sample_fail(self, mock_media):
+        """Test the access and data of the failed sample info page."""
         version = CCExtractorVersion('1.3', '2015-02-27T19:35:32Z', 'abcdefgh')
         g.db.add(version)
         g.db.commit()
@@ -50,6 +55,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_sample.media_info_parser.MediaInfoFetcher')
     def test_sample_create_xml(self, mock_media):
+        """Test sample loading."""
         import mod_sample.controllers
         reload(mod_sample.controllers)
         sample = Sample.query.filter(Sample.sha == 'sample1').first()

@@ -13,6 +13,7 @@ WSGI_ENVIRONMENT = {'REMOTE_ADDR': '0.0.0.0'}
 
 @mock.patch.object(requests, 'get')
 class TestControllers(BaseTestCase):
+    """Test deployment related operations."""
 
     def test_root(self, mock_request_get):
         """Test the Root of mod_deploy."""

@@ -11,7 +11,10 @@ OBTAINED_RESULT_FILE = os.path.join(STATIC_MOCK_DIR, 'obtained.txt')
 
 
 class TestDiff(unittest.TestCase):
+    """Test diff-related features."""
+
     def test_if_same_diff_generated(self):
+        """Test the diff generation."""
         expected_sub = ['1\n', '00:00:12,340 --> 00:00:15,356\n', 'May the fourth be with you!\n']
         obtained_sub = ['1\n', '00:00:12,300 --> 00:00:15,356\n', 'May the twenty fourth be with you!\n']
 
@@ -56,9 +59,7 @@ class TestDiff(unittest.TestCase):
         self.assertEqual(expected_diff, obtained_diff)
 
     def test_if_view_limit_respected(self):
-        """
-        Test that in view only first 50 diffs are sent.
-        """
+        """Test that in view only first 50 diffs are sent."""
         expected_tr_count = 102     # 2 table rows for each diff along with 2 table rows for headings
         obtained = load_file_lines(OBTAINED_RESULT_FILE)
         expected = load_file_lines(EXPECTED_RESULT_FILE)
@@ -69,9 +70,7 @@ class TestDiff(unittest.TestCase):
         self.assertEqual(expected_tr_count, obtained_tr_count)
 
     def test_if_full_diff_download(self):
-        """
-        Test that in download mode all diff is sent.
-        """
+        """Test that in download mode all diff is sent."""
         limit_tr_count = 102     # 2 table rows for each diff along with 2 table rows for headings
         obtained = load_file_lines(OBTAINED_RESULT_FILE)
         expected = load_file_lines(EXPECTED_RESULT_FILE)

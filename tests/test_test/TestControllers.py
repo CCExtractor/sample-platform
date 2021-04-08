@@ -10,8 +10,11 @@ from tests.base import BaseTestCase
 
 
 class TestControllers(BaseTestCase):
+    """Test test page controllers."""
+
     @staticmethod
     def create_completed_regression_t_entries(test_id, regression_tests):
+        """Create needed entries for completed regression."""
         from flask import g
         test_result_progress = [
             TestProgress(test_id, TestStatus.preparation, f"Test {test_id} preparation"),
@@ -32,16 +35,19 @@ class TestControllers(BaseTestCase):
         g.db.commit()
 
     def test_root(self):
+        """Test the access of the test index page."""
         response = self.app.test_client().get('/test/')
         self.assertEqual(response.status_code, 200)
         self.assert_template_used('test/index.html')
 
     def test_specific_test_loads(self):
+        """Test the access of the specific test page by test ID."""
         response = self.app.test_client().get('/test/1')
         self.assertEqual(response.status_code, 200)
         self.assert_template_used('test/by_id.html')
 
     def test_customize_test_loads(self):
+        """Test loading of customize tests."""
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.tester)
         self.create_forktest("own-fork-commit", TestPlatform.linux, regression_tests=[2])
@@ -54,6 +60,7 @@ class TestControllers(BaseTestCase):
         self.assertNotIn(regression_tests[0].command, str(response.data))
 
     def test_restart_with_permission(self):
+        """Test test restart with permission."""
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.tester)
         self.create_forktest("own-fork-commit", TestPlatform.linux, regression_tests=[2])
@@ -66,6 +73,7 @@ class TestControllers(BaseTestCase):
             self.assertEqual(test.finished, False)
 
     def test_restart_fails_on_no_permission(self):
+        """Test failed test restart because of no permission."""
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.user)
         with self.app.test_client() as c:
@@ -75,6 +83,7 @@ class TestControllers(BaseTestCase):
             self.assert403(response)
 
     def test_stop_with_permission(self):
+        """Test successful test stop because of permission."""
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.tester)
         self.create_forktest("own-fork-commit", TestPlatform.linux, regression_tests=[2])
@@ -86,6 +95,7 @@ class TestControllers(BaseTestCase):
             self.assertEqual(test.finished, True)
 
     def test_stop_fails_on_no_permission(self):
+        """Test failed test stop because of no permission."""
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.user)
         with self.app.test_client() as c:

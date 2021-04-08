@@ -11,8 +11,10 @@ from tests.base import BaseTestCase, mock_api_request_github, mock_decorator
 
 
 class TestControllers(BaseTestCase):
+    """Test upload-related cases."""
 
     def test_root(self):
+        """Test the access of the upload index page."""
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.user)
         with self.app.test_client() as c:
@@ -27,6 +29,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_upload.controllers.open')
     @mock.patch('werkzeug.datastructures.FileStorage.save')
     def test_upload(self, file_storage, mock_open, mock_hash, mock_rename):
+        """Test sample uploading."""
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.user)
         with self.app.test_client() as c:
@@ -58,6 +61,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('os.rename')
     @mock.patch('git.Repo')
     def test_process(self, mock_repo, mock_rename, mock_post):
+        """Test sample upload process."""
         import mod_upload.controllers
         reload(mod_upload.controllers)
         self.create_user_with_role(
@@ -92,6 +96,7 @@ class TestControllers(BaseTestCase):
             self.assertEqual(response.status_code, 302)
 
     def test_ftp_filezilla(self):
+        """Test the access of the ftp filezilla page."""
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.user)
         with self.app.test_client() as c:
@@ -101,6 +106,7 @@ class TestControllers(BaseTestCase):
             self.assert_template_used('upload/filezilla_template.xml')
 
     def test_ftp_index(self):
+        """Test the access of the ftp index page."""
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.user)
         with self.app.test_client() as c:
@@ -116,6 +122,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_upload.controllers.create_hash_for_sample')
     @mock.patch('shutil.copy')
     def test_upload_ftp(self, mock_shutil, mock_hash, mock_magic, mock_rename, mock_remove):
+        """Test successful sample upload via ftp."""
         filehash = 'hash_code'
         mock_hash.return_value = filehash
         mock_magic.return_value = 'video/mp4'
@@ -133,6 +140,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_upload.controllers.create_hash_for_sample')
     @mock.patch('shutil.copy')
     def test_upload_ftp_forbidden_mimetype(self, mock_shutil, mock_hash, mock_magic, mock_rename, mock_remove):
+        """Test sample upload via ftp with forbidden mimetype."""
         filehash = 'hash_code'
         mock_hash.return_value = filehash
         mock_magic.return_value = 'application/javascript'
@@ -148,6 +156,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_upload.controllers.create_hash_for_sample')
     @mock.patch('shutil.copy')
     def test_upload_ftp_forbidden_extension(self, mock_shutil, mock_hash, mock_magic, mock_rename, mock_remove):
+        """Test sample upload via ftp with forbidden extension."""
         filehash = 'hash_code'
         mock_hash.return_value = filehash
         mock_magic.return_value = 'application/x-msdos-program'

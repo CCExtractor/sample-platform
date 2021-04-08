@@ -9,17 +9,18 @@ index: dict = dict()  # for optimization
 
 
 def zip_(ls: List[str]) -> str:
+    """Add an alias for strings joining."""
     return ''.join(ls)
 
 
-# compress words and digits to one list
 def compress(s: str) -> List[str]:
+    """Compress words and digits to one list."""
     return re.split(r'(\W)', s)
 
 
-# equality factor
 def eq(a: List[str], b: List[str], same_regions: Optional[List[List[int]]] = None,
        delta_a: int = 0, delta_b: int = 0) -> Union[List[int], List[Union[int, List[str]]]]:
+    """Implement equality factor."""
     if index.get(zip_(a), dict()).get(zip_(b), None) is None:
         e = 0
         rez = []    # type: Union[int, Any, List[str]]
@@ -74,8 +75,8 @@ def eq(a: List[str], b: List[str], same_regions: Optional[List[List[int]]] = Non
     return index[zip_(a)][zip_(b)]
 
 
-# processing one line
 def _process(test_result: str, correct: str, suffix_id: str) -> Tuple[str, str]:
+    """Process one line."""
     test_result = html.escape(test_result)
     correct = html.escape(correct)
     tr_compr = compress(test_result)
@@ -120,9 +121,8 @@ def create_diff_entries(suffix_id: str, id_name: str, events: List[List[object]]
     return result
 
 
-# return generated difference in HTML formatted table
 def get_html_diff(test_correct_lines: List[str], test_res_lines: List[str], to_view: bool = True) -> str:
-
+    """Return generated difference in HTML formatted table."""
     # variable to keep count of diff lines noted
     number_of_noted_diff_lines = 0
 

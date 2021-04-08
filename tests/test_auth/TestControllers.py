@@ -13,8 +13,9 @@ from mod_auth.models import Role, User
 from tests.base import BaseTestCase, mock_decorator, signup_information
 
 
-# mock user to avoid interacting with database
 class MockUser:
+    """Mock user object to avoid interacting with database."""
+
     def __init__(self, id=None, name=None, email=None, password=None, github_token=None, role=None):
         self.id = id
         self.name = name
@@ -25,18 +26,22 @@ class MockUser:
 
 
 class TestSignUp(BaseTestCase):
+    """Test sign up process."""
 
     def test_if_email_signup_form_renders(self):
+        """Test email signup form rendering."""
         response = self.app.test_client().get(url_for('auth.signup'))
         self.assertEqual(response.status_code, 200)
         self.assert_template_used('auth/signup.html')
 
     def test_blank_email(self):
+        """Test case with blank email."""
         response = self.signup(email='')
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Email address is not filled in', response.data)
 
     def test_invalid_email_address(self):
+        """Test case with invalid email."""
         invalid_email_address = ['plainaddress',
                                  '#@%^%#$@#$@#.com',
                                  '@domain.com',
@@ -53,20 +58,24 @@ class TestSignUp(BaseTestCase):
                 self.assertIn(b'Entered value is not a valid email address', response.data)
 
     def test_existing_email_signup(self):
+        """Test case with existed email."""
         response = self.signup(email=signup_information['existing_user_email'])
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Email sent for verification purposes. Please check your mailbox', response.data)
 
     def test_valid_email_signup(self):
+        """Test case with valid email."""
         response = self.signup(email=signup_information['valid_email'])
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Email sent for verification purposes. Please check your mailbox', response.data)
 
     def signup(self, email):
+        """Finish signup with specific email."""
         return self.app.test_client().post(url_for('auth.signup'), data=dict(email=email), follow_redirects=True)
 
 
 class TestLogin(BaseTestCase):
+    """Test login process."""
 
     @mock.patch('mod_auth.controllers.flash')
     def test_not_show_login_user_logged_in(self, mock_flash):
@@ -83,8 +92,10 @@ class TestLogin(BaseTestCase):
 
 
 class CompleteSignUp(BaseTestCase):
+    """Test cases to complete signup."""
 
     def setUp(self):
+        """Set up hashes for the signup links."""
         self.time_of_hash = int(time.time())
         content_to_hash = f"{signup_information['valid_email']}|{self.time_of_hash}"
         self.hash = generate_hmac_hash(self.app.config.get('HMAC_KEY', ''), content_to_hash)
@@ -92,21 +103,25 @@ class CompleteSignUp(BaseTestCase):
         self.existing_user_hash = generate_hmac_hash(self.app.config.get('HMAC_KEY', ''), content_to_hash)
 
     def test_if_link_expired(self):
+        """Test signup with an expired signup link."""
         response = self.complete_signup(signup_information['valid_email'], self.time_of_hash + 3600, self.hash)
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"The request to complete the registration was invalid.", response.data)
 
     def test_if_wrong_link(self):
+        """Test signup with a wrong signup link."""
         response = self.complete_signup(signup_information['existing_user_email'], self.time_of_hash, self.hash)
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"The request to complete the registration was invalid.", response.data)
 
     def test_if_valid_link(self):
+        """Test signup with a valid signup link."""
         response = self.complete_signup(signup_information['valid_email'], self.time_of_hash, self.hash)
         self.assertEqual(response.status_code, 200)
         self.assert_template_used('auth/complete_signup.html')
 
     def test_if_password_is_blank(self):
+        """Test case when password is empty."""
         response = self.complete_signup(signup_information['valid_email'], self.time_of_hash, self.hash,
                                         name=signup_information['existing_user_name'], password='', password_repeat='')
         self.assertEqual(response.status_code, 200)
@@ -114,6 +129,7 @@ class CompleteSignUp(BaseTestCase):
         self.assertIn(b"Password is not filled in", response.data)
 
     def test_if_password_length_is_invalid(self):
+        """Test case when password has incorrect length."""
         response = self.complete_signup(signup_information['valid_email'], self.time_of_hash, self.hash,
                                         name=signup_information['existing_user_name'], password='small',
                                         password_repeat='small')
@@ -122,6 +138,7 @@ class CompleteSignUp(BaseTestCase):
         self.assertIn(b"Password needs to be between", response.data)
 
     def test_if_passwords_dont_match(self):
+        """Test case when fields with passwords don't contain the same content."""
         response = self.complete_signup(signup_information['valid_email'], self.time_of_hash, self.hash,
                                         name=signup_information['existing_user_name'], password='some_password',
                                         password_repeat='another_password')
@@ -130,14 +147,17 @@ class CompleteSignUp(BaseTestCase):
         self.assertIn(b"The password needs to match the new password", response.data)
 
     def complete_signup(self, email, expires, mac, name='', password='', password_repeat=''):
+        """Finish signup with user data."""
         return self.app.test_client().post(url_for('auth.complete_signup', email=email, expires=expires, mac=mac),
                                            data=dict(name=name, password=password, password_repeat=password_repeat),
                                            follow_redirects=True)
 
 
 class TestLogOut(BaseTestCase):
+    """Test logout process."""
 
     def test_if_logout_redirects_to_login(self):
+        """Test redirect to the login page after logout."""
         response = self.app.test_client().get(url_for('auth.logout'), follow_redirects=True)
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"You have been logged out", response.data)
@@ -145,6 +165,7 @@ class TestLogOut(BaseTestCase):
 
 
 class TestGitHubFunctions(BaseTestCase):
+    """Test github-related functions."""
 
     @mock.patch('requests.Session')
     @mock.patch('mod_auth.controllers.g')
@@ -259,6 +280,7 @@ class TestGitHubFunctions(BaseTestCase):
 
 
 class Miscellaneous(BaseTestCase):
+    """Test utils."""
 
     def test_github_token_validity(self):
         """Test the GitHub Token Validity Function."""
@@ -267,6 +289,7 @@ class Miscellaneous(BaseTestCase):
 
 
 class ManageAccount(BaseTestCase):
+    """Test account management operations."""
 
     def test_edit_username(self):
         """Test editing user's name."""
@@ -531,6 +554,7 @@ class ManageAccount(BaseTestCase):
 
 
 class ManageUsers(BaseTestCase):
+    """Test users management operations."""
 
     @mock.patch('mod_auth.controllers.g')
     def test_user_view_not_loggen_in(self, mock_g):

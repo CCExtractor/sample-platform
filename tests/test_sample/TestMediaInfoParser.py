@@ -7,6 +7,7 @@ from tests.base import BaseTestCase
 
 
 class MockSample:
+    """Mock sample object."""
 
     def __init__(self):
         self.sha = 'sha'
@@ -17,6 +18,7 @@ MOCK_MediaInfoFetcher = mock.MagicMock()
 
 
 class TestMediaInfoFetcher(BaseTestCase):
+    """Test MediaInfoFetcher behaviour."""
 
     @mock.patch('mod_sample.media_info_parser.open')
     @mock.patch('mod_sample.media_info_parser.os')

@@ -15,6 +15,8 @@ from tests.base import BaseTestCase
 
 
 class TestControllers(BaseTestCase):
+    """Test regression pages."""
+
     def test_root(self):
         """Check index template usage."""
         response = self.app.test_client().get('/regression/')
@@ -225,6 +227,7 @@ class TestControllers(BaseTestCase):
             self.assertEqual(RegressionTest.query.filter(RegressionTest.id == 3).first(), None)
 
     def test_category_deletion_without_login(self):
+        """Check if it will move to the login page."""
         response = self.app.test_client().get('/regression/category/9432/delete')
         self.assertEqual(response.status_code, 302)
         self.assertIn(b'/account/login?next=regression.category_delete', response.data)
@@ -406,6 +409,7 @@ class TestControllers(BaseTestCase):
             self.assertEqual(response.status_code, 404)
 
     def test_add_output_without_login(self):
+        """Check if during output addition without login it will move to the login page."""
         response = self.app.test_client().get('/regression/test/69420/output/new')
         self.assertEqual(response.status_code, 302)
         self.assertIn(b'/account/login?next=regression.output_add', response.data)

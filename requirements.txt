@@ -4,7 +4,7 @@ passlib==1.7.4
 pymysql==1.0.2
 python-magic==0.4.22
 flask-wtf==0.14.3
-gunicorn==20.0.4
+gunicorn==20.1.0
 githubpy==1.1.0
 requests==2.25.1
 pyIsEmail==1.3.2

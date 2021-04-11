@@ -12,6 +12,7 @@ from tests.base import BaseTestCase, mock_api_request_github
 
 
 def return_git_user():
+    """Get git username."""
     return "test"
 
 
@@ -19,7 +20,10 @@ def return_git_user():
 @mock.patch('github.GitHub')
 @mock.patch('mod_auth.controllers.fetch_username_from_token', side_effect=return_git_user)
 class TestControllers(BaseTestCase):
+    """Test customize test pages."""
+
     def test_customize_test_page_fails_with_no_permission(self, mock_user, mock_git, mock_requests):
+        """Test access to the customize test page without permission."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.user)
 
         with self.app.test_client() as c:
@@ -29,6 +33,7 @@ class TestControllers(BaseTestCase):
             self.assertEqual(response.status_code, 403)
 
     def test_customize_test_page_loads_with_permission(self, mock_user, mock_git, mock_requests):
+        """Test access to the customize test page with permission."""
         import mod_customized.controllers
         reload(mod_customized.controllers)
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.tester)
@@ -41,6 +46,7 @@ class TestControllers(BaseTestCase):
             self.assertIn('submit', str(response.data))
 
     def test_customize_test_fails_with_wrong_commit_hash(self, mock_user, mock_git, mock_requests):
+        """Test customize test creation with wrong commit hash."""
         import mod_customized.controllers
         reload(mod_customized.controllers)
         self.create_user_with_role(
@@ -56,6 +62,7 @@ class TestControllers(BaseTestCase):
             self.assertIn('Wrong Commit Hash', str(response.data))
 
     def test_customize_test_creates_with_right_test_commit(self, mock_user, mock_git, mock_requests):
+        """Test customize test creation with correct commit."""
         import mod_customized.controllers
         reload(mod_customized.controllers)
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.tester)
@@ -75,6 +82,7 @@ class TestControllers(BaseTestCase):
             self.assertNotEqual(custom_test, None)
 
     def test_customize_test_creates_fork_if_not_exists(self, mock_user, mock_git, mock_requests):
+        """Test fork creation if it isn't existed."""
         import mod_customized.controllers
         reload(mod_customized.controllers)
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.tester)
@@ -89,6 +97,7 @@ class TestControllers(BaseTestCase):
             self.assertNotEqual(fork, None)
 
     def test_customize_test_creates_with_multiple_platforms(self, mock_user, mock_git, mock_requests):
+        """Test customize test creation with several platforms."""
         import mod_customized.controllers
         reload(mod_customized.controllers)
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.tester)
@@ -108,6 +117,7 @@ class TestControllers(BaseTestCase):
             self.assertNotEqual(test_windows, None)
 
     def test_customize_test_creates_with_select_arr(self, mock_user, mock_git, mock_requests):
+        """Test customize test creation with commits list."""
         from flask import g
 
         import mod_customized.controllers
@@ -130,6 +140,7 @@ class TestControllers(BaseTestCase):
                 self.assertIn(commit['sha'], str(response.data))
 
     def test_customize_regression_tests_load(self, mock_user, mock_git, mock_requests):
+        """Test loading of the regression tests."""
         import mod_customized.controllers
         reload(mod_customized.controllers)
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.tester)
@@ -143,6 +154,7 @@ class TestControllers(BaseTestCase):
                 self.assertIn(regression_test.command, str(response.data))
 
     def test_error_on_no_regression_test(self, mock_user, mock_git, mock_requests):
+        """Test case when there isn't any regression test."""
         import mod_customized.controllers
         reload(mod_customized.controllers)
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.tester)
@@ -155,6 +167,7 @@ class TestControllers(BaseTestCase):
             self.assertIn('Please add one or more Regression Tests', str(response.data))
 
     def test_customize_test_creates_with_customize_regression_tests(self, mock_user, mock_git, mock_requests):
+        """Test customize test creation with regression tests."""
         import mod_customized.controllers
         reload(mod_customized.controllers)
         self.create_user_with_role(
@@ -171,10 +184,7 @@ class TestControllers(BaseTestCase):
             self.assertNotIn(1, regression_tests)
 
     def test_customize_test_github_server_error(self, mock_user, mock_git, mock_requests):
-        """
-        Test in case GitHub ever returns a 500 error
-        """
-
+        """Test in case GitHub ever returns a 500 error."""
         import mod_customized.controllers
         reload(mod_customized.controllers)
 
@@ -192,10 +202,7 @@ class TestControllers(BaseTestCase):
             self.assertIn("Error contacting GitHub", str(response.data))
 
     def test_customize_test_wrong_commit_hash(self, mock_user, mock_git, mock_requests):
-        """
-        Test in case if a wrong hash is submitted
-        """
-
+        """Test in case if a wrong hash is submitted."""
         import mod_customized.controllers
         reload(mod_customized.controllers)
 

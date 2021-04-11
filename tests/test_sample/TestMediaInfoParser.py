@@ -7,6 +7,7 @@ from tests.base import BaseTestCase
 
 
 class MockSample:
+    """Mock sample object."""
 
     def __init__(self):
         self.sha = 'sha'
@@ -17,14 +18,13 @@ MOCK_MediaInfoFetcher = mock.MagicMock()
 
 
 class TestMediaInfoFetcher(BaseTestCase):
+    """Test MediaInfoFetcher behaviour."""
 
     @mock.patch('mod_sample.media_info_parser.open')
     @mock.patch('mod_sample.media_info_parser.os')
     @mock.patch('mod_sample.media_info_parser.xmltodict')
     def test_init(self, mock_xml, mock_os, mock_open):
-        """
-        Test initialisation of MediaInfoFetcher.
-        """
+        """Test initialisation of MediaInfoFetcher."""
         mock_xml.parse.return_value = {'MediaInfo': 'test'}
 
         MediaInfoFetcher(MockSample())
@@ -37,9 +37,7 @@ class TestMediaInfoFetcher(BaseTestCase):
     @mock.patch('mod_sample.media_info_parser.os')
     @mock.patch('mod_sample.media_info_parser.xmltodict')
     def test_init_invalid_media_xml(self, mock_xml, mock_os, mock_open):
-        """
-        Test initialisation of MediaInfoFetcher with wrong media xml.
-        """
+        """Test initialisation of MediaInfoFetcher with wrong media xml."""
         mock_xml.parse.side_effect = Exception
 
         with self.assertRaises(InvalidMediaInfoError):
@@ -53,9 +51,7 @@ class TestMediaInfoFetcher(BaseTestCase):
     @mock.patch('mod_sample.media_info_parser.os')
     @mock.patch('mod_sample.media_info_parser.xmltodict')
     def test_init_invalid_media_info_path(self, mock_xml, mock_os, mock_open):
-        """
-        Test initialisation of MediaInfoFetcher with wrong media info file.
-        """
+        """Test initialisation of MediaInfoFetcher with wrong media info file."""
         mock_os.path.isfile.return_value = False
 
         with self.assertRaises(InvalidMediaInfoError):
@@ -66,9 +62,7 @@ class TestMediaInfoFetcher(BaseTestCase):
         mock_xml.parse.assert_not_called()
 
     def test_get_media_info(self):
-        """
-        Test get_media_info without forced parsing.
-        """
+        """Test get_media_info without forced parsing."""
         MOCK_MediaInfoFetcher.reset_mock()
 
         result = MediaInfoFetcher.get_media_info(MOCK_MediaInfoFetcher, False)
@@ -77,9 +71,7 @@ class TestMediaInfoFetcher(BaseTestCase):
         self.assertEqual(len(result), 4)
 
     def test_get_media_info_forced(self):
-        """
-        Test get_media_info with forced parsing.
-        """
+        """Test get_media_info with forced parsing."""
         MOCK_MediaInfoFetcher.reset_mock()
 
         result = MediaInfoFetcher.get_media_info(MOCK_MediaInfoFetcher, True)
@@ -88,9 +80,7 @@ class TestMediaInfoFetcher(BaseTestCase):
         self.assertEqual(len(result), 4)
 
     def test__process_tracks_file_key_error(self):
-        """
-        Test _process_tracks method with key error in self.media_info
-        """
+        """Test _process_tracks method with key error in self.media_info."""
         # set new mocks to eradicate interference with other usage
         MOCK_MediaInfoFetcher = mock.MagicMock()
         MOCK_MediaInfoFetcher.media_info = {}
@@ -99,9 +89,7 @@ class TestMediaInfoFetcher(BaseTestCase):
             MediaInfoFetcher._process_tracks(MOCK_MediaInfoFetcher)
 
     def test__process_tracks_no_track(self):
-        """
-        Test _process_tracks method with no track in media info file
-        """
+        """Test _process_tracks method with no track in media info file."""
         # set new mocks to eradicate interference with other usage
         MOCK_MediaInfoFetcher = mock.MagicMock()
         MOCK_MediaInfoFetcher.media_info = {'media': OrderedDict()}
@@ -110,9 +98,7 @@ class TestMediaInfoFetcher(BaseTestCase):
             MediaInfoFetcher._process_tracks(MOCK_MediaInfoFetcher)
 
     def test__process_tracks(self):
-        """
-        Test _process_tracks method with valid information.
-        """
+        """Test _process_tracks method with valid information."""
         # set new mocks to eradicate interference with other usage
         MOCK_MediaInfoFetcher = mock.MagicMock()
         MOCK_MediaInfoFetcher.media_info = {'media': OrderedDict([('track', ['track1'])])}
@@ -122,9 +108,7 @@ class TestMediaInfoFetcher(BaseTestCase):
         MOCK_MediaInfoFetcher._process_track.assert_called_once_with('track1')
 
     def test__process_track_not_ordereddict(self):
-        """
-        Test _process_track method for invalid track.
-        """
+        """Test _process_track method for invalid track."""
         MOCK_MediaInfoFetcher.reset_mock()
         track = {}
 
@@ -133,9 +117,7 @@ class TestMediaInfoFetcher(BaseTestCase):
         self.assertIsNone(result)
 
     def test__process_track_missing_type(self):
-        """
-        Test _process_track method for track missing type.
-        """
+        """Test _process_track method for track missing type."""
         MOCK_MediaInfoFetcher.reset_mock()
         track = OrderedDict()
 
@@ -143,9 +125,7 @@ class TestMediaInfoFetcher(BaseTestCase):
             MediaInfoFetcher._process_track(MOCK_MediaInfoFetcher, track)
 
     def test__process_track_general(self):
-        """
-        Test _process_track method for general track.
-        """
+        """Test _process_track method for general track."""
         MOCK_MediaInfoFetcher.reset_mock()
         track = OrderedDict([('@type', 'General')])
 
@@ -154,9 +134,7 @@ class TestMediaInfoFetcher(BaseTestCase):
         MOCK_MediaInfoFetcher._process_general.assert_called_once_with(track)
 
     def test__process_track_video(self):
-        """
-        Test _process_track method for video track.
-        """
+        """Test _process_track method for video track."""
         MOCK_MediaInfoFetcher.reset_mock()
         track = OrderedDict([('@type', 'Video')])
 
@@ -178,9 +156,7 @@ class TestMediaInfoFetcher(BaseTestCase):
         MOCK_MediaInfoFetcher._process_audio.assert_not_called()
 
     def test__process_track_text(self):
-        """
-        Test _process_track method for text track.
-        """
+        """Test _process_track method for text track."""
         MOCK_MediaInfoFetcher.reset_mock()
         track = OrderedDict([('@type', 'Text')])
 
@@ -189,9 +165,7 @@ class TestMediaInfoFetcher(BaseTestCase):
         MOCK_MediaInfoFetcher._process_text.assert_called_once_with(track)
 
     def test__process_generic(self):
-        """
-        Test replacement of key '_' with " " using _process_generic method.
-        """
+        """Test replacement of key '_' with " " using _process_generic method."""
         MOCK_MediaInfoFetcher.reset_mock()
         keys = ['some_key', 'FileSize', 'Duration']
         track = OrderedDict([('some_key', 'test'), ('FileSize', '1048576'), ('Duration', '60')])
@@ -202,9 +176,7 @@ class TestMediaInfoFetcher(BaseTestCase):
         self.assertEqual(result['Duration'], '1m 0s')
 
     def test__process_general(self):
-        """
-        Test _process_general method.
-        """
+        """Test _process_general method."""
         MOCK_MediaInfoFetcher.reset_mock()
         track = {}
         key_list = ['Format', 'FileSize', 'Duration', 'CodecID']
@@ -214,9 +186,7 @@ class TestMediaInfoFetcher(BaseTestCase):
         MOCK_MediaInfoFetcher._process_generic.assert_called_once_with(track, key_list)
 
     def test__process_video(self):
-        """
-        Test _process_video method.
-        """
+        """Test _process_video method."""
         MOCK_MediaInfoFetcher.reset_mock()
         track = {
             'Width': 10,
@@ -236,9 +206,7 @@ class TestMediaInfoFetcher(BaseTestCase):
         MOCK_MediaInfoFetcher.video_tracks.append.assert_called_once()
 
     def test__process_text(self):
-        """
-        Test _process_text method.
-        """
+        """Test _process_text method."""
         MOCK_MediaInfoFetcher.reset_mock()
         track = {'ID': 'test'}
         key_list = ['Format', 'MenuID', 'MuxingMode']
@@ -250,9 +218,7 @@ class TestMediaInfoFetcher(BaseTestCase):
 
     @mock.patch('mod_sample.media_info_parser.sys')
     def test_generate_media_xml_windows(self, mock_sys):
-        """
-        Raise error when generating media info xml for windows.
-        """
+        """Raise error when generating media info xml for windows."""
         mock_sys.platform = 'windows'
 
         with self.assertRaises(InvalidMediaInfoError):
@@ -262,9 +228,7 @@ class TestMediaInfoFetcher(BaseTestCase):
     @mock.patch('mod_sample.media_info_parser.subprocess')
     @mock.patch('mod_sample.media_info_parser.sys')
     def test_generate_media_xml_not_file(self, mock_sys, mock_subprocess, mock_open):
-        """
-        Raise error when media_info_path is not a file.
-        """
+        """Raise error when media_info_path is not a file."""
         mock_sys.platform = 'linux'
 
         with self.assertRaises(InvalidMediaInfoError):
@@ -281,9 +245,7 @@ class TestMediaInfoFetcher(BaseTestCase):
     @mock.patch('mod_sample.media_info_parser.sys')
     def test_generate_media_xml(self, mock_sys, mock_subprocess, mock_open, mock_os, mock_etree,
                                 mock_media_info_fetcher):
-        """
-        Test generate_media_xml method with valid information.
-        """
+        """Test generate_media_xml method with valid information."""
         mock_sys.platform = 'linux'
         mock_os.path.isfile.return_value = True
         response = MediaInfoFetcher.generate_media_xml(MockSample())

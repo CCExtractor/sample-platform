@@ -9,7 +9,10 @@ mock.patch.object = mock.patch.object
 
 
 class TestLogConfiguration(unittest.TestCase):
+    """Test log setup."""
+
     def _test_init_with_log_value(self, debug, result_level):
+        """Test logger initialization with specific debug and level."""
         joined_path = 'baz'
         folder = 'foo'
         filename = 'bar'
@@ -48,12 +51,15 @@ class TestLogConfiguration(unittest.TestCase):
                         return log_config
 
     def test_init_correctly_initializes_the_instance_when_debug(self):
+        """Test log initialization with debug mode and level."""
         self._test_init_with_log_value(True, logging.DEBUG)
 
     def test_init_correctly_initializes_the_instance_when_no_debug(self):
+        """Test log initialization with info level."""
         self._test_init_with_log_value(False, logging.INFO)
 
     def test_create_logger(self):
+        """Test logger creation."""
         with mock.patch.object(LogConfiguration, '__init__',
                                return_value=None):
             with mock.patch('logging.getLogger') as mock_get:

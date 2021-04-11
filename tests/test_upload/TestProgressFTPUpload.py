@@ -4,12 +4,11 @@ from tests.base import BaseTestCase
 
 
 class TestProgressFTPUpload(BaseTestCase):
+    """Test progress during ftp upload."""
 
     @mock.patch('mod_upload.controllers.upload_ftp')
     def test_process(self, mock_upload):
-        """
-        Test process method.
-        """
+        """Test process method."""
         from mod_upload.progress_ftp_upload import process
 
         process('mock_db', 'mock_file')

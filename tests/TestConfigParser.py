@@ -1,3 +1,5 @@
+"""Contains tests related to the config handling."""
+
 import json
 from unittest import mock
 
@@ -6,7 +8,10 @@ from tests.base import BaseTestCase, provide_file_at_root
 
 
 class TestConfigParser(BaseTestCase):
+    """Test config parsing."""
+
     def test_parse_config(self):
+        """Test parse_config function."""
         file_config = "TEST = 'run'"
         expected_config = {'TEST': 'run'}
 

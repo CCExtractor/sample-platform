@@ -13,20 +13,17 @@ WSGI_ENVIRONMENT = {'REMOTE_ADDR': '0.0.0.0'}
 
 @mock.patch.object(requests, 'get')
 class TestControllers(BaseTestCase):
+    """Test deployment related operations."""
 
     def test_root(self, mock_request_get):
-        """
-        Test the Root of mod_deploy.
-        """
+        """Test the Root of mod_deploy."""
         mock_request_get.return_value.json.return_value = {"hooks": ['0.0.0.0']}
         response = self.app.test_client().get('/deploy', environ_overrides=WSGI_ENVIRONMENT)
         self.assertEqual(response.status_code, 200)
         self.assertIn("OK", str(response.data))
 
     def test_headers_ping(self, mock_request_get):
-        """
-        Test The View by sending a ping request.
-        """
+        """Test The View by sending a ping request."""
         mock_request_get.return_value.json.return_value = {"hooks": ['0.0.0.0']}
         sig = generate_signature(str(json.dumps({})).encode('utf-8'), g.github['ci_key'])
         headers = generate_git_api_header('ping', sig)
@@ -37,9 +34,7 @@ class TestControllers(BaseTestCase):
         self.assertIn("Hi", str(response.data))
 
     def test_headers_missing_X_GitHub_Event(self, mock_request_get):
-        """
-        Test missing X-GitHub-Event header.
-        """
+        """Test missing X-GitHub-Event header."""
         mock_request_get.return_value.json.return_value = {"hooks": ['0.0.0.0']}
         sig = generate_signature(str(json.dumps({})).encode('utf-8'), g.github['ci_key'])
         headers = generate_git_api_header('push', sig)
@@ -50,9 +45,7 @@ class TestControllers(BaseTestCase):
         self.assertEqual(response.status_code, 418)
 
     def test_headers_missing_X_GitHub_Delivery(self, mock_request_get):
-        """
-        Test missing X-GitHub-Delivery header.
-        """
+        """Test missing X-GitHub-Delivery header."""
         mock_request_get.return_value.json.return_value = {"hooks": ['0.0.0.0']}
         sig = generate_signature(str(json.dumps({})).encode('utf-8'), g.github['ci_key'])
         headers = generate_git_api_header('push', sig)
@@ -63,9 +56,7 @@ class TestControllers(BaseTestCase):
         self.assertEqual(response.status_code, 418)
 
     def test_headers_missing_X_Hub_Signature(self, mock_request_get):
-        """
-        Test missing X-Hub-Signature header.
-        """
+        """Test missing X-Hub-Signature header."""
         mock_request_get.return_value.json.return_value = {"hooks": ['0.0.0.0']}
         sig = generate_signature(str(json.dumps({})).encode('utf-8'), g.github['ci_key'])
         headers = generate_git_api_header('push', sig)
@@ -76,9 +67,7 @@ class TestControllers(BaseTestCase):
         self.assertEqual(response.status_code, 418)
 
     def test_headers_missing_User_Agent(self, mock_request_get):
-        """
-        Test missing User-Agent header.
-        """
+        """Test missing User-Agent header."""
         mock_request_get.return_value.json.return_value = {"hooks": ['0.0.0.0']}
         sig = generate_signature(str(json.dumps({})).encode('utf-8'), g.github['ci_key'])
         headers = generate_git_api_header('push', sig)
@@ -89,9 +78,7 @@ class TestControllers(BaseTestCase):
         self.assertEqual(response.status_code, 418)
 
     def test_headers_invalid_User_Agent(self, mock_request_get):
-        """
-        Test invalid user-agent beginning.
-        """
+        """Test invalid user-agent beginning."""
         mock_request_get.return_value.json.return_value = {"hooks": ['0.0.0.0']}
         sig = generate_signature(str(json.dumps({})).encode('utf-8'), g.github['ci_key'])
         headers = generate_git_api_header('push', sig)
@@ -102,9 +89,7 @@ class TestControllers(BaseTestCase):
         self.assertEqual(response.status_code, 418)
 
     def test_headers_event_not_push(self, mock_request_get):
-        """
-        Test The View by sending an event other than push.
-        """
+        """Test The View by sending an event other than push."""
         mock_request_get.return_value.json.return_value = {"hooks": ['0.0.0.0']}
         sig = generate_signature(str(json.dumps({})).encode('utf-8'), g.github['ci_key'])
         headers = generate_git_api_header('pull', sig)
@@ -117,9 +102,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_deploy.controllers.is_valid_signature', return_value=False)
     @mock.patch('mod_deploy.controllers.g')
     def test_headers_invalid_signature_event(self, mock_g, mock_valid_sign, mock_request_get):
-        """
-        Test the view by sending a valid event.
-        """
+        """Test the view by sending a valid event."""
         mock_request_get.return_value.json.return_value = {"hooks": ['0.0.0.0']}
         self.app.config['INSTALL_FOLDER'] = gettempdir()
         data = {
@@ -142,9 +125,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_deploy.controllers.is_valid_signature', return_value=True)
     @mock.patch('mod_deploy.controllers.g')
     def test_headers_no_payload_event(self, mock_g, mock_valid_sign, mock_request_get):
-        """
-        Test the view by sending a valid event.
-        """
+        """Test the view by sending a valid event."""
         mock_request_get.return_value.json.return_value = {"hooks": ['0.0.0.0']}
         self.app.config['INSTALL_FOLDER'] = gettempdir()
         data = None
@@ -165,9 +146,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_deploy.controllers.is_valid_signature', return_value=True)
     @mock.patch('mod_deploy.controllers.g')
     def test_headers_not_master_event(self, mock_g, mock_valid_sign, mock_request_get):
-        """
-        Test the view by sending a valid event.
-        """
+        """Test the view by sending a valid event."""
         mock_request_get.return_value.json.return_value = {"hooks": ['0.0.0.0']}
         self.app.config['INSTALL_FOLDER'] = gettempdir()
         data = {
@@ -195,9 +174,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_deploy.controllers.open')
     def test_headers_valid_event(self, mock_open, mock_copy, mock_subprocess,
                                  mock_valid_sign, mock_repo, mock_request_get):
-        """
-        Test the view by sending a valid event.
-        """
+        """Test the view by sending a valid event."""
         mock_request_get.return_value.json.return_value = {"hooks": ['0.0.0.0']}
         self.app.config['INSTALL_FOLDER'] = gettempdir()
         data = {

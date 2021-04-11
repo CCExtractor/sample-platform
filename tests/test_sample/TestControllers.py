@@ -10,18 +10,22 @@ from tests.base import BaseTestCase
 
 
 def raise_media_exception():
+    """Raise error about failed media info generation."""
     raise InvalidMediaInfoError('Could not generate media info')
 
 
 class TestControllers(BaseTestCase):
+    """Test sample pages."""
 
     def test_root(self):
+        """Test the access of the sample index page."""
         response = self.app.test_client().get('/sample/')
         self.assertEqual(response.status_code, 200)
         self.assert_template_used('sample/index.html')
 
     @mock.patch('mod_sample.media_info_parser.MediaInfoFetcher')
     def test_sample_pass(self, mock_media):
+        """Test the access and data of the passed sample info page."""
         import mod_sample.controllers
         reload(mod_sample.controllers)
         response = self.app.test_client().get('/sample/sample1')
@@ -35,6 +39,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_sample.media_info_parser.MediaInfoFetcher')
     def test_sample_fail(self, mock_media):
+        """Test the access and data of the failed sample info page."""
         version = CCExtractorVersion('1.3', '2015-02-27T19:35:32Z', 'abcdefgh')
         g.db.add(version)
         g.db.commit()
@@ -50,6 +55,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_sample.media_info_parser.MediaInfoFetcher')
     def test_sample_create_xml(self, mock_media):
+        """Test sample loading."""
         import mod_sample.controllers
         reload(mod_sample.controllers)
         sample = Sample.query.filter(Sample.sha == 'sample1').first()
@@ -61,9 +67,7 @@ class TestControllers(BaseTestCase):
         self.assert_template_used('sample/sample_info.html')
 
     def test_sample_id(self):
-        """
-        Test if Sample Id would be returned
-        """
+        """Test if Sample Id would be returned."""
         response = self.app.test_client().get('/sample/1')
         self.assertEqual(response.status_code, 200)
         self.assert_template_used('sample/sample_info.html')
@@ -71,9 +75,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_sample.controllers.serve_file_download')
     @mock.patch('mod_sample.controllers.Sample')
     def test_download_sample(self, mock_sample, mock_serve_download):
-        """
-        Test function download_sample.
-        """
+        """Test function download_sample."""
         from mod_sample.controllers import download_sample
 
         response = download_sample(1)
@@ -84,9 +86,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_sample.controllers.serve_file_download')
     @mock.patch('mod_sample.controllers.Sample')
     def test_download_sample_raise_exception(self, mock_sample, mock_serve_download):
-        """
-        Test function download_sample to raise SampleNotFoundException.
-        """
+        """Test function download_sample to raise SampleNotFoundException."""
         from mod_sample.controllers import (SampleNotFoundException,
                                             download_sample)
 
@@ -102,9 +102,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_sample.controllers.Sample')
     @mock.patch('mod_sample.controllers.os')
     def test_download_sample_media_info(self, mock_os, mock_sample, mock_serve_download):
-        """
-        Test function download_sample_media_info.
-        """
+        """Test function download_sample_media_info."""
         from mod_sample.controllers import download_sample_media_info
 
         response = download_sample_media_info(1)
@@ -117,9 +115,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_sample.controllers.Sample')
     @mock.patch('mod_sample.controllers.os')
     def test_download_sample_media_info_path_wrong(self, mock_os, mock_sample, mock_serve_download):
-        """
-        Test function download_sample_media_info with wrong path for media info.
-        """
+        """Test function download_sample_media_info with wrong path for media info."""
         from mod_sample.controllers import (SampleNotFoundException,
                                             download_sample_media_info)
 
@@ -135,9 +131,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_sample.controllers.Sample')
     @mock.patch('mod_sample.controllers.os')
     def test_download_sample_media_info_sample_not_found(self, mock_os, mock_sample, mock_serve_download):
-        """
-        Test function download_sample_media_info to raise SampleNotFoundException.
-        """
+        """Test function download_sample_media_info to raise SampleNotFoundException."""
         from mod_sample.controllers import (SampleNotFoundException,
                                             download_sample_media_info)
 
@@ -153,9 +147,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_sample.controllers.Sample')
     @mock.patch('mod_sample.controllers.ExtraFile')
     def test_download_sample_additional(self, mock_extra, mock_sample, mock_serve_download):
-        """
-        Test function download_sample_additional.
-        """
+        """Test function download_sample_additional."""
         from mod_sample.controllers import download_sample_additional
 
         response = download_sample_additional(1, 1)
@@ -168,9 +160,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_sample.controllers.Sample')
     @mock.patch('mod_sample.controllers.ExtraFile')
     def test_download_sample_additional_sample_not_found(self, mock_extra, mock_sample, mock_serve_download):
-        """
-        Test function download_sample_additional to raise SampleNotFoundException.
-        """
+        """Test function download_sample_additional to raise SampleNotFoundException."""
         from mod_sample.controllers import (SampleNotFoundException,
                                             download_sample_additional)
 
@@ -186,9 +176,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_sample.controllers.Sample')
     @mock.patch('mod_sample.controllers.ExtraFile')
     def test_download_sample_additional_extrafile_not_found(self, mock_extra, mock_sample, mock_serve_download):
-        """
-        Test function download_sample_additional to raise SampleNotFoundException when extra file not found.
-        """
+        """Test function download_sample_additional to raise SampleNotFoundException when extra file not found."""
         from mod_sample.controllers import (SampleNotFoundException,
                                             download_sample_additional)
 

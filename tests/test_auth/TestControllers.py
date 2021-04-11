@@ -13,8 +13,9 @@ from mod_auth.models import Role, User
 from tests.base import BaseTestCase, mock_decorator, signup_information
 
 
-# mock user to avoid interacting with database
 class MockUser:
+    """Mock user object to avoid interacting with database."""
+
     def __init__(self, id=None, name=None, email=None, password=None, github_token=None, role=None):
         self.id = id
         self.name = name
@@ -25,18 +26,22 @@ class MockUser:
 
 
 class TestSignUp(BaseTestCase):
+    """Test sign up process."""
 
     def test_if_email_signup_form_renders(self):
+        """Test email signup form rendering."""
         response = self.app.test_client().get(url_for('auth.signup'))
         self.assertEqual(response.status_code, 200)
         self.assert_template_used('auth/signup.html')
 
     def test_blank_email(self):
+        """Test case with blank email."""
         response = self.signup(email='')
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Email address is not filled in', response.data)
 
     def test_invalid_email_address(self):
+        """Test case with invalid email."""
         invalid_email_address = ['plainaddress',
                                  '#@%^%#$@#$@#.com',
                                  '@domain.com',
@@ -53,26 +58,28 @@ class TestSignUp(BaseTestCase):
                 self.assertIn(b'Entered value is not a valid email address', response.data)
 
     def test_existing_email_signup(self):
+        """Test case with existed email."""
         response = self.signup(email=signup_information['existing_user_email'])
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Email sent for verification purposes. Please check your mailbox', response.data)
 
     def test_valid_email_signup(self):
+        """Test case with valid email."""
         response = self.signup(email=signup_information['valid_email'])
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Email sent for verification purposes. Please check your mailbox', response.data)
 
     def signup(self, email):
+        """Finish signup with specific email."""
         return self.app.test_client().post(url_for('auth.signup'), data=dict(email=email), follow_redirects=True)
 
 
 class TestLogin(BaseTestCase):
+    """Test login process."""
 
     @mock.patch('mod_auth.controllers.flash')
     def test_not_show_login_user_logged_in(self, mock_flash):
-        """
-        Do not show login page if the user is already logged in.
-        """
+        """Do not show login page if the user is already logged in."""
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
         with self.app.test_client() as c:
@@ -85,8 +92,10 @@ class TestLogin(BaseTestCase):
 
 
 class CompleteSignUp(BaseTestCase):
+    """Test cases to complete signup."""
 
     def setUp(self):
+        """Set up hashes for the signup links."""
         self.time_of_hash = int(time.time())
         content_to_hash = f"{signup_information['valid_email']}|{self.time_of_hash}"
         self.hash = generate_hmac_hash(self.app.config.get('HMAC_KEY', ''), content_to_hash)
@@ -94,21 +103,25 @@ class CompleteSignUp(BaseTestCase):
         self.existing_user_hash = generate_hmac_hash(self.app.config.get('HMAC_KEY', ''), content_to_hash)
 
     def test_if_link_expired(self):
+        """Test signup with an expired signup link."""
         response = self.complete_signup(signup_information['valid_email'], self.time_of_hash + 3600, self.hash)
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"The request to complete the registration was invalid.", response.data)
 
     def test_if_wrong_link(self):
+        """Test signup with a wrong signup link."""
         response = self.complete_signup(signup_information['existing_user_email'], self.time_of_hash, self.hash)
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"The request to complete the registration was invalid.", response.data)
 
     def test_if_valid_link(self):
+        """Test signup with a valid signup link."""
         response = self.complete_signup(signup_information['valid_email'], self.time_of_hash, self.hash)
         self.assertEqual(response.status_code, 200)
         self.assert_template_used('auth/complete_signup.html')
 
     def test_if_password_is_blank(self):
+        """Test case when password is empty."""
         response = self.complete_signup(signup_information['valid_email'], self.time_of_hash, self.hash,
                                         name=signup_information['existing_user_name'], password='', password_repeat='')
         self.assertEqual(response.status_code, 200)
@@ -116,6 +129,7 @@ class CompleteSignUp(BaseTestCase):
         self.assertIn(b"Password is not filled in", response.data)
 
     def test_if_password_length_is_invalid(self):
+        """Test case when password has incorrect length."""
         response = self.complete_signup(signup_information['valid_email'], self.time_of_hash, self.hash,
                                         name=signup_information['existing_user_name'], password='small',
                                         password_repeat='small')
@@ -124,6 +138,7 @@ class CompleteSignUp(BaseTestCase):
         self.assertIn(b"Password needs to be between", response.data)
 
     def test_if_passwords_dont_match(self):
+        """Test case when fields with passwords don't contain the same content."""
         response = self.complete_signup(signup_information['valid_email'], self.time_of_hash, self.hash,
                                         name=signup_information['existing_user_name'], password='some_password',
                                         password_repeat='another_password')
@@ -132,14 +147,17 @@ class CompleteSignUp(BaseTestCase):
         self.assertIn(b"The password needs to match the new password", response.data)
 
     def complete_signup(self, email, expires, mac, name='', password='', password_repeat=''):
+        """Finish signup with user data."""
         return self.app.test_client().post(url_for('auth.complete_signup', email=email, expires=expires, mac=mac),
                                            data=dict(name=name, password=password, password_repeat=password_repeat),
                                            follow_redirects=True)
 
 
 class TestLogOut(BaseTestCase):
+    """Test logout process."""
 
     def test_if_logout_redirects_to_login(self):
+        """Test redirect to the login page after logout."""
         response = self.app.test_client().get(url_for('auth.logout'), follow_redirects=True)
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"You have been logged out", response.data)
@@ -147,14 +165,13 @@ class TestLogOut(BaseTestCase):
 
 
 class TestGitHubFunctions(BaseTestCase):
+    """Test github-related functions."""
 
     @mock.patch('requests.Session')
     @mock.patch('mod_auth.controllers.g')
     @mock.patch('mod_auth.controllers.User')
     def test_fetch_username_from_none_token(self, mock_user_model, mock_g, mock_session):
-        """
-        Test the Token to username function with None as user's token.
-        """
+        """Test the Token to username function with None as user's token."""
         mock_user_model.query.filter.return_value.first.return_value = MockUser()
 
         return_value = fetch_username_from_token()
@@ -168,9 +185,7 @@ class TestGitHubFunctions(BaseTestCase):
     @mock.patch('mod_auth.controllers.g')
     @mock.patch('mod_auth.controllers.User')
     def test_fetch_username_from_valid_token(self, mock_user_model, mock_g, mock_session):
-        """
-        Test the Token to username function with dummy token value.
-        """
+        """Test the Token to username function with dummy token value."""
         mock_user_model.query.filter.return_value.first.return_value = MockUser(github_token='token')
         mock_session.return_value.get.return_value.json.return_value = {'login': 'username'}
 
@@ -185,9 +200,7 @@ class TestGitHubFunctions(BaseTestCase):
     @mock.patch('mod_auth.controllers.g')
     @mock.patch('mod_auth.controllers.User')
     def test_fetch_username_from_token_exception(self, mock_user_model, mock_g, mock_session):
-        """
-        Test the Token to username function with requests throwing exception.
-        """
+        """Test the Token to username function with requests throwing exception."""
         mock_user_model.query.filter.return_value.first.return_value = MockUser(github_token='token')
         mock_session.return_value.get.side_effect = Exception
 
@@ -200,9 +213,7 @@ class TestGitHubFunctions(BaseTestCase):
 
     @mock.patch('requests.post')
     def test_github_callback_empty_post(self, mock_post):
-        """
-        Send empty post request to github_callback.
-        """
+        """Send empty post request to github_callback."""
         with self.app.test_client() as client:
             response = client.post("/account/github_callback")
 
@@ -211,9 +222,7 @@ class TestGitHubFunctions(BaseTestCase):
 
     @mock.patch('requests.post')
     def test_github_callback_empty_get(self, mock_post):
-        """
-        Send empty get request to github_callback.
-        """
+        """Send empty get request to github_callback."""
         with self.app.test_client() as client:
             response = client.get("/account/github_callback")
 
@@ -224,9 +233,7 @@ class TestGitHubFunctions(BaseTestCase):
     @mock.patch('mod_auth.controllers.g')
     @mock.patch('requests.post')
     def test_github_callback_incomplete_get(self, mock_post, mock_g, mock_user_model):
-        """
-        Send valid get request to github_callback and receive no access_token.
-        """
+        """Send valid get request to github_callback and receive no access_token."""
         mock_post.return_value.json.return_value = {}
 
         with self.app.test_client() as client:
@@ -242,9 +249,7 @@ class TestGitHubFunctions(BaseTestCase):
     @mock.patch('mod_auth.controllers.g')
     @mock.patch('requests.post')
     def test_github_callback_valid_get(self, mock_post, mock_g, mock_user_model):
-        """
-        Send valid get request to github_callback and receive access_token.
-        """
+        """Send valid get request to github_callback and receive access_token."""
         mock_post.return_value.json.return_value = {'access_token': 'test'}
 
         with self.app.test_client() as client:
@@ -258,9 +263,7 @@ class TestGitHubFunctions(BaseTestCase):
         mock_g.log.error.assert_not_called()
 
     def test_github_redirect(self):
-        """
-        Test editing account where GitHub token is not null
-        """
+        """Test editing account where GitHub token is not null."""
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin, self.user.github_token)
         with self.app.test_client() as c:
@@ -277,21 +280,19 @@ class TestGitHubFunctions(BaseTestCase):
 
 
 class Miscellaneous(BaseTestCase):
+    """Test utils."""
 
     def test_github_token_validity(self):
-        """
-        Test the GitHub Token Validity Function
-        """
+        """Test the GitHub Token Validity Function."""
         res = github_token_validity('token')
         self.assertEqual(res, False)
 
 
 class ManageAccount(BaseTestCase):
+    """Test account management operations."""
 
     def test_edit_username(self):
-        """
-        Test editing user's name.
-        """
+        """Test editing user's name."""
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
         with self.app.test_client() as c:
@@ -308,9 +309,7 @@ class ManageAccount(BaseTestCase):
             self.assertIn("Settings saved", str(response.data))
 
     def test_edit_email(self):
-        """
-        Test editing user's email address.
-        """
+        """Test editing user's email address."""
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
         with self.app.test_client() as c:
@@ -327,9 +326,7 @@ class ManageAccount(BaseTestCase):
             self.assertIn("Settings saved", str(response.data))
 
     def test_edit_invalid_email(self):
-        """
-        Test editing user's email with invalid email address.
-        """
+        """Test editing user's email with invalid email address."""
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
         with self.app.test_client() as c:
@@ -352,9 +349,7 @@ class ManageAccount(BaseTestCase):
     @mock.patch('mod_auth.controllers.g.mailer')
     @mock.patch('run.app')
     def test_send_reset_email(self, mock_app, mock_mailer, mock_flash, mock_hash, mock_url_for):
-        """
-        Test sending recovery email to user.
-        """
+        """Test sending recovery email to user."""
         user = MockUser(1, "testuser", "dummy@test.org", "dummy")
         mock_mailer.send_simple_message.return_value = True
 
@@ -372,9 +367,7 @@ class ManageAccount(BaseTestCase):
     @mock.patch('mod_auth.controllers.g.mailer')
     @mock.patch('run.app')
     def test_send_reset_email_fail(self, mock_app, mock_mailer, mock_flash, mock_hash, mock_url_for):
-        """
-        Test sending recovery email to user.
-        """
+        """Test sending recovery email to user."""
         user = MockUser(1, "testuser", "dummy@test.org", "dummy")
         mock_mailer.send_simple_message.return_value = False
 
@@ -387,9 +380,7 @@ class ManageAccount(BaseTestCase):
         mock_flash.assert_called_once_with("Could not send an email. Please get in touch", "error-message")
 
     def test_account_reset_get(self):
-        """
-        Test account reset endpoint with GET.
-        """
+        """Test account reset endpoint with GET."""
         with self.app.test_client() as client:
             response = client.get("/account/reset")
 
@@ -400,9 +391,7 @@ class ManageAccount(BaseTestCase):
     @mock.patch('mod_auth.controllers.send_reset_email')
     @mock.patch('mod_auth.controllers.User')
     def test_account_reset_post_user_none(self, mock_user_model, mock_mail, mock_flash):
-        """
-        Test account reset endpoint with POST where user doesn't exist
-        """
+        """Test account reset endpoint with POST where user doesn't exist."""
         mock_user_model.query.filter_by.return_value.first.return_value = None
         email_to_test = "example@test.org"
         form_data = {'email': email_to_test}
@@ -420,9 +409,7 @@ class ManageAccount(BaseTestCase):
     @mock.patch('mod_auth.controllers.send_reset_email')
     @mock.patch('mod_auth.controllers.User')
     def test_account_reset_post_user(self, mock_user_model, mock_mail, mock_flash):
-        """
-        Test account reset endpoint with POST where user does exist
-        """
+        """Test account reset endpoint with POST where user does exist."""
         mock_user_model.query.filter_by.return_value.first.return_value = "user"
         email_to_test = "example@test.org"
         form_data = {'email': email_to_test}
@@ -439,9 +426,7 @@ class ManageAccount(BaseTestCase):
     @mock.patch('mod_auth.controllers.flash')
     @mock.patch('time.time')
     def test_complete_reset_expired(self, mock_time, mock_flash):
-        """
-        Test complete reset endpoint expired.
-        """
+        """Test complete reset endpoint expired."""
         time_now = 100
         mock_time.return_value = time_now
         time_expired = 100
@@ -458,9 +443,7 @@ class ManageAccount(BaseTestCase):
     @mock.patch('mod_auth.controllers.flash')
     @mock.patch('time.time')
     def test_complete_reset_get(self, mock_time, mock_flash, mock_hmac, mock_user):
-        """
-        Test complete reset get form.
-        """
+        """Test complete reset get form."""
         time_now = 100
         mock_time.return_value = time_now
         mock_user.query.filter_by.return_value.first.return_value = MockUser(email="mock",
@@ -483,9 +466,7 @@ class ManageAccount(BaseTestCase):
     @mock.patch('mod_auth.controllers.CompleteResetForm')
     @mock.patch('mod_auth.controllers.g')
     def test_complete_reset_post_valid(self, mock_g, mock_form, mock_time, mock_flash, mock_hmac, mock_user):
-        """
-        Test complete reset valid new password post.
-        """
+        """Test complete reset valid new password post."""
         time_now = 100
         mock_time.return_value = time_now
         mock_user.query.filter_by.return_value.first.return_value = MockUser(email="mock",
@@ -511,9 +492,7 @@ class ManageAccount(BaseTestCase):
     @mock.patch('mod_auth.controllers.flash')
     @mock.patch('time.time')
     def test_complete_signup_expired(self, mock_time, mock_flash):
-        """
-        Test complete signup endpoint expired.
-        """
+        """Test complete signup endpoint expired."""
         time_now = 100
         mock_time.return_value = time_now
         time_expired = 100
@@ -530,9 +509,7 @@ class ManageAccount(BaseTestCase):
     @mock.patch('hmac.compare_digest', return_value=True)
     @mock.patch('time.time')
     def test_complete_signup_user_already_exists(self, mock_time, mock_hmac, mock_flash, mock_user):
-        """
-        Test complete signup when user already exists.
-        """
+        """Test complete signup when user already exists."""
         time_now = 100
         mock_time.return_value = time_now
         mock_user.query.filter_by.return_value.first.return_value = MockUser(email="mock",
@@ -555,9 +532,7 @@ class ManageAccount(BaseTestCase):
     @mock.patch('mod_auth.controllers.CompleteSignupForm')
     @mock.patch('mod_auth.controllers.g')
     def test_complete_signup(self, mock_g, mock_form, mock_time, mock_hmac, mock_flash, mock_user):
-        """
-        Test complete signup with valid response.
-        """
+        """Test complete signup with valid response."""
         time_now = 100
         mock_time.return_value = time_now
         mock_form.return_value.validate_on_submit.return_value = True
@@ -579,6 +554,7 @@ class ManageAccount(BaseTestCase):
 
 
 class ManageUsers(BaseTestCase):
+    """Test users management operations."""
 
     @mock.patch('mod_auth.controllers.g')
     def test_user_view_not_loggen_in(self, mock_g):
@@ -587,7 +563,6 @@ class ManageUsers(BaseTestCase):
 
         This test accounts for all other methods which are decorated by login_required
         """
-
         with self.app.test_client() as client:
             response = client.get("/account/user/2")
 
@@ -596,9 +571,7 @@ class ManageUsers(BaseTestCase):
     @mock.patch('mod_auth.controllers.login_required', side_effect=mock_decorator)
     @mock.patch('mod_auth.controllers.g')
     def test_user_view_wrong_user(self, mock_g, mock_login):
-        """
-        Test accessing different user from user id.
-        """
+        """Test accessing different user from user id."""
         from mod_auth.controllers import user
 
         mock_g.user = MockUser(id=1, role="None")
@@ -610,9 +583,7 @@ class ManageUsers(BaseTestCase):
     @mock.patch('mod_auth.controllers.g')
     @mock.patch('mod_auth.controllers.User')
     def test_user_view_non_existent_user(self, mock_user, mock_g, mock_login):
-        """
-        Test accessing for user not existent.
-        """
+        """Test accessing for user not existent."""
         from mod_auth.controllers import user
 
         mock_user.query.filter_by.return_value.first.return_value = None
@@ -646,9 +617,7 @@ class ManageUsers(BaseTestCase):
     @mock.patch('mod_auth.controllers.login_required', side_effect=mock_decorator)
     @mock.patch('mod_auth.controllers.g')
     def test_user_reset_wrong_user(self, mock_g, mock_login):
-        """
-        Test accessing reset user from different non-admin user id.
-        """
+        """Test accessing reset user from different non-admin user id."""
         from mod_auth.controllers import reset_user
 
         mock_g.user = MockUser(id=1, role="None")
@@ -659,9 +628,7 @@ class ManageUsers(BaseTestCase):
     @mock.patch('mod_auth.controllers.login_required', side_effect=mock_decorator)
     @mock.patch('mod_auth.controllers.g')
     def test_user_role_wrong_user(self, mock_g, mock_login):
-        """
-        Test accessing role change from non-admin user id.
-        """
+        """Test accessing role change from non-admin user id."""
         from mod_auth.controllers import role
 
         mock_g.user = MockUser(id=1, role="None")
@@ -672,9 +639,7 @@ class ManageUsers(BaseTestCase):
     @mock.patch('mod_auth.controllers.login_required', side_effect=mock_decorator)
     @mock.patch('mod_auth.controllers.g')
     def test_user_deactivate_wrong_user(self, mock_g, mock_login):
-        """
-        Test deactivating user from different user id.
-        """
+        """Test deactivating user from different user id."""
         from mod_auth.controllers import deactivate
 
         mock_g.user = MockUser(id=1, role="None")
@@ -686,9 +651,7 @@ class ManageUsers(BaseTestCase):
     @mock.patch('mod_auth.controllers.login_required', side_effect=mock_decorator)
     @mock.patch('mod_auth.controllers.g')
     def test_user_deactivate_non_existent_user(self, mock_g, mock_login, mock_user):
-        """
-        Test deactivating user from non-existent user id.
-        """
+        """Test deactivating user from non-existent user id."""
         from mod_auth.controllers import deactivate
 
         mock_g.user = MockUser(id=1, role="None")
@@ -703,9 +666,7 @@ class ManageUsers(BaseTestCase):
     @mock.patch('mod_auth.controllers.login_required', side_effect=mock_decorator)
     @mock.patch('mod_auth.controllers.g')
     def test_user_deactivate_non_existent_user(self, mock_g, mock_login, mock_user, mock_form, mock_url_for):
-        """
-        Test deactivating user.
-        """
+        """Test deactivating user."""
         from mod_auth.controllers import deactivate
 
         mock_user.query.filter_by.return_value.first.return_value = MockUser(id=1, role=None)

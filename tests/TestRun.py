@@ -6,6 +6,7 @@ from tests.base import BaseTestCase, provide_file_at_root
 
 
 class mock_application:
+    """Mock object for application."""
 
     def __init__(self):
         self.config = {}
@@ -13,8 +14,10 @@ class mock_application:
 
 
 class TestRun(BaseTestCase):
+    """Test application running."""
 
     def test_load_secret_keys_files_present(self):
+        """Test csrf session and secret keys loading when they are presented."""
         secrets = tempfile.NamedTemporaryFile()
         csrf = tempfile.NamedTemporaryFile()
         application = mock_application()
@@ -35,6 +38,7 @@ class TestRun(BaseTestCase):
         self.assertEqual(application.config['CSRF_SESSION_KEY'], b'csrf', 'csrf session key not loaded properly')
 
     def test_load_secret_keys_secrets_not_present(self):
+        """Test csrf session and secret keys loading when csrf session key is not presented."""
         secrets = tempfile.NamedTemporaryFile()
         csrf = "notAvailable"
         application = mock_application()
@@ -53,6 +57,7 @@ class TestRun(BaseTestCase):
         self.assertEquals(cmd.exception.code, 1, 'function exited with a wrong code')
 
     def test_load_secret_keys_csrf_not_present(self):
+        """Test csrf session and secret keys loading when secret key is not presented."""
         secrets = "notAvailable"
         csrf = tempfile.NamedTemporaryFile()
         application = mock_application()

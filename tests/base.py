@@ -1,3 +1,5 @@
+"""Contains base test case with needed setup and helpers."""
+
 import os
 from collections import namedtuple
 from contextlib import contextmanager
@@ -22,9 +24,7 @@ from mod_upload.models import Platform, Upload
 
 @contextmanager
 def provide_file_at_root(file_name, to_write=None):
-    """
-    Provide file with name file_name at application root.
-    """
+    """Provide file with name file_name at application root."""
     if to_write is None:
         to_write = "DATABASE_URI = 'sqlite:///:memory:'"
 
@@ -48,9 +48,7 @@ def load_file_lines(filepath):
 
 
 def mock_decorator(f):
-    """
-    Mock login_required decorator.
-    """
+    """Mock login_required decorator."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         return f(*args, **kwargs)
@@ -59,6 +57,7 @@ def mock_decorator(f):
 
 
 def generate_keys():
+    """Generate CSRF session and secret keys."""
     from utility import ROOT_DIR
     secret_csrf_path = f"{os.path.join(ROOT_DIR, '')}secret_csrf"
     secret_key_path = f"{os.path.join(ROOT_DIR, '')}secret_key"
@@ -73,6 +72,7 @@ def generate_keys():
 
 
 def load_config(file):
+    """Load start config."""
     key_paths = generate_keys()
     with open(key_paths['secret_key_path'], 'rb') as secret_key_file:
         secret_key = secret_key_file.read()
@@ -102,6 +102,7 @@ def load_config(file):
 
 
 def mock_api_request_github(url, data=None, timeout=None):
+    """Mock all responses to the Github API."""
     if url == "https://api.github.com/repos/test/test_repo/commits/abcdef":
         return MockResponse({}, 200)
     elif url == "https://api.github.com/user":
@@ -139,7 +140,7 @@ signup_information = {
 
 def generate_signature(data, private_key):
     """
-    Generate signature token of hook request
+    Generate signature token of hook request.
 
     :param data: Signature's data
     :param private_key: Signature's token
@@ -171,12 +172,11 @@ def generate_git_api_header(event, sig):
 
 
 class BaseTestCase(TestCase):
+    """Base setup for all test cases."""
+
     @mock.patch('config_parser.parse_config', side_effect=load_config)
     def create_app(self, mock_config):
-        """
-        Create an instance of the app with the testing configuration
-        :return:
-        """
+        """Create an instance of the app with the testing configuration."""
         user = namedtuple('user', "name password email github_token")
         self.user = user(name="test", password="test123",
                          email="test@example.com", github_token="abcdefgh")
@@ -184,6 +184,7 @@ class BaseTestCase(TestCase):
         return app
 
     def setUp(self):
+        """Set up all entities."""
         self.app.preprocess_request()
         g.db = create_session(
             self.app.config['DATABASE_URI'], drop_tables=True)
@@ -304,13 +305,15 @@ class BaseTestCase(TestCase):
     @staticmethod
     def create_login_form_data(email, password) -> dict:
         """
-        Creates the form data for a login event.
+        Create the form data for a login event.
+
         :return: A dictionary containing the name, password and submit fields.
         """
         return {'email': email, 'password': password, 'submit': True}
 
     @staticmethod
     def create_customize_form(commit_hash, platform, commit_select=None, regression_test=None):
+        """Create the request form part."""
         if regression_test is None:
             regression_test = [1, 2]
         if commit_select is None:
@@ -324,9 +327,7 @@ class BaseTestCase(TestCase):
         }
 
     def create_forktest(self, commit_hash, platform, regression_tests=None):
-        """
-        Create a test on fork based on commit and platform
-        """
+        """Create a test on fork based on commit and platform."""
         from flask import g
         fork_url = f"https://github.com/{self.user.name}/{g.github['repository']}.git"
         fork = Fork(fork_url)
@@ -346,9 +347,7 @@ class BaseTestCase(TestCase):
                 g.db.commit()
 
     def create_user_with_role(self, user, email, password, role, github_token=None):
-        """
-        Create a user with specified user details and role.
-        """
+        """Create a user with specified user details and role."""
         from flask import g
         user = User(self.user.name, email=self.user.email,
                     password=User.generate_hash(self.user.password), role=role, github_token=github_token)
@@ -357,6 +356,7 @@ class BaseTestCase(TestCase):
 
     @staticmethod
     def create_random_string(length=32):
+        """Generate random string of ASCII symbols."""
         import random
         import string
         random_string = ''.join([random.choice(string.ascii_letters + string.digits) for n in range(length)])
@@ -364,9 +364,12 @@ class BaseTestCase(TestCase):
 
 
 class MockResponse:
+    """A class to mock HTTP response."""
+
     def __init__(self, json_data, status_code):
         self.json_data = json_data
         self.status_code = status_code
 
     def json(self):
+        """Mock response json method."""
         return self.json_data

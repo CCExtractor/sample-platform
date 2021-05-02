@@ -41,7 +41,7 @@ jobs:
         pydocstyle --config=./.pydocstylerc
     - name: Apply mypy
       run: |
-        mypy mod_*
+        mypy .
     - name: Apply pycodestyle
       run: |
         pycodestyle ./ --config=./.pycodestylerc

@@ -194,7 +194,7 @@ We use `mypy` to introduce a static typing.
 Please check your code for static typing violations using the following commands.
 
 ```bash
-mypy mod_*
+mypy .
 ```
 
 ## Security

@@ -7,7 +7,7 @@ from log_configuration import LogConfiguration
 # This is necessary to avoid a warning with PyCharm
 # FIXME: This is apparently necessary to avoid PyCharm warnings, but mypy complains
 # about assigning to a method - type: ignore seems to work but probably ignores errors
-mock.patch.object = mock.patch.object # type: ignore
+mock.patch.object = mock.patch.object  # type: ignore
 
 
 class TestLogConfiguration(unittest.TestCase):

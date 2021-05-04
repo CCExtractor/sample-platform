@@ -665,7 +665,7 @@ class ManageUsers(BaseTestCase):
     @mock.patch('mod_auth.controllers.User')
     @mock.patch('mod_auth.controllers.login_required', side_effect=mock_decorator)
     @mock.patch('mod_auth.controllers.g')
-    def test_user_deactivate_non_existent_user(self, mock_g, mock_login, mock_user, mock_form, mock_url_for):
+    def test_user_deactivate_existent_user(self, mock_g, mock_login, mock_user, mock_form, mock_url_for):
         """Test deactivating user."""
         from mod_auth.controllers import deactivate
 

@@ -21,7 +21,7 @@ fileConfig(config.config_file_name)
 logger = logging.getLogger('alembic.env')
 
 config.set_main_option(
-    'sqlalchemy.url', current_app.config.get(
+    'sqlalchemy.url', current_app.config.get(  # type: ignore
         'SQLALCHEMY_DATABASE_URI').replace('%', '%%'))
 target_metadata = current_app.extensions['migrate'].db.metadata
 

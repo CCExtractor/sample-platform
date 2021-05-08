@@ -6,8 +6,9 @@ import json
 import os
 import shutil
 import sys
+from dataclasses import dataclass
 from multiprocessing import Process
-from typing import Any
+from typing import Any, List, Optional
 
 import requests
 from flask import (Blueprint, abort, flash, g, jsonify, redirect, request,
@@ -1145,20 +1146,30 @@ def set_avg_time(platform, process_type: str, time_taken: int) -> None:
     g.db.commit()
 
 
-def comment_pr(test_id, state, pr_nr, platform) -> None:
-    """
-    Upload the test report to the GitHub PR as comment.
+@dataclass
+class CategoryTestInfo:
+    """Contains information about the number of successful tests for a specific category during a specific test run."""
 
-    :param test_id: The identity of Test whose report will be uploaded
-    :type test_id: str
-    :param state: The state of the PR.
-    :type state: Status
-    :param pr_nr: PR number to which test commit is related and comment will be uploaded
-    :type: str
-    :param platform
-    :type: str
-    """
-    from run import app, log
+    # the test category being referred to
+    category: str
+    # the total number of tests in this category
+    total: int
+    # the number of successful tests - None if no tests were successful
+    success: Optional[int]
+
+
+@dataclass
+class PrCommentInfo:
+    """Contains info about a test run that is useful for displaying a PR comment."""
+
+    # info about successes and failures for each category
+    category_stats: List[CategoryTestInfo]
+    # list of regression tests that failed
+    failed_tests: List[RegressionTest]
+
+
+def get_info_about_test_for_pr_comment(test_id: int) -> PrCommentInfo:
+    """Return info about the given test id for use in a PR comment."""
     regression_testid_passed = g.db.query(TestResult.regression_test_id).outerjoin(
         TestResultFile, TestResult.test_id == TestResultFile.test_id).filter(
         TestResult.test_id == test_id,
@@ -1184,9 +1195,28 @@ def comment_pr(test_id, state, pr_nr, platform) -> None:
         Category.id == regressionTestLinkTable.c.category_id).group_by(
         regressionTestLinkTable.c.category_id).all()
     regression_testid_failed = RegressionTest.query.filter(RegressionTest.id.notin_(regression_testid_passed)).all()
+    return PrCommentInfo(tot, regression_testid_failed)
+
+
+def comment_pr(test_id, state, pr_nr, platform) -> None:
+    """
+    Upload the test report to the GitHub PR as comment.
+
+    :param test_id: The identity of Test whose report will be uploaded
+    :type test_id: str
+    :param state: The state of the PR.
+    :type state: Status
+    :param pr_nr: PR number to which test commit is related and comment will be uploaded
+    :type: str
+    :param platform
+    :type: str
+    """
+    from run import app, log
+
+    comment_info = get_info_about_test_for_pr_comment(test_id)
     template = app.jinja_env.get_or_select_template('ci/pr_comment.txt')
-    message = template.render(tests=tot, failed_tests=regression_testid_failed, test_id=test_id,
-                              state=state, platform=platform)
+    message = template.render(tests=comment_info.category_stats, failed_tests=comment_info.failed_tests,
+                              test_id=test_id, state=state, platform=platform)
     log.debug(f"GitHub PR Comment Message Created for Test_id: {test_id}")
     try:
         gh = GitHub(access_token=g.github['bot_token'])

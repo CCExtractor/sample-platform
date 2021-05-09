@@ -35,6 +35,7 @@ from mod_deploy.controllers import is_valid_signature, request_from_github
 from mod_home.models import CCExtractorVersion, GeneralData
 from mod_regression.models import (Category, RegressionTest,
                                    RegressionTestOutput,
+                                   RegressionTestOutputFiles,
                                    regressionTestLinkTable)
 from mod_sample.models import Issue
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
@@ -1178,8 +1179,11 @@ def get_info_about_test_for_pr_comment(test_id: int) -> PrCommentInfo:
             TestResult.exit_code != 0,
             and_(TestResult.exit_code == 0,
                  TestResult.regression_test_id == TestResultFile.regression_test_id,
-                 TestResultFile.got.is_(None)
-                 ),
+                 or_(TestResultFile.got.is_(None),
+                     and_(
+                     RegressionTestOutputFiles.regression_test_output_id == TestResultFile.regression_test_output_id,
+                     TestResultFile.got == RegressionTestOutputFiles.file_hashes
+                 ))),
             and_(
                 RegressionTestOutput.regression_id == TestResult.regression_test_id,
                 RegressionTestOutput.ignore.is_(True),

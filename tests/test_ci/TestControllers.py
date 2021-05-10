@@ -91,6 +91,26 @@ class TestControllers(BaseTestCase):
             # make sure the stats for the category confirm that everything passed too
             self.assertEqual(stats.success, stats.total)
 
+    def test_comment_info_handles_invalid_variants_correctly(self):
+        """Test that invalid variants of output files are handled correctly in PR comments.
+
+        Make sure that regression tests are correctly marked as not passing when an invalid file hash is found
+        """
+        INVALID_VARIANT_HASH = 'this_is_an_invalid_hash'
+        TEST_RUN_ID = 1
+        test_result_file: TestResultFile = TestResultFile.query.filter(TestResultFile.test_id == TEST_RUN_ID).first()
+        test_result_file.got = INVALID_VARIANT_HASH
+        g.db.add(test_result_file)
+        g.db.commit()
+
+        test: Test = Test.query.filter(Test.id == TEST_RUN_ID).first()
+        comment_info = get_info_about_test_for_pr_comment(test.id)
+        # all categories that this regression test applies to should fail because of the invalid hash
+        for category in test_result_file.regression_test.categories:
+            stats = [stat for stat in comment_info.category_stats if stat.category == category.name]
+            for stat in stats:
+                self.assertEqual(stat.success, None)
+
     @mock.patch('mod_ci.controllers.Process')
     @mock.patch('run.log')
     def test_start_platform_none_specified(self, mock_log, mock_process):

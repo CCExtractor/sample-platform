@@ -7,8 +7,7 @@ from flask import g
 from werkzeug.datastructures import Headers
 
 from mod_auth.models import Role
-from mod_ci.controllers import (get_info_about_test_for_pr_comment,
-                                start_platforms)
+from mod_ci.controllers import get_info_for_pr_comment, start_platforms
 from mod_ci.models import BlockedUsers
 from mod_customized.models import CustomizedTest
 from mod_home.models import CCExtractorVersion, GeneralData
@@ -84,7 +83,7 @@ class TestControllers(BaseTestCase):
 
         # The actual test
         test: Test = Test.query.filter(Test.id == TEST_RUN_ID).first()
-        comment_info = get_info_about_test_for_pr_comment(test.id)
+        comment_info = get_info_for_pr_comment(test.id)
         # we got a valid variant, so should still pass
         self.assertEqual(comment_info.failed_tests, [])
         for stats in comment_info.category_stats:
@@ -104,7 +103,7 @@ class TestControllers(BaseTestCase):
         g.db.commit()
 
         test: Test = Test.query.filter(Test.id == TEST_RUN_ID).first()
-        comment_info = get_info_about_test_for_pr_comment(test.id)
+        comment_info = get_info_for_pr_comment(test.id)
         # all categories that this regression test applies to should fail because of the invalid hash
         for category in test_result_file.regression_test.categories:
             stats = [stat for stat in comment_info.category_stats if stat.category == category.name]

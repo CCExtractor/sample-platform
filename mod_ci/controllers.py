@@ -1169,7 +1169,7 @@ class PrCommentInfo:
     failed_tests: List[RegressionTest]
 
 
-def get_info_about_test_for_pr_comment(test_id: int) -> PrCommentInfo:
+def get_info_for_pr_comment(test_id: int) -> PrCommentInfo:
     """Return info about the given test id for use in a PR comment."""
     regression_testid_passed = g.db.query(TestResult.regression_test_id).outerjoin(
         TestResultFile, TestResult.test_id == TestResultFile.test_id).filter(
@@ -1217,7 +1217,7 @@ def comment_pr(test_id, state, pr_nr, platform) -> None:
     """
     from run import app, log
 
-    comment_info = get_info_about_test_for_pr_comment(test_id)
+    comment_info = get_info_for_pr_comment(test_id)
     template = app.jinja_env.get_or_select_template('ci/pr_comment.txt')
     message = template.render(tests=comment_info.category_stats, failed_tests=comment_info.failed_tests,
                               test_id=test_id, state=state, platform=platform)

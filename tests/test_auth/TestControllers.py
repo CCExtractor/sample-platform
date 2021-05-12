@@ -103,7 +103,7 @@ class CompleteSignUp(BaseTestCase):
         # time in the past - used to test how we handle expired HMACs
         self.past_time = self.time_of_hash - 3600
 
-        content_to_hash = f"{signup_information['valid_email']}|{self.time_of_hash}"
+        content_to_hash = f"{signup_information['valid_email']}|{self.expiry_time}"
         self.hash = generate_hmac_hash(self.app.config.get('HMAC_KEY', ''), content_to_hash)
         content_to_hash = f"{signup_information['existing_user_email']}|{self.time_of_hash}"
         self.existing_user_hash = generate_hmac_hash(self.app.config.get('HMAC_KEY', ''), content_to_hash)

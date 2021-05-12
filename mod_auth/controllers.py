@@ -410,7 +410,11 @@ def complete_signup(email: str, expires: int,
                 'expires': expires,
                 'mac': mac
             }
+        else:
+            g.log.error('Invalid HMAC')
 
+    else:
+        g.log.error('HMAC expired')
     flash('The request to complete the registration was invalid. Please enter your email again to start over.',
           'error-message')
     return redirect(url_for('.signup'))

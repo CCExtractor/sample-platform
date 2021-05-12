@@ -97,32 +97,40 @@ class CompleteSignUp(BaseTestCase):
     def setUp(self):
         """Set up hashes for the signup links."""
         self.time_of_hash = int(time.time())
-        content_to_hash = f"{signup_information['valid_email']}|{self.time_of_hash}"
+        # if this test somehow manages to run for more than a year, we probably have bigger problems
+        SECONDS_PER_YEAR = 31_536_000
+        self.expiry_time = self.time_of_hash + SECONDS_PER_YEAR
+        # time in the past - used to test how we handle expired HMACs
+        self.past_time = self.time_of_hash - 3600
+
+        content_to_hash = f"{signup_information['valid_email']}|{self.expiry_time}"
         self.hash = generate_hmac_hash(self.app.config.get('HMAC_KEY', ''), content_to_hash)
         content_to_hash = f"{signup_information['existing_user_email']}|{self.time_of_hash}"
         self.existing_user_hash = generate_hmac_hash(self.app.config.get('HMAC_KEY', ''), content_to_hash)
+        content_to_hash = f"{signup_information['valid_email']}|{self.past_time}"
+        self.expired_hash = generate_hmac_hash(self.app.config.get('HMAC_KEY', ''), content_to_hash)
 
     def test_if_link_expired(self):
         """Test signup with an expired signup link."""
-        response = self.complete_signup(signup_information['valid_email'], self.time_of_hash + 3600, self.hash)
+        response = self.complete_signup(signup_information['valid_email'], self.past_time, self.expired_hash)
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"The request to complete the registration was invalid.", response.data)
 
     def test_if_wrong_link(self):
         """Test signup with a wrong signup link."""
-        response = self.complete_signup(signup_information['existing_user_email'], self.time_of_hash, self.hash)
+        response = self.complete_signup(signup_information['existing_user_email'], self.expiry_time, self.hash)
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"The request to complete the registration was invalid.", response.data)
 
     def test_if_valid_link(self):
         """Test signup with a valid signup link."""
-        response = self.complete_signup(signup_information['valid_email'], self.time_of_hash, self.hash)
+        response = self.complete_signup(signup_information['valid_email'], self.expiry_time, self.hash)
         self.assertEqual(response.status_code, 200)
         self.assert_template_used('auth/complete_signup.html')
 
     def test_if_password_is_blank(self):
         """Test case when password is empty."""
-        response = self.complete_signup(signup_information['valid_email'], self.time_of_hash, self.hash,
+        response = self.complete_signup(signup_information['valid_email'], self.expiry_time, self.hash,
                                         name=signup_information['existing_user_name'], password='', password_repeat='')
         self.assertEqual(response.status_code, 200)
         self.assert_template_used('auth/complete_signup.html')
@@ -130,7 +138,7 @@ class CompleteSignUp(BaseTestCase):
 
     def test_if_password_length_is_invalid(self):
         """Test case when password has incorrect length."""
-        response = self.complete_signup(signup_information['valid_email'], self.time_of_hash, self.hash,
+        response = self.complete_signup(signup_information['valid_email'], self.expiry_time, self.hash,
                                         name=signup_information['existing_user_name'], password='small',
                                         password_repeat='small')
         self.assertEqual(response.status_code, 200)
@@ -139,7 +147,7 @@ class CompleteSignUp(BaseTestCase):
 
     def test_if_passwords_dont_match(self):
         """Test case when fields with passwords don't contain the same content."""
-        response = self.complete_signup(signup_information['valid_email'], self.time_of_hash, self.hash,
+        response = self.complete_signup(signup_information['valid_email'], self.expiry_time, self.hash,
                                         name=signup_information['existing_user_name'], password='some_password',
                                         password_repeat='another_password')
         self.assertEqual(response.status_code, 200)

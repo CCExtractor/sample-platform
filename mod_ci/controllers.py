@@ -6,9 +6,8 @@ import json
 import os
 import shutil
 import sys
-from dataclasses import dataclass
 from multiprocessing import Process
-from typing import Any, List, Optional
+from typing import Any
 
 import requests
 from flask import (Blueprint, abort, flash, g, jsonify, redirect, request,
@@ -29,7 +28,7 @@ from mailer import Mailer
 from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role
 from mod_ci.forms import AddUsersToBlacklist, DeleteUserForm
-from mod_ci.models import BlockedUsers, Kvm, MaintenanceMode
+from mod_ci.models import BlockedUsers, Kvm, MaintenanceMode, PrCommentInfo
 from mod_customized.models import CustomizedTest
 from mod_deploy.controllers import is_valid_signature, request_from_github
 from mod_home.models import CCExtractorVersion, GeneralData
@@ -1145,28 +1144,6 @@ def set_avg_time(platform, process_type: str, time_taken: int) -> None:
         current_average.value = str(new_average)
 
     g.db.commit()
-
-
-@dataclass
-class CategoryTestInfo:
-    """Contains information about the number of successful tests for a specific category during a specific test run."""
-
-    # the test category being referred to
-    category: str
-    # the total number of tests in this category
-    total: int
-    # the number of successful tests - None if no tests were successful
-    success: Optional[int]
-
-
-@dataclass
-class PrCommentInfo:
-    """Contains info about a test run that is useful for displaying a PR comment."""
-
-    # info about successes and failures for each category
-    category_stats: List[CategoryTestInfo]
-    # list of regression tests that failed
-    failed_tests: List[RegressionTest]
 
 
 def get_info_for_pr_comment(test_id: int) -> PrCommentInfo:

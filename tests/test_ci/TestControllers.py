@@ -7,12 +7,13 @@ from flask import g
 from werkzeug.datastructures import Headers
 
 from mod_auth.models import Role
-from mod_ci.controllers import start_platforms
+from mod_ci.controllers import get_info_for_pr_comment, start_platforms
 from mod_ci.models import BlockedUsers
 from mod_customized.models import CustomizedTest
 from mod_home.models import CCExtractorVersion, GeneralData
-from mod_regression.models import RegressionTest
-from mod_test.models import Test, TestPlatform, TestType
+from mod_regression.models import (RegressionTest, RegressionTestOutput,
+                                   RegressionTestOutputFiles)
+from mod_test.models import Test, TestPlatform, TestResultFile, TestType
 from tests.base import (BaseTestCase, generate_git_api_header,
                         generate_signature, mock_api_request_github)
 
@@ -54,6 +55,60 @@ WSGI_ENVIRONMENT = {'REMOTE_ADDR': "192.30.252.0"}
 
 class TestControllers(BaseTestCase):
     """Test CI-related controllers."""
+
+    def test_comment_info_handles_variant_files_correctly(self):
+        """Test that allowed variants of output files are handled correctly in PR comments.
+
+        Make sure that the info used for the PR comment treats tests as successes if they got one of the allowed
+        variants of the output file instead of the original version
+        """
+        VARIANT_HASH = 'abcdefgh_this_is_a_hash'
+        TEST_RUN_ID = 1
+        # Setting up the database
+        # create regression test with an output file that has an allowed variant
+        regression_test: RegressionTest = RegressionTest.query.filter(RegressionTest.id == 1).first()
+        output_file: RegressionTestOutput = regression_test.output_files[0]
+        variant_output_file = RegressionTestOutputFiles(VARIANT_HASH, output_file.id)
+        output_file.multiple_files.append(variant_output_file)
+        g.db.add(output_file)
+
+        test_run_output_file: TestResultFile = TestResultFile.query.filter(
+            TestResultFile.regression_test_output_id == output_file.id,
+            TestResultFile.test_id == TEST_RUN_ID
+        ).first()
+        # mark the test as getting the variant as output, not the expected file
+        test_run_output_file.got = VARIANT_HASH
+        g.db.add(test_run_output_file)
+        g.db.commit()
+
+        # The actual test
+        test: Test = Test.query.filter(Test.id == TEST_RUN_ID).first()
+        comment_info = get_info_for_pr_comment(test.id)
+        # we got a valid variant, so should still pass
+        self.assertEqual(comment_info.failed_tests, [])
+        for stats in comment_info.category_stats:
+            # make sure the stats for the category confirm that everything passed too
+            self.assertEqual(stats.success, stats.total)
+
+    def test_comment_info_handles_invalid_variants_correctly(self):
+        """Test that invalid variants of output files are handled correctly in PR comments.
+
+        Make sure that regression tests are correctly marked as not passing when an invalid file hash is found
+        """
+        INVALID_VARIANT_HASH = 'this_is_an_invalid_hash'
+        TEST_RUN_ID = 1
+        test_result_file: TestResultFile = TestResultFile.query.filter(TestResultFile.test_id == TEST_RUN_ID).first()
+        test_result_file.got = INVALID_VARIANT_HASH
+        g.db.add(test_result_file)
+        g.db.commit()
+
+        test: Test = Test.query.filter(Test.id == TEST_RUN_ID).first()
+        comment_info = get_info_for_pr_comment(test.id)
+        # all categories that this regression test applies to should fail because of the invalid hash
+        for category in test_result_file.regression_test.categories:
+            stats = [stat for stat in comment_info.category_stats if stat.category == category.name]
+            for stat in stats:
+                self.assertEqual(stat.success, None)
 
     @mock.patch('mod_ci.controllers.Process')
     @mock.patch('run.log')

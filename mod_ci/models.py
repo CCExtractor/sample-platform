@@ -9,7 +9,8 @@ List of models corresponding to mysql tables:
 """
 
 import datetime
-from typing import Any, Dict, Type
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Type
 
 from sqlalchemy import (Boolean, Column, DateTime, ForeignKey, Integer, String,
                         Text)
@@ -17,6 +18,7 @@ from sqlalchemy.orm import relationship
 
 import mod_test.models
 from database import Base
+from mod_regression.models import RegressionTest
 from mod_test.models import Test, TestPlatform
 
 
@@ -109,3 +111,25 @@ class MaintenanceMode(Base):
         :rtype str(platform, status): str
         """
         return f"<Platform {self.platform.description}, maintenance {self.disabled}>"
+
+
+@dataclass
+class CategoryTestInfo:
+    """Contains information about the number of successful tests for a specific category during a specific test run."""
+
+    # the test category being referred to
+    category: str
+    # the total number of tests in this category
+    total: int
+    # the number of successful tests - None if no tests were successful
+    success: Optional[int]
+
+
+@dataclass
+class PrCommentInfo:
+    """Contains info about a test run that is useful for displaying a PR comment."""
+
+    # info about successes and failures for each category
+    category_stats: List[CategoryTestInfo]
+    # list of regression tests that failed
+    failed_tests: List[RegressionTest]

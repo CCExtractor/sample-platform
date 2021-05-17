@@ -28,12 +28,13 @@ from mailer import Mailer
 from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role
 from mod_ci.forms import AddUsersToBlacklist, DeleteUserForm
-from mod_ci.models import BlockedUsers, Kvm, MaintenanceMode
+from mod_ci.models import BlockedUsers, Kvm, MaintenanceMode, PrCommentInfo
 from mod_customized.models import CustomizedTest
 from mod_deploy.controllers import is_valid_signature, request_from_github
 from mod_home.models import CCExtractorVersion, GeneralData
 from mod_regression.models import (Category, RegressionTest,
                                    RegressionTestOutput,
+                                   RegressionTestOutputFiles,
                                    regressionTestLinkTable)
 from mod_sample.models import Issue
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
@@ -1145,20 +1146,8 @@ def set_avg_time(platform, process_type: str, time_taken: int) -> None:
     g.db.commit()
 
 
-def comment_pr(test_id, state, pr_nr, platform) -> None:
-    """
-    Upload the test report to the GitHub PR as comment.
-
-    :param test_id: The identity of Test whose report will be uploaded
-    :type test_id: str
-    :param state: The state of the PR.
-    :type state: Status
-    :param pr_nr: PR number to which test commit is related and comment will be uploaded
-    :type: str
-    :param platform
-    :type: str
-    """
-    from run import app, log
+def get_info_for_pr_comment(test_id: int) -> PrCommentInfo:
+    """Return info about the given test id for use in a PR comment."""
     regression_testid_passed = g.db.query(TestResult.regression_test_id).outerjoin(
         TestResultFile, TestResult.test_id == TestResultFile.test_id).filter(
         TestResult.test_id == test_id,
@@ -1167,8 +1156,11 @@ def comment_pr(test_id, state, pr_nr, platform) -> None:
             TestResult.exit_code != 0,
             and_(TestResult.exit_code == 0,
                  TestResult.regression_test_id == TestResultFile.regression_test_id,
-                 TestResultFile.got.is_(None)
-                 ),
+                 or_(TestResultFile.got.is_(None),
+                     and_(
+                     RegressionTestOutputFiles.regression_test_output_id == TestResultFile.regression_test_output_id,
+                     TestResultFile.got == RegressionTestOutputFiles.file_hashes
+                 ))),
             and_(
                 RegressionTestOutput.regression_id == TestResult.regression_test_id,
                 RegressionTestOutput.ignore.is_(True),
@@ -1184,9 +1176,28 @@ def comment_pr(test_id, state, pr_nr, platform) -> None:
         Category.id == regressionTestLinkTable.c.category_id).group_by(
         regressionTestLinkTable.c.category_id).all()
     regression_testid_failed = RegressionTest.query.filter(RegressionTest.id.notin_(regression_testid_passed)).all()
+    return PrCommentInfo(tot, regression_testid_failed)
+
+
+def comment_pr(test_id, state, pr_nr, platform) -> None:
+    """
+    Upload the test report to the GitHub PR as comment.
+
+    :param test_id: The identity of Test whose report will be uploaded
+    :type test_id: str
+    :param state: The state of the PR.
+    :type state: Status
+    :param pr_nr: PR number to which test commit is related and comment will be uploaded
+    :type: str
+    :param platform
+    :type: str
+    """
+    from run import app, log
+
+    comment_info = get_info_for_pr_comment(test_id)
     template = app.jinja_env.get_or_select_template('ci/pr_comment.txt')
-    message = template.render(tests=tot, failed_tests=regression_testid_failed, test_id=test_id,
-                              state=state, platform=platform)
+    message = template.render(tests=comment_info.category_stats, failed_tests=comment_info.failed_tests,
+                              test_id=test_id, state=state, platform=platform)
     log.debug(f"GitHub PR Comment Message Created for Test_id: {test_id}")
     try:
         gh = GitHub(access_token=g.github['bot_token'])

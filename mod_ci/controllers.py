@@ -726,8 +726,8 @@ def update_build_badge(status, test) -> None:
     """
     if test.test_type == TestType.commit and is_main_repo(test.fork.github):
         parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        original_location = os.path.join(parent_dir, 'static', 'svg', f'{status.upper()}-{test.platform.values}.svg')
-        build_status_location = os.path.join(parent_dir, 'static', 'img', 'status', f'build-{test.platform.values}.svg')
+        original_location = os.path.join(parent_dir, 'static', 'svg', f'{status.upper()}-{test.platform.value}.svg')
+        build_status_location = os.path.join(parent_dir, 'static', 'img', 'status', f'build-{test.platform.value}.svg')
         shutil.copyfile(original_location, build_status_location)
         g.log.info('Build badge updated successfully!')
 

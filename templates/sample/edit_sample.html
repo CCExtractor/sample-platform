@@ -43,21 +43,10 @@
                             {{ macros.render_field(form.platform) }}
                         </div>
                         <div class="medium-12 columns">
-                            {{ macros.render_field(form.parameters, placeholder="e.g. -autoprogram -latin1 ...") }}
+                            {{ macros.render_field(form.parameters, placeholder="-autoprogram -latin1 ...") }}
                         </div>
                         <div class="medium-12 columns">
                             {{ macros.render_field(form.notes) }}
-                        </div>
-                        <div class="medium-12 columns">
-                            {{ macros.render_field(form.report) }}
-                        </div>
-                        <div id="reportgithub">
-                            <div class="medium-12 columns">
-                                {{ macros.render_field(form.IssueTitle) }}
-                            </div>
-                            <div class="medium-12 columns">
-                                {{ macros.render_field(form.IssueBody) }}
-                            </div>
                         </div>
                         <div class="medium-12 columns">
                             {{ macros.render_field(form.submit) }}
@@ -67,36 +56,4 @@
             </div>
         </div>
     </div>
-{% endblock %}
-{% block scripts %}
-    {{ super() }}
-
-    <script type="text/javascript">
-        var IssueBody = $('#IssueBody').val();
-        var IssueTitle = $('#IssueTitle').val();
-        function report()
-        {
-            if($('#report').val()=='y')
-            {
-                $('#reportgithub').show();
-                $('#IssueBody').val(IssueBody);
-                $('#IssueTitle').val(IssueTitle);
-            }
-            else
-            {
-                IssueBody = $('#IssueBody').val();
-                IssueTitle = $('#IssueTitle').val();
-                $('#reportgithub').hide();
-                $('#IssueBody').val('no-issue');
-                $('#IssueTitle').val('no-title');
-            }
-        }
-        $(document).ready(function()
-        {
-                $('#report').change(function() {
-                        report();
-                 });
-                report();
-        });
-        </script>
 {% endblock %}

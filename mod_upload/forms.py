@@ -96,7 +96,7 @@ class CommonSampleForm(FlaskForm):
 class FinishQueuedSampleForm(CommonSampleForm):
     """Form to finalize sample queue."""
 
-    report = SelectField('Do you want to report Issue on GitHub?', choices=[('n', 'No'), ('y', 'Yes')])
+    report = SelectField('Do you want to report an issue on GitHub?', choices=[('n', 'No'), ('y', 'Yes')])
     IssueTitle = TextAreaField('Issue Title', [DataRequired(message='Title is not filled in')])
     IssueBody = TextAreaField('Issue Content', [DataRequired(message='Content is not filled in')])
     submit = SubmitField('Finalize sample')

@@ -3,8 +3,8 @@ from unittest import mock
 
 from flask import g
 
-from mod_home.models import CCExtractorVersion
 from mod_auth.models import Role
+from mod_home.models import CCExtractorVersion
 from mod_sample.media_info_parser import InvalidMediaInfoError
 from mod_sample.models import Sample
 from tests.base import BaseTestCase

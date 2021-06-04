@@ -4,6 +4,7 @@ from unittest import mock
 from flask import g
 
 from mod_home.models import CCExtractorVersion
+from mod_auth.models import Role
 from mod_sample.media_info_parser import InvalidMediaInfoError
 from mod_sample.models import Sample
 from tests.base import BaseTestCase
@@ -187,3 +188,15 @@ class TestControllers(BaseTestCase):
 
         mock_sample.query.filter.assert_called_once_with(mock_sample.id == 1)
         mock_extra.query.filter.assert_called_once_with(mock_extra.id == 1)
+
+    def test_edit_sample(self):
+        """Check if it will edit a sample."""
+        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
+
+        with self.app.test_client() as c:
+            c.post('/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            c.post('/sample/edit/1',
+                   data=dict(notes="mp4", parameters="-latin1", platform='linux', version=1, submit=True))
+            sample = Sample.query.filter(Sample.id == 1).first()
+            self.assertEqual(sample.upload.notes, 'mp4')
+            self.assertEqual(sample.upload.parameters, '-latin1')

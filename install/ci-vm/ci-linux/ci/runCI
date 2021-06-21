@@ -83,17 +83,11 @@ if [ -x "ccextractor" ]; then
 	# Run testSuite
 	postStatus "testing" "Running tests"
 	executeCommand cd ${suiteDstDir}
-	executeCommand ${tester} --entries "${testFile}" --executable "${dstDir}/linux/ccextractor" --tempfolder "${tempFolder}" --timeout 3000 --reportfolder "${reportFolder}" --resultfolder "${resultFolder}" --samplefolder "${sampleFolder}" --method Server --url "${reportURL}"
+	executeCommand ${tester} --entries "${testFile}" --executable "${dstDir}/build/ccextractor" --tempfolder "${tempFolder}" --timeout 3000 --reportfolder "${reportFolder}" --resultfolder "${resultFolder}" --samplefolder "${sampleFolder}" --method Server --url "${reportURL}"
 	postStatus "completed" "Ran all tests"
 	sendLogFile
-	# Delete build files after tests are complete
-	executeCommand cd ..
-	executeCommand rm -rf build
 	# Shut down
 	sudo shutdown -h now
 else
-	# Delete build files before shutting down
-	executeCommand cd ..
-	executeCommand rm -rf build
 	haltAndCatchFire "build"
 fi

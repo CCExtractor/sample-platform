@@ -15,6 +15,9 @@ fi
 # Source variables
 . "$DIR/variables"
 
+# Add cargo to path
+PATH="/root/.cargo/bin:$PATH"
+
 # Check if required files & folders are present
 if [ ! -f ${reportURLFile} ]; then
     # No report URL file defined

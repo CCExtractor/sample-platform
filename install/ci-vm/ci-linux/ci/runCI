@@ -61,54 +61,6 @@ function executeCommand {
 	fi
 }
 
-# Check whether cmake is a success or not
-function cmakeCheck {
-	mkdir build
-	cd build
-	cmake ../src/ >> "${logFile}" 2>&1
-	make >> "${logFile}" 2>&1
-	if [ -x "ccextractor" ]; then
-		postStatus "building" "Successful build using cmake"
-	else
-		postStatus "building" "Failed to build using cmake"
-	fi
-	cd ..
-	rm -rf build
-}
-
-# Check whether builddebug is a success or not
-function builddebugCheck {
-	cd linux
-	./builddebug >> "${logFile}" 2>&1
-	if [ -x "ccextractor" ]; then
-		postStatus "building" "Successful build using builddebug"
-		rm ccextractor
-	else
-		postStatus "building" "Failed to build using builddebug"
-	fi
-	cd ..
-}
-
-# Check whether autoconf is a success or not
-function autoconfCheck {
-	cd linux
-	./autogen.sh >> "${logFile}" 2>&1
-	if [ -x "configure" ]; then
-		./configure >> "${logFile}" 2>&1
-		make >> "${logFile}" 2>&1
-		if [ -x "ccextractor" ]; then
-			postStatus "building" "Successful build using autoconf"
-			rm ccextractor
-		else
-			postStatus "building" "Failed to build using autoconf"
-		fi
-	else
-		postStatus "building" "Failed to build using autoconf"
-	fi
-	./cleanup >> "${logFile}" 2>&1
-	cd ..
-}
-
 # Truncate log in case there was anything left from a previous session
 echo "" > "${logFile}"
 
@@ -119,20 +71,12 @@ postStatus "preparation" "Copy code to local folder"
 executeCommand cp -r ${srcDir}/* ${dstDir}
 executeCommand cd ${dstDir}
 
-postStatus "building" "Compiling CCExtractor using cmake"
-cmakeCheck
-
-postStatus "building" "Compiling CCExtractor using builddebug"
-builddebugCheck
-
-postStatus "building" "Compiling CCExtractor using autoconf"
-autoconfCheck
-
 postStatus "building" "Compiling CCExtractor"
-# Go to linux build folder
-executeCommand cd linux
-# Build CCExtractor using the bash build script
-./build >> "${logFile}" 2>&1
+# Build CCExtractor using the cmake
+executeCommand mkdir build
+executeCommand cd build
+cmake ../src/ -DWITH_RUST:BOOL=ON >> "${logFile}" 2>&1
+make >> "${logFile}" 2>&1
 # Check if build succeeded
 if [ -x "ccextractor" ]; then
 	chmod 700 ccextractor

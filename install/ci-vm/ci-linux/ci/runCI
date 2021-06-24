@@ -78,7 +78,7 @@ postStatus "building" "Compiling CCExtractor"
 # Build CCExtractor using the cmake
 executeCommand mkdir build
 executeCommand cd build
-cmake ../src/ -DWITH_RUST:BOOL=ON >> "${logFile}" 2>&1
+cmake ../src/ -DWITH_RUST:BOOL=ON -DWITH_OCR=ON >> "${logFile}" 2>&1
 make >> "${logFile}" 2>&1
 # Check if build succeeded
 if [ -x "ccextractor" ]; then

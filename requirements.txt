@@ -1,4 +1,4 @@
-sqlalchemy==1.4.17
+sqlalchemy==1.4.24
 flask==1.1.2
 passlib==1.7.4
 pymysql==1.0.2

@@ -1,4 +1,4 @@
-codecov==2.1.11
+codecov==2.1.12
 nose-cov==1.6
 pycodestyle==2.7.0
 pydocstyle==6.0.0

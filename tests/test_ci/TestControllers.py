@@ -7,7 +7,7 @@ from flask import g
 from werkzeug.datastructures import Headers
 
 from mod_auth.models import Role
-from mod_ci.controllers import get_info_for_pr_comment, start_platforms
+from mod_ci.controllers import get_info_for_pr_comment
 from mod_ci.models import BlockedUsers
 from mod_customized.models import CustomizedTest
 from mod_home.models import CCExtractorVersion, GeneralData
@@ -110,82 +110,6 @@ class TestControllers(BaseTestCase):
             for stat in stats:
                 self.assertEqual(stat.success, None)
 
-    @mock.patch('mod_ci.controllers.Process')
-    @mock.patch('run.log')
-    def test_start_platform_none_specified(self, mock_log, mock_process):
-        """Test that both platforms run with no platform value is passed."""
-        start_platforms(mock.ANY, mock.ANY)
-
-        self.assertEqual(2, mock_process.call_count)
-        self.assertEqual(4, mock_log.info.call_count)
-
-    @mock.patch('mod_ci.controllers.Process')
-    @mock.patch('run.log')
-    def test_start_platform_linux_specified(self, mock_log, mock_process):
-        """Test that only linux platform runs."""
-        start_platforms(mock.ANY, mock.ANY, platform=TestPlatform.linux)
-
-        self.assertEqual(1, mock_process.call_count)
-        self.assertEqual(2, mock_log.info.call_count)
-        mock_log.info.assert_called_with("Linux VM process kicked off")
-
-    @mock.patch('mod_ci.controllers.Process')
-    @mock.patch('run.log')
-    def test_start_platform_windows_specified(self, mock_log, mock_process):
-        """Test that only windows platform runs."""
-        start_platforms(mock.ANY, mock.ANY, platform=TestPlatform.windows)
-
-        self.assertEqual(1, mock_process.call_count)
-        self.assertEqual(2, mock_log.info.call_count)
-        mock_log.info.assert_called_with("Windows VM process kicked off")
-
-    @mock.patch('run.log')
-    def test_kvm_processor_empty_kvm_name(self, mock_log):
-        """Test that kvm processor fails with empty kvm name."""
-        from mod_ci.controllers import kvm_processor
-
-        resp = kvm_processor(mock.ANY, mock.ANY, "", mock.ANY, mock.ANY, mock.ANY)
-
-        self.assertIsNone(resp)
-        mock_log.info.assert_called_once()
-        mock_log.critical.assert_called_once()
-
-    @mock.patch('run.log')
-    @mock.patch('mod_ci.controllers.MaintenanceMode')
-    def test_kvm_processor_maintenance_mode(self, mock_maintenance, mock_log):
-        """Test that kvm processor does not run when in mentainenace."""
-        from mod_ci.controllers import kvm_processor
-
-        class MockMaintence:
-            def __init__(self):
-                self.disabled = True
-
-        mock_maintenance.query.filter.return_value.first.return_value = MockMaintence()
-
-        resp = kvm_processor(mock.ANY, mock.ANY, "test", mock.ANY, mock.ANY, 1)
-
-        self.assertIsNone(resp)
-        mock_log.info.assert_called_once()
-        mock_log.critical.assert_not_called()
-        self.assertEqual(mock_log.debug.call_count, 2)
-
-    @mock.patch('mod_ci.controllers.libvirt')
-    @mock.patch('run.log')
-    @mock.patch('mod_ci.controllers.MaintenanceMode')
-    def test_kvm_processor_conn_fail(self, mock_maintenance, mock_log, mock_libvirt):
-        """Test that kvm processor logs critically when conn cannot be established."""
-        from mod_ci.controllers import kvm_processor
-
-        mock_libvirt.open.return_value = None
-        mock_maintenance.query.filter.return_value.first.return_value = None
-
-        resp = kvm_processor(mock.ANY, mock.ANY, "test", mock.ANY, mock.ANY, 1)
-
-        self.assertIsNone(resp)
-        mock_log.info.assert_called_once()
-        mock_log.critical.assert_called_once()
-        self.assertEqual(mock_log.debug.call_count, 1)
-
     @mock.patch('mod_ci.controllers.GeneralData')
     @mock.patch('mod_ci.controllers.g')
     def test_set_avg_time_first(self, mock_g, mock_gd):
@@ -274,113 +198,6 @@ class TestControllers(BaseTestCase):
         from mod_ci.controllers import is_main_repo
         assert is_main_repo('random_user/random_repo') is False
         assert is_main_repo('test_owner/test_repo') is True
-
-    @mock.patch('github.GitHub')
-    @mock.patch('git.Repo')
-    @mock.patch('libvirt.open')
-    @mock.patch('shutil.rmtree')
-    @mock.patch('mod_ci.controllers.open')
-    @mock.patch('lxml.etree')
-    def test_customize_tests_run_on_fork_if_no_remote(self, mock_etree, mock_open,
-                                                      mock_rmtree, mock_libvirt, mock_repo, mock_git):
-        """Test customize tests running on the fork without remote."""
-        self.create_user_with_role(
-            self.user.name, self.user.email, self.user.password, Role.tester)
-        self.create_forktest("own-fork-commit", TestPlatform.linux)
-        import mod_ci.controllers
-        import mod_ci.cron
-        reload(mod_ci.cron)
-        reload(mod_ci.controllers)
-        from mod_ci.cron import cron
-        conn = mock_libvirt()
-        vm = conn.lookupByName()
-        import libvirt
-
-        # mocking the libvirt kvm to shut down
-        vm.info.return_value = [libvirt.VIR_DOMAIN_SHUTOFF]
-        # Setting current snapshot of libvirt
-        vm.hasCurrentSnapshot.return_value = 1
-        repo = mock_repo()
-        origin = repo.create_remote()
-        from collections import namedtuple
-        GitPullInfo = namedtuple('GitPullInfo', 'flags')
-        pull_info = GitPullInfo(flags=0)
-        origin.pull.return_value = [pull_info]
-        cron(testing=True)
-        fork_url = f"https://github.com/{self.user.name}/{g.github['repository']}.git"
-        repo.create_remote.assert_called_with("fork_2", url=fork_url)
-        repo.create_head.assert_called_with("CI_Branch", origin.refs.master)
-
-    @mock.patch('github.GitHub')
-    @mock.patch('git.Repo')
-    @mock.patch('libvirt.open')
-    @mock.patch('shutil.rmtree')
-    @mock.patch('mod_ci.controllers.open')
-    @mock.patch('lxml.etree')
-    def test_customize_tests_run_on_fork_if_remote_exist(self, mock_etree, mock_open,
-                                                         mock_rmtree, mock_libvirt, mock_repo, mock_git):
-        """Test customize tests running on the fork with remote."""
-        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.tester)
-        self.create_forktest("own-fork-commit", TestPlatform.linux)
-        import mod_ci.controllers
-        import mod_ci.cron
-        reload(mod_ci.cron)
-        reload(mod_ci.controllers)
-        from mod_ci.cron import cron
-        conn = mock_libvirt()
-        vm = conn.lookupByName()
-        import libvirt
-
-        # mocking the libvirt kvm to shut down
-        vm.info.return_value = [libvirt.VIR_DOMAIN_SHUTOFF]
-        # Setting current snapshot of libvirt
-        vm.hasCurrentSnapshot.return_value = 1
-        repo = mock_repo()
-        origin = repo.remote()
-        from collections import namedtuple
-        Remotes = namedtuple('Remotes', 'name')
-        repo.remotes = [Remotes(name='fork_2')]
-        GitPullInfo = namedtuple('GitPullInfo', 'flags')
-        pull_info = GitPullInfo(flags=0)
-        origin.pull.return_value = [pull_info]
-        cron(testing=True)
-        repo.remote.assert_called_with('fork_2')
-
-    @mock.patch('github.GitHub')
-    @mock.patch('git.Repo')
-    @mock.patch('libvirt.open')
-    @mock.patch('shutil.rmtree')
-    @mock.patch('mod_ci.controllers.open')
-    @mock.patch('lxml.etree')
-    def test_customize_tests_run_on_selected_regression_tests(self, mock_etree, mock_open,
-                                                              mock_rmtree, mock_libvirt, mock_repo, mock_git):
-        """Test customize tests running on the selected regression tests."""
-        self.create_user_with_role(
-            self.user.name, self.user.email, self.user.password, Role.tester)
-        self.create_forktest("own-fork-commit", TestPlatform.linux, regression_tests=[2])
-        import mod_ci.controllers
-        import mod_ci.cron
-        reload(mod_ci.cron)
-        reload(mod_ci.controllers)
-        from mod_ci.cron import cron
-        conn = mock_libvirt()
-        vm = conn.lookupByName()
-        import libvirt
-        vm.info.return_value = [libvirt.VIR_DOMAIN_SHUTOFF]
-        vm.hasCurrentSnapshot.return_value = 1
-        repo = mock_repo()
-        origin = repo.remote()
-        from collections import namedtuple
-        Remotes = namedtuple('Remotes', 'name')
-        repo.remotes = [Remotes(name='fork_2')]
-        GitPullInfo = namedtuple('GitPullInfo', 'flags')
-        pull_info = GitPullInfo(flags=0)
-        origin.pull.return_value = [pull_info]
-        single_test = mock_etree.Element('tests')
-        mock_etree.Element.return_value = single_test
-        cron(testing=True)
-        mock_etree.SubElement.assert_any_call(single_test, 'entry', id=str(2))
-        assert (single_test, 'entry', str(1)) not in mock_etree.call_args_list
 
     def test_customizedtest_added_to_queue(self):
         """Test queue with a customized test addition."""

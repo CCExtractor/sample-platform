@@ -12,7 +12,7 @@ GitPython==3.1.14
 xmltodict==0.12.0
 lxml==4.6.3
 pytz==2021.1
-tzlocal==2.1
+tzlocal==4.0
 libvirt-python==7.1.0; sys_platform != 'win32'
 markdown2==2.4.1
 flask-migrate==3.1.0

@@ -42,7 +42,6 @@ rem Build CCExtractor using the sln script
 call :executeCommand "C:\Program Files (x86)\MSBuild\14.0\Bin\MSBuild" ccextractor.sln /p:Configuration=Release-Full /p:Platform=Win32
 rem check whether installation successful
 if EXIST "Release-Full/ccextractorwinfull.exe" (
-    cd Debug
     rem Run testsuite
     echo Run tests
     call :postStatus "testing" "Running tests"

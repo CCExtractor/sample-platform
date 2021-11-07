@@ -39,15 +39,14 @@ call :postStatus "building" "Compiling CCExtractor"
 rem Go to Windows build folder
 call :executeCommand cd windows
 rem Build CCExtractor using the sln script
-call :executeCommand "C:\Program Files (x86)\MSBuild\14.0\Bin\MSBuild" ccextractor.sln
+call :executeCommand "C:\Program Files (x86)\MSBuild\14.0\Bin\MSBuild" ccextractor.sln /p:Configuration=Release-Full /p:Platform=Win32
 rem check whether installation successful
-if EXIST "Debug\ccextractorwin.exe" (
-    cd Debug
+if EXIST "Release-Full/ccextractorwinfull.exe" (
     rem Run testsuite
     echo Run tests
     call :postStatus "testing" "Running tests"
     call :executeCommand cd %suiteDstDir%
-    call :executeCommand "%tester%" --entries "%testFile%" --executable "%dstDir%\windows\Debug\ccextractorwin.exe" --tempfolder "%tempFolder%" --timeout 3000 --reportfolder "%reportFolder%" --resultfolder "%resultFolder%" --samplefolder "%sampleFolder%" --method Server --url "%reportURL%"
+    call :executeCommand "%tester%" --entries "%testFile%" --executable "%dstDir%\windows\Release-Full\ccextractorwinfull.exe" --tempfolder "%tempFolder%" --timeout 3000 --reportfolder "%reportFolder%" --resultfolder "%resultFolder%" --samplefolder "%sampleFolder%" --method Server --url "%reportURL%"
     call :postStatus "completed" "Ran all tests"
     echo Done running tests
     rem Shut down

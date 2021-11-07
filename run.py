@@ -32,7 +32,7 @@ from mod_test.controllers import mod_test
 from mod_upload.controllers import mod_upload
 
 app = Flask(__name__)
-app.wsgi_app = ProxyFix(app.wsgi_app)   # type: ignore
+app.wsgi_app = ProxyFix(app.wsgi_app)
 # Load config
 try:
     config = parse_config('config')

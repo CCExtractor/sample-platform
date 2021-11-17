@@ -38,8 +38,6 @@ echo Compile CCX
 call :postStatus "building" "Compiling CCExtractor"
 rem Go to Windows build folder
 call :executeCommand cd windows
-rem Build CCExtractor rust code
-call :executeCommand call ./rustx86.bat
 rem Build CCExtractor using the sln script
 call :executeCommand "C:\Program Files (x86)\MSBuild\14.0\Bin\MSBuild" ccextractor.sln /p:Configuration=Release-Full /p:Platform=Win32
 rem check whether installation successful

@@ -1,11 +1,20 @@
 const lightThemeCSS = "/static/css/foundation-light.min.css";
 const darkThemeCSS = "/static/css/foundation-dark.min.css";
-const toDark = document.querySelector('.to-dark');
-const toLight = document.querySelector('.to-light');
+var toDark, toLight;
 
-var theme = localStorage.getItem("data-theme");
-if (theme === 'dark') toggleTheme();
-else toLight.style.display = "none";
+$(document).ready(() => {
+    toDark = document.querySelector('.to-dark');
+    toLight = document.querySelector('.to-light');
+
+    document.querySelectorAll('.theme')
+        .forEach( button => button.addEventListener('click', toggleTheme) )
+
+    // Fetch default theme from localStorage and apply it.
+    var theme = localStorage.getItem("data-theme");
+    if (theme === 'dark') toggleTheme();
+    else toLight.style.display = "none";
+});
+
 
 function toggleTheme() {
     document.documentElement.toggleAttribute("dark")

@@ -11,7 +11,7 @@ pyIsEmail==1.4.0
 GitPython==3.1.14
 xmltodict==0.12.0
 lxml==4.7.1
-pytz==2021.1
+pytz==2021.3
 tzlocal==2.1
 libvirt-python==7.1.0; sys_platform != 'win32'
 markdown2==2.4.1
@@ -20,3 +20,4 @@ flask-script==2.0.6
 email_validator
 gitdb==4.0.7
 Werkzeug==1.0.1
+WTForms==2.3.3

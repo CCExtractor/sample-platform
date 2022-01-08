@@ -295,7 +295,7 @@ class TestProgress(Base):
         tz = get_localzone()
 
         if timestamp is None:
-            timestamp = tz.localize(datetime.datetime.now(), is_dst=None)
+            timestamp = tz.localize(datetime.datetime.now())
             timestamp = timestamp.astimezone(pytz.UTC)
 
         if timestamp.tzinfo is None:
@@ -316,7 +316,7 @@ class TestProgress(Base):
     @orm.reconstructor
     def may_the_timezone_be_with_it(self):
         """Localize the timestamp to utc."""
-        self.timestamp = pytz.utc.localize(self.timestamp, is_dst=None)
+        self.timestamp = pytz.utc.localize(self.timestamp)
 
 
 class TestResult(Base):

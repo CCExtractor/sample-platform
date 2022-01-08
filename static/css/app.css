@@ -1,5 +1,17 @@
+html{
+    --off-canvas-content-bg: #fefefe;
+    --accordion-submenu-parent-bg: #3e4346; 
+    --off-canvas-pos-left-bg: #fefefe;
+}
+  
+html[dark=''] {
+    --off-canvas-content-bg: #191b1c;
+    --accordion-submenu-parent-bg: #101010; 
+    --off-canvas-pos-left-bg: #191b1c;
+}
+
 /*.is-accordion-submenu-parent a*/ [data-accordion-menu] li a {
-    background: #4d5158;
+    background: var(--accordion-submenu-parent-bg);
 }
 
 [data-accordion-menu] .is-accordion-submenu a {
@@ -42,10 +54,53 @@
     box-shadow: none;
 }
 
+.off-canvas.position-left {
+    background-color: var(--off-canvas-pos-left-bg);
+}
+
 @media screen and (min-width: 64em) {
     .position-left.reveal-for-large ~ .off-canvas-content {
         margin-left: 260px; /* Needed to respect the border shadow*/
     }
+}
+
+@media print {
+    [class^="theme"] {
+      display: none !important;
+    }
+}
+
+.theme-toggle{
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+}
+
+.theme{
+    height: 40px;
+    width: 40px;
+    -moz-border-radius: 20px; 
+    -webkit-border-radius: 20px; 
+    border-radius: 20px;
+    padding-top: 4px;
+    display: flex;
+    justify-content: center;
+}
+
+.theme:hover {
+    border: solid 1px #418cec;
+    transform: scale(1.2);
+    box-shadow: 0 0.5em 0.5em rgba(0, 0, 0, 0.4);
+}
+
+.to-dark {
+    color: white;
+    background-color: black;
+}
+
+.to-light {
+    color: rgb(145, 255, 0);
+    background-color: white;
 }
 
 label.success {
@@ -345,7 +400,7 @@ summary {
 footer{
     position:fixed;
     bottom:0;
-    background-color: white;
+    background-color: var(--off-canvas-content-bg);
 }
 
 .row {
@@ -453,6 +508,7 @@ input.toggle-round:checked + label:after {
     float: left; }
 
 .flow {
+    background: var(--off-canvas-content-bg);
     display: flow-root;
     padding-bottom: 50px;
 }

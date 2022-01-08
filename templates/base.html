@@ -9,7 +9,7 @@
 
             <title>{% block title %}| {{ applicationName }}{% endblock %}</title>
 
-            <link rel="stylesheet" href="{{ url_for('static', filename='css/foundation.min.css') }}"/>
+            <link rel="stylesheet" href="{{ url_for('static', filename='css/foundation-light.min.css') }}" id="theme-link"/>
             <link rel="stylesheet" href="{{ url_for('static', filename='css/font-awesome.min.css') }}"/>
             <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}"/>
 
@@ -56,6 +56,10 @@
                     {%- include 'menu.html' -%}
                 {%- endif -%}
                 <div class="off-canvas-content" data-off-canvas-content>
+                    <div class="theme-toggle">
+                        <i class="theme fa fa-moon-o to-dark fa-2x" onclick="toggleTheme()"></i> 
+                        <i class="theme fa fa-sun-o to-light fa-2x" onclick="toggleTheme()"></i> 
+                    </div>
                     {% if hideMenu is not defined %}
                     <div class="title-bar hide-for-large">
                         <div class="title-bar-left">
@@ -82,6 +86,7 @@
                 <script src="{{ url_for('static', filename='js/vendor/what-input.js') }}"></script>
                 <script src="{{ url_for('static', filename='js/vendor/foundation.min.js') }}"></script>
                 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+                <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
             {% endblock %}
         </div>
     </body>

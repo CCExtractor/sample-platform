@@ -5,7 +5,8 @@ from typing import Any, Callable, Optional, Type
 
 from flask_wtf import FlaskForm
 from wtforms import PasswordField, SelectField, StringField, SubmitField
-from wtforms.fields import EmailField, PasswordField
+from wtforms.fields.html5 import EmailField
+from wtforms.fields.simple import PasswordField
 from wtforms.validators import DataRequired, Email, ValidationError
 
 import mod_auth.models

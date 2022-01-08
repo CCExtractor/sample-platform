@@ -1,9 +1,9 @@
 codecov==2.1.12
 nose-cov==1.6
-pycodestyle==2.7.0
+pycodestyle==2.8.0
 pydocstyle==6.0.0
 dodgy==0.2.1
-isort==5.10.0
+isort==5.10.1
 mypy==0.910
 Werkzeug==1.0.1
 Flask-Testing==0.8.1

@@ -1,13 +1,13 @@
 html{
     --off-canvas-content-bg: #fefefe;
-    --accordion-submenu-parent-bg: #3e4346; 
-    --off-canvas-pos-left-bg: #fefefe;
+    --accordion-submenu-parent-bg: #4d5158; 
+    --off-canvas-pos-left-bg: #e6e6e6;
 }
   
 html[dark=''] {
     --off-canvas-content-bg: #191b1c;
     --accordion-submenu-parent-bg: #101010; 
-    --off-canvas-pos-left-bg: #191b1c;
+    --off-canvas-pos-left-bg: #151718;
 }
 
 /*.is-accordion-submenu-parent a*/ [data-accordion-menu] li a {
@@ -74,6 +74,7 @@ html[dark=''] {
     position: fixed;
     top: 1rem;
     right: 1rem;
+    z-index: 1;
 }
 
 .theme{
@@ -101,6 +102,10 @@ html[dark=''] {
 .to-light {
     color: rgb(145, 255, 0);
     background-color: white;
+}
+
+.hidden {
+    display: none;
 }
 
 label.success {

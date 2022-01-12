@@ -121,7 +121,7 @@ read -e -r -p "GitHub Owner Name : " -i "CCExtractor" github_owner_name
 read -e -r -p "GitHub repository : " -i "ccextractor" github_repository
 read -e -r -p "Email Domain : " -i "${config_server_name}" email_domain
 read -e -r -p "Email API key (Generate one here https://www.mailgun.com/) : " -i "" email_api_key
-hmac_key=$(< /dev/urandom tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
+hmac_key=$(head -80 /dev/urandom | LC_ALL=c tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
 read -e -r -p "GitHub Automated Deploy Webhook Secret (More info : https://developer.github.com/webhooks/) : " -i "" github_deploy_key
 read -e -r -p "GitHub CI Webhook Secret (More info: https://developer.github.com/webhooks/) : " -i "" github_ci_key
 read -e -r -p "KVM Linux Name: " -i "" kvm_linux_name

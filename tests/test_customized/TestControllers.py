@@ -220,3 +220,18 @@ class TestControllers(BaseTestCase):
             # Validate if View Works
             self.assertEqual(response.status_code, 200)
             self.assertIn("Wrong Commit Hash", str(response.data))
+
+    @mock.patch('flask.templating._render', return_value='')
+    def test_customize_mock_template_renderer(self, mock_user, mock_git, mock_requests, mock_renderer):
+        """Test Access to Homepage gives Empty Response instead of Homepage."""
+        with self.app.test_client() as c:
+            response = c.get('/')
+            self.assertEqual(response.data, b'')
+            self.assertEqual(response.status_code, 200)
+
+    def test_customize_without_mock_template_renderer(self, mock_user, mock_git, mock_requests):
+        """Test Access to Homepage without mock gives Normal Page."""
+        with self.app.test_client() as c:
+            response = c.get('/')
+            self.assertNotEqual(response.data, b'')
+            self.assertEqual(response.status_code, 200)

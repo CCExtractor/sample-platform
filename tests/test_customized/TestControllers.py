@@ -229,5 +229,7 @@ class TestControllers(BaseTestCase):
             c.post('/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
             response = c.get('/custom/')
             self.assertEqual(response.status_code, 200)
-            self.assertEqual(response.data['GitUser'], None)
-            self.assertEqual(response.data['commit_options'], False)
+            import json
+            a = json.loads(response.data)
+            self.assertEqual(a['GitUser'], None)
+            self.assertEqual(a['commit_options'], False)

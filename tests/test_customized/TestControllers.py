@@ -221,17 +221,13 @@ class TestControllers(BaseTestCase):
             self.assertEqual(response.status_code, 200)
             self.assertIn("Wrong Commit Hash", str(response.data))
 
-    @mock.patch('flask.templating._render', return_value='')
-    def test_customize_mock_template_renderer(self, mock_user, mock_git, mock_requests, mock_renderer):
-        """Test Access to Homepage gives Empty Response instead of Homepage."""
+    @mock.patch('mod_auth.controllers.fetch_username_from_token', return_value=None)
+    def test_customize_test_page_loads_with_username_none(self, mock_user, mock_git, mock_requests, mock_username):
+        """Test in case fetch_username_from_token returns None."""
+        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.tester)
         with self.app.test_client() as c:
-            response = c.get('/')
-            self.assertEqual(response.data, b'')
+            c.post('/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.get('/custom/')
             self.assertEqual(response.status_code, 200)
-
-    def test_customize_without_mock_template_renderer(self, mock_user, mock_git, mock_requests):
-        """Test Access to Homepage without mock gives Normal Page."""
-        with self.app.test_client() as c:
-            response = c.get('/')
-            self.assertNotEqual(response.data, b'')
-            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.data['GitUser'], None)
+            self.assertEqual(response.data['commit_options'], False)

@@ -2,6 +2,7 @@ from importlib import reload
 from unittest import mock
 
 from flask import g
+from markupsafe import re
 from sqlalchemy import and_
 
 from mod_auth.models import Role
@@ -229,7 +230,5 @@ class TestControllers(BaseTestCase):
             c.post('/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
             response = c.get('/custom/')
             self.assertEqual(response.status_code, 200)
-            import json
-            a = json.loads(response.data)
-            self.assertEqual(a['GitUser'], None)
-            self.assertEqual(a['commit_options'], False)
+            self.assertIn('GitUser: None', str(response.data))
+            self.assertIn('commit_options: False', str(response.data))

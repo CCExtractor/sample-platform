@@ -2,7 +2,7 @@ sqlalchemy==1.4.29
 flask==1.1.2
 passlib==1.7.4
 pymysql==1.0.2
-python-magic==0.4.24
+python-magic==0.4.25
 flask-wtf==0.14.3
 gunicorn==20.1.0
 githubpy==1.1.0

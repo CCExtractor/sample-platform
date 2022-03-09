@@ -33,7 +33,13 @@ def before_app_request() -> None:
         'icon': 'sign-in' if g.user is None else 'sign-out',
         'route': 'auth.login' if g.user is None else 'auth.logout'
     }
-    if g.user is not None:
+    if g.user is None:
+        g.menu_entries['signup'] = {
+            'title': 'Sign up',
+            'icon': 'user-plus',
+            'route': 'auth.signup'
+        }
+    else:
         g.menu_entries['account'] = {
             'title': 'Manage account',
             'icon': 'user',

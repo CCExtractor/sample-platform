@@ -111,7 +111,8 @@ def template_renderer(template: Optional[str] = None, status: int = 200) -> Call
                 menu_entries.get('regression', {}),
                 menu_entries.get('config', {}),
                 menu_entries.get('account', {}),
-                menu_entries.get('auth', {})
+                menu_entries.get('auth', {}),
+                menu_entries.get('signup', {}),
             ]
             ctx['active_route'] = request.endpoint
 

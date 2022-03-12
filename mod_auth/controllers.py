@@ -54,6 +54,7 @@ def before_app_request() -> None:
 
 def login_required(f: Callable) -> Callable:
     """Decorate the function to redirect to the login page if a user is not logged in."""
+
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if g.user is None:
@@ -134,10 +135,10 @@ def github_token_validity(token: str):
     from run import config
     github_client_id = config.get('GITHUB_CLIENT_ID', '')
     github_client_secret = config.get('GITHUB_CLIENT_SECRET', '')
-    url = f'https://api.github.com/applications/{github_client_id}/tokens/{token}'
+    url = f'https://api.github.com/applications/{github_client_id}/token'
     session = requests.Session()
     session.auth = (github_client_id, github_client_secret)
-    response = session.get(url)
+    response = session.post(url, json={"access_token": token})
 
     return response.status_code == 200
 

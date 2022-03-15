@@ -21,4 +21,4 @@ email_validator
 gitdb==4.0.9
 Werkzeug==1.0.1
 WTForms==2.3.3
-MarkupSafe<=2.0.1
+MarkupSafe<2.1.2

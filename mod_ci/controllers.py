@@ -466,9 +466,10 @@ def schedule_test(gh_commit, commit, test_type, branch="master", pr_nr=0) -> Non
                 log.critical(f'Could not post to GitHub! Response: {a.response}')
 
 
-def deschedule_test(gh_commit, commit, test_type, branch="master", pr_nr=0) -> None:
+def deschedule_test(gh_commit, commit, test_type, message="Tests have been cancelled", branch="master", pr_nr=0,
+                    state=Status.FAILURE) -> None:
     """
-    Post status to GitHub as failure due to Github Actions incompletion.
+    Post status to GitHub (default: as failure due to Github Actions incompletion).
 
     :param gh_commit: The GitHub API call for the commit. Can be None
     :type gh_commit: Any
@@ -489,8 +490,8 @@ def deschedule_test(gh_commit, commit, test_type, branch="master", pr_nr=0) -> N
         for platform_name in [TestPlatform.linux.value, TestPlatform.windows.value]:
             try:
                 gh_commit.post(
-                    state=Status.FAILURE,
-                    description="Cancelling tests as Github Action(s) failed",
+                    state=state,
+                    description=message,
                     context=f"CI - {platform_name}",
                 )
             except ApiError as a:
@@ -778,6 +779,7 @@ def start_ci():
             if payload['action'] == "completed":
                 is_complete = True
                 has_failed = False
+                builds = {"linux": False, "windows": False}
                 for workflow in repository.actions.runs.get(
                         event="push",
                         actor=payload['sender']['login'],
@@ -785,22 +787,33 @@ def start_ci():
                 )['workflow_runs']:
                     if workflow['head_sha'] == payload['workflow_run']['head_sha']:
                         print("Workflow is: ", workflow)
-                        if workflow['status'] == "completed" and \
-                                workflow['conclusion'] != "success":
-                            has_failed = True
-                            break
+                        if workflow['status'] == "completed":
+                            if workflow['conclusion'] != "success":
+                                has_failed = True
+                                break
+                            if workflow['name'] == "Build CCExtractor on Linux":
+                                builds["linux"] = True
+                            elif workflow['name'] == "Build CCExtractor on Windows":
+                                builds["windows"] = True
                         elif workflow['status'] != "completed":
                             is_complete = False
                             break
 
                 commit_hash = payload['workflow_run']['head_sha']
                 github_status = repository.statuses(commit_hash)
+
                 if has_failed:
                     # no runs to be scehduled
-                    deschedule_test(github_status, commit_hash, TestType.commit)
+                    deschedule_test(github_status, commit_hash, TestType.commit,
+                                    message="Cancelling tests as Github Action(s) failed")
                 elif is_complete:
-                    print(f"Used hash: {commit_hash}")
-                    queue_test(g.db, github_status, commit_hash, TestType.commit)
+                    if any(builds.values()):
+                        print(f"Used hash: {commit_hash}")
+                        queue_test(g.db, github_status, commit_hash, TestType.commit)
+                    else:
+                        deschedule_test(github_status, commit_hash, TestType.commit,
+                                        message="Not ran - no code changes", state=Status.SUCCESS)
+
             else:
                 print(f"Workflow {payload['action']}")
 

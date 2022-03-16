@@ -101,7 +101,7 @@ def load_config(file):
     }
 
 
-def mock_api_request_github(url, data=None, timeout=None):
+def mock_api_request_github(url, data=None, timeout=None, auth=None):
     """Mock all responses to the Github API."""
     if url == "https://api.github.com/repos/test/test_repo/commits/abcdef":
         return MockResponse({}, 200)
@@ -117,7 +117,7 @@ def mock_api_request_github(url, data=None, timeout=None):
                              'state': "open"}, 201)
     elif url == "https://api.github.com/repos/test/test_repo/commits/mockWillReturn500":
         return MockResponse({}, 500)
-    elif url == "https://api.github.com/meta?client_id=&client_secret=":
+    elif url == "https://api.github.com/meta":
         return MockResponse({'verifiable_password_authentication': True,
                              'github_services_sha': "abcdefg",
                              'hooks': [

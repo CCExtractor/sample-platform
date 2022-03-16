@@ -47,7 +47,7 @@ def get_cached_web_hook_blocks() -> List[str]:
         client_id = config.get('GITHUB_CLIENT_ID', '')
         client_secret = config.get('GITHUB_CLIENT_SECRET', '')
         meta_json = requests.get(
-            f'https://api.github.com/meta?client_id={client_id}&client_secret={client_secret}').json()
+            f'https://api.github.com/meta', auth=(client_id, client_secret)).json()
         try:
             cached_web_hook_blocks = meta_json['hooks']
         except KeyError:

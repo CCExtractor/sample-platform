@@ -431,6 +431,72 @@ def save_xml_to_file(xml_node, folder_name, file_name) -> None:
     )
 
 
+def schedule_test(gh_commit, commit, test_type, branch="master", pr_nr=0) -> None:
+    """
+    Post status to GitHub as waiting for Github Actions completion.
+
+    :param gh_commit: The GitHub API call for the commit. Can be None
+    :type gh_commit: Any
+    :param commit: The commit hash.
+    :type commit: str
+    :param test_type: The type of test
+    :type test_type: TestType
+    :param branch: Branch name
+    :type branch: str
+    :param pr_nr: Pull Request number, if applicable.
+    :type pr_nr: int
+    :return: Nothing
+    :rtype: None
+    """
+    from run import log
+
+    if test_type == TestType.pull_request:
+        log.debug('pull request test type detected')
+        branch = "pull_request"
+
+    if gh_commit is not None:
+        for platform_name in [TestPlatform.linux.value, TestPlatform.windows.value]:
+            try:
+                gh_commit.post(
+                    state=Status.PENDING,
+                    description="Waiting for actions to complete",
+                    context=f"CI - {platform_name}",
+                )
+            except ApiError as a:
+                log.critical(f'Could not post to GitHub! Response: {a.response}')
+
+
+def deschedule_test(gh_commit, commit, test_type, branch="master", pr_nr=0) -> None:
+    """
+    Post status to GitHub as failure due to Github Actions incompletion.
+
+    :param gh_commit: The GitHub API call for the commit. Can be None
+    :type gh_commit: Any
+    :param commit: The commit hash.
+    :type commit: str
+    :param test_type: The type of test
+    :type test_type: TestType
+    :param branch: Branch name
+    :type branch: str
+    :param pr_nr: Pull Request number, if applicable.
+    :type pr_nr: int
+    :return: Nothing
+    :rtype: None
+    """
+    from run import log
+
+    if gh_commit is not None:
+        for platform_name in [TestPlatform.linux.value, TestPlatform.windows.value]:
+            try:
+                gh_commit.post(
+                    state=Status.FAILURE,
+                    description="Cancelling tests as Github Action(s) failed",
+                    context=f"CI - {platform_name}",
+                )
+            except ApiError as a:
+                log.critical(f'Could not post to GitHub! Response: {a.response}')
+
+
 def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0) -> None:
     """
     Store test details into Test model for each platform, and post the status to GitHub.
@@ -595,7 +661,7 @@ def start_ci():
 
                 last_commit.value = ref['object']['sha']
                 g.db.commit()
-                queue_test(g.db, github_status, commit_hash, TestType.commit)
+                schedule_test(github_status, commit_hash, TestType.commit)
             else:
                 g.log.warning('Unknown push type! Dumping payload for analysis')
                 g.log.warning(payload)
@@ -624,7 +690,7 @@ def start_ci():
                     )
                     return 'ERROR'
 
-                queue_test(g.db, github_status, commit_hash, TestType.pull_request, pr_nr=pr_nr)
+                schedule_test(github_status, commit_hash, TestType.pull_request, pr_nr=pr_nr)
 
             elif payload['action'] == 'closed':
                 g.log.debug('PR was closed, no after hash available')
@@ -693,7 +759,7 @@ def start_ci():
                 # adding test corresponding to last commit to the baseline regression results
                 # this is not altered when a release is deleted or unpublished since it's based on commit
                 test = Test.query.filter(and_(Test.commit == release_commit,
-                                         Test.platform == TestPlatform.linux)).first()
+                                              Test.platform == TestPlatform.linux)).first()
                 test_result_file = g.db.query(TestResultFile).filter(TestResultFile.test_id == test.id).subquery()
                 test_result = g.db.query(TestResult).filter(TestResult.test_id == test.id).subquery()
                 g.db.query(RegressionTestOutput.correct).filter(
@@ -706,6 +772,37 @@ def start_ci():
                 g.log.info("Successfully added tests for latest release!")
             else:
                 g.log.warning(f"Unsupported release action: {action}")
+
+        elif event == "workflow_run":
+            g.log.debug('workflow_run event detected')
+            if payload['action'] == "completed":
+                is_complete = True
+                has_failed = False
+                for workflow in repository.actions.runs.get(
+                        event="push",
+                        actor=payload['sender']['login'],
+                        branch=payload['workflow_run']['head_branch']
+                )['workflow_runs']:
+                    if workflow['head_sha'] == payload['workflow_run']['head_sha']:
+                        print("Workflow is: ", workflow)
+                        if workflow['status'] == "completed" and \
+                                workflow['conclusion'] != "success":
+                            has_failed = True
+                            break
+                        elif workflow['status'] != "completed":
+                            is_complete = False
+                            break
+
+                commit_hash = payload['workflow_run']['head_sha']
+                github_status = repository.statuses(commit_hash)
+                if has_failed:
+                    # no runs to be scehduled
+                    deschedule_test(github_status, commit_hash, TestType.commit)
+                elif is_complete:
+                    print(f"Used hash: {commit_hash}")
+                    queue_test(g.db, github_status, commit_hash, TestType.commit)
+            else:
+                print(f"Workflow {payload['action']}")
 
         else:
             g.log.warning(f'CI unrecognized event: {event}')
@@ -1158,18 +1255,18 @@ def get_info_for_pr_comment(test_id: int) -> PrCommentInfo:
                  TestResult.regression_test_id == TestResultFile.regression_test_id,
                  or_(TestResultFile.got.is_(None),
                      and_(
-                     RegressionTestOutputFiles.regression_test_output_id == TestResultFile.regression_test_output_id,
-                     TestResultFile.got == RegressionTestOutputFiles.file_hashes
-                 ))),
+                         RegressionTestOutputFiles.regression_test_output_id == TestResultFile.regression_test_output_id,
+                         TestResultFile.got == RegressionTestOutputFiles.file_hashes
+                     ))),
             and_(
                 RegressionTestOutput.regression_id == TestResult.regression_test_id,
                 RegressionTestOutput.ignore.is_(True),
             ))).subquery()
     passed = g.db.query(label('category_id', Category.id), label(
         'success', count(regressionTestLinkTable.c.regression_id))).filter(
-            regressionTestLinkTable.c.regression_id.in_(regression_testid_passed),
-            Category.id == regressionTestLinkTable.c.category_id).group_by(
-            regressionTestLinkTable.c.category_id).subquery()
+        regressionTestLinkTable.c.regression_id.in_(regression_testid_passed),
+        Category.id == regressionTestLinkTable.c.category_id).group_by(
+        regressionTestLinkTable.c.category_id).subquery()
     tot = g.db.query(label('category', Category.name), label('total', count(regressionTestLinkTable.c.regression_id)),
                      label('success', passed.c.success)).outerjoin(
         passed, passed.c.category_id == Category.id).filter(

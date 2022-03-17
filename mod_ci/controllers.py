@@ -1268,8 +1268,10 @@ def get_info_for_pr_comment(test_id: int) -> PrCommentInfo:
             and_(TestResult.exit_code == 0,
                  TestResult.regression_test_id == TestResultFile.regression_test_id,
                  or_(TestResultFile.got.is_(None),
-                     and_(
-                         RegressionTestOutputFiles.regression_test_output_id == TestResultFile.regression_test_output_id,
+                     and_
+                     (
+                         RegressionTestOutputFiles.regression_test_output_id ==
+                         TestResultFile.regression_test_output_id,
                          TestResultFile.got == RegressionTestOutputFiles.file_hashes
                      ))),
             and_(

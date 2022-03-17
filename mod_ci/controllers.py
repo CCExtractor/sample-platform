@@ -455,7 +455,7 @@ def schedule_test(gh_commit, commit, test_type, branch="master", pr_nr=0) -> Non
         branch = "pull_request"
 
     if gh_commit is not None:
-        for platform_name in [TestPlatform.linux.value, TestPlatform.windows.value]:
+        for platform_name in [TestPlatform.linux[0], TestPlatform.windows[0]]:
             try:
                 gh_commit.post(
                     state=Status.PENDING,
@@ -487,7 +487,7 @@ def deschedule_test(gh_commit, commit, test_type, message="Tests have been cance
     from run import log
 
     if gh_commit is not None:
-        for platform_name in [TestPlatform.linux.value, TestPlatform.windows.value]:
+        for platform_name in [TestPlatform.linux[0], TestPlatform.windows[0]]:
             try:
                 gh_commit.post(
                     state=state,
@@ -662,7 +662,6 @@ def start_ci():
 
                 last_commit.value = ref['object']['sha']
                 g.db.commit()
-                schedule_test(github_status, commit_hash, TestType.commit)
             else:
                 g.log.warning('Unknown push type! Dumping payload for analysis')
                 g.log.warning(payload)
@@ -776,6 +775,9 @@ def start_ci():
 
         elif event == "workflow_run":
             g.log.debug('workflow_run event detected')
+            commit_hash = payload['workflow_run']['head_sha']
+            github_status = repository.statuses(commit_hash)
+
             if payload['action'] == "completed":
                 is_complete = True
                 has_failed = False
@@ -786,7 +788,6 @@ def start_ci():
                         branch=payload['workflow_run']['head_branch']
                 )['workflow_runs']:
                     if workflow['head_sha'] == payload['workflow_run']['head_sha']:
-                        print("Workflow is: ", workflow)
                         if workflow['status'] == "completed":
                             if workflow['conclusion'] != "success":
                                 has_failed = True
@@ -799,24 +800,24 @@ def start_ci():
                             is_complete = False
                             break
 
-                commit_hash = payload['workflow_run']['head_sha']
-                github_status = repository.statuses(commit_hash)
-
                 if has_failed:
                     # no runs to be scehduled
                     deschedule_test(github_status, commit_hash, TestType.commit,
                                     message="Cancelling tests as Github Action(s) failed")
                 elif is_complete:
                     if any(builds.values()):
-                        print(f"Used hash: {commit_hash}")
                         queue_test(g.db, github_status, commit_hash, TestType.commit)
                     else:
                         deschedule_test(github_status, commit_hash, TestType.commit,
                                         message="Not ran - no code changes", state=Status.SUCCESS)
+            elif payload['action'] == 'requested':
+                workflow_name = payload['workflow_run']['name']
 
+                if workflow_name in ["Build CCExtractor on Linux", "Build CCExtractor on Windows"]:
+                    schedule_test(github_status, commit_hash, TestType.commit)
             else:
-                print(f"Workflow {payload['action']}")
-
+                g.log.warning('Unknown action type in workflow_run! Dumping payload for analysis')
+                g.log.warning(payload)
         else:
             g.log.warning(f'CI unrecognized event: {event}')
 

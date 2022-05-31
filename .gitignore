@@ -38,7 +38,7 @@ gunicorn.pid
 coverage_report/
 .coverage
 
-#virtualenv
+# virtualenv
 venv/
 .vscode/
 .idea/
@@ -46,3 +46,7 @@ venv/
 monkeytype.sqlite3
 .pytype/
 .env
+
+# pipenv
+Pipfile
+Pipfile.lock

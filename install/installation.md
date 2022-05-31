@@ -83,6 +83,40 @@ sudo python bootstrap_gunicorn.py
 * If `gunicorn` boots up successfully, most relevant logs will be stored in
  the `logs` directory. Otherwise they'll likely be in `syslog`.
 
+* If `gunicorn` does not boot up successfully, you can follow the following procedure to debug the nginx server:
+1. In the `/var/log/nginx/` directory you would find `access.log` and `error.log` files. Or whichever log directory your `/etc/nginx/nginx.conf` file is configured to divert the logs to.
+2. Follow the error that shows up, if the error is related to `unix:sampleplatform.sock` file, follow the following steps:
+    - Create a wgsi.py in the root directory of the project and paste the following code into it.
+    ```
+    from run import app as application
+
+    if __name__=='__main__':
+        application.run()
+    ```
+    - Create a gunicorn service through the following steps:
+    - Make sure you have gunicorn installed.
+    - In the `/etc/systemd/system/` directory create a file named `sampleplatform.service`, now with administrator permissions paste the following code into it
+    ```
+    [Unit]
+    Description=Gunicorn instance to serve sampleplatform
+    After=network.target
+
+    [Service]
+    User=<YOUR_USERNAME>
+    Group=www-data
+    WorkingDirectory=<CURRENT_PROJECT_DIRECTORY>
+    ExecStart=gunicorn --user <YOUR_USERNAME> --group www-data --bind unix:<CURRENT_PROJECT_DIRECTORY>/sampleplatform.sock -m 007 wsgi
+
+    [Install]
+    WantedBy=multi-user.target
+    ```
+    After this start to start this service run:
+    ```
+    sudo systemctl daemon-reload
+    sudo systemctl start sampleplatform
+    ```
+    You may check using `sudo systemctl status sampleplatform` if the service has started yet or not.
+
 * If it shows the error regarding the `libvirt`, then there is missing `fftw3.h` file. Try the following:
 ```
 sudo apt-get install libvirt-dev

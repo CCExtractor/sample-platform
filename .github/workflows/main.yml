@@ -61,5 +61,4 @@ jobs:
         flags: unittests
         name: sample-platform
         fail_ci_if_error: true
-        verbose: true
         files: ./coverage.xml

@@ -52,6 +52,9 @@ jobs:
     - name: Temporary fix for codecov
       run: |
         coverage xml -i
+    - name: List files
+      run: |
+        ls -lah .
     - name: Upload to codecov
       uses: codecov/codecov-action@v2
       with:

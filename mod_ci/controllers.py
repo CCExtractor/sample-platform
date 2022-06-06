@@ -22,8 +22,8 @@ from sqlalchemy import and_, func, or_
 from sqlalchemy.sql import label
 from sqlalchemy.sql.functions import count
 from werkzeug.utils import secure_filename
-from database import DeclEnum
 
+from database import DeclEnum
 from decorators import get_menu_entries, template_renderer
 from mailer import Mailer
 from mod_auth.controllers import check_access_rights, login_required
@@ -56,7 +56,7 @@ class Status:
     FAILURE = "failure"
 
 class Workflow_builds(DeclEnum):
-    """Define GitHub Action workflow build names"""
+    """Define GitHub Action workflow build names."""
 
     LINUX = "Build CCExtractor on Linux"
     WINDOWS = "Build CCExtractor on Windows"

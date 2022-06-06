@@ -390,7 +390,8 @@ class TestControllers(BaseTestCase):
         g.db.commit()
         import mod_ci.controllers
         reload(mod_ci.controllers)
-        from mod_ci.controllers import queue_test
+        from mod_ci.controllers import add_test_entry, queue_test
+        add_test_entry(g.db, None, 'customizedcommitcheck', TestType.commit)
         queue_test(g.db, None, 'customizedcommitcheck', TestType.commit)
         test = Test.query.filter(Test.id == 3).first()
         customized_test = test.get_customized_regressiontests()
@@ -637,10 +638,10 @@ class TestControllers(BaseTestCase):
                 data=json.dumps(data), headers=self.generate_header(data, 'push'))
 
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    @mock.patch('mod_ci.controllers.queue_test')
+    @mock.patch('mod_ci.controllers.add_test_entry')
     @mock.patch('mod_ci.controllers.GitHub')
     @mock.patch('mod_ci.controllers.GeneralData')
-    def test_webhook_push_valid(self, mock_gd, mock_github, mock_queue_test, mock_request):
+    def test_webhook_push_valid(self, mock_gd, mock_github, mock_add_test_entry, mock_request):
         """Test webhook triggered with push event with valid data."""
         data = {'after': 'abcdefgh'}
         with self.app.test_client() as c:
@@ -650,7 +651,7 @@ class TestControllers(BaseTestCase):
 
         mock_gd.query.filter.assert_called()
         mock_github.assert_called_once()
-        mock_queue_test.assert_called_once()
+        mock_add_test_entry.assert_called_once()
 
     @mock.patch('mod_ci.controllers.Test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
@@ -694,9 +695,9 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_ci.controllers.BlockedUsers')
     @mock.patch('mod_ci.controllers.GitHub')
-    @mock.patch('mod_ci.controllers.queue_test')
+    @mock.patch('mod_ci.controllers.add_test_entry')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_pr_opened(self, mock_request, mock_queue_test, mock_github, mock_blocked):
+    def test_webhook_pr_opened(self, mock_request, mock_add_test_entry, mock_github, mock_blocked):
         """Test webhook triggered with pull_request event with opened action."""
         mock_blocked.query.filter.return_value.first.return_value = None
 
@@ -709,7 +710,7 @@ class TestControllers(BaseTestCase):
 
         self.assertEqual(response.data, b'{"msg": "EOL"}')
         mock_blocked.query.filter.assert_called_once_with(mock_blocked.user_id == 'test')
-        mock_queue_test.assert_called_once()
+        mock_add_test_entry.assert_called_once()
 
     @mock.patch('mod_ci.controllers.inform_mailing_list')
     @mock.patch('requests.get', side_effect=mock_api_request_github)

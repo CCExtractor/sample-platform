@@ -46,7 +46,3 @@ venv/
 monkeytype.sqlite3
 .pytype/
 .env
-
-# pipenv
-Pipfile
-Pipfile.lock

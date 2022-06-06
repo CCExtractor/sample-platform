@@ -90,30 +90,19 @@ Sample-platform is regularly tested via Travis CI.
 
 We use `nosetests` to manage testing and it can be run locally as follows:
 
+For creating a virtual environment, we use [virtualenv](https://pypi.org/project/virtualenv/).
+
 ```bash
-pipenv shell --three        # make virtual environment
-pipenv install --dev        # install development dependencies
-TESTING=True pipenv run nosetests --with-cov --cov-config .coveragerc
+virtualenv venv                          # create a virtual environment
+source venv/bin/activate                 # activate the virtual environment
+pip install -r requirements.txt         # install dependencies
+pip install -r test-requirements.txt    # install test dependencies
+TESTING=True nosetests --with-cov --cov-config .coveragerc
 ```
 
 ## Etiquettes
 
 We follow certain etiquettes which include docstrings, annotation, import sorting etc.
-
-### Setup
-
-The operations listed below are only for developers. The tools used below can be installed at once as,
-
-```bash
-pipenv shell --three    # if not inside pipenv shell already
-pipenv install --dev    # if first time running dev-dependencies
-```
-
-If you are adding a new module which will be required just by developers, use below commands.
-
-```bash
-pipenv install --dev [MODULE_NAME]
-```
 
 ### DocStrings Testing
 

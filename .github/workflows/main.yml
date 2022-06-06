@@ -59,3 +59,4 @@ jobs:
         name: sample-platform
         fail_ci_if_error: true
         files: ./coverage.xml
+        version: "v0.1.15"

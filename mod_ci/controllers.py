@@ -55,6 +55,7 @@ class Status:
     ERROR = "error"
     FAILURE = "failure"
 
+
 class Workflow_builds(DeclEnum):
     """Define GitHub Action workflow build names."""
 
@@ -497,12 +498,12 @@ def schedule_test(gh_commit, commit, test_type, branch="master", pr_nr=0) -> Non
         branch = "pull_request"
 
     if gh_commit is not None:
-        for platform_name in [TestPlatform.linux.value, TestPlatform.windows.value]:
+        for platform in TestPlatform:
             try:
                 gh_commit.post(
                     state=Status.PENDING,
                     description="Waiting for actions to complete",
-                    context=f"CI - {platform_name}",
+                    context=f"CI - {platform.value}",
                 )
             except ApiError as a:
                 log.critical(f'Could not post to GitHub! Response: {a.response}')
@@ -529,12 +530,12 @@ def deschedule_test(gh_commit, commit, test_type, message="Tests have been cance
     from run import log
 
     if gh_commit is not None:
-        for platform_name in [TestPlatform.linux.value, TestPlatform.windows.value]:
+        for platform in TestPlatform:
             try:
                 gh_commit.post(
                     state=state,
                     description=message,
-                    context=f"CI - {platform_name}",
+                    context=f"CI - {platform.value}",
                 )
             except ApiError as a:
                 log.critical(f'Could not post to GitHub! Response: {a.response}')
@@ -576,12 +577,12 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0) -> No
                                         Test.pr_nr == pr_nr
                                         )).first()
     windows_test = Test.query.filter(and_(Test.platform == TestPlatform.windows,
-                                        Test.commit == commit,
-                                        Test.fork_id == fork.id,
-                                        Test.test_type == test_type,
-                                        Test.branch == branch,
-                                        Test.pr_nr == pr_nr
-                                        )).first()
+                                          Test.commit == commit,
+                                          Test.fork_id == fork.id,
+                                          Test.test_type == test_type,
+                                          Test.branch == branch,
+                                          Test.pr_nr == pr_nr
+                                          )).first()
     add_customized_regression_tests(linux_test.id)
     add_customized_regression_tests(windows_test.id)
 
@@ -761,7 +762,7 @@ def start_ci():
                                 description="Tests cancelled",
                                 context=f"CI - {test.platform.value}",
                                 target_url=url_for('test.by_id', test_id=test.id, _external=True)
-                                )
+                            )
 
         elif event == "issues":
             g.log.debug('issues event detected')
@@ -843,7 +844,7 @@ def start_ci():
                             actor=payload['sender']['login'],
                             branch=payload['workflow_run']['head_branch']
                     )['workflow_runs']:
-                        if workflow['head_sha'] == payload['workflow_run']['head_sha']:
+                        if workflow['head_sha'] == commit_hash:
                             if workflow['status'] == "completed":
                                 if workflow['conclusion'] != "success":
                                     has_failed = True
@@ -861,11 +862,12 @@ def start_ci():
                         deschedule_test(github_status, commit_hash, TestType.commit,
                                         message="Cancelling tests as Github Action(s) failed")
                     elif is_complete:
-                        if payload['workflow_run']['event']=="pull_request":
+                        if payload['workflow_run']['event'] == "pull_request":
                             # In case of pull request run tests of only if it is still in open state
                             for pull_request in repository.pulls.get(state="open"):
-                                if pull_request['head']['sha']==payload['workflow_run']['head_sha'] and any(builds.values()):
-                                    queue_test(g.db, github_status, commit_hash, TestType.pull_request, pr_nr=pull_request['number'])
+                                if pull_request['head']['sha'] == commit_hash and any(builds.values()):
+                                    queue_test(g.db, github_status, commit_hash,
+                                               TestType.pull_request, pr_nr=pull_request['number'])
                         elif any(builds.values()):
                             queue_test(g.db, github_status, commit_hash, TestType.commit)
                         else:

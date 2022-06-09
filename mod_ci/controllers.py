@@ -736,11 +736,6 @@ def start_ci():
                 user_id = payload['pull_request']['user']['id']
                 if BlockedUsers.query.filter(BlockedUsers.user_id == user_id).first() is not None:
                     g.log.warning("User Blacklisted")
-                    github_status.post(
-                        state=Status.ERROR,
-                        description="CI start aborted. You may be blocked from accessing this functionality",
-                        target_url=url_for('home.index', _external=True)
-                    )
                     return 'ERROR'
                 add_test_entry(g.db, github_status, commit_hash, TestType.pull_request, pr_nr=pr_nr)
 
@@ -864,8 +859,19 @@ def start_ci():
                     elif is_complete:
                         if payload['workflow_run']['event'] == "pull_request":
                             # In case of pull request run tests of only if it is still in open state
+                            # and user is not blacklisted
                             for pull_request in repository.pulls.get(state="open"):
                                 if pull_request['head']['sha'] == commit_hash and any(builds.values()):
+                                    user_id = pull_request['user']['id']
+                                    if BlockedUsers.query.filter(BlockedUsers.user_id == user_id).first() is not None:
+                                        g.log.warning("User Blacklisted")
+                                        github_status.post(
+                                            state=Status.ERROR,
+                                            description="CI start aborted. \
+                                            You may be blocked from accessing this functionality",
+                                            target_url=url_for('home.index', _external=True)
+                                        )
+                                        return 'ERROR'
                                     queue_test(g.db, github_status, commit_hash,
                                                TestType.pull_request, pr_nr=pull_request['number'])
                         elif any(builds.values()):
@@ -874,10 +880,7 @@ def start_ci():
                             deschedule_test(github_status, commit_hash, TestType.commit,
                                             message="Not ran - no code changes", state=Status.SUCCESS)
                 elif payload['action'] == 'requested':
-                    workflow_name = payload['workflow_run']['name']
-
-                    if workflow_name in ["Build CCExtractor on Linux", "Build CCExtractor on Windows"]:
-                        schedule_test(github_status, commit_hash, TestType.commit)
+                    schedule_test(github_status, commit_hash, TestType.commit)
             else:
                 g.log.warning('Unknown action type in workflow_run! Dumping payload for analysis')
                 g.log.warning(payload)

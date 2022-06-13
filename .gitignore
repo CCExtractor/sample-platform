@@ -38,7 +38,7 @@ gunicorn.pid
 coverage_report/
 .coverage
 
-#virtualenv
+# virtualenv
 venv/
 .vscode/
 .idea/

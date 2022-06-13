@@ -27,7 +27,7 @@ echo ""
 echo "* Updating package list"
 apt-get update >> "$install_log" 2>&1
 echo "* Installing nginx, python, pip, kvm, libvirt and virt-manager"
-apt-get -q -y install nginx python python-dev python3-libvirt libxslt1-dev libxml2-dev python-pip qemu-kvm libvirt-bin virt-manager mediainfo >> "$install_log" 2>&1
+apt-get -q -y install nginx python3 python-is-python3 python3-libvirt libxslt1-dev python3-libxml2 python3-pip qemu-system-x86 libvirt-daemon-system libvirt-clients virt-manager mediainfo >> "$install_log" 2>&1
 for file in /etc/init.d/mysql*
 do
     if [ ! -f "$file" ]; then

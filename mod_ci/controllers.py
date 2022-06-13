@@ -858,7 +858,7 @@ def start_ci():
                                         message="Cancelling tests as Github Action(s) failed")
                     elif is_complete:
                         if payload['workflow_run']['event'] == "pull_request":
-                            # In case of pull request run tests of only if it is still in open state
+                            # In case of pull request run tests only if it is still in an open state
                             # and user is not blacklisted
                             for pull_request in repository.pulls.get(state="open"):
                                 if pull_request['head']['sha'] == commit_hash and any(builds.values()):

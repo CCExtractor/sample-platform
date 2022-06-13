@@ -712,11 +712,9 @@ class TestControllers(BaseTestCase):
         mock_blocked.query.filter.assert_called_once_with(mock_blocked.user_id == 'test')
         mock_add_test_entry.assert_called_once()
 
-    @mock.patch('mod_ci.controllers.GitHub')
     @mock.patch('mod_ci.controllers.schedule_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_workflow_run_event_requested_action_with_valid_workflow_name(self, mock_request,
-                                                                                  mock_schedule_test, mock_github):
+    def test_webhook_workflow_run_requested_valid_workflow_name(self, mock_request, mock_schedule_test):
         """Test webhook triggered with workflow run event with action requested with a valid workflow name."""
         data = {'action': 'requested', 'workflow_run': {
             'name': 'Build CCExtractor on Linux', 'head_sha': 'abcd1234'}}
@@ -729,11 +727,11 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_ci.controllers.queue_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_workflow_run_event_completed_action_successful(self, mock_request, mock_queue_test):
+    def test_webhook_workflow_run_completed_successful(self, mock_request, mock_queue_test):
         """Test webhook triggered with workflow run event with action completed and status success."""
         data = {'action': 'completed',
                 'workflow_run': {'event': 'push',
-                                 'name': 'Build CCExtractor on Linux', 'head_sha': '1',
+                                 'name': Workflow_builds.LINUX, 'head_sha': '1',
                                  'head_branch': 'master'}, 'sender': {'login': 'test_owner'}}
         fakedata = {'workflow_runs': [
             {'head_sha': '1', 'status': 'completed',
@@ -766,7 +764,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_ci.controllers.deschedule_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_workflow_run_event_completed_action_failure(self, mock_request, mock_deschedule_test):
+    def test_webhook_workflow_run_completed_failure(self, mock_request, mock_deschedule_test):
         """Test webhook triggered with workflow run event with action completed and status failure."""
         data = {'action': 'completed',
                 'workflow_run': {'event': 'push',
@@ -799,11 +797,9 @@ class TestControllers(BaseTestCase):
                 data=json.dumps(data), headers=self.generate_header(data, 'workflow_run'))
         mock_deschedule_test.assert_called_once()
 
-    @mock.patch('mod_ci.controllers.GitHub')
     @mock.patch('mod_ci.controllers.schedule_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_workflow_run_requested_action_with_invalid_workflow_name(self, mock_request,
-                                                                              mock_schedule_test, mock_github):
+    def test_webhook_workflow_run_requested_invalid_workflow_name(self, mock_request, mock_schedule_test):
         """Test webhook triggered with workflow run event with an invalid action."""
         data = {'action': 'requested', 'workflow_run': {
             'name': 'Invalid', 'head_sha': 'abcd1234'}}
@@ -843,8 +839,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.BlockedUsers')
     @mock.patch('mod_ci.controllers.queue_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_workflow_run_event_completed_action_successful_pull_request(self, mock_request,
-                                                                                 mock_queue_test, mock_blocked):
+    def test_webhook_workflow_run_completed_successful_pr(self, mock_request, mock_queue_test, mock_blocked):
         """Test webhook triggered with workflow run event with action completed and status success for pull request."""
         data = {'action': 'completed',
                 'workflow_run': {'event': 'pull_request',

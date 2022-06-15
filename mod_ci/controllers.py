@@ -23,6 +23,7 @@ from sqlalchemy.sql import label
 from sqlalchemy.sql.functions import count
 from werkzeug.utils import secure_filename
 
+from database import DeclEnum
 from decorators import get_menu_entries, template_renderer
 from mailer import Mailer
 from mod_auth.controllers import check_access_rights, login_required
@@ -53,6 +54,13 @@ class Status:
     SUCCESS = "success"
     ERROR = "error"
     FAILURE = "failure"
+
+
+class Workflow_builds(DeclEnum):
+    """Define GitHub Action workflow build names."""
+
+    LINUX = "Build CCExtractor on Linux"
+    WINDOWS = "Build CCExtractor on Windows"
 
 
 @mod_ci.before_app_request
@@ -431,9 +439,9 @@ def save_xml_to_file(xml_node, folder_name, file_name) -> None:
     )
 
 
-def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0) -> None:
+def add_test_entry(db, gh_commit, commit, test_type, branch="master", pr_nr=0) -> None:
     """
-    Store test details into Test model for each platform, and post the status to GitHub.
+    Add test details entry into Test model for each platform.
 
     :param db: Database connection.
     :type db: sqlalchemy.orm.scoped_session
@@ -464,6 +472,117 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0) -> No
     windows_test = Test(TestPlatform.windows, test_type, fork.id, branch, commit, pr_nr)
     db.add(windows_test)
     db.commit()
+
+
+def schedule_test(gh_commit, commit, test_type, branch="master", pr_nr=0) -> None:
+    """
+    Post status to GitHub as waiting for Github Actions completion.
+
+    :param gh_commit: The GitHub API call for the commit. Can be None
+    :type gh_commit: Any
+    :param commit: The commit hash.
+    :type commit: str
+    :param test_type: The type of test
+    :type test_type: TestType
+    :param branch: Branch name
+    :type branch: str
+    :param pr_nr: Pull Request number, if applicable.
+    :type pr_nr: int
+    :return: Nothing
+    :rtype: None
+    """
+    from run import log
+
+    if test_type == TestType.pull_request:
+        log.debug('pull request test type detected')
+        branch = "pull_request"
+
+    if gh_commit is not None:
+        for platform in TestPlatform:
+            try:
+                gh_commit.post(
+                    state=Status.PENDING,
+                    description="Waiting for actions to complete",
+                    context=f"CI - {platform.value}",
+                )
+            except ApiError as a:
+                log.critical(f'Could not post to GitHub! Response: {a.response}')
+
+
+def deschedule_test(gh_commit, commit, test_type, message="Tests have been cancelled", branch="master", pr_nr=0,
+                    state=Status.FAILURE) -> None:
+    """
+    Post status to GitHub (default: as failure due to Github Actions incompletion).
+
+    :param gh_commit: The GitHub API call for the commit. Can be None
+    :type gh_commit: Any
+    :param commit: The commit hash.
+    :type commit: str
+    :param test_type: The type of test
+    :type test_type: TestType
+    :param branch: Branch name
+    :type branch: str
+    :param pr_nr: Pull Request number, if applicable.
+    :type pr_nr: int
+    :return: Nothing
+    :rtype: None
+    """
+    from run import log
+
+    if gh_commit is not None:
+        for platform in TestPlatform:
+            try:
+                gh_commit.post(
+                    state=state,
+                    description=message,
+                    context=f"CI - {platform.value}",
+                )
+            except ApiError as a:
+                log.critical(f'Could not post to GitHub! Response: {a.response}')
+
+
+def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0) -> None:
+    """
+    Store test details into Test model for each platform, and post the status to GitHub.
+
+    :param db: Database connection.
+    :type db: sqlalchemy.orm.scoped_session
+    :param gh_commit: The GitHub API call for the commit. Can be None
+    :type gh_commit: Any
+    :param commit: The commit hash.
+    :type commit: str
+    :param test_type: The type of test
+    :type test_type: TestType
+    :param branch: Branch name
+    :type branch: str
+    :param pr_nr: Pull Request number, if applicable.
+    :type pr_nr: int
+    :return: Nothing
+    :rtype: None
+    """
+    from run import log
+
+    fork_url = f"%/{g.github['repository_owner']}/{g.github['repository']}.git"
+    fork = Fork.query.filter(Fork.github.like(fork_url)).first()
+
+    if test_type == TestType.pull_request:
+        log.debug('pull request test type detected')
+        branch = "pull_request"
+
+    linux_test = Test.query.filter(and_(Test.platform == TestPlatform.linux,
+                                        Test.commit == commit,
+                                        Test.fork_id == fork.id,
+                                        Test.test_type == test_type,
+                                        Test.branch == branch,
+                                        Test.pr_nr == pr_nr
+                                        )).first()
+    windows_test = Test.query.filter(and_(Test.platform == TestPlatform.windows,
+                                          Test.commit == commit,
+                                          Test.fork_id == fork.id,
+                                          Test.test_type == test_type,
+                                          Test.branch == branch,
+                                          Test.pr_nr == pr_nr
+                                          )).first()
     add_customized_regression_tests(linux_test.id)
     add_customized_regression_tests(windows_test.id)
 
@@ -595,7 +714,7 @@ def start_ci():
 
                 last_commit.value = ref['object']['sha']
                 g.db.commit()
-                queue_test(g.db, github_status, commit_hash, TestType.commit)
+                add_test_entry(g.db, github_status, commit_hash, TestType.commit)
             else:
                 g.log.warning('Unknown push type! Dumping payload for analysis')
                 g.log.warning(payload)
@@ -617,14 +736,8 @@ def start_ci():
                 user_id = payload['pull_request']['user']['id']
                 if BlockedUsers.query.filter(BlockedUsers.user_id == user_id).first() is not None:
                     g.log.warning("User Blacklisted")
-                    github_status.post(
-                        state=Status.ERROR,
-                        description="CI start aborted. You may be blocked from accessing this functionality",
-                        target_url=url_for('home.index', _external=True)
-                    )
                     return 'ERROR'
-
-                queue_test(g.db, github_status, commit_hash, TestType.pull_request, pr_nr=pr_nr)
+                add_test_entry(g.db, github_status, commit_hash, TestType.pull_request, pr_nr=pr_nr)
 
             elif payload['action'] == 'closed':
                 g.log.debug('PR was closed, no after hash available')
@@ -636,12 +749,15 @@ def start_ci():
                         continue
                     progress = TestProgress(test.id, TestStatus.canceled, "PR closed", datetime.datetime.now())
                     g.db.add(progress)
-                    repository.statuses(test.commit).post(
-                        state=Status.FAILURE,
-                        description="Tests canceled",
-                        context=f"CI - {test.platform.value}",
-                        target_url=url_for('test.by_id', test_id=test.id, _external=True)
-                    )
+                    # If test run status exists, mark them as cancelled
+                    for status in repository.commits(test.commit).status.get()["statuses"]:
+                        if status["context"] == f"CI - {test.platform.value}":
+                            repository.statuses(test.commit).post(
+                                state=Status.FAILURE,
+                                description="Tests cancelled",
+                                context=f"CI - {test.platform.value}",
+                                target_url=url_for('test.by_id', test_id=test.id, _external=True)
+                            )
 
         elif event == "issues":
             g.log.debug('issues event detected')
@@ -706,6 +822,68 @@ def start_ci():
                 g.log.info("Successfully added tests for latest release!")
             else:
                 g.log.warning(f"Unsupported release action: {action}")
+
+        elif event == "workflow_run":
+            workflow_name = payload['workflow_run']['name']
+            if workflow_name in [Workflow_builds.LINUX, Workflow_builds.WINDOWS]:
+                g.log.debug('workflow_run event detected')
+                commit_hash = payload['workflow_run']['head_sha']
+                github_status = repository.statuses(commit_hash)
+
+                if payload['action'] == "completed":
+                    is_complete = True
+                    has_failed = False
+                    builds = {"linux": False, "windows": False}
+                    for workflow in repository.actions.runs.get(
+                            event=payload['workflow_run']['event'],
+                            actor=payload['sender']['login'],
+                            branch=payload['workflow_run']['head_branch']
+                    )['workflow_runs']:
+                        if workflow['head_sha'] == commit_hash:
+                            if workflow['status'] == "completed":
+                                if workflow['conclusion'] != "success":
+                                    has_failed = True
+                                    break
+                                if workflow['name'] == "Build CCExtractor on Linux":
+                                    builds["linux"] = True
+                                elif workflow['name'] == "Build CCExtractor on Windows":
+                                    builds["windows"] = True
+                            elif workflow['status'] != "completed":
+                                is_complete = False
+                                break
+
+                    if has_failed:
+                        # no runs to be scheduled since build failed
+                        deschedule_test(github_status, commit_hash, TestType.commit,
+                                        message="Cancelling tests as Github Action(s) failed")
+                    elif is_complete:
+                        if payload['workflow_run']['event'] == "pull_request":
+                            # In case of pull request run tests only if it is still in an open state
+                            # and user is not blacklisted
+                            for pull_request in repository.pulls.get(state="open"):
+                                if pull_request['head']['sha'] == commit_hash and any(builds.values()):
+                                    user_id = pull_request['user']['id']
+                                    if BlockedUsers.query.filter(BlockedUsers.user_id == user_id).first() is not None:
+                                        g.log.warning("User Blacklisted")
+                                        github_status.post(
+                                            state=Status.ERROR,
+                                            description="CI start aborted. \
+                                            You may be blocked from accessing this functionality",
+                                            target_url=url_for('home.index', _external=True)
+                                        )
+                                        return 'ERROR'
+                                    queue_test(g.db, github_status, commit_hash,
+                                               TestType.pull_request, pr_nr=pull_request['number'])
+                        elif any(builds.values()):
+                            queue_test(g.db, github_status, commit_hash, TestType.commit)
+                        else:
+                            deschedule_test(github_status, commit_hash, TestType.commit,
+                                            message="Not ran - no code changes", state=Status.SUCCESS)
+                elif payload['action'] == 'requested':
+                    schedule_test(github_status, commit_hash, TestType.commit)
+            else:
+                g.log.warning('Unknown action type in workflow_run! Dumping payload for analysis')
+                g.log.warning(payload)
 
         else:
             g.log.warning(f'CI unrecognized event: {event}')

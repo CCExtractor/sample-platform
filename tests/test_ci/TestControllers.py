@@ -972,6 +972,52 @@ class TestControllers(BaseTestCase):
             mock_queue_test.assert_not_called()
             self.assertEqual(response.data, b'ERROR')
 
+    @mock.patch('mod_ci.controllers.deschedule_test')
+    @mock.patch('mod_ci.controllers.BlockedUsers')
+    @mock.patch('mod_ci.controllers.queue_test')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_workflow_run_completed_successful_pr_updated(self, mock_request, mock_queue_test,
+                                                                  mock_blocked, mock_deschedule_test):
+        """Test webhook triggered - workflow run event, action completed, for a pull request whose head was updated."""
+        data = {'action': 'completed',
+                'workflow_run': {'event': 'pull_request',
+                                 'name': Workflow_builds.WINDOWS, 'head_sha': '1',
+                                 'head_branch': 'master'}, 'sender': {'login': 'test_owner'}}
+        fakedata = {'workflow_runs': [
+            {'head_sha': '1', 'status': 'completed',
+             'conclusion': 'success', 'name': Workflow_builds.WINDOWS}
+        ]}
+        pull_requests = [{'head': {'sha': '2'}, 'user': {'id': 1}, 'number': '1'}]
+
+        class MockedRepository:
+            def statuses(self, *args):
+                class gh_status:
+                    def post(*args, **kwargs):
+                        return None
+                return gh_status
+
+            class actions:
+                class runs:
+                    def get(*args, **kwargs):
+                        return fakedata
+
+            class pulls:
+                def get(*args, **kwargs):
+                    return pull_requests
+
+        class MockedGitHub:
+            def repos(self, *args):
+                return MockedRepository
+        with self.app.test_client() as c:
+            from github import GitHub
+            GitHub.repos = Mock(return_value=MockedGitHub.repos)
+            mock_blocked.query.filter.return_value.first.return_value = None
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'workflow_run'))
+            mock_queue_test.assert_not_called()
+            mock_deschedule_test.assert_called()
+
     def test_start_ci_with_a_get_request(self):
         """Test start_ci function with a request method other than post."""
         from mod_ci.controllers import start_ci

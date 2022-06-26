@@ -675,6 +675,7 @@ def start_ci():
                         continue
                     progress = TestProgress(test.id, TestStatus.canceled, "PR closed", datetime.datetime.now())
                     g.db.add(progress)
+                    g.db.commit()
                     # If test run status exists, mark them as cancelled
                     for status in repository.commits(test.commit).status.get()["statuses"]:
                         if status["context"] == f"CI - {test.platform.value}":

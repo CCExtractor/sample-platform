@@ -712,6 +712,7 @@ class TestControllers(BaseTestCase):
         class MockTest:
             def __init__(self):
                 self.id = 1
+                self.progress = []
 
         mock_test.query.filter.return_value.all.return_value = [MockTest()]
 

@@ -6,7 +6,9 @@ import json
 import os
 import shutil
 import sys
+import zipfile
 from multiprocessing import Process
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -61,6 +63,13 @@ class Workflow_builds(DeclEnum):
 
     LINUX = "Build CCExtractor on Linux"
     WINDOWS = "Build CCExtractor on Windows"
+
+
+class Artifact_names(DeclEnum):
+    """Define CCExtractor GitHub Artifacts names."""
+
+    linux = "CCExtractor Linux build"
+    windows = "CCExtractor Windows OCR and HardSubX Release build"
 
 
 @mod_ci.before_app_request
@@ -306,15 +315,15 @@ def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
 
     # 2) Download the artifact for the current build from GitHub Actions
     artifact_saved = False
-    artifact_names = {
-        "test": "test",
-        "linux": "CCExtractor Linux build",
-        "windows": "CCExtractor Windows OCR and HardSubX Release build"
-    }
     base_folder = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', kvm_name, 'unsafe-ccextractor')
+    Path(base_folder).mkdir(parents=True, exist_ok=True)
     artifacts = repository.actions.artifacts().get(per_page="100")["artifacts"]
     page_number = 2
-    artifact_name = artifact_names[platform.value]
+    if test.platform == TestPlatform.linux:
+        artifact_name = Artifact_names.linux
+    else:
+        artifact_name = Artifact_names.windows
+
     for index, artifact in enumerate(artifacts):
         if artifact['name'] == artifact_name and artifact["workflow_run"]["head_sha"] == test.commit:
             artifact_url = artifact["archive_download_url"]
@@ -327,11 +336,9 @@ def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
             if r.status_code != 200:
                 log.critical(f"Could not fetch artifact, response code: {r.status_code}")
                 return
-            # Save the artifact and extract its zip file
-            open(os.path.join(base_folder, 'ccextractor.zip'), 'wb').write(r.content)
 
-            from zipfile import ZipFile
-            with ZipFile(os.path.join(base_folder, 'ccextractor.zip'), 'r') as artifact_zip:
+            open(os.path.join(base_folder, 'ccextractor.zip'), 'wb').write(r.content)
+            with zipfile.ZipFile(os.path.join(base_folder, 'ccextractor.zip'), 'r') as artifact_zip:
                 artifact_zip.extractall(base_folder)
 
             artifact_saved = True

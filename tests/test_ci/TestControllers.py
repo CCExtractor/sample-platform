@@ -187,17 +187,18 @@ class TestControllers(BaseTestCase):
         mock_log.critical.assert_called_once()
         self.assertEqual(mock_log.debug.call_count, 1)
 
-    @mock.patch('zipfile.ZipFile')
     @mock.patch('run.log.critical')
     @mock.patch('mod_ci.controllers.save_xml_to_file')
     @mock.patch('builtins.open', new_callable=mock.mock_open())
     @mock.patch('mod_ci.controllers.g')
-    def test_kvm_processor(self, mock_g, mock_open_file, mock_save_xml, mock_log_critical, mock_zipfile):
+    def test_kvm_processor(self, mock_g, mock_open_file, mock_save_xml, mock_log_critical):
         """Test kvm_processor function."""
+        import zipfile
+
         import libvirt
         import requests
 
-        from mod_ci.controllers import kvm_processor
+        from mod_ci.controllers import Artifact_names, kvm_processor
 
         class mock_conn:
             def lookupByName(*args):
@@ -230,12 +231,24 @@ class TestControllers(BaseTestCase):
             r = fakeData[0]
             fakeData.pop(0)
             return r
+
+        class mock_zip:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def extractall(*args, **kwargs):
+                return None
+
         libvirt.open = MagicMock(return_value=mock_conn)
         repo = MagicMock()
-        fakeData = [{'artifacts': [{'name': "CCExtractor Linux build",
+        zipfile.ZipFile = MagicMock(return_value=mock_zip())
+        fakeData = [{'artifacts': [{'name': Artifact_names.windows,
                                     'archive_download_url': "test",
                                     'workflow_run': {'head_sha': '1978060bf7d2edd119736ba3ba88341f3bec3322'}}]},
-                    {'artifacts': [{'name': "CCExtractor Linux build",
+                    {'artifacts': [{'name': Artifact_names.linux,
                                     'archive_download_url': "test",
                                     'workflow_run': {'head_sha': '1978060bf7d2edd119736ba3ba88341f3bec3323'}}]}]
         repo.actions.artifacts.return_value.get = getFakeData
@@ -244,7 +257,6 @@ class TestControllers(BaseTestCase):
         requests.get = MagicMock(return_value=response)
         kvm_processor(self.app, mock_g.db, "test", TestPlatform.linux, repo, None)
         mock_save_xml.assert_called()
-        mock_zipfile.assert_called()
         assert mock.call("Could not find an artifact for this commit") not in mock_log_critical.mock_calls
 
     @mock.patch('run.log.critical')
@@ -252,11 +264,11 @@ class TestControllers(BaseTestCase):
     @mock.patch('builtins.open', new_callable=mock.mock_open())
     @mock.patch('mod_ci.controllers.g')
     def test_kvm_processor_download_artifact_failed(self, mock_g, mock_open_file, mock_save_xml, mock_log_critical):
-        """Test kvm_processor function."""
+        """Test kvm_processor function when downloading the artifact fails."""
         import libvirt
         import requests
 
-        from mod_ci.controllers import kvm_processor
+        from mod_ci.controllers import Artifact_names, kvm_processor
 
         class mock_conn:
             def lookupByName(*args):
@@ -294,17 +306,20 @@ class TestControllers(BaseTestCase):
 
         libvirt.open = MagicMock(return_value=mock_conn)
         repo = MagicMock()
-        fakeData = [{'artifacts': [{'name': "CCExtractor Linux build",
+        fakeData = [{'artifacts': [{'name': Artifact_names.windows,
                                     'archive_download_url': "test",
                                     'workflow_run': {'head_sha': '1978060bf7d2edd119736ba3ba88341f3bec3322'}}]},
-                    {'artifacts': [{'name': "CCExtractor Linux build",
+                    {'artifacts': [{'name': Artifact_names.windows,
                                     'archive_download_url': "test",
                                     'workflow_run': {'head_sha': '1978060bf7d2edd119736ba3ba88341f3bec3323'}}]}]
         repo.actions.artifacts.return_value.get = getFakeData
         response = requests.models.Response()
         response.status_code = 404
         requests.get = MagicMock(return_value=response)
-        kvm_processor(self.app, mock_g.db, "test", TestPlatform.linux, repo, None)
+        test = Test(TestPlatform.windows, TestType.commit, 1, "master", "1978060bf7d2edd119736ba3ba88341f3bec3323")
+        g.db.add(test)
+        g.db.commit()
+        kvm_processor(self.app, mock_g.db, "test", TestPlatform.windows, repo, None)
         mock_save_xml.assert_called()
         mock_log_critical.assert_called_with(f"Could not fetch artifact, response code: {response.status_code}")
 

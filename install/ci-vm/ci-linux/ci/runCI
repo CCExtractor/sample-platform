@@ -70,12 +70,11 @@ echo "" > "${logFile}"
 postStatus "preparation" "Copy testsuite to local folder"
 executeCommand cp -r ${suiteSrcDir}/* ${suiteDstDir}
 
-postStatus "preparation" "Copy code to local folder"
+postStatus "preparation" "Copy build artifact to local folder"
 executeCommand cp -r ${srcDir}/* ${dstDir}
 executeCommand cd ${dstDir}
 
-postStatus "building" "Compiling CCExtractor"
-# Check if build succeeded
+postStatus "building" "Checking for CCExtractor build artifact"
 if [ -x "ccextractor" ]; then
 	chmod 700 ccextractor
 	# Run testSuite

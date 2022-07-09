@@ -30,12 +30,11 @@ call :postStatus "preparation" "Copy testsuite to local folder"
 rem robocopy returns a non-zero exit code even on success (https://ss64.com/nt/robocopy-exit.html), so we cannot use executeCommand
 call robocopy %suiteSrcDir% %suiteDstDir% /e /MIR >> "%logFile%"
 
-call :postStatus "preparation" "Copy code to local folder"
+call :postStatus "preparation" "Copy build artifact to local folder"
 call robocopy %srcDir% %dstDir% /e /MIR /XD %srcDir%\.git >> "%logFile%"
 call :executeCommand cd %dstDir%
 
-echo Compile CCX
-call :postStatus "building" "Compiling CCExtractor"
+call :postStatus "building" "Checking for CCExtractor build artifact"
 if EXIST "ccextractorwinfull.exe" (
     rem Run testsuite
     echo Run tests

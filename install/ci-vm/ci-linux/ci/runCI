@@ -70,23 +70,17 @@ echo "" > "${logFile}"
 postStatus "preparation" "Copy testsuite to local folder"
 executeCommand cp -r ${suiteSrcDir}/* ${suiteDstDir}
 
-postStatus "preparation" "Copy code to local folder"
+postStatus "preparation" "Copy build artifact to local folder"
 executeCommand cp -r ${srcDir}/* ${dstDir}
 executeCommand cd ${dstDir}
 
-postStatus "building" "Compiling CCExtractor"
-# Build CCExtractor using the cmake
-executeCommand mkdir build
-executeCommand cd build
-cmake ../src/ -DWITH_OCR=ON -DCMAKE_BUILD_TYPE=Release >> "${logFile}" 2>&1
-make >> "${logFile}" 2>&1
-# Check if build succeeded
+postStatus "building" "Checking for CCExtractor build artifact"
 if [ -x "ccextractor" ]; then
 	chmod 700 ccextractor
 	# Run testSuite
 	postStatus "testing" "Running tests"
 	executeCommand cd ${suiteDstDir}
-	executeCommand ${tester} --entries "${testFile}" --executable "${dstDir}/build/ccextractor" --tempfolder "${tempFolder}" --timeout 3000 --reportfolder "${reportFolder}" --resultfolder "${resultFolder}" --samplefolder "${sampleFolder}" --method Server --url "${reportURL}"
+	executeCommand ${tester} --entries "${testFile}" --executable "${dstDir}/ccextractor" --tempfolder "${tempFolder}" --timeout 3000 --reportfolder "${reportFolder}" --resultfolder "${resultFolder}" --samplefolder "${sampleFolder}" --method Server --url "${reportURL}"
 	postStatus "completed" "Ran all tests"
 	sendLogFile
 	# Shut down

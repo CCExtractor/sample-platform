@@ -7,4 +7,4 @@ isort==5.10.1
 mypy==0.961
 Werkzeug==1.0.1
 Flask-Testing==0.8.1
-blinker==1.4
+blinker==1.5

@@ -328,7 +328,7 @@ def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
         if artifact['name'] == artifact_name and artifact["workflow_run"]["head_sha"] == test.commit:
             artifact_url = artifact["archive_download_url"]
             try:
-                auth_header = f"token {github_config['ci_key']}"
+                auth_header = f"token {github_config['bot_token']}"
                 r = requests.get(artifact_url, headers={"Authorization": auth_header})
             except Exception as e:
                 log.critical("Could not fetch artifact, request timed out")

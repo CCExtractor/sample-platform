@@ -187,6 +187,142 @@ class TestControllers(BaseTestCase):
         mock_log.critical.assert_called_once()
         self.assertEqual(mock_log.debug.call_count, 1)
 
+    @mock.patch('run.log.critical')
+    @mock.patch('mod_ci.controllers.save_xml_to_file')
+    @mock.patch('builtins.open', new_callable=mock.mock_open())
+    @mock.patch('mod_ci.controllers.g')
+    def test_kvm_processor(self, mock_g, mock_open_file, mock_save_xml, mock_log_critical):
+        """Test kvm_processor function."""
+        import zipfile
+
+        import libvirt
+        import requests
+
+        from mod_ci.controllers import Artifact_names, kvm_processor
+
+        class mock_conn:
+            def lookupByName(*args):
+                class mock_vm:
+                    def hasCurrentSnapshot(*args):
+                        return 1
+
+                    def info(*args):
+                        return [libvirt.VIR_DOMAIN_SHUTOFF]
+
+                    def snapshotCurrent(*args):
+                        class snapshot:
+                            def getName(*args):
+                                return "test"
+                        return snapshot
+
+                    def revertToSnapshot(*args):
+                        return 1
+
+                    def create(*args):
+                        return 1
+                return mock_vm
+
+            def close(*args):
+                return
+
+        def getFakeData(*args, **kwargs):
+            if len(fakeData) == 0:
+                return {'artifacts': []}
+            r = fakeData[0]
+            fakeData.pop(0)
+            return r
+
+        class mock_zip:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def extractall(*args, **kwargs):
+                return None
+
+        libvirt.open = MagicMock(return_value=mock_conn)
+        repo = MagicMock()
+        zipfile.ZipFile = MagicMock(return_value=mock_zip())
+        fakeData = [{'artifacts': [{'name': Artifact_names.windows,
+                                    'archive_download_url': "test",
+                                    'workflow_run': {'head_sha': '1978060bf7d2edd119736ba3ba88341f3bec3322'}}]},
+                    {'artifacts': [{'name': Artifact_names.linux,
+                                    'archive_download_url': "test",
+                                    'workflow_run': {'head_sha': '1978060bf7d2edd119736ba3ba88341f3bec3323'}}]}]
+        repo.actions.artifacts.return_value.get = getFakeData
+        response = requests.models.Response()
+        response.status_code = 200
+        requests.get = MagicMock(return_value=response)
+        kvm_processor(self.app, mock_g.db, "test", TestPlatform.linux, repo, None)
+        mock_save_xml.assert_called()
+        assert mock.call("Could not find an artifact for this commit") not in mock_log_critical.mock_calls
+
+    @mock.patch('run.log.critical')
+    @mock.patch('mod_ci.controllers.save_xml_to_file')
+    @mock.patch('builtins.open', new_callable=mock.mock_open())
+    @mock.patch('mod_ci.controllers.g')
+    def test_kvm_processor_download_artifact_failed(self, mock_g, mock_open_file, mock_save_xml, mock_log_critical):
+        """Test kvm_processor function when downloading the artifact fails."""
+        import libvirt
+        import requests
+
+        from mod_ci.controllers import Artifact_names, kvm_processor
+
+        class mock_conn:
+            def lookupByName(*args):
+                class mock_vm:
+                    def hasCurrentSnapshot(*args):
+                        return 1
+
+                    def info(*args):
+                        return [libvirt.VIR_DOMAIN_SHUTOFF]
+
+                    def snapshotCurrent(*args):
+                        class snapshot:
+                            def getName(*args):
+                                return "test"
+
+                        return snapshot
+
+                    def revertToSnapshot(*args):
+                        return 1
+
+                    def create(*args):
+                        return 1
+
+                return mock_vm
+
+            def close(*args):
+                return
+
+        def getFakeData(*args, **kwargs):
+            if len(fakeData) == 0:
+                return {'artifacts': []}
+            r = fakeData[0]
+            fakeData.pop(0)
+            return r
+
+        libvirt.open = MagicMock(return_value=mock_conn)
+        repo = MagicMock()
+        fakeData = [{'artifacts': [{'name': Artifact_names.windows,
+                                    'archive_download_url': "test",
+                                    'workflow_run': {'head_sha': '1978060bf7d2edd119736ba3ba88341f3bec3322'}}]},
+                    {'artifacts': [{'name': Artifact_names.windows,
+                                    'archive_download_url': "test",
+                                    'workflow_run': {'head_sha': '1978060bf7d2edd119736ba3ba88341f3bec3323'}}]}]
+        repo.actions.artifacts.return_value.get = getFakeData
+        response = requests.models.Response()
+        response.status_code = 404
+        requests.get = MagicMock(return_value=response)
+        test = Test(TestPlatform.windows, TestType.commit, 1, "master", "1978060bf7d2edd119736ba3ba88341f3bec3323")
+        g.db.add(test)
+        g.db.commit()
+        kvm_processor(self.app, mock_g.db, "test", TestPlatform.windows, repo, None)
+        mock_save_xml.assert_called()
+        mock_log_critical.assert_called_with(f"Could not fetch artifact, response code: {response.status_code}")
+
     @mock.patch('mod_ci.controllers.GeneralData')
     @mock.patch('mod_ci.controllers.g')
     def test_set_avg_time_first(self, mock_g, mock_gd):
@@ -275,77 +411,6 @@ class TestControllers(BaseTestCase):
         from mod_ci.controllers import is_main_repo
         assert is_main_repo('random_user/random_repo') is False
         assert is_main_repo('test_owner/test_repo') is True
-
-    @mock.patch('github.GitHub')
-    @mock.patch('git.Repo')
-    @mock.patch('libvirt.open')
-    @mock.patch('shutil.rmtree')
-    @mock.patch('mod_ci.controllers.open')
-    @mock.patch('lxml.etree')
-    def test_customize_tests_run_on_fork_if_no_remote(self, mock_etree, mock_open,
-                                                      mock_rmtree, mock_libvirt, mock_repo, mock_git):
-        """Test customize tests running on the fork without remote."""
-        self.create_user_with_role(
-            self.user.name, self.user.email, self.user.password, Role.tester)
-        self.create_forktest("own-fork-commit", TestPlatform.linux)
-        import mod_ci.controllers
-        import mod_ci.cron
-        reload(mod_ci.cron)
-        reload(mod_ci.controllers)
-        from mod_ci.cron import cron
-        conn = mock_libvirt()
-        vm = conn.lookupByName()
-        import libvirt
-
-        # mocking the libvirt kvm to shut down
-        vm.info.return_value = [libvirt.VIR_DOMAIN_SHUTOFF]
-        # Setting current snapshot of libvirt
-        vm.hasCurrentSnapshot.return_value = 1
-        repo = mock_repo()
-        origin = repo.create_remote()
-        from collections import namedtuple
-        GitPullInfo = namedtuple('GitPullInfo', 'flags')
-        pull_info = GitPullInfo(flags=0)
-        origin.pull.return_value = [pull_info]
-        cron(testing=True)
-        fork_url = f"https://github.com/{self.user.name}/{g.github['repository']}.git"
-        repo.create_remote.assert_called_with("fork_2", url=fork_url)
-        repo.create_head.assert_called_with("CI_Branch", origin.refs.master)
-
-    @mock.patch('github.GitHub')
-    @mock.patch('git.Repo')
-    @mock.patch('libvirt.open')
-    @mock.patch('shutil.rmtree')
-    @mock.patch('mod_ci.controllers.open')
-    @mock.patch('lxml.etree')
-    def test_customize_tests_run_on_fork_if_remote_exist(self, mock_etree, mock_open,
-                                                         mock_rmtree, mock_libvirt, mock_repo, mock_git):
-        """Test customize tests running on the fork with remote."""
-        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.tester)
-        self.create_forktest("own-fork-commit", TestPlatform.linux)
-        import mod_ci.controllers
-        import mod_ci.cron
-        reload(mod_ci.cron)
-        reload(mod_ci.controllers)
-        from mod_ci.cron import cron
-        conn = mock_libvirt()
-        vm = conn.lookupByName()
-        import libvirt
-
-        # mocking the libvirt kvm to shut down
-        vm.info.return_value = [libvirt.VIR_DOMAIN_SHUTOFF]
-        # Setting current snapshot of libvirt
-        vm.hasCurrentSnapshot.return_value = 1
-        repo = mock_repo()
-        origin = repo.remote()
-        from collections import namedtuple
-        Remotes = namedtuple('Remotes', 'name')
-        repo.remotes = [Remotes(name='fork_2')]
-        GitPullInfo = namedtuple('GitPullInfo', 'flags')
-        pull_info = GitPullInfo(flags=0)
-        origin.pull.return_value = [pull_info]
-        cron(testing=True)
-        repo.remote.assert_called_with('fork_2')
 
     @mock.patch('github.GitHub')
     @mock.patch('git.Repo')
@@ -662,6 +727,7 @@ class TestControllers(BaseTestCase):
         class MockTest:
             def __init__(self):
                 self.id = 1
+                self.progress = []
 
         mock_test.query.filter.return_value.all.return_value = [MockTest()]
 

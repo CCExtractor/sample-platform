@@ -30,23 +30,17 @@ call :postStatus "preparation" "Copy testsuite to local folder"
 rem robocopy returns a non-zero exit code even on success (https://ss64.com/nt/robocopy-exit.html), so we cannot use executeCommand
 call robocopy %suiteSrcDir% %suiteDstDir% /e /MIR >> "%logFile%"
 
-call :postStatus "preparation" "Copy code to local folder"
+call :postStatus "preparation" "Copy build artifact to local folder"
 call robocopy %srcDir% %dstDir% /e /MIR /XD %srcDir%\.git >> "%logFile%"
 call :executeCommand cd %dstDir%
 
-echo Compile CCX
-call :postStatus "building" "Compiling CCExtractor"
-rem Go to Windows build folder
-call :executeCommand cd windows
-rem Build CCExtractor using the sln script
-call :executeCommand "C:\Program Files (x86)\MSBuild\14.0\Bin\MSBuild" ccextractor.sln /p:Configuration=Release-Full /p:Platform=Win32
-rem check whether installation successful
-if EXIST "Release-Full/ccextractorwinfull.exe" (
+call :postStatus "building" "Checking for CCExtractor build artifact"
+if EXIST "ccextractorwinfull.exe" (
     rem Run testsuite
     echo Run tests
     call :postStatus "testing" "Running tests"
     call :executeCommand cd %suiteDstDir%
-    call :executeCommand "%tester%" --entries "%testFile%" --executable "%dstDir%\windows\Release-Full\ccextractorwinfull.exe" --tempfolder "%tempFolder%" --timeout 3000 --reportfolder "%reportFolder%" --resultfolder "%resultFolder%" --samplefolder "%sampleFolder%" --method Server --url "%reportURL%"
+    call :executeCommand "%tester%" --entries "%testFile%" --executable "%dstDir%\ccextractorwinfull.exe" --tempfolder "%tempFolder%" --timeout 3000 --reportfolder "%reportFolder%" --resultfolder "%resultFolder%" --samplefolder "%sampleFolder%" --method Server --url "%reportURL%"
     call :postStatus "completed" "Ran all tests"
     echo Done running tests
     rem Shut down

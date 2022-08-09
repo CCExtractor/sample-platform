@@ -18,17 +18,7 @@ fi
 # Add cargo to path
 PATH="/root/.cargo/bin:$PATH"
 
-# Check if required files & folders are present
-if [ ! -f ${reportURLFile} ]; then
-    # No report URL file defined
-    sudo shutdown -h now
-fi
-if [ ! -d ${srcDir} ]; then
-    # No source dir defined
-    sudo shutdown -h now
-fi
-
-reportURL=$(cat ${reportURLFile})
+reportURL=$(curl http://metadata/computeMetadata/v1/instance/attributes/reportURL -H "Metadata-Flavor: Google")
 userAgent="CCX/CI_BOT"
 logFile="${reportFolder}/log.html"
 
@@ -67,15 +57,9 @@ function executeCommand {
 # Truncate log in case there was anything left from a previous session
 echo "" > "${logFile}"
 
-postStatus "preparation" "Copy testsuite to local folder"
-executeCommand cp -r ${suiteSrcDir}/* ${suiteDstDir}
-
-postStatus "preparation" "Copy build artifact to local folder"
-executeCommand cp -r ${srcDir}/* ${dstDir}
-executeCommand cd ${dstDir}
-
-postStatus "building" "Checking for CCExtractor build artifact"
-if [ -x "ccextractor" ]; then
+postStatus "building" "Compiling CCExtractor"
+# Check if build succeeded
+if [ -x "${dstDir}/ccextractor" ]; then
 	chmod 700 ccextractor
 	# Run testSuite
 	postStatus "testing" "Running tests"

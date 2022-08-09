@@ -10,32 +10,14 @@ if NOT EXIST "variables.bat" (
 echo Loading variables.bat
 rem Source variables
 call %~dp0\variables.bat
-if "%reportURLFile%"=="" (
-    rem No report URL file defined
-    shutdown -s -t 0
-    exit
-)
-if "%srcDir%"=="" (
-    rem No source dir defined
-    shutdown -s -t 0
-    exit
-)
 
-SET /P reportURL=<%reportURLFile%
+for /F %%R in ('curl http://metadata/computeMetadata/v1/instance/attributes/reportURL -H "Metadata-Flavor: Google"') do SET reportURL=%%R
 SET userAgent="CCX/CI_BOT"
 SET logFile="%reportFolder%/log.html"
 
-echo Copy files over to local disk
-call :postStatus "preparation" "Copy testsuite to local folder"
-rem robocopy returns a non-zero exit code even on success (https://ss64.com/nt/robocopy-exit.html), so we cannot use executeCommand
-call robocopy %suiteSrcDir% %suiteDstDir% /e /MIR >> "%logFile%"
-
-call :postStatus "preparation" "Copy build artifact to local folder"
-call robocopy %srcDir% %dstDir% /e /MIR /XD %srcDir%\.git >> "%logFile%"
-call :executeCommand cd %dstDir%
-
-call :postStatus "building" "Checking for CCExtractor build artifact"
-if EXIST "ccextractorwinfull.exe" (
+echo Compile CCX
+call :postStatus "building" "Compiling CCExtractor"
+if EXIST "%dstDir%\ccextractorwinfull.exe" (
     rem Run testsuite
     echo Run tests
     call :postStatus "testing" "Running tests"

@@ -6,7 +6,9 @@ import json
 import os
 import shutil
 import sys
+import zipfile
 from multiprocessing import Process
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -63,6 +65,13 @@ class Workflow_builds(DeclEnum):
     WINDOWS = "Build CCExtractor on Windows"
 
 
+class Artifact_names(DeclEnum):
+    """Define CCExtractor GitHub Artifacts names."""
+
+    linux = "CCExtractor Linux build"
+    windows = "CCExtractor Windows OCR and HardSubX Release build"
+
+
 @mod_ci.before_app_request
 def before_app_request() -> None:
     """Organize menu content such as Platform management before request."""
@@ -114,7 +123,7 @@ def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
     Checks whether machine is in maintenance mode or not
     Launch kvm if not used by any other test
     Creates testing xml files to test the change in main repo.
-    Creates clone with separate branch and merge pr into it.
+    Downloads the build artifacts generated during GitHub Action workflows.
 
     :param app: The Flask app
     :type app: Flask
@@ -304,107 +313,44 @@ def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
 
     save_xml_to_file(multi_test, base_folder, 'TestAll.xml')
 
-    # 2) Create git repo clone and merge PR into it (if necessary)
-    try:
-        repo = Repo(os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', kvm_name, 'unsafe-ccextractor'))
-    except InvalidGitRepositoryError:
-        log.critical(f"[{platform}] Could not open CCExtractor's repository copy!")
-        return
-
-    # Return to master
-    repo.heads.master.checkout(True)
-    # Update repository from upstream
-    try:
-        github_url = test.fork.github
-        if is_main_repo(github_url):
-            origin = repo.remote('origin')
-        else:
-            fork_id = test.fork.id
-            remote = f'fork_{fork_id}'
-            if remote in [remote.name for remote in repo.remotes]:
-                origin = repo.remote(remote)
-            else:
-                origin = repo.create_remote(remote, url=github_url)
-    except ValueError:
-        log.critical(f"[{platform}] Origin remote doesn't exist!")
-        return
-
-    fetch_info = origin.fetch()
-    if len(fetch_info) == 0:
-        log.info(f'[{platform}] Fetch from remote returned no new data...')
-    # Checkout to Remote Master
-    repo.git.checkout(origin.refs.master)
-    # Pull code (finally)
-    pull_info = origin.pull('master')
-    if len(pull_info) == 0:
-        log.info(f"[{platform}] Pull from remote returned no new data...")
-    elif pull_info[0].flags > 128:
-        log.critical(f"[{platform}] Did not pull any information from remote: {pull_info[0].flags}!")
-        return
-
-    ci_branch = 'CI_Branch'
-    # Delete the test branch if it exists, and recreate
-    try:
-        repo.delete_head(ci_branch, force=True)
-    except GitCommandError:
-        log.info(f"[{platform}] Could not delete CI_Branch head")
-
-    # Remove possible left rebase-apply directory
-    try:
-        shutil.rmtree(os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'unsafe-ccextractor', '.git', 'rebase-apply'))
-    except OSError:
-        log.info(f"[{platform}] Could not delete rebase-apply")
-    # If PR, merge, otherwise reset to commit
-    if test.test_type == TestType.pull_request:
-        # Fetch PR (stored under origin/pull/<id>/head)
-        pull_info = origin.fetch(f'pull/{test.pr_nr}/head:{ci_branch}')
-        if len(pull_info) == 0:
-            log.warn(f"[{platform}] Did not pull any information from remote PR!")
-        elif pull_info[0].flags > 128:
-            log.critical(f"[{platform}] Did not pull any information from remote PR: {pull_info[0].flags}!")
-            return
-
-        try:
-            test_branch = repo.heads[ci_branch]
-        except IndexError:
-            log.critical(f'{ci_branch} does not exist')
-            return
-
-        test_branch.checkout(True)
-
-        try:
-            pull = repository.pulls(f'{test.pr_nr}').get()
-        except ApiError as a:
-            log.error(f'Got an exception while fetching the PR payload! Message: {a.message}')
-            return
-        if pull['mergeable'] is False:
-            progress = TestProgress(test.id, TestStatus.canceled, "Commit could not be merged", datetime.datetime.now())
-            db.add(progress)
-            db.commit()
-            try:
-                with app.app_context():
-                    repository.statuses(test.commit).post(
-                        state=Status.FAILURE,
-                        description="Tests canceled due to merge conflict",
-                        context=f"CI - {test.platform.value}",
-                        target_url=url_for('test.by_id', test_id=test.id, _external=True)
-                    )
-            except ApiError as a:
-                log.error(f'Got an exception while posting to GitHub! Message: {a.message}')
-            return
-
-        # Merge on master if no conflict
-        repo.git.merge('master')
-
+    # 2) Download the artifact for the current build from GitHub Actions
+    artifact_saved = False
+    base_folder = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', kvm_name, 'unsafe-ccextractor')
+    Path(base_folder).mkdir(parents=True, exist_ok=True)
+    artifacts = repository.actions.artifacts().get(per_page="100")["artifacts"]
+    page_number = 2
+    if test.platform == TestPlatform.linux:
+        artifact_name = Artifact_names.linux
     else:
-        test_branch = repo.create_head(ci_branch, origin.refs.master)
-        test_branch.checkout(True)
-        try:
-            repo.head.reset(test.commit, working_tree=True)
-        except GitCommandError:
-            log.warn(f"[{platform}] Commit {test.commit} for test {test.id} does not exist!")
-            return
+        artifact_name = Artifact_names.windows
 
+    for index, artifact in enumerate(artifacts):
+        if artifact['name'] == artifact_name and artifact["workflow_run"]["head_sha"] == test.commit:
+            artifact_url = artifact["archive_download_url"]
+            try:
+                auth_header = f"token {github_config['bot_token']}"
+                r = requests.get(artifact_url, headers={"Authorization": auth_header})
+            except Exception as e:
+                log.critical("Could not fetch artifact, request timed out")
+                return
+            if r.status_code != 200:
+                log.critical(f"Could not fetch artifact, response code: {r.status_code}")
+                return
+
+            open(os.path.join(base_folder, 'ccextractor.zip'), 'wb').write(r.content)
+            with zipfile.ZipFile(os.path.join(base_folder, 'ccextractor.zip'), 'r') as artifact_zip:
+                artifact_zip.extractall(base_folder)
+
+            artifact_saved = True
+            break
+
+        if index + 1 == len(artifacts):
+            artifacts.extend(repository.actions.artifacts().get(per_page="100", page=str(page_number))["artifacts"])
+            page_number += 1
+
+    if not artifact_saved:
+        log.critical("Could not find an artifact for this commit")
+        return
     # Power on machine
     try:
         vm.create()
@@ -509,8 +455,7 @@ def schedule_test(gh_commit, commit, test_type, branch="master", pr_nr=0) -> Non
                 log.critical(f'Could not post to GitHub! Response: {a.response}')
 
 
-def deschedule_test(gh_commit, commit, test_type, message="Tests have been cancelled", branch="master", pr_nr=0,
-                    state=Status.FAILURE) -> None:
+def deschedule_test(gh_commit, platform, message="Tests have been cancelled", state=Status.FAILURE) -> None:
     """
     Post status to GitHub (default: as failure due to Github Actions incompletion).
 
@@ -518,8 +463,10 @@ def deschedule_test(gh_commit, commit, test_type, message="Tests have been cance
     :type gh_commit: Any
     :param commit: The commit hash.
     :type commit: str
-    :param test_type: The type of test
-    :type test_type: TestType
+    :param platform: The platform name
+    :type platform: TestPlatform
+    :param message: The message to be posted to GitHub
+    :type message: str
     :param branch: Branch name
     :type branch: str
     :param pr_nr: Pull Request number, if applicable.
@@ -530,29 +477,28 @@ def deschedule_test(gh_commit, commit, test_type, message="Tests have been cance
     from run import log
 
     if gh_commit is not None:
-        for platform in TestPlatform:
-            try:
-                gh_commit.post(
-                    state=state,
-                    description=message,
-                    context=f"CI - {platform.value}",
-                )
-            except ApiError as a:
-                log.critical(f'Could not post to GitHub! Response: {a.response}')
+        try:
+            gh_commit.post(
+                state=state,
+                description=message,
+                context=f"CI - {platform.value}",
+            )
+        except ApiError as a:
+            log.critical(f'Could not post to GitHub! Response: {a.response}')
 
 
-def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0) -> None:
+def queue_test(gh_commit, commit, test_type, platform, branch="master", pr_nr=0) -> None:
     """
     Store test details into Test model for each platform, and post the status to GitHub.
 
-    :param db: Database connection.
-    :type db: sqlalchemy.orm.scoped_session
     :param gh_commit: The GitHub API call for the commit. Can be None
     :type gh_commit: Any
     :param commit: The commit hash.
     :type commit: str
     :param test_type: The type of test
     :type test_type: TestType
+    :param platform: The platform name
+    :type platform: TestPlatform
     :param branch: Branch name
     :type branch: str
     :param pr_nr: Pull Request number, if applicable.
@@ -569,38 +515,25 @@ def queue_test(db, gh_commit, commit, test_type, branch="master", pr_nr=0) -> No
         log.debug('pull request test type detected')
         branch = "pull_request"
 
-    linux_test = Test.query.filter(and_(Test.platform == TestPlatform.linux,
-                                        Test.commit == commit,
-                                        Test.fork_id == fork.id,
-                                        Test.test_type == test_type,
-                                        Test.branch == branch,
-                                        Test.pr_nr == pr_nr
-                                        )).first()
-    windows_test = Test.query.filter(and_(Test.platform == TestPlatform.windows,
-                                          Test.commit == commit,
-                                          Test.fork_id == fork.id,
-                                          Test.test_type == test_type,
-                                          Test.branch == branch,
-                                          Test.pr_nr == pr_nr
-                                          )).first()
-    add_customized_regression_tests(linux_test.id)
-    add_customized_regression_tests(windows_test.id)
+    platform_test = Test.query.filter(and_(Test.platform == platform,
+                                           Test.commit == commit,
+                                           Test.fork_id == fork.id,
+                                           Test.test_type == test_type,
+                                           Test.branch == branch,
+                                           Test.pr_nr == pr_nr
+                                           )).first()
+    add_customized_regression_tests(platform_test.id)
 
     if gh_commit is not None:
-        status_entries = {
-            linux_test.platform.value: linux_test.id,
-            windows_test.platform.value: windows_test.id
-        }
-        for platform_name, test_id in status_entries.items():
-            try:
-                gh_commit.post(
-                    state=Status.PENDING,
-                    description="Tests queued",
-                    context=f"CI - {platform_name}",
-                    target_url=url_for('test.by_id', test_id=test_id, _external=True)
-                )
-            except ApiError as a:
-                log.critical(f'Could not post to GitHub! Response: {a.response}')
+        try:
+            gh_commit.post(
+                state=Status.PENDING,
+                description="Tests queued",
+                context=f"CI - {platform_test.platform.value}",
+                target_url=url_for('test.by_id', test_id=platform_test.id, _external=True)
+            )
+        except ApiError as a:
+            log.critical(f'Could not post to GitHub! Response: {a.response}')
 
     log.debug("Created tests, waiting for cron...")
 
@@ -749,6 +682,7 @@ def start_ci():
                         continue
                     progress = TestProgress(test.id, TestStatus.canceled, "PR closed", datetime.datetime.now())
                     g.db.add(progress)
+                    g.db.commit()
                     # If test run status exists, mark them as cancelled
                     for status in repository.commits(test.commit).status.get()["statuses"]:
                         if status["context"] == f"CI - {test.platform.value}":
@@ -844,9 +778,9 @@ def start_ci():
                                 if workflow['conclusion'] != "success":
                                     has_failed = True
                                     break
-                                if workflow['name'] == "Build CCExtractor on Linux":
+                                if workflow['name'] == Workflow_builds.LINUX:
                                     builds["linux"] = True
-                                elif workflow['name'] == "Build CCExtractor on Windows":
+                                elif workflow['name'] == Workflow_builds.WINDOWS:
                                     builds["windows"] = True
                             elif workflow['status'] != "completed":
                                 is_complete = False
@@ -854,14 +788,16 @@ def start_ci():
 
                     if has_failed:
                         # no runs to be scheduled since build failed
-                        deschedule_test(github_status, commit_hash, TestType.commit,
+                        deschedule_test(github_status, TestPlatform.linux,
+                                        message="Cancelling tests as Github Action(s) failed")
+                        deschedule_test(github_status, TestPlatform.windows,
                                         message="Cancelling tests as Github Action(s) failed")
                     elif is_complete:
                         if payload['workflow_run']['event'] == "pull_request":
                             # In case of pull request run tests only if it is still in an open state
                             # and user is not blacklisted
                             for pull_request in repository.pulls.get(state="open"):
-                                if pull_request['head']['sha'] == commit_hash and any(builds.values()):
+                                if pull_request['head']['sha'] == commit_hash:
                                     user_id = pull_request['user']['id']
                                     if BlockedUsers.query.filter(BlockedUsers.user_id == user_id).first() is not None:
                                         g.log.warning("User Blacklisted")
@@ -872,13 +808,37 @@ def start_ci():
                                             target_url=url_for('home.index', _external=True)
                                         )
                                         return 'ERROR'
-                                    queue_test(g.db, github_status, commit_hash,
-                                               TestType.pull_request, pr_nr=pull_request['number'])
-                        elif any(builds.values()):
-                            queue_test(g.db, github_status, commit_hash, TestType.commit)
+                                    if builds['linux']:
+                                        queue_test(github_status, commit_hash, TestType.pull_request,
+                                                   TestPlatform.linux, pr_nr=pull_request['number'])
+                                    else:
+                                        deschedule_test(github_status, TestPlatform.linux,
+                                                        message="Not ran - no code changes", state=Status.SUCCESS)
+                                    if builds['windows']:
+                                        queue_test(github_status, commit_hash, TestType.pull_request,
+                                                   TestPlatform.windows, pr_nr=pull_request['number'])
+                                    else:
+                                        deschedule_test(github_status, TestPlatform.windows,
+                                                        message="Not ran - no code changes", state=Status.SUCCESS)
+                                    return json.dumps({'msg': 'EOL'})
+                            # Either PR head commit was updated or PR was closed, therefore cancelling tests
+                            deschedule_test(github_status, TestPlatform.linux,
+                                            message="Tests cancelled", state=Status.FAILURE)
+                            deschedule_test(github_status, TestPlatform.windows,
+                                            message="Tests cancelled", state=Status.FAILURE)
                         else:
-                            deschedule_test(github_status, commit_hash, TestType.commit,
-                                            message="Not ran - no code changes", state=Status.SUCCESS)
+                            if builds['linux']:
+                                queue_test(github_status, commit_hash,
+                                           TestType.commit, TestPlatform.linux)
+                            else:
+                                deschedule_test(github_status, TestPlatform.linux,
+                                                message="Not ran - no code changes", state=Status.SUCCESS)
+                            if builds['windows']:
+                                queue_test(github_status, commit_hash,
+                                           TestType.commit, TestPlatform.windows)
+                            else:
+                                deschedule_test(github_status, TestPlatform.windows,
+                                                message="Not ran - no code changes", state=Status.SUCCESS)
                 elif payload['action'] == 'requested':
                     schedule_test(github_status, commit_hash, TestType.commit)
             else:

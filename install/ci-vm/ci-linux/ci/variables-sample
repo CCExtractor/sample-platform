@@ -7,27 +7,18 @@
 maintenanceURL="http://foo.bar/maintenance/linux"
 # The URL with the runCI blob
 runCIURL="https://raw.githubusercontent.com/CCExtractor/sample-platform/master/install/ci-vm/ci-linux/ci/runCI"
-# File that contains the URL to report to
-reportURLFile="/path/to/token/file"
-# runCI location
-runCIFile="/path/to/runCI/file"
-# Directory that contains the sources of the version to test
-srcDir="/path/to/ccextractor/repository"
-# Directory to copy the files to
-dstDir="/new/path/to/ccextractor/repository"
 # Directory where the test suite is located
-suiteSrcDir="/path/to/test/suite"
-# Directory where the test suite is located
-suiteDstDir="/path/to/test/suite"
+suiteDstDir="/repository"
 # Shell script to launch the test suite
-tester="./ccextractortester"
+tester="/repository/ccextractortester"
 # Location of the samples
-sampleFolder="/path/to/test/files"
+sampleFolder="/repository/TestFiles"
 # Location of the result files
-resultFolder="/path/to/result/files"
+resultFolder="/repository/TestResults"
 # Testfile location
-testFile="/path/to/testfile.xml"
+testFile="/repository/vm_data/ci-tests/TestAll.xml"
 # The folder that will be used to store the results in
-reportFolder="/path/to/folder/"
+reportFolder="/repository/reports"
 # The folder that will be used to temporarily store the result files in
-tempFolder="/path/to/temp/folder/"
+tempFolder="/repository/TempFiles"
+dstDir="/repository/vm_data/unsafe-ccextractor"

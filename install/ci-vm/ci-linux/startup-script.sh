@@ -22,10 +22,9 @@ rmdir temp
 
 vm_name=$(curl http://metadata.google.internal/computeMetadata/v1/instance/hostname -H "Metadata-Flavor: Google")
 vm_name=(${vm_name//./ })
-mkdir vm_data
-# sudo gcsfuse --only-dir vm_data/${vm_name} sample-platform vm_data
-sudo gcsfuse --implicit-dirs --only-dir vm_data/${vm_name} spdev vm_data
+mkdir vm_data reports
 
+sudo gcsfuse --implicit-dirs --only-dir vm_data/${vm_name} spdev vm_data
 sudo gcsfuse --implicit-dirs --only-dir TestFiles spdev TestFiles
 sudo gcsfuse --implicit-dirs --only-dir TestResults spdev TestResults
 

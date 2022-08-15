@@ -288,6 +288,8 @@ def start_test(compute, app, db, repository, test, bot_token):
     project_id = 'ccextractor-sampleplatform'
     operation = create_instance(compute, project_id, zone, test, full_url)
     wait_for_operation(compute, project_id, zone, operation['name'])
+    db.add(status)
+    db.commit()
 
 
 def create_instance(compute, project, zone, test, reportURL):

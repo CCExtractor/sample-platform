@@ -57,21 +57,17 @@ class TestSignUp(BaseTestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertIn(b'Entered value is not a valid email address', response.data)
 
-    @mock.patch('requests.post')
-    def test_existing_email_signup(self, mock_post):
+    def test_existing_email_signup(self):
         """Test case with existed email."""
         response = self.signup(email=signup_information['existing_user_email'])
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Email sent for verification purposes. Please check your mailbox', response.data)
-        mock_post.assert_called_once()
 
-    @mock.patch('requests.post')
-    def test_valid_email_signup(self, mock_post):
+    def test_valid_email_signup(self):
         """Test case with valid email."""
         response = self.signup(email=signup_information['valid_email'])
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Email sent for verification purposes. Please check your mailbox', response.data)
-        mock_post.assert_called_once()
 
     def signup(self, email):
         """Finish signup with specific email."""

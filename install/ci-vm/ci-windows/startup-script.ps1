@@ -1,3 +1,5 @@
+cd C:\Windows\Temp
+
 curl.exe https://downloads.rclone.org/v1.59.0/rclone-v1.59.0-windows-amd64.zip --output rclone.zip
 Expand-Archive -Path rclone.zip -DestinationPath .\
 New-Item -Path '.\repository' -ItemType Directory
@@ -7,6 +9,7 @@ Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManage
 choco install winfsp -y
 
 cd repository
+New-Item -Path '.\reports' -ItemType Directory
 
 $env:vm_name = curl.exe http://metadata.google.internal/computeMetadata/v1/instance/hostname -H "Metadata-Flavor: Google"
 $env:vm_name = ($env:vm_name -split "\.")[0]

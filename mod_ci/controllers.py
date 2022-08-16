@@ -121,6 +121,8 @@ def gcp_instance(app, db, platform, repository, delay) -> None:
 
     github_config = get_github_config(config)
 
+    log.info(f"[{platform}] Running gcp_instance")
+
     if delay is not None:
         import time
         log.debug(f'[{platform}] Sleeping for {delay} seconds')
@@ -152,7 +154,6 @@ def gcp_instance(app, db, platform, repository, delay) -> None:
             db.delete(test)
             db.commit()
             continue
-        log.info(test.id)
         start_test(compute, app, db, repository, test, github_config['bot_token'])
 
 def start_test(compute, app, db, repository, test, bot_token):
@@ -170,11 +171,6 @@ def start_test(compute, app, db, repository, test, bot_token):
     # 0) Write url to file
     with app.app_context():
         full_url = url_for('ci.progress_reporter', test_id=test.id, token=test.token, _external=True, _scheme="https")
-
-    file_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', kvm_name, 'reportURL')
-
-    with open(file_path, 'w+') as f:
-        f.write(full_url)
 
     # 1) Generate test files
     base_folder = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', kvm_name, 'ci-tests')

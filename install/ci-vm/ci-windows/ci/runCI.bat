@@ -16,7 +16,7 @@ SET userAgent="CCX/CI_BOT"
 SET logFile="%reportFolder%/log.html"
 
 echo Compile CCX
-call :postStatus "building" "Compiling CCExtractor"
+call :postStatus "building" "Checking if CCExtractor build artifact is present"
 if EXIST "%dstDir%\ccextractorwinfull.exe" (
     rem Run testsuite
     echo Run tests
@@ -30,7 +30,7 @@ if EXIST "%dstDir%\ccextractorwinfull.exe" (
     shutdown -s -t 0
     exit
 ) else (
-    call :haltAndCatchFire "build"
+    call :haltAndCatchFire "artifact"
 )
 echo End
 EXIT %ERRORLEVEL%

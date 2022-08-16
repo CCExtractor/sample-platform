@@ -57,7 +57,7 @@ function executeCommand {
 # Truncate log in case there was anything left from a previous session
 echo "" > "${logFile}"
 
-postStatus "building" "Compiling CCExtractor"
+postStatus "building" "Checking if CCExtractor build artifact is present"
 # Check if build succeeded
 if [ -e "${dstDir}/ccextractor" ]; then
         chmod 700 "${dstDir}/ccextractor"
@@ -71,5 +71,5 @@ if [ -e "${dstDir}/ccextractor" ]; then
         # Shut down
         sudo shutdown -h now
 else
-        haltAndCatchFire "build"
+        haltAndCatchFire "artifact"
 fi

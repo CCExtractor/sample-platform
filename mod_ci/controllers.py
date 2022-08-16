@@ -323,7 +323,7 @@ def create_instance(compute, project, zone, test, reportURL):
     # Configure the machine
     machine_type = "zones/%s/machineTypes/n1-standard-1" % zone
 
-    config = {
+    vm_config = {
         'name': name,
         'machineType': machine_type,
 
@@ -366,7 +366,7 @@ def create_instance(compute, project, zone, test, reportURL):
     return compute.instances().insert(
         project=project,
         zone=zone,
-        body=config).execute()
+        body=vm_config).execute()
 
 def wait_for_operation(compute, project, zone, operation):
     print('Waiting for operation to finish...')
@@ -383,7 +383,6 @@ def wait_for_operation(compute, project, zone, operation):
             return result
 
         time.sleep(1)
-# [END wait_for_operation]
 
 def save_xml_to_file(xml_node, folder_name, file_name) -> None:
     """
@@ -700,7 +699,7 @@ def start_ci():
                         continue
                     progress = TestProgress(test.id, TestStatus.canceled, "PR closed", datetime.datetime.now())
                     g.db.add(progress)
-                    g.db.commit(progress)
+                    g.db.commit()
                     # If test run status exists, mark them as cancelled
                     for status in repository.commits(test.commit).status.get()["statuses"]:
                         if status["context"] == f"CI - {test.platform.value}":

@@ -1,4 +1,4 @@
-: batch file for variables
+:: batch file for variables
 
 :: This script contains the variables which we don't want to post on GitHub
 :: Copy/rename this to variables, and fill this in.

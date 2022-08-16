@@ -21,4 +21,5 @@ testFile="/repository/vm_data/ci-tests/TestAll.xml"
 reportFolder="/repository/reports"
 # The folder that will be used to temporarily store the result files in
 tempFolder="/repository/TempFiles"
+# Directory where ccextractor executable is located
 dstDir="/repository/vm_data/unsafe-ccextractor"

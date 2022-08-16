@@ -141,12 +141,7 @@ def gcp_instance(app, db, platform, repository, delay) -> None:
         Test.id.notin_(finished_tests), Test.platform == platform
     ).order_by(Test.id.asc())
 
-    scopes = ['https://www.googleapis.com/auth/cloud-platform']
-    sa_file = os.path.join(config.get('SAMPLE_REPOSITORY', ''),'service-account.json')
-
-    credentials = service_account.Credentials.from_service_account_file(sa_file, scopes=scopes)
-
-    compute = googleapiclient.discovery.build('compute', 'v1', credentials=credentials)
+    compute = get_compute_service_object()
 
     for test in pending_tests:
         if test.test_type == TestType.pull_request and test.pr_nr == 0:
@@ -155,6 +150,18 @@ def gcp_instance(app, db, platform, repository, delay) -> None:
             db.commit()
             continue
         start_test(compute, app, db, repository, test, github_config['bot_token'])
+
+
+def get_compute_service_object():
+    from run import config
+
+    scopes = config.get('SCOPES', '')
+    sa_file = os.path.join(config.get('INSTALL_FOLDER', ''), config.get('SERVICE_ACCOUNT_FILE', ''))
+
+    credentials = service_account.Credentials.from_service_account_file(sa_file, scopes=scopes)
+
+    return googleapiclient.discovery.build('compute', 'v1', credentials=credentials)
+
 
 def start_test(compute, app, db, repository, test, bot_token):
 
@@ -280,12 +287,13 @@ def start_test(compute, app, db, repository, test, bot_token):
         log.critical("Could not find an artifact for this commit")
         return
 
-    zone = 'us-west4-b'
-    project_id = 'ccextractor-sampleplatform'
+    zone = config.get('ZONE', '')
+    project_id = config.get('PROJECT_NAME', '')
     operation = create_instance(compute, project_id, zone, test, full_url)
-    wait_for_operation(compute, project_id, zone, operation['name'])
-    db.add(status)
-    db.commit()
+    result = wait_for_operation(compute, project_id, zone, operation['name'])
+    if not 'error' in result:
+        db.add(status)
+        db.commit()
 
 
 def create_instance(compute, project, zone, test, reportURL):
@@ -294,18 +302,18 @@ def create_instance(compute, project, zone, test, reportURL):
 
     if test.platform==TestPlatform.linux:
         image_response = compute.images().getFromFamily(
-        project='ubuntu-os-cloud', family='ubuntu-minimal-2204-lts').execute()
-        startup_script = open(os.path.join(config.get('SAMPLE_REPOSITORY', ''),'install','ci-vm','ci-linux','startup-script.sh'), 'r').read()
+        project=config.get('LINUX_INSTANCE_PROJECT_NAME', ''), family=config.get('LINUX_INSTANCE_FAMILY_NAME', '')).execute()
+        startup_script = open(os.path.join(config.get('INSTALL_FOLDER', ''),'install','ci-vm','ci-linux','startup-script.sh'), 'r').read()
         metadata_items = [
             {'key': 'startup-script', 'value': startup_script},
             {'key': 'reportURL', 'value': reportURL}
         ]
     elif test.platform==TestPlatform.windows:
         image_response = compute.images().getFromFamily(
-        project='windows-cloud', family='windows-2019').execute()
-        startup_script = open(os.path.join(config.get('SAMPLE_REPOSITORY', ''),'install','ci-vm','ci-windows','startup-script.ps1'), 'r').read()
-        service_account = open(os.path.join(config.get('SAMPLE_REPOSITORY', ''),'service-account.json'),'r').read()
-        rclone_conf = open(os.path.join(config.get('SAMPLE_REPOSITORY', ''),'install','ci-vm','ci-windows','rclone.conf'), 'r').read()
+        project=config.get('WINDOWS_INSTANCE_PROJECT_NAME', ''), family=config.get('WINDOWS_INSTANCE_FAMILY_NAME', '')).execute()
+        startup_script = open(os.path.join(config.get('INSTALL_FOLDER', ''),'install','ci-vm','ci-windows','startup-script.ps1'), 'r').read()
+        service_account = open(os.path.join(config.get('INSTALL_FOLDER', ''),config.get('SERVICE_ACCOUNT_FILE', '')),'r').read()
+        rclone_conf = open(os.path.join(config.get('INSTALL_FOLDER', ''),'install','ci-vm','ci-windows','rclone.conf'), 'r').read()
         metadata_items = [
             {'key': 'windows-startup-script-ps1', 'value': startup_script},
             {'key': 'service_account', 'value': service_account},
@@ -314,13 +322,23 @@ def create_instance(compute, project, zone, test, reportURL):
         ]
     source_disk_image = image_response['selfLink']
 
-    name = f"{test.platform.value}-{test.id}"
+    vm_name = f"{test.platform.value}-{test.id}"
+
+    vm_config = get_config_for_gcp_instance(vm_name, source_disk_image, metadata_items)
+
+    return compute.instances().insert(
+        project=project,
+        zone=zone,
+        body=vm_config).execute()
+
+def get_config_for_gcp_instance(vm_name, source_disk_image, metadata_items):
+    from run import config
 
     # Configure the machine
-    machine_type = "zones/%s/machineTypes/n1-standard-1" % zone
+    machine_type = config.get('MACHINE_TYPE', '')
 
-    vm_config = {
-        'name': name,
+    return {
+        'name': vm_name,
         'machineType': machine_type,
 
         # Specify the boot disk and the image to use as a source.
@@ -359,11 +377,6 @@ def create_instance(compute, project, zone, test, reportURL):
         }
     }
 
-    return compute.instances().insert(
-        project=project,
-        zone=zone,
-        body=vm_config).execute()
-
 def wait_for_operation(compute, project, zone, operation):
     print('Waiting for operation to finish...')
     while True:
@@ -374,8 +387,6 @@ def wait_for_operation(compute, project, zone, operation):
 
         if result['status'] == 'DONE':
             print("done.")
-            if 'error' in result:
-                raise Exception(result['error'])
             return result
 
         time.sleep(1)

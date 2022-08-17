@@ -24,7 +24,7 @@ def cron(testing=False):
     repository = gh.repos(config['GITHUB_OWNER'])(config['GITHUB_REPOSITORY'])
 
     if testing is True:
-        gcp_instance(db, TestPlatform.linux, None)
+        gcp_instance(current_app._get_current_object(), db, TestPlatform.linux, repository, None)
     else:
         start_platforms(db, repository)
 

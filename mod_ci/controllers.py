@@ -117,7 +117,7 @@ def start_platforms(db, repository, delay=None, platform=None) -> None:
 def gcp_instance(app, db, platform, repository, delay) -> None:
     """
     Find all the pending tests and start running them in new GCP instances.
-    
+
     :param app: The Flask app
     :type app: Flask
     :param db: database connection
@@ -393,7 +393,7 @@ def get_config_for_gcp_instance(vm_name, source_disk_image, metadata_items) -> D
 
     :param vm_name: The name of the instance to be created
     :type vm_name: str
-    :param source_disk_image: Source disk image for new instance 
+    :param source_disk_image: Source disk image for new instance
     :type source_disk_image: str
     :param metadata_items: VM Metadata for new instance
     :type metadata_items: list

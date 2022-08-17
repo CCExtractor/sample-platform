@@ -7,19 +7,19 @@ import os
 import re
 import shutil
 import sys
-import zipfile
 import time
+import zipfile
 from multiprocessing import Process
 from pathlib import Path
-from typing import Any
-import googleapiclient.discovery
-from google.oauth2 import service_account
+from typing import Any, Dict
 
+import googleapiclient.discovery
 import requests
 from flask import (Blueprint, abort, flash, g, jsonify, redirect, request,
                    url_for)
 from git import GitCommandError, InvalidGitRepositoryError, Repo
 from github import ApiError, GitHub
+from google.oauth2 import service_account
 from lxml import etree
 from lxml.etree import Element
 from markdown2 import markdown
@@ -46,7 +46,6 @@ from mod_regression.models import (Category, RegressionTest,
 from mod_sample.models import Issue
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
                              TestResult, TestResultFile, TestStatus, TestType)
-
 
 mod_ci = Blueprint('ci', __name__)
 
@@ -116,8 +115,21 @@ def start_platforms(db, repository, delay=None, platform=None) -> None:
 
 
 def gcp_instance(app, db, platform, repository, delay) -> None:
+    """
+    Find all the pending tests and start running them in new GCP instances.
     
-    from run import log, config, get_github_config
+    :param app: The Flask app
+    :type app: Flask
+    :param db: database connection
+    :type db: sqlalchemy.orm.scoped_session
+    :param platform: operating system
+    :type platform: str
+    :param repository: repository to run tests on
+    :type repository: str
+    :param delay: time delay after which to start kvm processor
+    :type delay: int
+    """
+    from run import config, get_github_config, log
 
     github_config = get_github_config(config)
 
@@ -152,7 +164,8 @@ def gcp_instance(app, db, platform, repository, delay) -> None:
         start_test(compute, app, db, repository, test, github_config['bot_token'])
 
 
-def get_compute_service_object():
+def get_compute_service_object() -> googleapiclient.discovery.Resource:
+    """Get a Cloud Compute Engine service object."""
     from run import config
 
     scopes = config.get('SCOPES', '')
@@ -163,14 +176,37 @@ def get_compute_service_object():
     return googleapiclient.discovery.build('compute', 'v1', credentials=credentials)
 
 
-def start_test(compute, app, db, repository, test, bot_token):
+def start_test(compute, app, db, repository, test, bot_token) -> None:
+    """
+    Start a VM instance and run the tests.
 
+    Creates testing xml files to test the changes.
+    Downloads the build artifacts generated during GitHub Action workflows.
+    Create a GCP instance and start the test.
+
+    :param compute: The cloud compute engine service object
+    :type compute: googleapiclient.discovery.Resource
+    :param app: The Flask app
+    :type app: Flask
+    :param db: database connection
+    :type db: sqlalchemy.orm.scoped_session
+    :param platform: operating system
+    :type platform: str
+    :param repository: repository to run tests on
+    :type repository: str
+    :param test: The test which is to be started
+    :type test: mod_test.models.Test
+    :param bot_token: The GitHub bot token
+    :type bot_token: str
+    :return: Nothing
+    :rtype: None
+    """
     from run import config, log
     log.debug(f'[{test.platform}] Starting test {test.id}')
     kvm_name = f"{test.platform.value}-{test.id}"
-    
+
     test_folder = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', kvm_name)
-    
+
     Path(test_folder).mkdir(parents=True, exist_ok=True)
 
     status = Kvm(kvm_name, test.id)
@@ -291,29 +327,48 @@ def start_test(compute, app, db, repository, test, bot_token):
     project_id = config.get('PROJECT_NAME', '')
     operation = create_instance(compute, project_id, zone, test, full_url)
     result = wait_for_operation(compute, project_id, zone, operation['name'])
-    if not 'error' in result:
+    if 'error' not in result:
         db.add(status)
         db.commit()
 
 
-def create_instance(compute, project, zone, test, reportURL):
-    
+def create_instance(compute, project, zone, test, reportURL) -> Dict:
+    """
+    Start an instance and pass the VM metadata.
+
+    :param compute: The cloud compute engine service object
+    :type compute: googleapiclient.discovery.Resource
+    :param project: The GCP project name
+    :type project: str
+    :param zone: Zone for the new VM instance
+    :type zone: str
+    :param test: The test for which VM is to be started
+    :type test: mod_test.models.Test
+    :param reportURL: Test-specific URL link for reporting progress to server
+    :type reportURL: str
+    :return: Create operation details after VM creation
+    :rtype: Dict
+    """
     from run import config
 
-    if test.platform==TestPlatform.linux:
-        image_response = compute.images().getFromFamily(
-        project=config.get('LINUX_INSTANCE_PROJECT_NAME', ''), family=config.get('LINUX_INSTANCE_FAMILY_NAME', '')).execute()
-        startup_script = open(os.path.join(config.get('INSTALL_FOLDER', ''),'install','ci-vm','ci-linux','startup-script.sh'), 'r').read()
+    if test.platform == TestPlatform.linux:
+        image_response = compute.images().getFromFamily(project=config.get('LINUX_INSTANCE_PROJECT_NAME', ''),
+                                                        family=config.get('LINUX_INSTANCE_FAMILY_NAME', '')).execute()
+        startup_script = open(os.path.join(config.get('INSTALL_FOLDER', ''), 'install', 'ci-vm',
+                                           'ci-linux', 'startup-script.sh'), 'r').read()
         metadata_items = [
             {'key': 'startup-script', 'value': startup_script},
             {'key': 'reportURL', 'value': reportURL}
         ]
-    elif test.platform==TestPlatform.windows:
-        image_response = compute.images().getFromFamily(
-        project=config.get('WINDOWS_INSTANCE_PROJECT_NAME', ''), family=config.get('WINDOWS_INSTANCE_FAMILY_NAME', '')).execute()
-        startup_script = open(os.path.join(config.get('INSTALL_FOLDER', ''),'install','ci-vm','ci-windows','startup-script.ps1'), 'r').read()
-        service_account = open(os.path.join(config.get('INSTALL_FOLDER', ''),config.get('SERVICE_ACCOUNT_FILE', '')),'r').read()
-        rclone_conf = open(os.path.join(config.get('INSTALL_FOLDER', ''),'install','ci-vm','ci-windows','rclone.conf'), 'r').read()
+    elif test.platform == TestPlatform.windows:
+        image_response = compute.images().getFromFamily(project=config.get('WINDOWS_INSTANCE_PROJECT_NAME', ''),
+                                                        family=config.get('WINDOWS_INSTANCE_FAMILY_NAME', '')).execute()
+        startup_script = open(os.path.join(config.get('INSTALL_FOLDER', ''), 'install', 'ci-vm',
+                                           'ci-windows', 'startup-script.ps1'), 'r').read()
+        service_account = open(os.path.join(config.get('INSTALL_FOLDER', ''),
+                                            config.get('SERVICE_ACCOUNT_FILE', '')), 'r').read()
+        rclone_conf = open(os.path.join(config.get('INSTALL_FOLDER', ''), 'install', 'ci-vm',
+                                        'ci-windows', 'rclone.conf'), 'r').read()
         metadata_items = [
             {'key': 'windows-startup-script-ps1', 'value': startup_script},
             {'key': 'service_account', 'value': service_account},
@@ -331,7 +386,20 @@ def create_instance(compute, project, zone, test, reportURL):
         zone=zone,
         body=vm_config).execute()
 
-def get_config_for_gcp_instance(vm_name, source_disk_image, metadata_items):
+
+def get_config_for_gcp_instance(vm_name, source_disk_image, metadata_items) -> Dict:
+    """
+    Get VM config for new VM instance.
+
+    :param vm_name: The name of the instance to be created
+    :type vm_name: str
+    :param source_disk_image: Source disk image for new instance 
+    :type source_disk_image: str
+    :param metadata_items: VM Metadata for new instance
+    :type metadata_items: list
+    :return: Config for new instance
+    :rtype: Dict
+    """
     from run import config
 
     # Configure the machine
@@ -377,8 +445,24 @@ def get_config_for_gcp_instance(vm_name, source_disk_image, metadata_items):
         }
     }
 
-def wait_for_operation(compute, project, zone, operation):
-    print('Waiting for operation to finish...')
+
+def wait_for_operation(compute, project, zone, operation) -> Dict:
+    """
+    Wait for an operation to get completed.
+
+    :param compute: The cloud compute engine service object
+    :type compute: googleapiclient.discovery.Resource
+    :param project: The GCP project name
+    :type project: str
+    :param zone: Zone for the new VM instance
+    :type zone: str
+    :param operation: Operation name for which server is waiting
+    :type operation: str
+    :return: Response received after operation completion
+    :rtype: Dict
+    """
+    from run import log
+    log.info("Waiting for an operation to finish")
     while True:
         result = compute.zoneOperations().get(
             project=project,
@@ -386,10 +470,11 @@ def wait_for_operation(compute, project, zone, operation):
             operation=operation).execute()
 
         if result['status'] == 'DONE':
-            print("done.")
+            log.info("Operation Completed")
             return result
 
         time.sleep(1)
+
 
 def save_xml_to_file(xml_node, folder_name, file_name) -> None:
     """

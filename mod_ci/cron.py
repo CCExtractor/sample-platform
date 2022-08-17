@@ -14,7 +14,7 @@ def cron(testing=False):
     from github import GitHub
 
     from database import create_session
-    from mod_ci.controllers import TestPlatform, start_platforms, gcp_instance
+    from mod_ci.controllers import TestPlatform, gcp_instance, start_platforms
     from run import config, log
 
     log.info('Run the cron for kicking off CI platform(s).')

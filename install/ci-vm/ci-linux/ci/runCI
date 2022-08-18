@@ -12,16 +12,6 @@ if [ ! -f "$DIR/variables" ]; then
     sudo shutdown -h now
 fi
 
-# Source variables
-. "$DIR/variables"
-
-# Add cargo to path
-PATH="/root/.cargo/bin:$PATH"
-
-reportURL=$(curl http://metadata/computeMetadata/v1/instance/attributes/reportURL -H "Metadata-Flavor: Google")
-userAgent="CCX/CI_BOT"
-logFile="${reportFolder}/log.html"
-
 # Functions for re-use in various stages of the test progress
 
 # Post status to the server
@@ -53,6 +43,18 @@ function executeCommand {
                 haltAndCatchFire "" # No message needed as we post before anyway
         fi
 }
+
+# Source variables
+. "$DIR/variables"
+
+# Add cargo to path
+PATH="/root/.cargo/bin:$PATH"
+
+reportURL=$(curl http://metadata/computeMetadata/v1/instance/attributes/reportURL -H "Metadata-Flavor: Google")
+userAgent="CCX/CI_BOT"
+logFile="${reportFolder}/log.html"
+
+postStatus "preparation" "Loaded variables and created log file"
 
 # Truncate log in case there was anything left from a previous session
 echo "" > "${logFile}"

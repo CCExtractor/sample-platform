@@ -387,6 +387,27 @@ def create_instance(compute, project, zone, test, reportURL) -> Dict:
         body=vm_config).execute()
 
 
+def delete_instance(compute, project, zone, vm_name) -> Dict:
+    """
+    Delete the GCP instance with given name.
+
+    :param compute: The cloud compute engine service object
+    :type compute: googleapiclient.discovery.Resource
+    :param project: The GCP project name
+    :type project: str
+    :param zone: Zone for the new VM instance
+    :type zone: str
+    :param vm_name: Name of the instance to be deleted
+    :type vm_name: str
+    :return: Delete operation details after VM deletion
+    :rtype: Dict
+    """
+    return compute.instances().delete(
+        project=project,
+        zone=zone,
+        instance=vm_name).execute()
+
+
 def get_config_for_gcp_instance(vm_name, source_disk_image, metadata_items) -> Dict:
     """
     Get VM config for new VM instance.
@@ -1219,8 +1240,14 @@ def progress_type_request(log, test, test_id, request) -> bool:
         log.error(f'Got an exception while posting to GitHub! Message: {a.message}')
 
     if status in [TestStatus.completed, TestStatus.canceled]:
-        # Start next test if necessary, on the same platform
-        start_platforms(g.db, repository, 60, test.platform)
+        # Delete the current instance
+        from run import config
+        compute = get_compute_service_object()
+        zone = config.get('ZONE', '')
+        project = config.get('PROJECT_NAME', '')
+        vm_name = f"{test.platform.value}-{test.id}"
+        operation = delete_instance(compute, project, zone, vm_name)
+        wait_for_operation(compute, project, zone, operation['name'])
 
     return True
 

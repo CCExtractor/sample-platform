@@ -98,6 +98,11 @@ def start_platforms(db, repository, delay=None, platform=None) -> None:
     """
     from run import app, config, log
 
+    vm_max_runtime = config.get("KVM_MAX_RUNTIME", 120)
+    zone = config.get('ZONE', '')
+    project = config.get('PROJECT_NAME', '')
+    delete_expired_instances(vm_max_runtime, project, zone)
+
     with app.app_context():
         from flask import current_app
         app = current_app._get_current_object()
@@ -112,6 +117,60 @@ def start_platforms(db, repository, delay=None, platform=None) -> None:
             windows_process = Process(target=gcp_instance, args=(app, db, TestPlatform.windows, repository, delay))
             windows_process.start()
             log.info('Windows VM process kicked off')
+
+
+def get_running_instances(compute, project, zone) -> list:
+    """
+    Get details of all the running GCP VM instances.
+
+    :param compute: The cloud compute engine service object
+    :type compute: googleapiclient.discovery.Resource
+    :param project: The GCP project name
+    :type project: str
+    :param zone: Configured zone for the VM instances
+    :type zone: str
+    :return: List of VM instances
+    :rtype: list
+    """
+    result = compute.instances().list(project=project, zone=zone).execute()
+    return result['items'] if 'items' in result else []
+
+
+def is_instance_testing(vm_name) -> bool:
+    """
+    Check if VM name is of the correct format and return if it is used for testing or not.
+
+    :param vm_name: Name of the VM machine to be identified
+    :type vm_name: str
+    :return: Boolean whether instance is used for testing or not
+    :rtype: bool
+    """
+    for platform in TestPlatform:
+        if re.fullmatch(f"{platform.value}-[0-9]+", vm_name):
+            return True
+    return False
+
+
+def delete_expired_instances(max_runtime, project, zone) -> None:
+    """
+    Get all running instances and delete instances whose maximum runtime limit is reached.
+
+    :param max_runtime: The maximum runtime limit for VM instances
+    :type max_runtime: int
+    :param project: The GCP project name
+    :type project: str
+    :param zone: Zone for the new VM instance
+    :type zone: str
+    """
+    compute = get_compute_service_object()
+    for instance in get_running_instances(compute, project, zone):
+        vm_name = instance['name']
+        if is_instance_testing(vm_name):
+            creationTimestamp = datetime.datetime.strptime(instance['creationTimestamp'], '%Y-%m-%dT%H:%M:%S.%f%z')
+            currentTimestamp = datetime.datetime.now(datetime.timezone.utc)
+            if currentTimestamp - creationTimestamp >= datetime.timedelta(minutes=max_runtime):
+                operation = delete_instance(compute, project, zone, vm_name)
+                wait_for_operation(compute, project, zone, operation['name'])
 
 
 def gcp_instance(app, db, platform, repository, delay) -> None:

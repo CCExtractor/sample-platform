@@ -4,7 +4,7 @@
 
 This repository contains the code for a platform that manages a test suite bot, sample upload and more. This platform allows for a unified place to
 report errors, submit samples, view existing samples and more. It was
-originally developed during GSoC 2015 and rewritten during the 2016 edition. It was further improved and worked upon during GSoC 2017, 2018 and 2019.
+originally developed during GSoC 2015 and rewritten during the 2016 edition. It was further improved and worked upon during GSoC 2017, 2018, 2019 and 2022.
 
 To see the live version of the platform, simply go to
 [CCExtractor Submission Platform](https://sampleplatform.ccextractor.org/).
@@ -95,8 +95,8 @@ For creating a virtual environment, we use [virtualenv](https://pypi.org/project
 ```bash
 virtualenv venv                          # create a virtual environment
 source venv/bin/activate                 # activate the virtual environment
-pip install -r requirements.txt         # install dependencies
-pip install -r test-requirements.txt    # install test dependencies
+pip install -r requirements.txt          # install dependencies
+pip install -r test-requirements.txt     # install test dependencies
 TESTING=True nosetests --with-cov --cov-config .coveragerc
 ```
 

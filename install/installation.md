@@ -7,11 +7,13 @@
 * MySQL
 * Pure-FTPD with mysql
 
+## Configuring Google Cloud Platform
+
+To configure the GCP for the platform, see [the installation guide](ci-vm/installation.md).
+
 ## Automated install
 
-Automated install only works for the platform section, **not** for the KVM
-functionality. To install the VM's for KVM, see 
-[the installation guide](ci-vm/installation.md).
+Automated install only works for the platform section; make sure to have configured the GCP before continuing the platform installation.
 
 ### Linux
 
@@ -82,13 +84,6 @@ sudo python bootstrap_gunicorn.py
 
 * If `gunicorn` boots up successfully, most relevant logs will be stored in
  the `logs` directory. Otherwise they'll likely be in `syslog`.
-
-* If it shows the error regarding the `libvirt`, then there is missing `fftw3.h` file. Try the following:
-```
-sudo apt-get install libvirt-dev
-sudo apt-get install libfftw3-dev
-sudo apt-get install libsndfile1-dev
-```
 
 * If any issue still persists, follow the mentioned steps to debug and troubleshoot your issue:
     1. Firstly check the Platform Installation log file in the install folder. Check for any errors, which may have been caused during platform installation on your system, and then try to resolve them accordingly.

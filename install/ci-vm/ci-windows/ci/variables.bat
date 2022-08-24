@@ -4,7 +4,7 @@
 :: Copy/rename this to variables, and fill this in.
 
 @echo off
-:: Directory to copy the files to
+:: Directory where ccextractor executable is located
 set dstDir=.\vm_data\unsafe-ccextractor
 :: Directory where the test suite is located
 set suiteDstDir=.

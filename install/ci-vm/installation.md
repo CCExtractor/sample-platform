@@ -40,7 +40,6 @@ Now navigate to the "keys" section of the service account created, and create a 
 
 Note: This is a secret key and access to the key would give access to your GCP project.
 
-
 ## Provide access of GCS bucket to the service account
 
 Note: If you have provided "editor" role to the service account (not recommended), skip this step.
@@ -49,35 +48,6 @@ If you are not the owner of the GCP project you are working on, make sure you ha
 
 - Go to [cloud storage page](https://console.cloud.google.com/storage/browser), and select the bucket to be used for the platform.
 - Now go to "Permissions" tab and check that the service account you created has "Storage Legacy Bucket Owner" and "Storage Legacy Object Owner" permissions, if not add these permissions.
-
-## Mounting Bucket to the platform server machine
-
-### Linux
-Mounting on Linux OS can be done using [Google Cloud Storage FUSE](https://cloud.google.com/storage/docs/gcs-fuse).
-
-Steps:
-- Install gcsfuse using [official documentation](https://github.com/GoogleCloudPlatform/gcsfuse/blob/master/docs/installing.md) or using the following script 
-    ```
-    curl -L -O https://github.com/GoogleCloudPlatform/gcsfuse/releases/download/v0.39.2/gcsfuse_0.39.2_amd64.deb
-    dpkg --install gcsfuse_0.39.2_amd64.deb
-    rm gcsfuse_0.39.2_amd64.deb
-    ```
-- Now, there are multiple ways to mount the bucket, official documentation [here](https://github.com/GoogleCloudPlatform/gcsfuse/blob/master/docs/mounting.md). For Ubuntu and derivatives the following can be added to `/etc/fstab` file, replace _GCS_BUCKET_NAME_ with the name of the bucket created for the platform:
-    ```
-    GCS_BUCKET_NAME   /repository 	gcsfuse rw,uid=33,gid=33,noatime,async,_netdev,noexec,user,implicit_dirs,allow_other	0 0
-    ```
-- Now run the following command as root to mount the bucket:
-    ```
-    mount /repository
-    ```
-
-### Windows
-Mounting on Windows OS can be done using [Rclone](https://rclone.org/) and [WinFsp](https://winfsp.dev/).
-
-Steps:
-- Install WinFsp and Rclone from their official websites.
-
-TODO
 
 ## Mounting of the Cloud Storage Bucket
 

@@ -107,16 +107,16 @@ def start_platforms(db, repository, delay=None, platform=None) -> None:
         from flask import current_app
         app = current_app._get_current_object()
         if platform is None or platform == TestPlatform.linux:
-            log.info('Define process to run Linux VM')
+            log.info('Define process to run Linux GCP instances')
             linux_process = Process(target=gcp_instance, args=(app, db, TestPlatform.linux, repository, delay))
             linux_process.start()
-            log.info('Linux VM process kicked off')
+            log.info('Linux GCP instances process kicked off')
 
         if platform is None or platform == TestPlatform.windows:
-            log.info('Define process to run Windows VM')
+            log.info('Define process to run Windows GCP instances')
             windows_process = Process(target=gcp_instance, args=(app, db, TestPlatform.windows, repository, delay))
             windows_process.start()
-            log.info('Windows VM process kicked off')
+            log.info('Windows GCP instances process kicked off')
 
 
 def get_running_instances(compute, project, zone) -> list:

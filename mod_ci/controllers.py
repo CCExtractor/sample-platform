@@ -101,7 +101,8 @@ def start_platforms(db, repository, delay=None, platform=None) -> None:
     vm_max_runtime = config.get("KVM_MAX_RUNTIME", 120)
     zone = config.get('ZONE', '')
     project = config.get('PROJECT_NAME', '')
-    delete_expired_instances(vm_max_runtime, project, zone)
+    compute = get_compute_service_object()
+    delete_expired_instances(compute, vm_max_runtime, project, zone)
 
     with app.app_context():
         from flask import current_app
@@ -151,10 +152,12 @@ def is_instance_testing(vm_name) -> bool:
     return False
 
 
-def delete_expired_instances(max_runtime, project, zone) -> None:
+def delete_expired_instances(compute, max_runtime, project, zone) -> None:
     """
     Get all running instances and delete instances whose maximum runtime limit is reached.
 
+    :param compute: The cloud compute engine service object
+    :type compute: googleapiclient.discovery.Resource
     :param max_runtime: The maximum runtime limit for VM instances
     :type max_runtime: int
     :param project: The GCP project name
@@ -162,7 +165,6 @@ def delete_expired_instances(max_runtime, project, zone) -> None:
     :param zone: Zone for the new VM instance
     :type zone: str
     """
-    compute = get_compute_service_object()
     for instance in get_running_instances(compute, project, zone):
         vm_name = instance['name']
         if is_instance_testing(vm_name):

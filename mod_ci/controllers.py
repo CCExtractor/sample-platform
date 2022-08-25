@@ -98,7 +98,7 @@ def start_platforms(db, repository, delay=None, platform=None) -> None:
     """
     from run import app, config, log
 
-    vm_max_runtime = config.get("KVM_MAX_RUNTIME", 120)
+    vm_max_runtime = config.get("GCP_INSTANCE_MAX_RUNTIME", 120)
     zone = config.get('ZONE', '')
     project = config.get('PROJECT_NAME', '')
     compute = get_compute_service_object()

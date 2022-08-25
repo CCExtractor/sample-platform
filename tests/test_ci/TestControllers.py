@@ -364,16 +364,20 @@ class TestControllers(BaseTestCase):
         if flag:
             assert False, "Message not Correct"
 
+    def test_get_running_instances(self):
+        """Test get_running_instances function."""
+        from mod_ci.controllers import get_running_instances
+        result = get_running_instances(MagicMock(), "test", "test")
+        self.assertEqual(result, [])
+
     def test_check_main_repo_returns_in_false_url(self):
         """Test main repo checking."""
         from mod_ci.controllers import is_main_repo
         assert is_main_repo('random_user/random_repo') is False
         assert is_main_repo('test_owner/test_repo') is True
 
-    @mock.patch('mod_ci.controllers.wait_for_operation')
-    @mock.patch('mod_ci.controllers.delete_instance')
     @mock.patch('mod_ci.controllers.get_running_instances')
-    def test_delete_expired_instances(self, mock_get_running_instances, mock_delete_instance, mock_wait_for_operation):
+    def test_delete_expired_instances(self, mock_get_running_instances):
         """Test working of delete_expired_instances function."""
         from datetime import datetime, timedelta, timezone
 
@@ -390,9 +394,13 @@ class TestControllers(BaseTestCase):
             'name': 'osx-3',
             'creationTimestamp': datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f%z"),
         }]
-        delete_expired_instances('a', 120, 'a', 'a')
-        mock_delete_instance.assert_called_once()
-        mock_wait_for_operation.assert_called_once()
+        compute = MagicMock()
+        pendingOperations = [
+            {'status': "DONE"},
+            {'status': "PENDING"}
+        ]
+        compute.zoneOperations.return_value.get.return_value.execute = pendingOperations.pop
+        delete_expired_instances(compute, 120, 'a', 'a')
 
     def test_customizedtest_added_to_queue(self):
         """Test queue with a customized test addition."""

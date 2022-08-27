@@ -60,17 +60,15 @@ postStatus "preparation" "Loaded variables and created log file"
 echo "" > "${logFile}"
 
 postStatus "building" "Checking if CCExtractor build artifact is present"
-# Check if build succeeded
 if [ -e "${dstDir}/ccextractor" ]; then
         chmod 700 "${dstDir}/ccextractor"
         chmod +x ${tester}
-        # Run testSuite
         postStatus "testing" "Running tests"
         executeCommand cd ${suiteDstDir}
         executeCommand ${tester} --entries "${testFile}" --executable "${dstDir}/ccextractor" --tempfolder "${tempFolder}" --timeout 3000 --reportfolder "${reportFolder}" --resultfolder "${resultFolder}" --samplefolder "${sampleFolder}" --method Server --url "${reportURL}"
         postStatus "completed" "Ran all tests"
         sendLogFile
-        # Shut down
+
         sudo shutdown -h now
 else
         haltAndCatchFire "artifact"

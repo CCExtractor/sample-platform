@@ -23,7 +23,7 @@ logs/*.log
 secret_csrf
 secret_key
 config.py
-install/ci-vm/ci-linux/ci/variables
+service-account.json
 
 # Build commit
 build_commit.py

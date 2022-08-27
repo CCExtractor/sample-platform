@@ -19,14 +19,13 @@ SET logFile="%reportFolder%/log.html"
 echo Checking for CCExtractor build artifact
 call :postStatus "building" "Checking if CCExtractor build artifact is present"
 if EXIST "%dstDir%\ccextractorwinfull.exe" (
-    rem Run testsuite
     echo Run tests
     call :postStatus "testing" "Running tests"
     call :executeCommand cd %suiteDstDir%
     call :executeCommand "%tester%" --entries "%testFile%" --executable "%dstDir%\ccextractorwinfull.exe" --tempfolder "%tempFolder%" --timeout 3000 --reportfolder "%reportFolder%" --resultfolder "%resultFolder%" --samplefolder "%sampleFolder%" --method Server --url "%reportURL%"
     call :postStatus "completed" "Ran all tests"
     echo Done running tests
-    rem Shut down
+
     timeout 5
     shutdown -s -t 0
     exit

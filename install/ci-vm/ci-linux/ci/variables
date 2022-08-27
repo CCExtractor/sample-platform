@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# This script contains the variables which we don't want to post on GitHub
-# Copy/rename this to variables, and fill this in.
+# This script contains the variables which are used during CI on VM instances.
+# Copy/rename this file in case you want to change the default variables.
 
 # The URL to check if the VM is in maintenance
 maintenanceURL="http://foo.bar/maintenance/linux"

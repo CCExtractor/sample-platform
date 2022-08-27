@@ -1,7 +1,7 @@
 :: batch file for variables
 
-:: This script contains the variables which we don't want to post on GitHub
-:: Copy/rename this to variables, and fill this in.
+:: This script contains the variables which are used during CI on VM instances.
+:: Copy/rename this file in case you want to change the default variables.
 
 @echo off
 :: Directory where ccextractor executable is located

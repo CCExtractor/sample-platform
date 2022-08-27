@@ -278,6 +278,9 @@ class TestControllers(BaseTestCase):
         compute = MagicMock()
         instance = create_instance(compute, "test", "test", Test.query.get(1), "")
 
+        mock_open_file.assert_called()
+        self.assertEqual(str(type(instance)), str(MagicMock))
+
     @mock.patch('builtins.open', new_callable=mock.mock_open())
     def test_create_instance_windows(self, mock_open_file):
         """Test create_instance function for windows platform."""
@@ -287,6 +290,9 @@ class TestControllers(BaseTestCase):
         g.db.add(new_test)
         g.db.commit()
         instance = create_instance(compute, "test", "test", new_test, "")
+
+        mock_open_file.assert_called()
+        self.assertEqual(str(type(instance)), str(MagicMock))
 
     @mock.patch('mod_ci.controllers.GeneralData')
     @mock.patch('mod_ci.controllers.g')
@@ -408,6 +414,7 @@ class TestControllers(BaseTestCase):
         ]
         compute.zoneOperations.return_value.get.return_value.execute = pendingOperations.pop
         delete_expired_instances(compute, 120, 'a', 'a')
+        mock_get_running_instances.assert_called_once()
 
     def test_customizedtest_added_to_queue(self):
         """Test queue with a customized test addition."""

@@ -61,7 +61,7 @@ cd sample-platform/install/
 sudo ./install.sh
 ```    
 
-The `install.sh` will begin downloading and updating all the necessary dependencies. Once done, it'll ask to enter some details in order to set up the sample-platform. After filling in these the platform should be ready for use.
+The `install.sh` will begin downloading and updating all the necessary dependencies. Once done, it'll ask to enter some details in order to set up the sample-platform. After filling in these details, the platform should be ready for use.
 
 Please read the below troubleshooting notes in case of any error or doubt.
 
@@ -71,7 +71,7 @@ Please read the below troubleshooting notes in case of any error or doubt.
  packages to install, select Python, MySql, and google-api-client. If you 
  already have cygwin installed, you must run its setup file to install the new packages. Make sure the dropdown menu is set to Full, so you can all packages. To select one, click skip and it will change to the version number of the package. Use the end of [this](https://www.davidbaumgold.com/tutorials/set-up-python-windows/) tutorial for help on getting cygwin to recognize python.
 * Install [WinFsp](https://winfsp.dev/) and [Rclone](https://rclone.org/) from their official websites.
-* Now rclone is a command line program, follow the official documentation to mount the google cloud storage bucket, using the service account key file.
+* Now rclone is a command line program, follow the [official documentation](https://rclone.org/googlecloudstorage/) to mount the google cloud storage bucket, using the service account key file.
 * By default home directory of Cygwin is `C:\cygwin\home\<USERNAME>\` (this can be obtained by running `cygpath -w ~` from cygwin terminal), and assuming `\repository` to be the location of samples to be configured, mount the bucket using rclone at `C:\cygwin\home\<USERNAME>\repository` through the following command using command prompt:
     ```
     rclone mount GCS_BUCKET_NAME MOUNT_LOCATION --no-console

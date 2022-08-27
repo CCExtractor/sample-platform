@@ -26,9 +26,9 @@ Note: Creating a multi-regional GCS bucket would enable us to serve content to d
 
 ## Creating a Service Account
 
-Now, create a service account with sufficient permissions that would be used by the platform, VM instances to mount and read-write the bucket contents and also manage VM instances.
+Now, create a service account with sufficient permissions (at least "Google Batch Service Agent") that would be used by the platform, VM instances to mount and read-write the bucket contents and also manage VM instances.
 
-If you are not the owner of the GCP project you are working on, make sure you have sufficient permissions (at least "Google Batch Service Agent") for creating and managing service accounts; if not, request the project owner for the same.
+If you are not the owner of the GCP project you are working on, make sure you have sufficient permissions for creating and managing service accounts; if not, request the project owner for the same.
 
 - Create a service account [here](https://cloud.google.com/storage/docs/creating-buckets)
 - Choose the service account name as per your choice, but at least provide the role of "Google Batch Service Agent" to the account. 
@@ -39,21 +39,21 @@ Now navigate to the "keys" section of the service account created, create a new 
 
 Note: This is a secret key and access to the key would give access to your GCP project.
 
-## Provide access of GCS bucket to the service account
+## Provide access of the GCS bucket to the service account
 
-Note: If you have provided "editor" role to the service account (not recommended), skip this step.
+Note: If you have provided the "editor" role to the service account (not recommended), skip this step.
 
-If you are not the owner of the GCP project you are working on, make sure you have the  "Service Account Admin" role; if not, request the project owner for the same.
+If you are not the owner of the GCP project you are working on, make sure you have the "Service Account Admin" role; if not, request the project owner for the same.
 
 - Go to [cloud storage page](https://console.cloud.google.com/storage/browser), and select the bucket to be used for the platform.
 - Now go to "Permissions" tab and check that the service account you created has "Storage Legacy Bucket Owner" and "Storage Legacy Object Owner" permissions, if not add these permissions.
 
-## Mounting of the Cloud Storage Bucket
+## Mounting the Cloud Storage Bucket
 
-To reduce the required size of the VM's, a network mount will be used to make the data accessible towards the VM's. 
+To reduce the required size of the VM instances, a network mount will be used to make the data accessible to the VM instances. 
 
 This network mount is done using:
 - [Google Cloud Storage FUSE](https://cloud.google.com/storage/docs/gcs-fuse) for linux VM instances.
 - [Rclone](https://rclone.org/) and [WinFsp](https://winfsp.dev/) for windows VM instances.
 
-These tools are downloaded and installed automatically using startup scripts on the VM instances.
+These tools are downloaded and installed automatically using the startup scripts on the VM instances.

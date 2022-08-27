@@ -97,7 +97,9 @@ def load_config(file):
         'KVM_LINUX_NAME': "linux-test",
         'KVM_WINDOWS_NAME': "window-test",
         'SECRET_KEY': secret_key,
-        'CSRF_SESSION_KEY': secret_csrf
+        'CSRF_SESSION_KEY': secret_csrf,
+        'ZONE': "test_zone",
+        'PROJECT_NAME': "test_zone"
     }
 
 

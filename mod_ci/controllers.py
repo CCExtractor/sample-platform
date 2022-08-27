@@ -101,6 +101,15 @@ def start_platforms(db, repository, delay=None, platform=None) -> None:
     vm_max_runtime = config.get("GCP_INSTANCE_MAX_RUNTIME", 120)
     zone = config.get('ZONE', '')
     project = config.get('PROJECT_NAME', '')
+    # Check if zone and project both are provided
+    if zone == "":
+        log.critical(f'GCP zone name is empty!')
+        return
+
+    if project == "":
+        log.critical(f'GCP project name is empty!')
+        return
+
     compute = get_compute_service_object()
     delete_expired_instances(compute, vm_max_runtime, project, zone)
 

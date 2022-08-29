@@ -4,18 +4,22 @@ import datetime
 import hashlib
 import json
 import os
+import re
 import shutil
 import sys
+import time
 import zipfile
 from multiprocessing import Process
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict
 
+import googleapiclient.discovery
 import requests
 from flask import (Blueprint, abort, flash, g, jsonify, redirect, request,
                    url_for)
 from git import GitCommandError, InvalidGitRepositoryError, Repo
 from github import ApiError, GitHub
+from google.oauth2 import service_account
 from lxml import etree
 from lxml.etree import Element
 from markdown2 import markdown
@@ -42,9 +46,6 @@ from mod_regression.models import (Category, RegressionTest,
 from mod_sample.models import Issue
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
                              TestResult, TestResultFile, TestStatus, TestType)
-
-if sys.platform.startswith("linux"):
-    import libvirt
 
 mod_ci = Blueprint('ci', __name__)
 
@@ -97,40 +98,100 @@ def start_platforms(db, repository, delay=None, platform=None) -> None:
     """
     from run import app, config, log
 
+    vm_max_runtime = config.get("GCP_INSTANCE_MAX_RUNTIME", 120)
+    zone = config.get('ZONE', '')
+    project = config.get('PROJECT_NAME', '')
+    # Check if zone and project both are provided
+    if zone == "":
+        log.critical(f'GCP zone name is empty!')
+        return
+
+    if project == "":
+        log.critical(f'GCP project name is empty!')
+        return
+
+    compute = get_compute_service_object()
+    delete_expired_instances(compute, vm_max_runtime, project, zone)
+
     with app.app_context():
         from flask import current_app
+        app = current_app._get_current_object()
         if platform is None or platform == TestPlatform.linux:
-            linux_kvm_name = config.get('KVM_LINUX_NAME', '')
-            log.info('Define process to run Linux VM')
-            linux_process = Process(target=kvm_processor, args=(current_app._get_current_object(), db, linux_kvm_name,
-                                                                TestPlatform.linux, repository, delay,))
+            log.info('Define process to run Linux GCP instances')
+            linux_process = Process(target=gcp_instance, args=(app, db, TestPlatform.linux, repository, delay))
             linux_process.start()
-            log.info('Linux VM process kicked off')
+            log.info('Linux GCP instances process kicked off')
 
         if platform is None or platform == TestPlatform.windows:
-            win_kvm_name = config.get('KVM_WINDOWS_NAME', '')
-            log.info('Define process to run Windows VM')
-            windows_process = Process(target=kvm_processor, args=(current_app._get_current_object(), db, win_kvm_name,
-                                                                  TestPlatform.windows, repository, delay,))
+            log.info('Define process to run Windows GCP instances')
+            windows_process = Process(target=gcp_instance, args=(app, db, TestPlatform.windows, repository, delay))
             windows_process.start()
-            log.info('Windows VM process kicked off')
+            log.info('Windows GCP instances process kicked off')
 
 
-def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
+def get_running_instances(compute, project, zone) -> list:
     """
-    Check whether there is no already running same kvm.
+    Get details of all the running GCP VM instances.
 
-    Checks whether machine is in maintenance mode or not
-    Launch kvm if not used by any other test
-    Creates testing xml files to test the change in main repo.
-    Downloads the build artifacts generated during GitHub Action workflows.
+    :param compute: The cloud compute engine service object
+    :type compute: googleapiclient.discovery.Resource
+    :param project: The GCP project name
+    :type project: str
+    :param zone: Configured zone for the VM instances
+    :type zone: str
+    :return: List of VM instances
+    :rtype: list
+    """
+    result = compute.instances().list(project=project, zone=zone).execute()
+    return result['items'] if 'items' in result else []
+
+
+def is_instance_testing(vm_name) -> bool:
+    """
+    Check if VM name is of the correct format and return if it is used for testing or not.
+
+    :param vm_name: Name of the VM machine to be identified
+    :type vm_name: str
+    :return: Boolean whether instance is used for testing or not
+    :rtype: bool
+    """
+    for platform in TestPlatform:
+        if re.fullmatch(f"{platform.value}-[0-9]+", vm_name):
+            return True
+    return False
+
+
+def delete_expired_instances(compute, max_runtime, project, zone) -> None:
+    """
+    Get all running instances and delete instances whose maximum runtime limit is reached.
+
+    :param compute: The cloud compute engine service object
+    :type compute: googleapiclient.discovery.Resource
+    :param max_runtime: The maximum runtime limit for VM instances
+    :type max_runtime: int
+    :param project: The GCP project name
+    :type project: str
+    :param zone: Zone for the new VM instance
+    :type zone: str
+    """
+    for instance in get_running_instances(compute, project, zone):
+        vm_name = instance['name']
+        if is_instance_testing(vm_name):
+            creationTimestamp = datetime.datetime.strptime(instance['creationTimestamp'], '%Y-%m-%dT%H:%M:%S.%f%z')
+            currentTimestamp = datetime.datetime.now(datetime.timezone.utc)
+            if currentTimestamp - creationTimestamp >= datetime.timedelta(minutes=max_runtime):
+                operation = delete_instance(compute, project, zone, vm_name)
+                wait_for_operation(compute, project, zone, operation['name'])
+
+
+def gcp_instance(app, db, platform, repository, delay) -> None:
+    """
+    Find all the pending tests and start running them in new GCP instances.
 
     :param app: The Flask app
     :type app: Flask
     :param db: database connection
     :type db: sqlalchemy.orm.scoped_session
-    :param kvm_name: name for the kvm
-    :type kvm_name: str
     :param platform: operating system
     :type platform: str
     :param repository: repository to run tests on
@@ -142,10 +203,7 @@ def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
 
     github_config = get_github_config(config)
 
-    log.info(f"[{platform}] Running kvm_processor")
-    if kvm_name == "":
-        log.critical(f'[{platform}] KVM name is empty!')
-        return
+    log.info(f"[{platform}] Running gcp_instance")
 
     if delay is not None:
         import time
@@ -157,103 +215,87 @@ def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
         log.debug(f'[{platform}] In maintenance mode! Waiting...')
         return
 
-    conn = libvirt.open("qemu:///system")
-    if conn is None:
-        log.critical(f"[{platform}] Connection to libvirt failed!")
-        return
-
-    try:
-        vm = conn.lookupByName(kvm_name)
-    except libvirt.libvirtError:
-        log.critical(f"[{platform}] No VM named {kvm_name} found!")
-        return
-
-    vm_info = vm.info()
-    if vm_info[0] != libvirt.VIR_DOMAIN_SHUTOFF:
-        # Running, check expiry and compare to runtime
-        status = Kvm.query.filter(Kvm.name == kvm_name).first()
-        max_runtime = config.get("KVM_MAX_RUNTIME", 120)
-        if status is not None:
-            if datetime.datetime.now() - status.timestamp >= datetime.timedelta(minutes=max_runtime):
-                test_progress = TestProgress(status.test.id, TestStatus.canceled, 'Runtime exceeded')
-                db.add(test_progress)
-                db.delete(status)
-                db.commit()
-
-                if vm.destroy() == -1:
-                    log.critical(f"[{platform}] Failed to shut down {kvm_name}")
-                    return
-            else:
-                log.info(f"[{platform}] Current job not expired yet.")
-                return
-        else:
-            log.warn(f"[{platform}] No task, but VM is running! Hard reset necessary")
-            if vm.destroy() == -1:
-                log.critical(f"[{platform}] Failed to shut down {kvm_name}")
-                return
-
-    # Check if there's no KVM status left
-    status = Kvm.query.filter(Kvm.name == kvm_name).first()
-    if status is not None:
-        log.warn(f"[{platform}] KVM is powered off, but test {status.test.id} still present, deleting entry")
-        db.delete(status)
-        db.commit()
-
-    # Get oldest test for this platform
     finished_tests = db.query(TestProgress.test_id).filter(
         TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
     ).subquery()
-    fork_location = f"%/{github_config['repository_owner']}/{github_config['repository']}.git"
-    fork = Fork.query.filter(Fork.github.like(fork_location)).first()
-    test = Test.query.filter(
-        Test.id.notin_(finished_tests), Test.platform == platform, Test.fork_id == fork.id
-    ).order_by(Test.id.asc()).first()
 
-    if test is None:
-        test = Test.query.filter(Test.id.notin_(finished_tests), Test.platform == platform).order_by(
-            Test.id.asc()).first()
+    pending_tests = Test.query.filter(
+        Test.id.notin_(finished_tests), Test.platform == platform
+    ).order_by(Test.id.asc())
 
-    if test is None:
-        log.info(f'[{platform}] No more tests to run, returning')
-        return
+    compute = get_compute_service_object()
 
-    if test.test_type == TestType.pull_request and test.pr_nr == 0:
-        log.warn(f'[{platform}] Test {test.id} is invalid, deleting')
-        db.delete(test)
-        db.commit()
-        return
+    for test in pending_tests:
+        if test.test_type == TestType.pull_request and test.pr_nr == 0:
+            log.warn(f'[{platform}] Test {test.id} is invalid, deleting')
+            db.delete(test)
+            db.commit()
+            continue
+        start_test(compute, app, db, repository, test, github_config['bot_token'])
 
-    # Reset to snapshot
-    if vm.hasCurrentSnapshot() != 1:
-        log.critical(f"[{platform}] VM {kvm_name} has no current snapshot set!")
-        return
 
-    snapshot = vm.snapshotCurrent()
-    if vm.revertToSnapshot(snapshot) == -1:
-        log.critical(f"[{platform}] Failed to revert to {snapshot.getName()} for {kvm_name}")
-        return
+def get_compute_service_object() -> googleapiclient.discovery.Resource:
+    """Get a Cloud Compute Engine service object."""
+    from run import config
 
-    log.info(f"[{platform}] Reverted to {snapshot.getName()} for {kvm_name}")
-    log.debug(f'[{platform}] Starting test {test.id}')
+    scopes = config.get('SCOPES', '')
+    sa_file = os.path.join(config.get('INSTALL_FOLDER', ''), config.get('SERVICE_ACCOUNT_FILE', ''))
+
+    credentials = service_account.Credentials.from_service_account_file(sa_file, scopes=scopes)
+
+    return googleapiclient.discovery.build('compute', 'v1', credentials=credentials)
+
+
+def start_test(compute, app, db, repository, test, bot_token) -> None:
+    """
+    Start a VM instance and run the tests.
+
+    Creates testing xml files to test the changes.
+    Downloads the build artifacts generated during GitHub Action workflows.
+    Create a GCP instance and start the test.
+
+    :param compute: The cloud compute engine service object
+    :type compute: googleapiclient.discovery.Resource
+    :param app: The Flask app
+    :type app: Flask
+    :param db: database connection
+    :type db: sqlalchemy.orm.scoped_session
+    :param platform: operating system
+    :type platform: str
+    :param repository: repository to run tests on
+    :type repository: str
+    :param test: The test which is to be started
+    :type test: mod_test.models.Test
+    :param bot_token: The GitHub bot token
+    :type bot_token: str
+    :return: Nothing
+    :rtype: None
+    """
+    from run import config, log
+    log.debug(f'[{test.platform}] Starting test {test.id}')
+    kvm_name = f"{test.platform.value}-{test.id}"
+
+    test_folder = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', kvm_name)
+
+    Path(test_folder).mkdir(parents=True, exist_ok=True)
+
     status = Kvm(kvm_name, test.id)
     # Prepare data
     # 0) Write url to file
     with app.app_context():
         full_url = url_for('ci.progress_reporter', test_id=test.id, token=test.token, _external=True, _scheme="https")
 
-    file_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', kvm_name, 'reportURL')
-
-    with open(file_path, 'w') as f:
-        f.write(full_url)
-
     # 1) Generate test files
     base_folder = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', kvm_name, 'ci-tests')
-    categories = Category.query.order_by(Category.id.desc()).all()
-    commit_name = 'fetch_commit_' + platform.value
-    commit_hash = GeneralData.query.filter(GeneralData.key == commit_name).first().value
-    last_commit = Test.query.filter(and_(Test.commit == commit_hash, Test.platform == platform)).first()
+    Path(base_folder).mkdir(parents=True, exist_ok=True)
 
-    log.debug(f"[{platform}] We will compare against the results of test {last_commit.id}")
+    categories = Category.query.order_by(Category.id.desc()).all()
+    commit_name = 'fetch_commit_' + test.platform.value
+    commit_hash = GeneralData.query.filter(GeneralData.key == commit_name).first().value
+    last_commit = Test.query.filter(and_(Test.commit == commit_hash, Test.platform == test.platform)).first()
+
+    if last_commit is not None:
+        log.debug(f"[{test.platform}] We will compare against the results of test {last_commit.id}")
 
     regression_ids = test.get_customized_regressiontests()
 
@@ -323,12 +365,11 @@ def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
         artifact_name = Artifact_names.linux
     else:
         artifact_name = Artifact_names.windows
-
     for index, artifact in enumerate(artifacts):
         if artifact['name'] == artifact_name and artifact["workflow_run"]["head_sha"] == test.commit:
             artifact_url = artifact["archive_download_url"]
             try:
-                auth_header = f"token {github_config['bot_token']}"
+                auth_header = f"token {bot_token}"
                 r = requests.get(artifact_url, headers={"Authorization": auth_header})
             except Exception as e:
                 log.critical("Could not fetch artifact, request timed out")
@@ -351,20 +392,179 @@ def kvm_processor(app, db, kvm_name, platform, repository, delay) -> None:
     if not artifact_saved:
         log.critical("Could not find an artifact for this commit")
         return
-    # Power on machine
-    try:
-        vm.create()
+
+    zone = config.get('ZONE', '')
+    project_id = config.get('PROJECT_NAME', '')
+    operation = create_instance(compute, project_id, zone, test, full_url)
+    result = wait_for_operation(compute, project_id, zone, operation['name'])
+    if 'error' not in result:
         db.add(status)
         db.commit()
-    except libvirt.libvirtError as e:
-        log.critical(f"[{platform}] Failed to launch VM {kvm_name}")
-        log.critical(f"Information about failure: code: {e.get_error_code()}, domain: {e.get_error_domain()}, "
-                     f"level: {e.get_error_level()}, message: {e.get_error_message()}")
-    except IntegrityError:
-        log.warn(f"[{platform}] Duplicate entry for {test.id}")
 
-    # Close connection to libvirt
-    conn.close()
+
+def create_instance(compute, project, zone, test, reportURL) -> Dict:
+    """
+    Start an instance and pass the VM metadata.
+
+    :param compute: The cloud compute engine service object
+    :type compute: googleapiclient.discovery.Resource
+    :param project: The GCP project name
+    :type project: str
+    :param zone: Zone for the new VM instance
+    :type zone: str
+    :param test: The test for which VM is to be started
+    :type test: mod_test.models.Test
+    :param reportURL: Test-specific URL link for reporting progress to server
+    :type reportURL: str
+    :return: Create operation details after VM creation
+    :rtype: Dict
+    """
+    from run import config
+
+    if test.platform == TestPlatform.linux:
+        image_response = compute.images().getFromFamily(project=config.get('LINUX_INSTANCE_PROJECT_NAME', ''),
+                                                        family=config.get('LINUX_INSTANCE_FAMILY_NAME', '')).execute()
+        startup_script = open(os.path.join(config.get('INSTALL_FOLDER', ''), 'install', 'ci-vm',
+                                           'ci-linux', 'startup-script.sh'), 'r').read()
+        metadata_items = [
+            {'key': 'startup-script', 'value': startup_script},
+            {'key': 'reportURL', 'value': reportURL}
+        ]
+    elif test.platform == TestPlatform.windows:
+        image_response = compute.images().getFromFamily(project=config.get('WINDOWS_INSTANCE_PROJECT_NAME', ''),
+                                                        family=config.get('WINDOWS_INSTANCE_FAMILY_NAME', '')).execute()
+        startup_script = open(os.path.join(config.get('INSTALL_FOLDER', ''), 'install', 'ci-vm',
+                                           'ci-windows', 'startup-script.ps1'), 'r').read()
+        service_account = open(os.path.join(config.get('INSTALL_FOLDER', ''),
+                                            config.get('SERVICE_ACCOUNT_FILE', '')), 'r').read()
+        rclone_conf = open(os.path.join(config.get('INSTALL_FOLDER', ''), 'install', 'ci-vm',
+                                        'ci-windows', 'rclone.conf'), 'r').read()
+        metadata_items = [
+            {'key': 'windows-startup-script-ps1', 'value': startup_script},
+            {'key': 'service_account', 'value': service_account},
+            {'key': 'rclone_conf', 'value': rclone_conf},
+            {'key': 'reportURL', 'value': reportURL}
+        ]
+    source_disk_image = image_response['selfLink']
+
+    vm_name = f"{test.platform.value}-{test.id}"
+
+    vm_config = get_config_for_gcp_instance(vm_name, source_disk_image, metadata_items)
+
+    return compute.instances().insert(
+        project=project,
+        zone=zone,
+        body=vm_config).execute()
+
+
+def delete_instance(compute, project, zone, vm_name) -> Dict:
+    """
+    Delete the GCP instance with given name.
+
+    :param compute: The cloud compute engine service object
+    :type compute: googleapiclient.discovery.Resource
+    :param project: The GCP project name
+    :type project: str
+    :param zone: Zone for the new VM instance
+    :type zone: str
+    :param vm_name: Name of the instance to be deleted
+    :type vm_name: str
+    :return: Delete operation details after VM deletion
+    :rtype: Dict
+    """
+    return compute.instances().delete(
+        project=project,
+        zone=zone,
+        instance=vm_name).execute()
+
+
+def get_config_for_gcp_instance(vm_name, source_disk_image, metadata_items) -> Dict:
+    """
+    Get VM config for new VM instance.
+
+    :param vm_name: The name of the instance to be created
+    :type vm_name: str
+    :param source_disk_image: Source disk image for new instance
+    :type source_disk_image: str
+    :param metadata_items: VM Metadata for new instance
+    :type metadata_items: list
+    :return: Config for new instance
+    :rtype: Dict
+    """
+    from run import config
+
+    # Configure the machine
+    machine_type = config.get('MACHINE_TYPE', '')
+
+    return {
+        'name': vm_name,
+        'machineType': machine_type,
+
+        # Specify the boot disk and the image to use as a source.
+        'disks': [
+            {
+                'boot': True,
+                'autoDelete': True,
+                'initializeParams': {
+                    'sourceImage': source_disk_image,
+                }
+            }
+        ],
+
+        # Specify a network interface with NAT to access the public
+        # internet.
+        'networkInterfaces': [{
+            'network': 'global/networks/default',
+            'accessConfigs': [
+                {'type': 'ONE_TO_ONE_NAT', 'name': 'External NAT'}
+            ]
+        }],
+
+        # Allow the instance to access cloud storage and logging.
+        'serviceAccounts': [{
+            'email': 'default',
+            'scopes': [
+                'https://www.googleapis.com/auth/devstorage.read_write',
+                'https://www.googleapis.com/auth/logging.write'
+            ]
+        }],
+
+        # Metadata is readable from the instance and allows you to
+        # pass configuration from deployment scripts to instances.
+        'metadata': {
+            'items': metadata_items
+        }
+    }
+
+
+def wait_for_operation(compute, project, zone, operation) -> Dict:
+    """
+    Wait for an operation to get completed.
+
+    :param compute: The cloud compute engine service object
+    :type compute: googleapiclient.discovery.Resource
+    :param project: The GCP project name
+    :type project: str
+    :param zone: Zone for the new VM instance
+    :type zone: str
+    :param operation: Operation name for which server is waiting
+    :type operation: str
+    :return: Response received after operation completion
+    :rtype: Dict
+    """
+    from run import log
+    log.info("Waiting for an operation to finish")
+    while True:
+        result = compute.zoneOperations().get(
+            project=project,
+            zone=zone,
+            operation=operation).execute()
+
+        if result['status'] == 'DONE':
+            log.info("Operation Completed")
+            return result
+
+        time.sleep(1)
 
 
 def save_xml_to_file(xml_node, folder_name, file_name) -> None:
@@ -1110,8 +1310,14 @@ def progress_type_request(log, test, test_id, request) -> bool:
         log.error(f'Got an exception while posting to GitHub! Message: {a.message}')
 
     if status in [TestStatus.completed, TestStatus.canceled]:
-        # Start next test if necessary, on the same platform
-        start_platforms(g.db, repository, 60, test.platform)
+        # Delete the current instance
+        from run import config
+        compute = get_compute_service_object()
+        zone = config.get('ZONE', '')
+        project = config.get('PROJECT_NAME', '')
+        vm_name = f"{test.platform.value}-{test.id}"
+        operation = delete_instance(compute, project, zone, vm_name)
+        wait_for_operation(compute, project, zone, operation['name'])
 
     return True
 

@@ -12,26 +12,6 @@ if [ ! -f "$DIR/variables" ]; then
     sudo shutdown -h now
 fi
 
-# Source variables
-. "$DIR/variables"
-
-# Add cargo to path
-PATH="/root/.cargo/bin:$PATH"
-
-# Check if required files & folders are present
-if [ ! -f ${reportURLFile} ]; then
-    # No report URL file defined
-    sudo shutdown -h now
-fi
-if [ ! -d ${srcDir} ]; then
-    # No source dir defined
-    sudo shutdown -h now
-fi
-
-reportURL=$(cat ${reportURLFile})
-userAgent="CCX/CI_BOT"
-logFile="${reportFolder}/log.html"
-
 # Functions for re-use in various stages of the test progress
 
 # Post status to the server
@@ -49,42 +29,47 @@ function sendLogFile {
 
 # Exit script and post abort status
 function haltAndCatchFire {
-	postStatus "canceled" $1 >> "${logFile}"
-	sendLogFile
-	sudo shutdown -h now
+        postStatus "canceled" $1 >> "${logFile}"
+        sendLogFile
+        sudo shutdown -h now
 }
 
 # Fail when the exit status is not equal to 0
 function executeCommand {
-	#echo "$@"
-	"$@" >> "${logFile}"
-	local status=$?
-	if [ ${status} -ne 0 ]; then
-		haltAndCatchFire "" # No message needed as we post before anyway
-	fi
+        #echo "$@"
+        "$@" >> "${logFile}"
+        local status=$?
+        if [ ${status} -ne 0 ]; then
+                haltAndCatchFire "" # No message needed as we post before anyway
+        fi
 }
+
+# Source variables
+. "$DIR/variables"
+
+# Add cargo to path
+PATH="/root/.cargo/bin:$PATH"
+
+reportURL=$(curl http://metadata/computeMetadata/v1/instance/attributes/reportURL -H "Metadata-Flavor: Google")
+userAgent="CCX/CI_BOT"
+logFile="${reportFolder}/log.html"
+
+postStatus "preparation" "Loaded variables and created log file"
 
 # Truncate log in case there was anything left from a previous session
 echo "" > "${logFile}"
 
-postStatus "preparation" "Copy testsuite to local folder"
-executeCommand cp -r ${suiteSrcDir}/* ${suiteDstDir}
+postStatus "building" "Checking if CCExtractor build artifact is present"
+if [ -e "${dstDir}/ccextractor" ]; then
+        chmod 700 "${dstDir}/ccextractor"
+        chmod +x ${tester}
+        postStatus "testing" "Running tests"
+        executeCommand cd ${suiteDstDir}
+        executeCommand ${tester} --entries "${testFile}" --executable "${dstDir}/ccextractor" --tempfolder "${tempFolder}" --timeout 3000 --reportfolder "${reportFolder}" --resultfolder "${resultFolder}" --samplefolder "${sampleFolder}" --method Server --url "${reportURL}"
+        postStatus "completed" "Ran all tests"
+        sendLogFile
 
-postStatus "preparation" "Copy build artifact to local folder"
-executeCommand cp -r ${srcDir}/* ${dstDir}
-executeCommand cd ${dstDir}
-
-postStatus "building" "Checking for CCExtractor build artifact"
-if [ -x "ccextractor" ]; then
-	chmod 700 ccextractor
-	# Run testSuite
-	postStatus "testing" "Running tests"
-	executeCommand cd ${suiteDstDir}
-	executeCommand ${tester} --entries "${testFile}" --executable "${dstDir}/ccextractor" --tempfolder "${tempFolder}" --timeout 3000 --reportfolder "${reportFolder}" --resultfolder "${resultFolder}" --samplefolder "${sampleFolder}" --method Server --url "${reportURL}"
-	postStatus "completed" "Ran all tests"
-	sendLogFile
-	# Shut down
-	sudo shutdown -h now
+        sudo shutdown -h now
 else
-	haltAndCatchFire "build"
+        haltAndCatchFire "artifact"
 fi

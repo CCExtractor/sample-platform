@@ -24,3 +24,4 @@ WTForms==2.3.3
 MarkupSafe<=2.0.1
 jinja2==3.0.2
 itsdangerous==2.0.1
+google-api-python-client==2.56.0

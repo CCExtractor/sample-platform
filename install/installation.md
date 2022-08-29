@@ -7,11 +7,13 @@
 * MySQL
 * Pure-FTPD with mysql
 
+## Configuring Google Cloud Platform
+
+To configure the GCP for the platform, see [the installation guide](ci-vm/installation.md).
+
 ## Automated install
 
-Automated install only works for the platform section, **not** for the KVM
-functionality. To install the VM's for KVM, see 
-[the installation guide](ci-vm/installation.md).
+Automated install only works for the platform section; make sure to have configured the GCP before continuing the platform installation.
 
 ### Linux
 
@@ -26,6 +28,31 @@ cd /var/www/
 sudo git clone https://github.com/CCExtractor/sample-platform.git
 ```
 
+### Mounting the bucket
+
+Mounting on Linux OS can be done using [Google Cloud Storage FUSE](https://cloud.google.com/storage/docs/gcs-fuse).
+
+Steps:
+- Install gcsfuse using [official documentation](https://github.com/GoogleCloudPlatform/gcsfuse/blob/master/docs/installing.md) or using the following script 
+    ```
+    curl -L -O https://github.com/GoogleCloudPlatform/gcsfuse/releases/download/v0.39.2/gcsfuse_0.39.2_amd64.deb
+    dpkg --install gcsfuse_0.39.2_amd64.deb
+    rm gcsfuse_0.39.2_amd64.deb
+    ```
+- Now, there are multiple ways to mount the bucket, official documentation [here](https://github.com/GoogleCloudPlatform/gcsfuse/blob/master/docs/mounting.md). 
+
+    For Ubuntu and derivatives, assuming `/repository` to be the location of samples to be configured, the following can be added to `/etc/fstab` file, replace _GCS_BUCKET_NAME_ with the name of the bucket created for the platform:
+    ```
+    GCS_BUCKET_NAME   /repository 	gcsfuse rw,uid=33,gid=33,noatime,async,_netdev,noexec,user,implicit_dirs,allow_other	0 0
+    ```
+
+- Now run the following command as root to mount the bucket:
+    ```
+    mount /repository
+    ```
+
+Place the service account key file at the root of the sample-platform folder. 
+
 Next, navigate to the `install` folder and run `install.sh` with root 
 permissions.
 
@@ -34,23 +61,23 @@ cd sample-platform/install/
 sudo ./install.sh
 ```    
 
-The `install.sh` will begin downloading and updating all the necessary 
-dependencies. Once done, it'll ask to enter some details in order to set up 
-the sample-platform. After filling in these the platform should be ready for
-use.
+The `install.sh` will begin downloading and updating all the necessary dependencies. Once done, it'll ask to enter some details in order to set up the sample-platform. After filling in these details, the platform should be ready for use.
 
 Please read the below troubleshooting notes in case of any error or doubt.
 
 ### Windows
 
 * Install cygwin (http://cygwin.com/install.html). When cygwin asks which
- packages to install, select Python, MySql, virt-manager and openssh. If you 
- already have cygwin installed, you must run its setup file to install the new packages. Make sure the dropdown menu is set to Full, so you can all packages. To select one, click skip and it will change to the version number of the package. Use the end of [this](https://www.davidbaumgold.com/tutorials/set-up-python-windows/) tutorial for help on getting cygwin to recognize python. 
-* Start a terminal session once installation is complete. 
-* Install Nginx (see http://nginx.org/en/docs/windows.html)
-* Install XMing XServer and setup Putty for ssh connections.
-* Virt-manager can call ssh to make the connection to KVM Server and should be 
-able to run virsh and send commands to it. 
+ packages to install, select Python, MySql, and google-api-client. If you 
+ already have cygwin installed, you must run its setup file to install the new packages. Make sure the dropdown menu is set to Full, so you can all packages. To select one, click skip and it will change to the version number of the package. Use the end of [this](https://www.davidbaumgold.com/tutorials/set-up-python-windows/) tutorial for help on getting cygwin to recognize python.
+* Install [WinFsp](https://winfsp.dev/) and [Rclone](https://rclone.org/) from their official websites.
+* Now rclone is a command line program, follow the [official documentation](https://rclone.org/googlecloudstorage/) to mount the google cloud storage bucket, using the service account key file.
+* By default home directory of Cygwin is `C:\cygwin\home\<USERNAME>\` (this can be obtained by running `cygpath -w ~` from cygwin terminal), and assuming `\repository` to be the location of samples to be configured, mount the bucket using rclone at `C:\cygwin\home\<USERNAME>\repository` through the following command using command prompt:
+    ```
+    rclone mount GCS_BUCKET_NAME MOUNT_LOCATION --no-console
+    ```
+* Start a terminal session once installation is complete.
+* Install Nginx (see http://nginx.org/en/docs/windows.html) 
 * Follow the steps from the Linux installation from within the Cygwin terminal
 to complete the platform's installation.
 
@@ -82,13 +109,6 @@ sudo python bootstrap_gunicorn.py
 
 * If `gunicorn` boots up successfully, most relevant logs will be stored in
  the `logs` directory. Otherwise they'll likely be in `syslog`.
-
-* If it shows the error regarding the `libvirt`, then there is missing `fftw3.h` file. Try the following:
-```
-sudo apt-get install libvirt-dev
-sudo apt-get install libfftw3-dev
-sudo apt-get install libsndfile1-dev
-```
 
 * If any issue still persists, follow the mentioned steps to debug and troubleshoot your issue:
     1. Firstly check the Platform Installation log file in the install folder. Check for any errors, which may have been caused during platform installation on your system, and then try to resolve them accordingly.

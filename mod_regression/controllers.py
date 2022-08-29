@@ -298,7 +298,7 @@ def category_edit(category_id):
     """
     test = Category.query.filter(Category.id == category_id).first()
 
-    if(test is None):
+    if test is None:
         g.log.error(f'requested category with id: {category_id} not found!')
         abort(404)
 

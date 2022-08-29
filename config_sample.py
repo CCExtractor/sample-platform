@@ -18,12 +18,22 @@ GITHUB_CI_KEY = ''
 GITHUB_CLIENT_ID = ''
 GITHUB_CLIENT_SECRET = ''
 INSTALL_FOLDER = '/path/to/installation'
-KVM_LINUX_NAME = ''
-KVM_WINDOWS_NAME = ''
-KVM_MAX_RUNTIME = 120  # In minutes
 SAMPLE_REPOSITORY = '/path/to/samples'
 SESSION_COOKIE_PATH = '/'
 FTP_PORT = 21
 MAX_CONTENT_LENGTH = 512 * 1024 * 1024
 MIN_PWD_LEN = 10
 MAX_PWD_LEN = 500
+
+
+# GCP SPECIFIC CONFIG
+SCOPES = ['https://www.googleapis.com/auth/cloud-platform']
+SERVICE_ACCOUNT_FILE = 'service-account.json'
+ZONE = "us-west4-b"
+PROJECT_NAME = "ccextractor-sampleplatform"
+MACHINE_TYPE = f"zones/{ZONE}/machineTypes/n1-standard-1"
+WINDOWS_INSTANCE_PROJECT_NAME = "windows-cloud"
+WINDOWS_INSTANCE_FAMILY_NAME = "windows-2019"
+LINUX_INSTANCE_PROJECT_NAME = "ubuntu-os-cloud"
+LINUX_INSTANCE_FAMILY_NAME = "ubuntu-minimal-2204-lts"
+GCP_INSTANCE_MAX_RUNTIME = 120  # In minutes

@@ -10,45 +10,27 @@ if NOT EXIST "variables.bat" (
 echo Loading variables.bat
 rem Source variables
 call %~dp0\variables.bat
-if "%reportURLFile%"=="" (
-    rem No report URL file defined
-    shutdown -s -t 0
-    exit
-)
-if "%srcDir%"=="" (
-    rem No source dir defined
-    shutdown -s -t 0
-    exit
-)
+call :postStatus "preparation" "Loaded variables and creating log file"
 
-SET /P reportURL=<%reportURLFile%
+for /F %%R in ('curl http://metadata/computeMetadata/v1/instance/attributes/reportURL -H "Metadata-Flavor: Google"') do SET reportURL=%%R
 SET userAgent="CCX/CI_BOT"
 SET logFile="%reportFolder%/log.html"
 
-echo Copy files over to local disk
-call :postStatus "preparation" "Copy testsuite to local folder"
-rem robocopy returns a non-zero exit code even on success (https://ss64.com/nt/robocopy-exit.html), so we cannot use executeCommand
-call robocopy %suiteSrcDir% %suiteDstDir% /e /MIR >> "%logFile%"
-
-call :postStatus "preparation" "Copy build artifact to local folder"
-call robocopy %srcDir% %dstDir% /e /MIR /XD %srcDir%\.git >> "%logFile%"
-call :executeCommand cd %dstDir%
-
-call :postStatus "building" "Checking for CCExtractor build artifact"
-if EXIST "ccextractorwinfull.exe" (
-    rem Run testsuite
+echo Checking for CCExtractor build artifact
+call :postStatus "building" "Checking if CCExtractor build artifact is present"
+if EXIST "%dstDir%\ccextractorwinfull.exe" (
     echo Run tests
     call :postStatus "testing" "Running tests"
     call :executeCommand cd %suiteDstDir%
     call :executeCommand "%tester%" --entries "%testFile%" --executable "%dstDir%\ccextractorwinfull.exe" --tempfolder "%tempFolder%" --timeout 3000 --reportfolder "%reportFolder%" --resultfolder "%resultFolder%" --samplefolder "%sampleFolder%" --method Server --url "%reportURL%"
     call :postStatus "completed" "Ran all tests"
     echo Done running tests
-    rem Shut down
+
     timeout 5
     shutdown -s -t 0
     exit
 ) else (
-    call :haltAndCatchFire "build"
+    call :haltAndCatchFire "artifact"
 )
 echo End
 EXIT %ERRORLEVEL%

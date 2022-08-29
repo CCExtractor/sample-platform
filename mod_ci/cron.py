@@ -14,7 +14,7 @@ def cron(testing=False):
     from github import GitHub
 
     from database import create_session
-    from mod_ci.controllers import TestPlatform, kvm_processor, start_platforms
+    from mod_ci.controllers import TestPlatform, gcp_instance, start_platforms
     from run import config, log
 
     log.info('Run the cron for kicking off CI platform(s).')
@@ -24,8 +24,7 @@ def cron(testing=False):
     repository = gh.repos(config['GITHUB_OWNER'])(config['GITHUB_REPOSITORY'])
 
     if testing is True:
-        kvm_processor(current_app._get_current_object(), db, config.get('KVM_LINUX_NAME', ''), TestPlatform.linux,
-                      repository, None)
+        gcp_instance(current_app._get_current_object(), db, TestPlatform.linux, repository, None)
     else:
         start_platforms(db, repository)
 

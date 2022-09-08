@@ -13,7 +13,6 @@ xmltodict==0.13.0
 lxml==4.9.1
 pytz==2022.2
 tzlocal==4.1
-libvirt-python==7.1.0; sys_platform != 'win32'
 markdown2==2.4.3
 flask-migrate==3.1.0
 flask-script==2.0.6

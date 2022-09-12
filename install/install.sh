@@ -27,7 +27,9 @@ echo ""
 echo "* Updating package list"
 apt-get update >> "$install_log" 2>&1
 echo "* Installing nginx, python, pip, kvm, libvirt and virt-manager"
-apt-get -q -y install nginx python3 python-is-python3 python3-libvirt libxslt1-dev python3-libxml2 python3-pip qemu-system-x86 libvirt-daemon-system libvirt-clients virt-manager mediainfo >> "$install_log" 2>&1
+apt-get -q -y install nginx python3 python-is-python3 python3-pip mediainfo >> "$install_log" 2>&1
+rm -f /etc/nginx/sites-available/default
+rm -f /etc/nginx/sites-enabled/default
 for file in /etc/init.d/mysql*
 do
     if [ ! -f "$file" ]; then
@@ -124,14 +126,25 @@ read -e -r -p "Email API key (Generate one here https://www.mailgun.com/) : " -i
 hmac_key=$(head -80 /dev/urandom | LC_ALL=c tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
 read -e -r -p "GitHub Automated Deploy Webhook Secret (More info : https://developer.github.com/webhooks/) : " -i "" github_deploy_key
 read -e -r -p "GitHub CI Webhook Secret (More info: https://developer.github.com/webhooks/) : " -i "" github_ci_key
-read -e -r -p "KVM Linux Name: " -i "" kvm_linux_name
-read -e -r -p "KVM Windows Name: " -i "" kvm_windows_name
-read -e -r -p "KVM Max Runtime (In minutes): " -i "120" kvm_max_runtime
 read -e -r -p "FTP Server IP/Domain name :" -i "" server_name
 read -e -r -p "FTP port: " -i "21" ftp_port
 read -e -r -p "Max HTTP sample size (in bytes) : " -i "536870912" max_content_length
 read -e -r -p "Minimum password length : " -i "10" min_pwd_len
 read -e -r -p "Maximum password length : " -i "500" max_pwd_len
+
+read -e -r -p "GCP service account file name (to be placed at root of project): " -i "service-account.json" gcp_service_account_file
+read -e -r -p "GCP Project Name for the platform: " -i "" sample_platform_project_name
+read -e -r -p "GCP Project Number for the platform: " -i "" sample_platform_project_number
+read -e -r -p "Zone name for GCP Instances: " -i "us-west4-b" gcp_instance_zone_name
+read -e -r -p "Machine type for GCP Instances: " -i "n1-standard-1" gcp_instance_machine_type
+read -e -r -p "Windows GCP instance project name: " -i "windows-cloud" windows_instance_project_name
+read -e -r -p "Windows GCP instance family name: " -i "windows-2019" windows_instance_family_name 
+read -e -r -p "Linux GCP instance project name: " -i "ubuntu-os-cloud" linux_instance_project_name
+read -e -r -p "Linux GCP instance family name: " -i "ubuntu-minimal-2204-lts" linux_instance_family_name
+read -e -r -p "GCP Instance Max Runtime (In minutes): " -i "120" gcp_instance_max_runtime
+read -e -r -p "Google Cloud Storage bucket name: " -i "" gcs_bucket_name
+read -e -r -p "Google Cloud Storage bucket location: " -i "" gcs_bucket_location
+read -e -r -p "Google Cloud Storage bucket location type: " -i "" gcs_bucket_location_type
 
 
 echo ""
@@ -152,6 +165,8 @@ echo "Setting up the directories.."
     mkdir -p "${sample_repository}/TestFiles"
     mkdir -p "${sample_repository}/TestFiles/media"
     mkdir -p "${sample_repository}/QueuedFiles"
+    mkdir -p "${sample_repository}/TestData/ci-linux"
+    mkdir -p "${sample_repository}/TestData/ci-windows"
 } >> "$install_log" 2>&1
 
 config_db_uri="mysql+pymysql://${db_user}:${db_user_password}@localhost:3306/${db_name}"
@@ -211,15 +226,25 @@ HMAC_KEY = '${hmac_key}'
 GITHUB_DEPLOY_KEY = '${github_deploy_key}'
 GITHUB_CI_KEY = '${github_ci_key}'
 INSTALL_FOLDER = '${root_dir}'
-KVM_LINUX_NAME = '${kvm_linux_name}'
-KVM_WINDOWS_NAME = '${kvm_windows_name}'
-KVM_MAX_RUNTIME = $kvm_max_runtime # In minutes
 SAMPLE_REPOSITORY = '${sample_repository}'
 SESSION_COOKIE_PATH = '/'
 FTP_PORT = $ftp_port
 MAX_CONTENT_LENGTH = $max_content_length
 MIN_PWD_LEN = $min_pwd_len
 MAX_PWD_LEN = $max_pwd_len
+
+
+# GCP SPECIFIC CONFIG
+SCOPES = ['https://www.googleapis.com/auth/cloud-platform']
+SERVICE_ACCOUNT_FILE = '${gcp_service_account_file}'
+ZONE = '${gcp_instance_zone_name}'
+PROJECT_NAME = '${sample_platform_project_name}'
+MACHINE_TYPE = f'zones/{ZONE}/machineTypes/${gcp_instance_machine_type}'
+WINDOWS_INSTANCE_PROJECT_NAME = '${windows_instance_project_name}'
+WINDOWS_INSTANCE_FAMILY_NAME = '${windows_instance_family_name}'
+LINUX_INSTANCE_PROJECT_NAME = '${linux_instance_project_name}'
+LINUX_INSTANCE_FAMILY_NAME = '${linux_instance_family_name}'
+GCP_INSTANCE_MAX_RUNTIME = $gcp_instance_max_runtime  # In minutes
 " > "${dir}/../config.py"
 # Ensure the files are executable by www-data
 chown -R www-data:www-data "${root_dir}" "${sample_repository}"
@@ -230,6 +255,15 @@ echo "* Creating startup script"
     sed -i "s#BASE_DIR#${root_dir}#g" /etc/init.d/platform
     chmod 755 /etc/init.d/platform
     update-rc.d platform defaults
+}  >> "$install_log" 2>&1
+echo "* Creating RClone config file"
+
+{
+    cp  "${root_dir}/install/ci-vm/ci-windows/rclone_sample.conf"  "${root_dir}/install/ci-vm/ci-windows/ci/rclone.conf"
+    sed -i "s#GCS_BUCKET_NAME#${gcs_bucket_name}#g" "${root_dir}/install/ci-vm/ci-windows/ci/rclone.conf"
+    sed -i "s#GCP_PROJECT_NUMBER#${sample_platform_project_number}#g" "${root_dir}/install/ci-vm/ci-windows/ci/rclone.conf"
+    sed -i "s#GCS_BUCKET_LOCATION_TYPE#${gcs_bucket_location_type}#g" "${root_dir}/install/ci-vm/ci-windows/ci/rclone.conf"
+    sed -i "s#GCS_BUCKET_LOCATION#${gcs_bucket_location}#g" "${root_dir}/install/ci-vm/ci-windows/ci/rclone.conf"
 }  >> "$install_log" 2>&1
 echo "* Creating Nginx config"
 
@@ -243,6 +277,12 @@ echo "* Creating Nginx config"
     sed -i "s#NGINX_KEY#${config_ssl_key}#g" /etc/nginx/sites-available/platform 
     sed -i "s#NGINX_DIR#${root_dir}#g" /etc/nginx/sites-available/platform 
     ln -s /etc/nginx/sites-available/platform /etc/nginx/sites-enabled/platform
+} >> "$install_log" 2>&1
+echo "* Moving variables and runCI files"
+
+{
+    mv $root_dir/install/ci-vm/ci-windows/ci/* "${sample_repository}/TestData/ci-windows/"
+    mv $root_dir/install/ci-vm/ci-linux/ci/* "${sample_repository}/TestData/ci-linux/"
 } >> "$install_log" 2>&1
 echo "* Reloading nginx"
 service nginx reload >> "$install_log" 2>&1

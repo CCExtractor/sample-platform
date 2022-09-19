@@ -26,6 +26,8 @@ Now create a GCS bucket with the following settings (refer to the official docum
 - Access Control: Uniform, and enable `Prevent Public Access`
 - Protection Tools: None
 
+Note: Sometimes while creating a instance through the platform one might receive an error(ZONE_RESOURCE_POOL_EXHAUSTED or ZONE_RESOURCE_POOL_EXHAUSTED_WITH_DETAILS), this is an issue faced quite often, hence it is advised to choose region and zone wisely. Here is a [stackoverflow link](https://stackoverflow.com/questions/65884360/cannot-start-gce-vm-instance-the-zone-does-not-have-enough-resources) for the same error.
+
 Note: We will provide downloads of the samples to users when requested via [Signed URLs](https://cloud.google.com/storage/docs/access-control#signed_urls_query_string_authentication).
 
 ### Setting Up The Bucket
@@ -53,7 +55,9 @@ Note: If you have provided the "editor" role to the service account (not recomme
 If you are not the owner of the GCP project you are working on, make sure you have the "Service Account Admin" role; if not, request the project owner for the same.
 
 - Go to [cloud storage page](https://console.cloud.google.com/storage/browser), and select the bucket to be used for the platform.
-- Now go to "Permissions" tab and check that the service account you created has "Storage Legacy Bucket Owner" and "Storage Legacy Object Owner" permissions, if not add these permissions.
+- Now go to "Permissions" tab and check that the service account you created has "Storage Legacy Bucket Owner" and "Storage Legacy Object Owner" permissions, if not add these permissions by creating a new principal:
+    - Give new principal name as email of the service account created (can be found in IAM & Admin -> Service Accounts section).
+    - Select the roles mentioned above and click on "Save".
 
 ## Mounting the Cloud Storage Bucket
 

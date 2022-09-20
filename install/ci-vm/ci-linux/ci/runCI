@@ -61,13 +61,14 @@ echo "" > "${logFile}"
 
 postStatus "building" "Checking if CCExtractor build artifact is present"
 if [ -e "${dstDir}/ccextractor" ]; then
-        chmod 700 "${dstDir}/ccextractor"
+        cp ${dstDir}/ccextractor ./
+        chmod 700 ccextractor
         chmod +x ${tester}
         postStatus "testing" "Running tests"
         executeCommand cd ${suiteDstDir}
-        executeCommand ${tester} --entries "${testFile}" --executable "${dstDir}/ccextractor" --tempfolder "${tempFolder}" --timeout 3000 --reportfolder "${reportFolder}" --resultfolder "${resultFolder}" --samplefolder "${sampleFolder}" --method Server --url "${reportURL}"
-        postStatus "completed" "Ran all tests"
+        executeCommand ${tester} --entries "${testFile}" --executable "ccextractor" --tempfolder "${tempFolder}" --timeout 3000 --reportfolder "${reportFolder}" --resultfolder "${resultFolder}" --samplefolder "${sampleFolder}" --method Server --url "${reportURL}"
         sendLogFile
+        postStatus "completed" "Ran all tests"
 
         sudo shutdown -h now
 else

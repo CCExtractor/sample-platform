@@ -178,6 +178,19 @@ sudo python bootstrap_gunicorn.py
     3. Next check for platform status by `service platform status` command, if it is not `active(running)` then check for platform logs in the `logs` directory of your project.
     4. In case of any gunicorn error try manually running `/etc/init.d/platform start` command and recheck the platform status.
 
+### Setting Up The Bucket
+After the completion of automated installation of the platform, the following folder structure is created in the 'SAMPLE_REPOSITORY' set during install:
+- `LogFiles/` - Directory containing log files of the tests completed
+- `QueuedFiles/` - Directory containing files related queued samples
+- `README` - A readme file related to SSL cetificates required by platform
+- `TempFiles/` - Directory containing temporary files
+- `TestData/` - Directory containing files required for starting a test - runCI files, variables file, tester
+- `TestFiles/` - Directory containing regression test samples
+- `TestResults/` - Direction containing regression test results
+- `vm_data/` - Directory containing test-specific subfolders, each folder containing files required for testing to be passed to the VM instance, test files and CCExtractor build artifact.
+
+Now for tests to run, we need to download the [CCExtractor testsuite](https://github.com/CCExtractor/ccx_testsuite) release file, extract and put it in `TestData/ci-linux` and `TestData/ci-windows` folders.
+
 ## Nginx configuration for X-Accel-Redirect
 
 To serve files without any scripting language overhead, the X-Accel-Redirect 

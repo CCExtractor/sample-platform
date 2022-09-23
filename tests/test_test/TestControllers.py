@@ -18,7 +18,6 @@ class TestControllers(BaseTestCase):
         from flask import g
         test_result_progress = [
             TestProgress(test_id, TestStatus.preparation, f"Test {test_id} preparation"),
-            TestProgress(test_id, TestStatus.building, f"Test {test_id} building"),
             TestProgress(test_id, TestStatus.testing, f"Test {test_id} testing"),
             TestProgress(test_id, TestStatus.completed, f"Test {test_id} completed"),
         ]

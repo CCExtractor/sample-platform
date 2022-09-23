@@ -1150,7 +1150,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
             # get KVM start time for finding KVM preparation time
             kvm_entry = Kvm.query.filter(Kvm.test_id == test_id).first()
 
-            if status == TestStatus.building:
+            if status == TestStatus.testing:
                 log.info('test preparation finished')
                 prep_finish_time = datetime.datetime.now()
                 # save preparation finish time
@@ -1159,16 +1159,6 @@ def progress_type_request(log, test, test_id, request) -> bool:
                 # set time taken in seconds to do preparation
                 time_diff = (prep_finish_time - kvm_entry.timestamp).total_seconds()
                 set_avg_time(test.platform, "prep", time_diff)
-
-            elif status == TestStatus.testing:
-                log.info('test build procedure finished')
-                build_finish_time = datetime.datetime.now()
-                # save build finish time
-                kvm_entry.timestamp_build_finished = build_finish_time
-                g.db.commit()
-                # set time taken in seconds to do preparation
-                time_diff = (build_finish_time - kvm_entry.timestamp_prep_finished).total_seconds()
-                set_avg_time(test.platform, "build", time_diff)
 
     progress = TestProgress(test.id, status, message)
     g.db.add(progress)

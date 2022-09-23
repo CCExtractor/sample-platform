@@ -59,7 +59,6 @@ postStatus "preparation" "Loaded variables and created log file"
 # Truncate log in case there was anything left from a previous session
 echo "" > "${logFile}"
 
-postStatus "building" "Checking if CCExtractor build artifact is present"
 if [ -e "${dstDir}/ccextractor" ]; then
         chmod 700 "${dstDir}/ccextractor"
         chmod +x ${tester}

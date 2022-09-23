@@ -45,7 +45,6 @@ class TestStatus(DeclEnum):
     """Enum to specify test status."""
 
     preparation = "preparation", "Preparation"
-    building = "building", "Building"
     testing = "testing", "Testing"
     completed = "completed", "Completed"
     canceled = "canceled", "Canceled/Error"
@@ -73,8 +72,7 @@ class TestStatus(DeclEnum):
         :return: stages available for test
         :rtype: list
         """
-        return [TestStatus.preparation, TestStatus.building,
-                TestStatus.testing, TestStatus.completed]
+        return [TestStatus.preparation, TestStatus.testing, TestStatus.completed]
 
 
 class Fork(Base):

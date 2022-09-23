@@ -50,7 +50,6 @@ class Kvm(Base):
     test = relationship('Test', uselist=False)
     timestamp = Column(DateTime(), nullable=False)
     timestamp_prep_finished = Column(DateTime(), nullable=True)
-    timestamp_build_finished = Column(DateTime(), nullable=True)
 
     def __init__(self, name, test_id, timestamp=None) -> None:
         """

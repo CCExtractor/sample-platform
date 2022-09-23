@@ -198,7 +198,7 @@ python "${dir}/init_db.py" "${config_db_uri}" "${admin_name}" "${admin_email}" "
 # Create sample database if user wanted to
 if [ "${sample_response}" == 'y' ]; then
     echo "Creating sample database.."
-    cp -r sample_files/* "${sample_repository}/TestFiles"
+    cp -r "${dir}/sample_files/*" "${sample_repository}/TestFiles"
     python "${dir}/sample_db.py" "${config_db_uri}"
 fi
 echo ""
@@ -281,8 +281,8 @@ echo "* Creating Nginx config"
 echo "* Moving variables and runCI files"
 
 {
-    mv $root_dir/install/ci-vm/ci-windows/ci/* "${sample_repository}/TestData/ci-windows/"
-    mv $root_dir/install/ci-vm/ci-linux/ci/* "${sample_repository}/TestData/ci-linux/"
+    cp $root_dir/install/ci-vm/ci-windows/ci/* "${sample_repository}/TestData/ci-windows/"
+    cp $root_dir/install/ci-vm/ci-linux/ci/* "${sample_repository}/TestData/ci-linux/"
 } >> "$install_log" 2>&1
 echo "* Reloading nginx"
 service nginx reload >> "$install_log" 2>&1

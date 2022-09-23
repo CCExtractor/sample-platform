@@ -10,14 +10,14 @@ if NOT EXIST "variables.bat" (
 echo Loading variables.bat
 rem Source variables
 call %~dp0\variables.bat
-call :postStatus "preparation" "Loaded variables and creating log file"
 
 for /F %%R in ('curl http://metadata/computeMetadata/v1/instance/attributes/reportURL -H "Metadata-Flavor: Google"') do SET reportURL=%%R
 SET userAgent="CCX/CI_BOT"
 SET logFile="%reportFolder%/log.html"
 
+call :postStatus "preparation" "Loaded variables and creating log file"
+
 echo Checking for CCExtractor build artifact
-call :postStatus "building" "Checking if CCExtractor build artifact is present"
 if EXIST "%dstDir%\ccextractorwinfull.exe" (
     echo Run tests
     call :postStatus "testing" "Running tests"

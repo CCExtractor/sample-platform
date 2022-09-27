@@ -82,7 +82,7 @@ def index():
             elif response.status_code != 200:
                 fork_test_form.commit_hash.errors.append('Wrong Commit Hash')
             else:
-                add_test_to_kvm(username, commit_hash, platforms, regression_tests)
+                add_tests_to_platforms(username, commit_hash, platforms, regression_tests)
                 return redirect(url_for('custom.index'))
 
     populated_categories = g.db.query(regressionTestLinkTable.c.category_id).subquery()
@@ -101,7 +101,7 @@ def index():
     }
 
 
-def add_test_to_kvm(username, commit_hash, platforms, regression_tests) -> None:
+def add_tests_to_platforms(username, commit_hash, platforms, regression_tests) -> None:
     """
     Create new tests and add it to CustomizedTests based on parameters.
 

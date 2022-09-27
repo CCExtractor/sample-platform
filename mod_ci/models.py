@@ -3,7 +3,7 @@ Maintain all database related virtual machines and their status.
 
 List of models corresponding to mysql tables:
 [
-    'Kvm' => 'kvm',
+    'Gcp Instance' => 'gcp_instance',
     'Maintenance mode' => 'maintenance_mode'
 ]
 """
@@ -40,10 +40,10 @@ class BlockedUsers(Base):
         return f"<BlockedUsers(user_id='{self.user_id}', comment='{self.comment}')>"
 
 
-class Kvm(Base):
-    """Model to store KVMs."""
+class GcpInstance(Base):
+    """Model to store GCP Instances."""
 
-    __tablename__ = 'kvm'
+    __tablename__ = 'gcp_instance'
     __table_args__ = {'mysql_engine': 'InnoDB'}
     name = Column(String(64), primary_key=True)
     test_id = Column(Integer, ForeignKey(Test.id, onupdate="CASCADE", ondelete="RESTRICT"))
@@ -53,11 +53,11 @@ class Kvm(Base):
 
     def __init__(self, name, test_id, timestamp=None) -> None:
         """
-        Parametrized constructor for the Kvm model.
+        Parametrized constructor for the GCP Instance model.
 
-        :param name: The value of the 'name' field of Kvm model
+        :param name: The value of the 'name' field of GcpInstance model
         :type name: str
-        :param test_id: The value of the 'test_id' field of Kvm model
+        :param test_id: The value of the 'test_id' field of GcpInstance model
         :type test_id: int
         :param timestamp: The value of the 'timestamp' field of TestProgress
          model (None by default)
@@ -71,13 +71,13 @@ class Kvm(Base):
 
     def __repr__(self) -> str:
         """
-        Represent a Kvm Model by its 'test_id' Field.
+        Represent a GcpInstance Model by its 'test_id' Field.
 
         :return str(test_id): Returns the string containing
-         'test_id' field of the Kvm model
+         'test_id' field of the GcpInstance model
         :rtype str(test_id): str
         """
-        return f'<KVM test running: {self.test_id}>'
+        return f'<GcpInstance test running: {self.test_id}>'
 
 
 class MaintenanceMode(Base):

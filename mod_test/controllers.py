@@ -14,7 +14,7 @@ from decorators import template_renderer
 from exceptions import TestNotFoundException
 from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role
-from mod_ci.models import Kvm
+from mod_ci.models import GcpInstance
 from mod_customized.models import CustomizedTest, TestFork
 from mod_home.models import CCExtractorVersion, GeneralData
 from mod_regression.models import (Category, RegressionTestOutput,
@@ -88,31 +88,29 @@ def get_data_for_test(test, title=None) -> Dict[str, Any]:
 
         # get average build and prep time.
         prep_average_key = 'avg_prep_time_' + test.platform.value
-        build_average_key = 'avg_build_time_' + test.platform.value
         average_prep_time = int(float(GeneralData.query.filter(GeneralData.key == prep_average_key).first().value))
-        average_build_time = int(float(GeneralData.query.filter(GeneralData.key == build_average_key).first().value))
 
         test_progress_last_entry = g.db.query(func.max(TestProgress.test_id)).first()
-        queued_kvm = g.db.query(Kvm.test_id).filter(Kvm.test_id < test.id).subquery()
-        queued_kvm_entries = g.db.query(Test.id).filter(
-            and_(Test.id.in_(queued_kvm), Test.platform == test.platform)
+        queued_gcp_instance = g.db.query(GcpInstance.test_id).filter(GcpInstance.test_id < test.id).subquery()
+        queued_gcp_instance_entries = g.db.query(Test.id).filter(
+            and_(Test.id.in_(queued_gcp_instance), Test.platform == test.platform)
         ).subquery()
-        kvm_test = g.db.query(TestProgress.test_id, label('time', func.group_concat(TestProgress.timestamp))).filter(
-            TestProgress.test_id.in_(queued_kvm_entries)
+        gcp_instance_test = g.db.query(TestProgress.test_id, label('time', func.group_concat(TestProgress.timestamp))).filter(
+            TestProgress.test_id.in_(queued_gcp_instance_entries)
         ).group_by(TestProgress.test_id).all()
-        number_kvm_test = g.db.query(Test.id).filter(
+        number_gcp_instance_test = g.db.query(Test.id).filter(
             and_(Test.id > test_progress_last_entry[0], Test.id < test.id, Test.platform == test.platform)
         ).count()
         average_duration = float(GeneralData.query.filter(GeneralData.key == var_average).first().value)
-        queued_tests = number_kvm_test
+        queued_tests = number_gcp_instance_test
         time_run = 0.00
-        for pr_test in kvm_test:
+        for pr_test in gcp_instance_test:
             timestamps = pr_test.time.split(',')
             start = datetime.strptime(timestamps[0], '%Y-%m-%d %H:%M:%S')
             end = datetime.strptime(timestamps[-1], '%Y-%m-%d %H:%M:%S')
             time_run += (end - start).total_seconds()
         # subtracting current running tests
-        total = (average_build_time + average_prep_time + (average_duration * (queued_tests + 1))) - time_run
+        total = (average_prep_time + (average_duration * (queued_tests + 1))) - time_run
         minutes = (total % 3600) // 60
         hours = total // 3600
 

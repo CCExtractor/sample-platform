@@ -19,8 +19,8 @@ from tests.base import (BaseTestCase, generate_git_api_header,
                         generate_signature, mock_api_request_github)
 
 
-class MockKVM:
-    """Mock KVM object."""
+class MockGcpInstance:
+    """Mock GcpInstance object."""
 
     def __init__(self, name):
         self.name = name

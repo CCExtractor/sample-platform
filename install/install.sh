@@ -27,7 +27,7 @@ echo ""
 echo "* Updating package list"
 apt-get update >> "$install_log" 2>&1
 echo "* Installing nginx, python, pip, kvm, libvirt and virt-manager"
-apt-get -q -y install nginx python3 python-is-python3 python3-pip mediainfo >> "$install_log" 2>&1
+apt-get -q -y install nginx python3 python-is-python3 python3-pip mediainfo gunicorn3 >> "$install_log" 2>&1
 rm -f /etc/nginx/sites-available/default
 rm -f /etc/nginx/sites-enabled/default
 for file in /etc/init.d/mysql*
@@ -52,7 +52,7 @@ done
 echo "* Update pip, setuptools and wheel"
 python -m pip install --upgrade pip setuptools wheel >> "$install_log" 2>&1
 echo "* Installing pip dependencies"
-pip install -r "${root_dir}/requirements.txt" >> "$install_log" 2>&1
+python -m pip install -r "${root_dir}/requirements.txt" >> "$install_log" 2>&1
 echo ""
 echo "-------------------------------"
 echo "|        Configuration        |"
@@ -194,7 +194,7 @@ while [ $admin_password != $confirm_admin_password ]; do
     read -s -e -r -p "Confirm admin password: " confirm_admin_password
 done
 echo "Creating admin account: "
-python "${dir}/init_db.py" "${config_db_uri}" "${admin_name}" "${admin_email}" "${admin_password}"
+python "${root_dir}/install/init_db.py" "${config_db_uri}" "${admin_name}" "${admin_email}" "${admin_password}"
 # Create sample database if user wanted to
 if [ "${sample_response}" == 'y' ]; then
     echo "Creating sample database.."

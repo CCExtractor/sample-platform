@@ -30,7 +30,6 @@ Note: Sometimes while creating a instance through the platform one might receive
 
 Note: We will provide downloads of the samples to users when requested via [Signed URLs](https://cloud.google.com/storage/docs/access-control#signed_urls_query_string_authentication).
 
-
 ## Creating a Service Account
 
 Now, create a service account with sufficient permissions (at least "Google Batch Service Agent") that would be used by the platform, VM instances to mount and read-write the bucket contents and also manage VM instances.

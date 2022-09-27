@@ -21,8 +21,8 @@ For deployment of the platform on a Google Cloud VM instance, one would require 
 
 1. Creating a VM instance
 
-   - Open Google Cloud console, and navigate to Compute Engine -> VM instances section, and click on "Create Instance".
-   - The following are the details of the VM instance to be entered:
+   - Open the Google Cloud console, navigate to Compute Engine -> VM instances section, and click on "Create Instance".
+   - The following are the details of the VM instance to be entered (most of the default configuration below can be changed as per the requirements):
         - Region: us-central1 (Iowa)
         - Zone: us-central1-a
         - Machine Family: General Purpose
@@ -40,25 +40,25 @@ For deployment of the platform on a Google Cloud VM instance, one would require 
 Windows Server 2019 Datacenter
                 - Boot type disk: Balanced persistent disk
                 - Size: 50GB
-        - Choose service account as the service account you just created for the platform.
+        - Choose the service account as the service account you just created for the platform.
         - Select the "Allow HTTP traffic" and "Allow HTTPS traffic" checkboxes.
         - Navigate to Advanced options -> Networking -> Network Interfaces -> External IPv4 address, and click on Create IP Address and reserve a new static external IP address for the platform.
 
 2. Setting up firewall settings
     
-    To allow access of the platform through external IPv4 address just created, there are some firewall configurations to be made:
+    To allow access to the platform through an external IPv4 address just created, there are some firewall configurations to be made:
     - Navigate to VPC network -> Firewall and click on "Create Firewall Policy".
-    - Set policy name as "default-allow-https" and click on "Add Rule" for creating a new firewall rule.
+    - Set the policy name as "default-allow-https" and click on "Add Rule" for creating a new firewall rule.
     - The following are the details to be entered for this rule:
         - Priority: 1000
         - Direction of Traffic: Ingress
-        - Action on match: Allow
+        - Action on the match: Allow
         - Target type: Specified target tags -> Target Tags: "https-server"
         - Source Filter: IPv4 ranges
         - Source IPv4 ranges: 0.0.0.0/0
         - Protocols and ports -> Specified protocols and ports -> TCP -> Port: 443  (Nginx server is configured on this port)
     - Now click on create
-    - Now create another firewall rule for http as "default-allow-http" with following changes in above configuration:
+    - Now create another firewall rule for HTTP as "default-allow-http" with the following changes in the above configuration:
         - Target type: Specified target tags -> Target Tags: "http-server"
         - Protocols and ports -> Specified protocols and ports -> TCP -> Port: 80
 
@@ -100,13 +100,13 @@ Steps:
     sudo mount /repository
     ```
 
-You may check if the mount was successful and the bucket is accessible by running `ls \repository` command.
+You may check if the mount was successful and if the bucket is accessible by running `ls /repository` command.
 
 #### Troubleshooting: Mounting of Bucket
 
-In case you get "permission denied" for `\repository`, you can check for the following reasons:
+In case you get "permission denied" for `/repository`, you can check for the following reasons:
 1. Check if the service account created has access to the GCS bucket.
-2. Check the output of `sudo mount \repository` command.
+2. Check the output of `sudo mount /repository` command.
 
 Place the service account key file at the root of the sample-platform folder. 
 
@@ -179,15 +179,15 @@ sudo python bootstrap_gunicorn.py
     4. In case of any gunicorn error try manually running `/etc/init.d/platform start` command and recheck the platform status.
 
 ### Setting Up The Bucket
-After the completion of automated installation of the platform, the following folder structure is created in the 'SAMPLE_REPOSITORY' set during install:
+After the completion of the automated installation of the platform, the following folder structure is created in the 'SAMPLE_REPOSITORY' set during installation:
 - `LogFiles/` - Directory containing log files of the tests completed
-- `QueuedFiles/` - Directory containing files related queued samples
-- `README` - A readme file related to SSL cetificates required by platform
+- `QueuedFiles/` - Directory containing files related to queued samples
+- `README` - A readme file related to SSL certificates required by the platform
 - `TempFiles/` - Directory containing temporary files
 - `TestData/` - Directory containing files required for starting a test - runCI files, variables file, tester
 - `TestFiles/` - Directory containing regression test samples
 - `TestResults/` - Direction containing regression test results
-- `vm_data/` - Directory containing test-specific subfolders, each folder containing files required for testing to be passed to the VM instance, test files and CCExtractor build artifact.
+- `vm_data/` - Directory containing test-specific subfolders, each folder containing files required for testing to be passed to the VM instance, test files and CCExtractor build artefact.
 
 Now for tests to run, we need to download the [CCExtractor testsuite](https://github.com/CCExtractor/ccx_testsuite) release file, extract and put it in `TestData/ci-linux` and `TestData/ci-windows` folders.
 

@@ -20,9 +20,16 @@ Now create a project, with the project name and project id of your choice.
 
 Working on Google Cloud Platform is not free, therefore it is recommended to either get a [free 90-day trial](https://console.cloud.google.com/freetrial) or [enable billing](https://console.cloud.google.com/billing) for the GCP account to get access the full set of services and increased usage limits.
 
-Now create a GCS bucket (preferably multi-regional), refer to the official documentation [here](https://cloud.google.com/storage/docs/creating-buckets).
+Now create a GCS bucket with the following settings (refer to the official documentation [here](https://cloud.google.com/storage/docs/creating-buckets)):
+- Location: Choose as per your preference and budget, however it is advised to keep the bucket and sample-platform VM instance in the same region for faster access.
+- Storage Class: Standard
+- Access Control: Uniform, and enable `Prevent Public Access`
+- Protection Tools: None
 
-Note: Creating a multi-regional GCS bucket would enable us to serve content to data consumers that are outside of the Google network and distributed across large geographic areas. And also this would allow us to change the ZONE of GCP instances used for testing as per requirement.
+Note: We will provide downloads of the samples to users when requested via [Signed URLs](https://cloud.google.com/storage/docs/access-control#signed_urls_query_string_authentication).
+
+### Setting Up The Bucket
+**TODO!!**
 
 ## Creating a Service Account
 

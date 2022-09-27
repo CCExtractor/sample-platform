@@ -100,6 +100,21 @@ pip install -r test-requirements.txt     # install test dependencies
 TESTING=True nosetests --with-cov --cov-config .coveragerc
 ```
 
+## Migrating platform between machines
+
+In case you want to replicate/migrate a platform instance with all the data, samples, regression tests.etc., follow the following steps:
+- Install platform on the new instance, using the [installation guide](install/installation.md).
+- Now transfer the contents of the previous GCS bucket to the new GCS bucket and export the SQL database of the previous platform instance into a file using the following command:
+    ```
+    mysqldump -u PLATFORM_USER_USERNAME -p PLATFORM_DATABASE_NAME > sample_platform.sql
+    ```
+    PLATFORM_USER_USERNAME and PLATFORM_DATABASE_NAME values are details for the SQL database of the previous platform instance.
+- Now import the database using the `sample_platform.sql` file into the new instance using the following command:
+    ```
+    mysql -u NEW_PLATFORM_USER_USERNAME -p NEW_PLATFORM_DATABASE_NAME < sample_platform.sql
+    ```
+    NEW_PLATFORM_USER_USERNAME and NEW_PLATFORM_DATABASE_NAME values are details for the SQL database of the new platform instance.
+
 ## Etiquettes
 
 We follow certain etiquettes which include docstrings, annotation, import sorting etc.

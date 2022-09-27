@@ -26,7 +26,7 @@ echo "-------------------------------"
 echo ""
 echo "* Updating package list"
 apt-get update >> "$install_log" 2>&1
-echo "* Installing nginx, python, pip, kvm, libvirt and virt-manager"
+echo "* Installing nginx, python, pip and mediainfo"
 apt-get -q -y install nginx python3 python-is-python3 python3-pip mediainfo >> "$install_log" 2>&1
 rm -f /etc/nginx/sites-available/default
 rm -f /etc/nginx/sites-enabled/default
@@ -281,8 +281,8 @@ echo "* Creating Nginx config"
 echo "* Moving variables and runCI files"
 
 {
-    mv $root_dir/install/ci-vm/ci-windows/ci/* "${sample_repository}/TestData/ci-windows/"
-    mv $root_dir/install/ci-vm/ci-linux/ci/* "${sample_repository}/TestData/ci-linux/"
+    cp $root_dir/install/ci-vm/ci-windows/ci/* "${sample_repository}/TestData/ci-windows/"
+    cp $root_dir/install/ci-vm/ci-linux/ci/* "${sample_repository}/TestData/ci-linux/"
 } >> "$install_log" 2>&1
 echo "* Reloading nginx"
 service nginx reload >> "$install_log" 2>&1

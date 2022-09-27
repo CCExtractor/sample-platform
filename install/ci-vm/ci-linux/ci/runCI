@@ -55,7 +55,7 @@ reportURL=$(curl http://metadata/computeMetadata/v1/instance/attributes/reportUR
 userAgent="CCX/CI_BOT"
 logFile="${reportFolder}/log.html"
 
-postStatus "preparation" "Loaded variables and created log file"
+postStatus "preparation" "Loaded variables, created log file and checking for CCExtractor build artifact"
 
 if [ -e "${dstDir}/ccextractor" ]; then
         cp $dstDir/* ./

@@ -15,7 +15,7 @@ for /F %%R in ('curl http://metadata/computeMetadata/v1/instance/attributes/repo
 SET userAgent="CCX/CI_BOT"
 SET logFile="%reportFolder%/log.html"
 
-call :postStatus "preparation" "Loaded variables and creating log file"
+call :postStatus "preparation" "Loaded variables, created log file and checking for CCExtractor build artifact"
 
 echo Checking for CCExtractor build artifact
 if EXIST "%dstDir%\ccextractorwinfull.exe" (

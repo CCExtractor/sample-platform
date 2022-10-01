@@ -41,7 +41,7 @@ class BlockedUsers(Base):
 
 
 class GcpInstance(Base):
-    """Model to store GCP Instances."""
+    """Model to store GcpInstances."""
 
     __tablename__ = 'gcp_instance'
     __table_args__ = {'mysql_engine': 'InnoDB'}

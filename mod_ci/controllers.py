@@ -35,7 +35,8 @@ from mailer import Mailer
 from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role
 from mod_ci.forms import AddUsersToBlacklist, DeleteUserForm
-from mod_ci.models import BlockedUsers, GcpInstance, MaintenanceMode, PrCommentInfo
+from mod_ci.models import (BlockedUsers, GcpInstance, MaintenanceMode,
+                           PrCommentInfo)
 from mod_customized.models import CustomizedTest
 from mod_deploy.controllers import is_valid_signature, request_from_github
 from mod_home.models import CCExtractorVersion, GeneralData

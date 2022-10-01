@@ -20,9 +20,15 @@ Now create a project, with the project name and project id of your choice.
 
 Working on Google Cloud Platform is not free, therefore it is recommended to either get a [free 90-day trial](https://console.cloud.google.com/freetrial) or [enable billing](https://console.cloud.google.com/billing) for the GCP account to get access the full set of services and increased usage limits.
 
-Now create a GCS bucket (preferably multi-regional), refer to the official documentation [here](https://cloud.google.com/storage/docs/creating-buckets).
+Now create a GCS bucket with the following settings (refer to the official documentation [here](https://cloud.google.com/storage/docs/creating-buckets)):
+- Location: Choose as per your preference and budget, however it is advised to keep the bucket and sample-platform VM instance in the same region for faster access.
+- Storage Class: Standard
+- Access Control: Uniform, and enable `Prevent Public Access`
+- Protection Tools: None
 
-Note: Creating a multi-regional GCS bucket would enable us to serve content to data consumers that are outside of the Google network and distributed across large geographic areas. And also this would allow us to change the ZONE of GCP instances used for testing as per requirement.
+Note: Sometimes while creating an instance through the platform one might receive an error(ZONE_RESOURCE_POOL_EXHAUSTED or ZONE_RESOURCE_POOL_EXHAUSTED_WITH_DETAILS), this is an issue faced quite often, hence it is advised to choose region and zone wisely. Here is a [stackoverflow link](https://stackoverflow.com/questions/65884360/cannot-start-gce-vm-instance-the-zone-does-not-have-enough-resources) for the same error.
+
+Note: We will provide downloads of the samples to users when requested via [Signed URLs](https://cloud.google.com/storage/docs/access-control#signed_urls_query_string_authentication).
 
 ## Creating a Service Account
 
@@ -46,7 +52,9 @@ Note: If you have provided the "editor" role to the service account (not recomme
 If you are not the owner of the GCP project you are working on, make sure you have the "Service Account Admin" role; if not, request the project owner for the same.
 
 - Go to [cloud storage page](https://console.cloud.google.com/storage/browser), and select the bucket to be used for the platform.
-- Now go to "Permissions" tab and check that the service account you created has "Storage Legacy Bucket Owner" and "Storage Legacy Object Owner" permissions, if not add these permissions.
+- Now go to the "Permissions" tab and check that the service account you created has "Storage Legacy Bucket Owner" and "Storage Legacy Object Owner" permissions, if not add these permissions by creating a new principal:
+    - Give the new principal name as the email of the service account created (can be found in the IAM & Admin -> Service Accounts section).
+    - Select the roles mentioned above and click on "Save".
 
 ## Mounting the Cloud Storage Bucket
 

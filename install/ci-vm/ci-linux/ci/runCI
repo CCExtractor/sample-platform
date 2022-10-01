@@ -18,6 +18,7 @@ fi
 function postStatus {
     echo "Posting ${1} - ${2} to the server:" >> "${logFile}"
     curl -s -A "${userAgent}" --data "type=progress&status=$1&message=$2" -w "\n" "${reportURL}" >> "${logFile}"
+    sleep 5
 }
 
 # Send the log file to the server so it can be used
@@ -29,8 +30,8 @@ function sendLogFile {
 
 # Exit script and post abort status
 function haltAndCatchFire {
-        postStatus "canceled" $1 >> "${logFile}"
         sendLogFile
+        postStatus "canceled" $1 >> "${logFile}"
         sudo shutdown -h now
 }
 
@@ -54,20 +55,17 @@ reportURL=$(curl http://metadata/computeMetadata/v1/instance/attributes/reportUR
 userAgent="CCX/CI_BOT"
 logFile="${reportFolder}/log.html"
 
-postStatus "preparation" "Loaded variables and created log file"
+postStatus "preparation" "Loaded variables, created log file and checking for CCExtractor build artifact"
 
-# Truncate log in case there was anything left from a previous session
-echo "" > "${logFile}"
-
-postStatus "building" "Checking if CCExtractor build artifact is present"
 if [ -e "${dstDir}/ccextractor" ]; then
-        chmod 700 "${dstDir}/ccextractor"
+        cp $dstDir/* ./
+        chmod 700 ccextractor
         chmod +x ${tester}
         postStatus "testing" "Running tests"
         executeCommand cd ${suiteDstDir}
-        executeCommand ${tester} --entries "${testFile}" --executable "${dstDir}/ccextractor" --tempfolder "${tempFolder}" --timeout 3000 --reportfolder "${reportFolder}" --resultfolder "${resultFolder}" --samplefolder "${sampleFolder}" --method Server --url "${reportURL}"
-        postStatus "completed" "Ran all tests"
+        executeCommand ${tester} --entries "${testFile}" --executable "ccextractor" --tempfolder "${tempFolder}" --timeout 3000 --reportfolder "${reportFolder}" --resultfolder "${resultFolder}" --samplefolder "${sampleFolder}" --method Server --url "${reportURL}"
         sendLogFile
+        postStatus "completed" "Ran all tests"
 
         sudo shutdown -h now
 else

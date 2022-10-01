@@ -41,7 +41,7 @@ class BlockedUsers(Base):
 
 
 class GcpInstance(Base):
-    """Model to store GcpInstances."""
+    """Model to store GCP Instances."""
 
     __tablename__ = 'gcp_instance'
     __table_args__ = {'mysql_engine': 'InnoDB'}
@@ -53,7 +53,7 @@ class GcpInstance(Base):
 
     def __init__(self, name, test_id, timestamp=None) -> None:
         """
-        Parametrized constructor for the GCP Instance model.
+        Parametrized constructor for the GcpInstance model.
 
         :param name: The value of the 'name' field of GcpInstance model
         :type name: str

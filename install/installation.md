@@ -195,9 +195,9 @@ Now for tests to run, we need to download the [CCExtractor testsuite](https://gi
 
 To serve file downloads directly from the private GCS bucket, Signed download URLs have been used.
 
-The `serve_file_download` function in `utility.py` file implements the generation of signed URL for the file to be downloaded that would expire after a configured time limit (maximum limit: 7 days) and redirects the client to the URL.
+The `serve_file_download` function in the `utility.py` file implements the generation of a signed URL for the file to be downloaded that would expire after a configured time limit (maximum limit: 7 days) and redirects the client to the URL.
 
-For more information about Signed URLs you can refer the [official documentation](https://cloud.google.com/storage/docs/access-control/signed-urls).
+For more information about Signed URLs, you can refer to the [official documentation](https://cloud.google.com/storage/docs/access-control/signed-urls).
 
 
 ## File upload size for HTTP

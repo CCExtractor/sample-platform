@@ -5,7 +5,6 @@ from os import path
 
 import werkzeug
 from flask import redirect
-from google.cloud import storage
 
 
 def serve_file_download(file_name, file_folder, file_sub_folder='') -> werkzeug.wrappers.response.Response:
@@ -21,13 +20,10 @@ def serve_file_download(file_name, file_folder, file_sub_folder='') -> werkzeug.
     :return: response, the file download
     :rtype: werkzeug.wrappers.response.Responsee
     """
-    from run import config
+    from run import config, storage_client_bucket
 
-    sa_file = path.join(config.get('INSTALL_FOLDER', ''), config.get('SERVICE_ACCOUNT_FILE', ''))
     file_path = path.join(file_folder, file_sub_folder, file_name)
-    storage_client = storage.Client.from_service_account_json(sa_file)
-    bucket = storage_client.bucket(config.get('GCS_BUCKET_NAME', ''))
-    blob = bucket.blob(file_path)
+    blob = storage_client_bucket.blob(file_path)
     blob.content_disposition = f'attachment; filename="{file_name}"'
     blob.patch()
     url = blob.generate_signed_url(

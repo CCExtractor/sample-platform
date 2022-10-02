@@ -38,13 +38,13 @@ class MediaInfoFetcher:
             if 'MediaInfo' not in doc:
                 raise InvalidMediaInfoError("Mediainfo xml root element not present")
 
-            self.media_info = doc['MediaInfo']
-            self.video_tracks = []      # type: List
-            self.caption_tracks = []    # type: List
-            self.audio_tracks = []      # type: List
-            self.other_tracks = []      # type: List
-            self.general_track = {}     # type: Dict
-            self.parsed = False
+        self.media_info = doc['MediaInfo']
+        self.video_tracks = []      # type: List
+        self.caption_tracks = []    # type: List
+        self.audio_tracks = []      # type: List
+        self.other_tracks = []      # type: List
+        self.general_track = {}     # type: Dict
+        self.parsed = False
 
     def get_media_info(self, force_parse=False) -> Optional[List[Dict[str, Any]]]:
         """Get media info from the sample file."""
@@ -101,7 +101,7 @@ class MediaInfoFetcher:
         :type track: dict
         :raises InvalidMediaInfoError: when track dict doesn't contain type
         """
-        if type(track) is not OrderedDict:
+        if type(track) not in [OrderedDict, dict]:
             return
         if '@type' not in track:
             raise InvalidMediaInfoError("Track file does not contain a type")

@@ -11,6 +11,9 @@ Copy-Item -Path .\rclone-v1.59.0-windows-amd64\rclone.exe -Destination .\reposit
 cd repository
 New-Item -Path '.\reports' -ItemType Directory
 
+$gcs_bucket = curl.exe http://metadata/computeMetadata/v1/instance/attributes/bucket -H "Metadata-Flavor: Google"
+$env:mount_path = $gcs_bucket, $gcs_bucket -join ":"
+
 $env:vm_name = curl.exe http://metadata.google.internal/computeMetadata/v1/instance/hostname -H "Metadata-Flavor: Google"
 $env:vm_name = ($env:vm_name -split "\.")[0]
 
@@ -20,19 +23,16 @@ curl.exe http://metadata/computeMetadata/v1/instance/attributes/rclone_conf -H "
 curl.exe http://metadata/computeMetadata/v1/instance/attributes/service_account -H "Metadata-Flavor: Google" > service-account.json
 (Get-Content -path .\service-account.json) | Set-Content -Encoding ASCII -Path .\service-account.json
 
-start powershell {.\rclone.exe mount spdev:spdev\TestFiles .\TestFiles --config=".\rclone.conf" --no-console}
+start powershell {.\rclone.exe mount $env:mount_path\TestFiles .\TestFiles --config=".\rclone.conf" --no-console}
 Start-Sleep -Seconds 5
 
-start powershell {.\rclone.exe mount spdev:spdev\TestData\ci-windows .\temp --config=".\rclone.conf" --no-console}
+start powershell {.\rclone.exe mount $env:mount_path\TestData\ci-windows .\temp --config=".\rclone.conf" --no-console}
 Start-Sleep -Seconds 5
 
-start powershell {.\rclone.exe mount spdev:spdev\TestFiles .\TestFiles --config=".\rclone.conf" --no-console}
+start powershell {.\rclone.exe mount $env:mount_path\TestResults .\TestResults --config=".\rclone.conf" --no-console}
 Start-Sleep -Seconds 5
 
-start powershell {.\rclone.exe mount spdev:spdev\TestResults .\TestResults --config=".\rclone.conf" --no-console}
-Start-Sleep -Seconds 5
-
-start powershell {.\rclone.exe mount spdev:spdev\vm_data\$env:vm_name .\vm_data --config=".\rclone.conf" --no-console}
+start powershell {.\rclone.exe mount $env:mount_path\vm_data\$env:vm_name .\vm_data --config=".\rclone.conf" --no-console}
 Start-Sleep -Seconds 5
 
 Copy-Item -Path "temp\*" -Destination "."

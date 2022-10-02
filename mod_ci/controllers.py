@@ -429,7 +429,8 @@ def create_instance(compute, project, zone, test, reportURL) -> Dict:
                                            'ci-linux', 'startup-script.sh'), 'r').read()
         metadata_items = [
             {'key': 'startup-script', 'value': startup_script},
-            {'key': 'reportURL', 'value': reportURL}
+            {'key': 'reportURL', 'value': reportURL},
+            {'key': 'bucket', 'value': config.get('GCS_BUCKET_NAME', '')}
         ]
     elif test.platform == TestPlatform.windows:
         image_response = compute.images().getFromFamily(project=config.get('WINDOWS_INSTANCE_PROJECT_NAME', ''),
@@ -444,7 +445,8 @@ def create_instance(compute, project, zone, test, reportURL) -> Dict:
             {'key': 'windows-startup-script-ps1', 'value': startup_script},
             {'key': 'service_account', 'value': service_account},
             {'key': 'rclone_conf', 'value': rclone_conf},
-            {'key': 'reportURL', 'value': reportURL}
+            {'key': 'reportURL', 'value': reportURL},
+            {'key': 'bucket', 'value': config.get('GCS_BUCKET_NAME', '')}
         ]
     source_disk_image = image_response['selfLink']
 

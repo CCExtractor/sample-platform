@@ -8,23 +8,18 @@ from flask import redirect
 from google.cloud import storage
 
 
-def serve_file_download(file_name, file_folder, x_accel_folder,
-                        file_sub_folder='', content_type='application/octet-stream') -> werkzeug.wrappers.response.Response:
+def serve_file_download(file_name, file_folder, file_sub_folder='') -> werkzeug.wrappers.response.Response:
     """
-    Endpoint to serve file download.
+    Serve file download by redirecting using Signed Download URLs.
 
     :param file_name: name of the file
     :type file_name: str
     :param file_folder: name of the folder
     :type file_folder: str
-    :param x_accel_folder: location of the x-accel folder
-    :type x_accel_folder: str
     :param file_sub_folder: sub folder of both the x-accel folder and the original folder
     :type file_sub_folder: str
-    :param content_type: content type of the file, defaults to 'application/octet-stream'
-    :type content_type: str, optional
     :return: response, the file download
-    :rtype: Flask response
+    :rtype: werkzeug.wrappers.response.Responsee
     """
     from run import config
 

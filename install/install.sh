@@ -273,9 +273,6 @@ echo "* Creating Nginx config"
 {
     cp "${dir}/nginx.conf" /etc/nginx/sites-available/platform
     sed -i "s/NGINX_HOST/${config_server_name}/g" /etc/nginx/sites-available/platform
-    sed -i "s#SAMPLE_DIR#${sample_repository}/TestFiles/media#g" /etc/nginx/sites-available/platform
-    sed -i "s#LOGFILE_DIR#${sample_repository}/LogFiles#g" /etc/nginx/sites-available/platform
-    sed -i "s#RESULT_DIR#${sample_repository}/TestResults#g" /etc/nginx/sites-available/platform
     sed -i "s#NGINX_CERT#${config_ssl_cert}#g" /etc/nginx/sites-available/platform 
     sed -i "s#NGINX_KEY#${config_ssl_key}#g" /etc/nginx/sites-available/platform 
     sed -i "s#NGINX_DIR#${root_dir}#g" /etc/nginx/sites-available/platform 

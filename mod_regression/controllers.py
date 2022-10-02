@@ -207,7 +207,7 @@ def test_result_file(regression_test_output_id):
     if rto is None:
         g.log.error(f'requested regression test output with id: {regression_test_output_id} not found!')
         abort(404)
-    return serve_file_download(rto.filename_correct, 'TestResults', 'regression-download')
+    return serve_file_download(rto.filename_correct, 'TestResults')
 
 
 @mod_regression.route('/test/<regression_test_output_id>/download/variant', methods=['GET'])
@@ -217,7 +217,7 @@ def multiple_test_result_file(regression_test_output_id):
     if rtof is None:
         g.log.error(f'requested regression test output file with id: {regression_test_output_id} not found!')
         abort(404)
-    return serve_file_download(rtof.file_hashes + rtof.output.correct_extension, 'TestResults', 'regression-download')
+    return serve_file_download(rtof.file_hashes + rtof.output.correct_extension, 'TestResults')
 
 
 @mod_regression.route('/test/new', methods=['GET', 'POST'])

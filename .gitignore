@@ -24,7 +24,7 @@ secret_csrf
 secret_key
 config.py
 service-account.json
-install/ci-vm/ci-windows/ci/rclone.conf
+install/ci-vm/ci-windows/rclone.conf
 
 # Build commit
 build_commit.py

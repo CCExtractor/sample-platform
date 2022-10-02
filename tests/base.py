@@ -94,8 +94,6 @@ def load_config(file):
         'MIN_PWD_LEN': 10,
         'MAX_PWD_LEN': 500,
         'SAMPLE_REPOSITORY': "temp",
-        'KVM_LINUX_NAME': "linux-test",
-        'KVM_WINDOWS_NAME': "window-test",
         'SECRET_KEY': secret_key,
         'CSRF_SESSION_KEY': secret_csrf,
         'ZONE': "test_zone",
@@ -266,11 +264,9 @@ class BaseTestCase(TestCase):
 
         test_result_progress = [
             TestProgress(1, TestStatus.preparation, "Test 1 preparation"),
-            TestProgress(1, TestStatus.building, "Test 1 building"),
             TestProgress(1, TestStatus.testing, "Test 1 testing"),
             TestProgress(1, TestStatus.completed, "Test 1 completed"),
             TestProgress(2, TestStatus.preparation, "Test 2 preparation"),
-            TestProgress(2, TestStatus.building, "Test 2 building"),
             TestProgress(2, TestStatus.testing, "Test 2 testing"),
             TestProgress(2, TestStatus.completed, "Test 2 completed")
         ]

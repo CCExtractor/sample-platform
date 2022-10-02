@@ -198,7 +198,7 @@ python "${root_dir}/install/init_db.py" "${config_db_uri}" "${admin_name}" "${ad
 # Create sample database if user wanted to
 if [ "${sample_response}" == 'y' ]; then
     echo "Creating sample database.."
-    cp -r sample_files/* "${sample_repository}/TestFiles"
+    cp -r "${dir}/sample_files/*" "${sample_repository}/TestFiles"
     python "${dir}/sample_db.py" "${config_db_uri}"
 fi
 echo ""

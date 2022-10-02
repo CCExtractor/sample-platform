@@ -35,7 +35,8 @@ from mailer import Mailer
 from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role
 from mod_ci.forms import AddUsersToBlacklist, DeleteUserForm
-from mod_ci.models import BlockedUsers, Kvm, MaintenanceMode, PrCommentInfo
+from mod_ci.models import (BlockedUsers, GcpInstance, MaintenanceMode,
+                           PrCommentInfo)
 from mod_customized.models import CustomizedTest
 from mod_deploy.controllers import is_valid_signature, request_from_github
 from mod_home.models import CCExtractorVersion, GeneralData
@@ -196,7 +197,7 @@ def gcp_instance(app, db, platform, repository, delay) -> None:
     :type platform: str
     :param repository: repository to run tests on
     :type repository: str
-    :param delay: time delay after which to start kvm processor
+    :param delay: time delay after which to start gcp_instance function
     :type delay: int
     """
     from run import config, get_github_config, log
@@ -273,20 +274,20 @@ def start_test(compute, app, db, repository, test, bot_token) -> None:
     """
     from run import config, log
     log.debug(f'[{test.platform}] Starting test {test.id}')
-    kvm_name = f"{test.platform.value}-{test.id}"
+    gcp_instance_name = f"{test.platform.value}-{test.id}"
 
-    test_folder = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', kvm_name)
+    test_folder = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', gcp_instance_name)
 
     Path(test_folder).mkdir(parents=True, exist_ok=True)
 
-    status = Kvm(kvm_name, test.id)
+    status = GcpInstance(gcp_instance_name, test.id)
     # Prepare data
     # 0) Write url to file
     with app.app_context():
         full_url = url_for('ci.progress_reporter', test_id=test.id, token=test.token, _external=True, _scheme="https")
 
     # 1) Generate test files
-    base_folder = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', kvm_name, 'ci-tests')
+    base_folder = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', gcp_instance_name, 'ci-tests')
     Path(base_folder).mkdir(parents=True, exist_ok=True)
 
     categories = Category.query.order_by(Category.id.desc()).all()
@@ -357,7 +358,7 @@ def start_test(compute, app, db, repository, test, bot_token) -> None:
 
     # 2) Download the artifact for the current build from GitHub Actions
     artifact_saved = False
-    base_folder = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', kvm_name, 'unsafe-ccextractor')
+    base_folder = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', gcp_instance_name, 'unsafe-ccextractor')
     Path(base_folder).mkdir(parents=True, exist_ok=True)
     artifacts = repository.actions.artifacts().get(per_page="100")["artifacts"]
     page_number = 2
@@ -1147,28 +1148,18 @@ def progress_type_request(log, test, test_id, request) -> bool:
             message = "Duplicate Entries"
 
         if last_status < current_status:
-            # get KVM start time for finding KVM preparation time
-            kvm_entry = Kvm.query.filter(Kvm.test_id == test_id).first()
+            # get GCP VM instance start time for finding GCP VM instance preparation time
+            gcp_instance_entry = GcpInstance.query.filter(GcpInstance.test_id == test_id).first()
 
-            if status == TestStatus.building:
+            if status == TestStatus.testing:
                 log.info('test preparation finished')
                 prep_finish_time = datetime.datetime.now()
                 # save preparation finish time
-                kvm_entry.timestamp_prep_finished = prep_finish_time
+                gcp_instance_entry.timestamp_prep_finished = prep_finish_time
                 g.db.commit()
                 # set time taken in seconds to do preparation
-                time_diff = (prep_finish_time - kvm_entry.timestamp).total_seconds()
+                time_diff = (prep_finish_time - gcp_instance_entry.timestamp).total_seconds()
                 set_avg_time(test.platform, "prep", time_diff)
-
-            elif status == TestStatus.testing:
-                log.info('test build procedure finished')
-                build_finish_time = datetime.datetime.now()
-                # save build finish time
-                kvm_entry.timestamp_build_finished = build_finish_time
-                g.db.commit()
-                # set time taken in seconds to do preparation
-                time_diff = (build_finish_time - kvm_entry.timestamp_prep_finished).total_seconds()
-                set_avg_time(test.platform, "build", time_diff)
 
     progress = TestProgress(test.id, status, message)
     g.db.add(progress)
@@ -1188,7 +1179,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
             commit.value = test.commit
             g.db.commit()
 
-    # If status is complete, remove the Kvm entry
+    # If status is complete, remove the GCP Instance entry
     if status in [TestStatus.completed, TestStatus.canceled]:
         log.debug(f"Test {test_id} has been {status}")
         var_average = 'average_time_' + test.platform.value
@@ -1251,11 +1242,11 @@ def progress_type_request(log, test, test_id, request) -> bool:
             g.db.commit()
             log.info(f'average time updated to {str(current_average.value)}')
 
-        kvm = Kvm.query.filter(Kvm.test_id == test_id).first()
+        gcp_instance = GcpInstance.query.filter(GcpInstance.test_id == test_id).first()
 
-        if kvm is not None:
-            log.debug("Removing KVM entry")
-            g.db.delete(kvm)
+        if gcp_instance is not None:
+            log.debug("Removing GCP Instance entry")
+            g.db.delete(gcp_instance)
             g.db.commit()
 
     # Post status update

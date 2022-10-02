@@ -58,7 +58,7 @@
                                         <td>{{ file.original_name }}</td>
                                     {% endif %}
                                     <td>
-                                        <a href="{{ url_for(".download_sample_additional", sample_id=sample.id, additional_id=file.id) }}" title="Download additional file"><i class="fa fa-download"></i></a>
+                                        <a target="_blank" href="{{ url_for(".download_sample_additional", sample_id=sample.id, additional_id=file.id) }}" title="Download additional file"><i class="fa fa-download"></i></a>
                                         {% if user.is_admin %}
                                             &nbsp;<a href="{{ url_for(".delete_sample_additional", sample_id=sample.id, additional_id=file.id) }}" title="Delete additional file"><i class="fa fa-remove"></i></a>
                                         {% endif %}

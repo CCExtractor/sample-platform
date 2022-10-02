@@ -16,7 +16,7 @@ def serve_file_download(file_name, file_folder, file_sub_folder='') -> werkzeug.
     :type file_name: str
     :param file_folder: name of the folder
     :type file_folder: str
-    :param file_sub_folder: sub folder of both the x-accel folder and the original folder
+    :param file_sub_folder: sub folder of the original folder
     :type file_sub_folder: str
     :return: response, the file download
     :rtype: werkzeug.wrappers.response.Responsee

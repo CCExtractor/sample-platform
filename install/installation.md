@@ -191,27 +191,14 @@ After the completion of the automated installation of the platform, the followin
 
 Now for tests to run, we need to download the [CCExtractor testsuite](https://github.com/CCExtractor/ccx_testsuite) release file, extract and put it in `TestData/ci-linux` and `TestData/ci-windows` folders.
 
-## Nginx configuration for X-Accel-Redirect
+## GCS configuration to serve file downloads using Signed URLs
 
-To serve files without any scripting language overhead, the X-Accel-Redirect 
-feature of Nginx is used. To enable it, a special section (as seen below) 
-needs to be added to the nginx configuration file:
+To serve file downloads directly from the private GCS bucket, Signed download URLs have been used.
 
-```
-location /protected/ {
-    internal;
-    alias /path/to/storage/of/samples/; # Trailing slash is important!
-}
-```
+The `serve_file_download` function in `utility.py` file implements the generation of signed URL for the file to be downloaded that would expire after a configured time limit (maximum limit: 7 days) and redirects the client to the URL.
 
-More info on this directive is available at the 
-[Nginx wiki](http://wiki.nginx.org/NginxXSendfile).
+For more information about Signed URLs you can refer the [official documentation](https://cloud.google.com/storage/docs/access-control/signed-urls).
 
-Other web servers can be configured too (see this excellent 
-[SO](http://stackoverflow.com/a/3731639) answer), but will require a small 
-modification in the relevant section of the `serve_file_download` definition 
-in `mod_sample/controllers.py` which is responsible for handling the download
-requests.
 
 ## File upload size for HTTP
 

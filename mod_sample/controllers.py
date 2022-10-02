@@ -210,7 +210,7 @@ def download_sample_media_info(sample_id):
         media_info_path = os.path.join(
             config.get('SAMPLE_REPOSITORY', ''), 'TestFiles', 'media', sample.sha + '.xml')
         if os.path.isfile(media_info_path):
-            return serve_file_download(sample.sha + '.xml', 'TestFiles', 'media', 'text/xml')
+            return serve_file_download(sample.sha + '.xml', 'TestFiles', 'media')
 
         raise SampleNotFoundException(f"Media information for sample {sample.id} not found")
 

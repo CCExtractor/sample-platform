@@ -145,6 +145,7 @@ read -e -r -p "GCP Instance Max Runtime (In minutes): " -i "120" gcp_instance_ma
 read -e -r -p "Google Cloud Storage bucket name: " -i "" gcs_bucket_name
 read -e -r -p "Google Cloud Storage bucket location: " -i "" gcs_bucket_location
 read -e -r -p "Google Cloud Storage bucket location type: " -i "" gcs_bucket_location_type
+read -e -r -p "Signed Download URLs expiry time (In minutes): " -i "720" signed_url_expiry_time
 
 
 echo ""
@@ -245,6 +246,8 @@ WINDOWS_INSTANCE_FAMILY_NAME = '${windows_instance_family_name}'
 LINUX_INSTANCE_PROJECT_NAME = '${linux_instance_project_name}'
 LINUX_INSTANCE_FAMILY_NAME = '${linux_instance_family_name}'
 GCP_INSTANCE_MAX_RUNTIME = $gcp_instance_max_runtime  # In minutes
+GCS_BUCKET_NAME = '${gcs_bucket_name}'
+GCS_SIGNED_URL_EXPIRY_LIMIT = $signed_url_expiry_time  # In minutes
 " > "${dir}/../config.py"
 # Ensure the files are executable by www-data
 chown -R www-data:www-data "${root_dir}" "${sample_repository}"

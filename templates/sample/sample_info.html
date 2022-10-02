@@ -90,9 +90,12 @@
             <div class="column medium-3">
             <h5>Actions</h5>
             <ul class="no-bullet">
-                <li><i class="fa fa-li fa-download"></i> <a href="{{ url_for(".download_sample", sample_id=sample.id) }}">Download sample</a></li>
+                <li><i class="fa fa-li fa-download"></i> 
+                    <a target="_blank" href="{{ url_for(".download_sample", sample_id=sample.id) }}">Download sample</a></li>
                 {% if media %}
-                    <li><i class="fa fa-li fa-file-code-o"></i> <a href="{{ url_for(".download_sample_media_info", sample_id=sample.id) }}">Download media info xml</a></li>
+                    <li><i class="fa fa-li fa-file-code-o"></i> 
+                        <a target="_blank" href="{{ url_for(".download_sample_media_info", sample_id=sample.id) }}">Download media info xml</a>
+                    </li>
                 {% endif %}
                 {% if user.is_admin %}
                     <li><i class="fa fa-li fa-edit"></i> <a href="{{ url_for(".edit_sample", sample_id=sample.id) }}">Edit sample</a></li>

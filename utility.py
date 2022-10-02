@@ -1,15 +1,15 @@
 """provide common utility attributes such as root path."""
 
+import datetime
 from os import path
-from typing import Any
 
-from flask import make_response
-
-ROOT_DIR = path.dirname(path.abspath(__file__))
+import werkzeug
+from flask import redirect
+from google.cloud import storage
 
 
 def serve_file_download(file_name, file_folder, x_accel_folder,
-                        file_sub_folder='', content_type='application/octet-stream') -> Any:
+                        file_sub_folder='', content_type='application/octet-stream') -> werkzeug.wrappers.response.Response:
     """
     Endpoint to serve file download.
 
@@ -28,13 +28,16 @@ def serve_file_download(file_name, file_folder, x_accel_folder,
     """
     from run import config
 
-    file_path = path.join(config.get('SAMPLE_REPOSITORY', ''), file_folder, file_sub_folder, file_name)
-    response = make_response()
-    response.headers['Content-Description'] = 'File Transfer'
-    response.headers['Cache-Control'] = 'no-cache'
-    response.headers['Content-Type'] = content_type
-    response.headers['Content-Disposition'] = f'attachment; filename={file_name}'
-    response.headers['Content-Length'] = path.getsize(file_path)
-    response.headers['X-Accel-Redirect'] = '/' + path.join(x_accel_folder, file_sub_folder, file_name)
-
-    return response
+    sa_file = path.join(config.get('INSTALL_FOLDER', ''), config.get('SERVICE_ACCOUNT_FILE', ''))
+    file_path = path.join(file_folder, file_sub_folder, file_name)
+    storage_client = storage.Client.from_service_account_json(sa_file)
+    bucket = storage_client.bucket(config.get('GCS_BUCKET_NAME', ''))
+    blob = bucket.blob(file_path)
+    blob.content_disposition = f'attachment; filename="{file_name}"'
+    blob.patch()
+    url = blob.generate_signed_url(
+        version="v4",
+        expiration=datetime.timedelta(minutes=config.get('GCS_SIGNED_URL_EXPIRY_LIMIT', '')),
+        method="GET",
+    )
+    return redirect(url)

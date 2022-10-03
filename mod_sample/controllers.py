@@ -187,7 +187,7 @@ def download_sample(sample_id):
     """
     sample = Sample.query.filter(Sample.id == sample_id).first()
     if sample is not None:
-        return serve_file_download(sample.filename, 'TestFiles', 'media-download')
+        return serve_file_download(sample.filename, 'TestFiles')
     raise SampleNotFoundException('Sample not found')
 
 
@@ -210,7 +210,7 @@ def download_sample_media_info(sample_id):
         media_info_path = os.path.join(
             config.get('SAMPLE_REPOSITORY', ''), 'TestFiles', 'media', sample.sha + '.xml')
         if os.path.isfile(media_info_path):
-            return serve_file_download(sample.sha + '.xml', 'TestFiles', 'media-download', 'media', 'text/xml')
+            return serve_file_download(sample.sha + '.xml', 'TestFiles', 'media')
 
         raise SampleNotFoundException(f"Media information for sample {sample.id} not found")
 
@@ -235,7 +235,7 @@ def download_sample_additional(sample_id, additional_id):
     if sample is not None:
         extra = ExtraFile.query.filter(ExtraFile.id == additional_id).first()
         if extra is not None:
-            return serve_file_download(extra.filename, 'TestFiles', 'media-download', 'extra')
+            return serve_file_download(extra.filename, 'TestFiles', 'extra')
         raise SampleNotFoundException(f"Extra file {additional_id} for sample {sample.id} not found")
     raise SampleNotFoundException(f"Sample with id {sample_id} not found")
 

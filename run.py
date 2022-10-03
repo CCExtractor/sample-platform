@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 
 from flask import Flask, g
 from flask_migrate import Migrate
+from google.cloud import storage
 from werkzeug.exceptions import Forbidden, InternalServerError, NotFound
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.routing import BaseConverter, Map
@@ -60,6 +61,10 @@ log_configuration = LogConfiguration(app.root_path,
                                      app.config['DEBUG'])
 log = log_configuration.create_logger("Platform")
 
+# Create bucket objext using GCS storage client
+sa_file = os.path.join(app.config.get('INSTALL_FOLDER', ''), app.config.get('SERVICE_ACCOUNT_FILE', ''))
+storage_client = storage.Client.from_service_account_json(sa_file)
+storage_client_bucket = storage_client.bucket(app.config.get('GCS_BUCKET_NAME', ''))
 
 def load_secret_keys(application: Flask, secret_session: str = 'secret_key',
                      secret_csrf: str = 'secret_csrf') -> None:

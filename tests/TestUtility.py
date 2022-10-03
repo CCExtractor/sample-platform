@@ -13,7 +13,7 @@ class TestUtility(BaseTestCase):
         """Test function serve_file_download."""
         from utility import serve_file_download
 
-        response = serve_file_download('to_download', 'folder', 'accl_folder')
+        response = serve_file_download('to_download', 'folder')
 
         self.assert200(response)
         self.assertEqual(2, mock_path.join.call_count)

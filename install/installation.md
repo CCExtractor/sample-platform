@@ -47,9 +47,8 @@ Windows Server 2019 Datacenter
 2. Setting up firewall settings
     
     To allow access to the platform through an external IPv4 address just created, there are some firewall configurations to be made:
-    - Navigate to VPC network -> Firewall and click on "Create Firewall Policy".
-    - Set the policy name as "default-allow-https" and click on "Add Rule" for creating a new firewall rule.
-    - The following are the details to be entered for this rule:
+    - Navigate to VPC network -> Firewall and click on "Create Firewall Rule".
+    - Set the rule name as "default-allow-https" and enter the following details for this rule:
         - Priority: 1000
         - Direction of Traffic: Ingress
         - Action on the match: Allow
@@ -57,7 +56,7 @@ Windows Server 2019 Datacenter
         - Source Filter: IPv4 ranges
         - Source IPv4 ranges: 0.0.0.0/0
         - Protocols and ports -> Specified protocols and ports -> TCP -> Port: 443  (Nginx server is configured on this port)
-    - Now click on create
+    - Now click on "Save"
     - Now create another firewall rule for HTTP as "default-allow-http" with the following changes in the above configuration:
         - Target type: Specified target tags -> Target Tags: "http-server"
         - Protocols and ports -> Specified protocols and ports -> TCP -> Port: 80
@@ -91,7 +90,7 @@ Steps:
 
     For Ubuntu and derivatives, assuming `/repository` to be the location of samples to be configured, an entry can be added to `/etc/fstab` file, replace _GCS_BUCKET_NAME_ with the name of the bucket created for the platform:
     ```
-    echo "GCS_BUCKET_NAME   /repository 	gcsfuse rw,uid=33,gid=33,noatime,async,_netdev,noexec,user,implicit_dirs,allow_other	0 0" | sudo tee -a /etc/fstab
+    echo "GCS_BUCKET_NAME   /repository 	gcsfuse rw,gid=33,noatime,async,_netdev,noexec,user,implicit_dirs,allow_other,file_mode=774,dir_mode=775	0 0" | sudo tee -a /etc/fstab
     ```
 
 - Now run the following command as root to mount the bucket:
@@ -277,23 +276,39 @@ Next, a file called `ChrootEveryone` must be created, so that the individual
 users are jailed:
 
 ```
-echo "yes" > /etc/pure-ftpd/conf/ChrootEveryone
+echo "yes" | sudo tee /etc/pure-ftpd/conf/ChrootEveryone
 ```
 
 The same needs to be done for `CreateHomeDir` and `CallUploadScript`:
 
 ```
-echo "yes" > /etc/pure-ftpd/conf/CreateHomeDir
-echo "yes" > /etc/pure-ftpd/conf/CallUploadScript
+echo "yes" | sudo tee /etc/pure-ftpd/conf/CreateHomeDir
+echo "yes" | sudo tee /etc/pure-ftpd/conf/CallUploadScript
+```
+
+Set `PassivePortRange` for pure-ftpd:
+```
+echo "30000 50000" | sudo tee /etc/pure-ftpd/conf/PassivePortRange
 ```
 
 Also `/etc/default/pure-ftpd-common` needs some modification:
 
 ```
 UPLOADSCRIPT=/path/to/cron/progress_ftp_upload.py
-UPLOADUID=2015 # User that owns the upload.sh script
-UPLOADGID=2015 # Group that owns the upload.sh script
+UPLOADUID=33 # User that owns the upload.sh script
+UPLOADGID=33 # Group that owns the upload.sh script
 ```
+
+You can get the UPLOADUID and UPLOADGID using the following command:
+```
+ls -l /path/to/cron/progress_ftp_upload.py
+```
+
+Since we provide bucket access only to group `www-data`, we will now add `ftpuser` to the group:
+```
+sudo usermod -a -G www-data ftpuser
+```
+In manual installation, you may change `www-data` to the group you provided the bucket access.
 
 When necessary, an appropriate value in the Umask file 
 (`/etc/pure-ftpd/conf/Umask`) should be set as well.
@@ -303,15 +318,30 @@ After this you Pure-FTPD can be restarted using
 
 Note: if there is no output saying: 
 `Restarting ftp upload handler: pure-uploadscript.`, the uploadscript will
-need to be started. This can be done using the next command (assuming 1000 is
+need to be started. This can be done using the next command (assuming 33 is
 the `gid` and `uid` of the user which was specified earlier):
 
 ```
-sudo pure-uploadscript -u 2015 -g 2015 -B -r /home/path/to/src/cron/progress_ftp_upload.py
-sudo chown 2015:2015 /home/path/to/src/cron/progress_ftp_upload.py
-
+sudo pure-uploadscript -u 33 -g 33 -B -r /home/path/to/src/cron/progress_ftp_upload.py
+sudo chown 33:33 /home/path/to/src/cron/progress_ftp_upload.py
 ```
 
 To check if the upload script is running, the next command can help:
 `ps aux | grep pure-uploadscript`. If it still doesn't work, rebooting the 
 server might help as well.
+
+### Configure GCP Firewall for Pure-FTP
+NOTE: These steps need to be performed only if the platform is being installed on a GCP VM instance.
+
+Since pure-ftpd server runs over TCP port 21 and we allow passive TCP port range as 30000-50000, we should now allow incoming communication requests through these ports to the platform server:
+
+- Navigate to VPC network -> Firewall and click on "Create Firewall Rule".
+- Set the name as "default-allow-ftp-ingress" and enter the following details for this rule:
+    - Priority: 1000
+    - Direction of Traffic: Ingress
+    - Action on the match: Allow
+        - Target type: "Allow instances in the network"
+        - Source Filter: IPv4 ranges
+        - Source IPv4 ranges: 0.0.0.0/0
+        - Protocols and ports -> Specified protocols and ports -> TCP -> Port: 21,30000-50000
+    - Now click on "Save"

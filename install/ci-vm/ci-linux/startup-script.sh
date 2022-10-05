@@ -21,10 +21,10 @@ gcs_bucket=$(curl http://metadata/computeMetadata/v1/instance/attributes/bucket 
 vm_name=$(curl http://metadata.google.internal/computeMetadata/v1/instance/hostname -H "Metadata-Flavor: Google")
 vm_name=(${vm_name//./ })
 
-echo "${gcs_bucket} /repository/temp       gcsfuse rw,uid=33,gid=33,noatime,async,_netdev,noexec,user,implicit_dirs,allow_other,only_dir=TestData/ci-linux  0 0" | sudo tee -a /etc/fstab
-echo "${gcs_bucket}   /repository/vm_data         gcsfuse rw,uid=33,gid=33,noatime,async,_netdev,noexec,user,implicit_dirs,allow_other,only_dir=vm_data/${vm_name}  0 0" | sudo tee -a /etc/fstab
-echo "${gcs_bucket}   /repository/TestFiles     gcsfuse rw,uid=33,gid=33,noatime,async,_netdev,noexec,user,implicit_dirs,allow_other,only_dir=TestFiles  0 0" | sudo tee -a /etc/fstab
-echo "${gcs_bucket}   /repository/TestResults     gcsfuse rw,uid=33,gid=33,noatime,async,_netdev,noexec,user,implicit_dirs,allow_other,only_dir=TestResults  0 0" | sudo tee -a /etc/fstab
+echo "${gcs_bucket} /repository/temp       gcsfuse rw,noatime,async,_netdev,noexec,user,implicit_dirs,allow_other,only_dir=TestData/ci-linux  0 0" | sudo tee -a /etc/fstab
+echo "${gcs_bucket}   /repository/vm_data         gcsfuse rw,noatime,async,_netdev,noexec,user,implicit_dirs,allow_other,only_dir=vm_data/${vm_name}  0 0" | sudo tee -a /etc/fstab
+echo "${gcs_bucket}   /repository/TestFiles     gcsfuse rw,noatime,async,_netdev,noexec,user,implicit_dirs,allow_other,only_dir=TestFiles  0 0" | sudo tee -a /etc/fstab
+echo "${gcs_bucket}   /repository/TestResults     gcsfuse rw,noatime,async,_netdev,noexec,user,implicit_dirs,allow_other,only_dir=TestResults  0 0" | sudo tee -a /etc/fstab
 
 mount temp
 mount vm_data

@@ -488,8 +488,8 @@ def upload_ftp(db, path) -> None:
     from run import config, log
     upload_path = str(path)
     path_parts = upload_path.split(os.path.sep)
-    # We assume /home/{uid}/ as specified in the model
-    user_id = path_parts[2]
+    # We assume /configured_path/{uid}/{file_name} as specified in the model
+    user_id = path_parts[-2]
     user = User.query.filter(User.id == user_id).first()
 
     if user is None:
@@ -515,11 +515,10 @@ def upload_ftp(db, path) -> None:
         return
 
     log.debug("Moving file to temporary folder and changing permissions...")
-    filename = secure_filename(upload_path.replace(f"/home/{user.id}/", ''))
+    filename = secure_filename(path_parts[-1])
     intermediate_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'TempFiles', filename)
     log.debug(f"Copy {upload_path} to {intermediate_path}")
-    shutil.copy(upload_path, intermediate_path)
-    os.remove(upload_path)
+    shutil.move(upload_path, intermediate_path)
 
     log.debug(f"Checking hash value for {intermediate_path}")
     file_hash = create_hash_for_sample(intermediate_path)

@@ -6,6 +6,8 @@ from os import path
 import werkzeug
 from flask import redirect
 
+ROOT_DIR = path.dirname(path.abspath(__file__))
+
 
 def serve_file_download(file_name, file_folder, file_sub_folder='') -> werkzeug.wrappers.response.Response:
     """

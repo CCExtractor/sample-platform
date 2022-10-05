@@ -1,3 +1,4 @@
+import base64
 from importlib import reload
 from io import BytesIO
 from unittest import mock
@@ -59,8 +60,7 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('requests.Session.post', side_effect=mock_api_request_github)
     @mock.patch('os.rename')
-    @mock.patch('git.Repo')
-    def test_process(self, mock_repo, mock_rename, mock_post):
+    def test_process(self, mock_rename, mock_post):
         """Test sample upload process."""
         import mod_upload.controllers
         reload(mod_upload.controllers)
@@ -76,8 +76,12 @@ class TestControllers(BaseTestCase):
             g.db.commit()
             response = c.post('/account/login', data=self.create_login_form_data(
                 self.user.email, self.user.password))
-            from git import Repo
-            Repo().git.show.return_value = 'issue template'
+            from github import GitHub
+            GitHub.repos = mock.MagicMock()
+            GitHub.repos.return_value.return_value.contents.return_value.get.return_value = {
+                "content": base64.b64encode("test".encode("ascii")).decode("ascii"),
+                "encoding": 'base64'
+            }
             response = c.post(url_for('upload.process_id', upload_id=1),
                               data=dict(
                 notes='test note',

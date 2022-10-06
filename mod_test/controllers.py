@@ -95,9 +95,9 @@ def get_data_for_test(test, title=None) -> Dict[str, Any]:
         queued_gcp_instance_entries = g.db.query(Test.id).filter(
             and_(Test.id.in_(queued_gcp_instance), Test.platform == test.platform)
         ).subquery()
-        gcp_instance_test = g.db.query(TestProgress.test_id, label('time', func.group_concat(TestProgress.timestamp))).filter(
-            TestProgress.test_id.in_(queued_gcp_instance_entries)
-        ).group_by(TestProgress.test_id).all()
+        gcp_instance_test = g.db.query(TestProgress.test_id, label('time', func.group_concat(
+            TestProgress.timestamp))).filter(TestProgress.test_id.in_(queued_gcp_instance_entries)).group_by(
+            TestProgress.test_id).all()
         number_gcp_instance_test = g.db.query(Test.id).filter(
             and_(Test.id > test_progress_last_entry[0], Test.id < test.id, Test.platform == test.platform)
         ).count()

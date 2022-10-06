@@ -1,4 +1,4 @@
-sqlalchemy==1.4.40
+sqlalchemy==1.4.41
 flask==1.1.2
 passlib==1.7.4
 pymysql==1.0.2
@@ -10,9 +10,9 @@ pyIsEmail==1.4.0
 GitPython==3.1.27
 xmltodict==0.13.0
 lxml==4.9.1
-pytz==2022.2
+pytz==2022.2.1
 tzlocal==4.1
-markdown2==2.4.3
+markdown2==2.4.5
 flask-migrate==3.1.0
 flask-script==2.0.6
 email_validator

@@ -66,7 +66,7 @@ userInput () {
 	echo "This is a required parameter, cannot be empty!"
     done
     printf -v $1 "$newinput"
-    if [[ $newinput == "" ]]; then
+    if [[ $newinput == "" && $4 != "" ]]; then
         echo -e "${RED}WARNING${NC}: ${2}\b not set, ${4} might not work as intended."
     fi
 }
@@ -87,30 +87,30 @@ echo ""
 # Verify password
 
 supress_warning=$(mysql_config_editor set --login-path=root_login --host=localhost --user=root --password "${db_root_password}") >> "$install_log" 2>&1
-while ! mysql  --login-path=root_login  -e ";" ; do
+while ! MYSQL_PWD=$db_root_password mysql --login-path=root_login -e ";" ; do
     read -s -e -r -p "$(tput bold)Invalid password, please retry:$(tput sgr0) " -i "" db_root_password
     echo "" 
     supress_warning=$(mysql_config_editor set --login-path=root_login --host=localhost --user=root --password "${db_root_password}") >> "$install_log" 2>&1
 done
 
 userInput db_name "Database name for storing data:" "sample_platform" "" 1
-mysql -u root --password="${db_root_password}" -e "CREATE DATABASE IF NOT EXISTS ${db_name};" >> "$install_log" 2>&1
+MYSQL_PWD=$db_root_password mysql --login-path=root_login -e "CREATE DATABASE IF NOT EXISTS ${db_name};" >> "$install_log" 2>&1
 # Check if DB exists
-db_exists=$(mysql --login-path=root_login -se"USE ${db_name};" 2>&1)
+db_exists=$(MYSQL_PWD=$db_root_password mysql --login-path=root_login -se"USE ${db_name};" 2>&1)
 if [ ! "${db_exists}" == "" ]; then
     echo "Failed to create the database! Please check the installation log!"
     exit -1
 fi
 userInput db_user "Username to connect to ${db_name}:" "sample_platform" "" 1
 # Check if user exists
-db_user_exists=$(mysql --login-path=root_login -sse "SELECT EXISTS(SELECT 1 FROM mysql.user WHERE user = '${db_user}')")
+db_user_exists=$(MYSQL_PWD=$db_root_password mysql --login-path=root_login -sse "SELECT EXISTS(SELECT 1 FROM mysql.user WHERE user = '${db_user}')")
 
 if [ "${db_user_exists}" = 0 ]; then
     rand_pass=$(< /dev/urandom tr -dc 'a-zA-Z0-9' | fold -w 16 | head -n 1)
     userInput db_user_password "Password for ${db_user} (will be created):" $rand_pass ""
     # Attempt to create the user
-    mysql --login-path=root_login -e "CREATE USER '${db_user}'@'localhost' IDENTIFIED BY '${db_user_password}';" >> "$install_log" 2>&1
-    db_user_exists=$(mysql --login-path=root_login -sse "SELECT EXISTS(SELECT 1 FROM mysql.user WHERE user = '$db_user')")
+    MYSQL_PWD=$db_root_password mysql --login-path=root_login -e "CREATE USER '${db_user}'@'localhost' IDENTIFIED BY '${db_user_password}';" >> "$install_log" 2>&1
+    db_user_exists=$(MYSQL_PWD=$db_root_password mysql --login-path=root_login -sse "SELECT EXISTS(SELECT 1 FROM mysql.user WHERE user = '$db_user')")
     if [ "${db_user_exists}" = 0 ]; then
         echo "Failed to create the user! Please check the installation log!"
         exit -1
@@ -119,16 +119,16 @@ else
     read -s -e -r -p "$(tput bold)Password for ${db_user}:$(tput sgr0) " db_user_password
     supress_warning=$(mysql_config_editor set --login-path=check_login --host=localhost --user="${db_user}" --password "${db_root_password}") >> "$install_log" 2>&1
     # Check if we have access
-    while ! mysql  --login-path=check_login  -e ";" ; do
+    while ! MYSQL_PWD=$db_user_password mysql --login-path=check_login  -e ";" ; do
        read -s -e -r -p "$(tput bold)Invalid password, please retry:$(tput sgr0) " -i "" db_user_password
        supress_warning=$(mysql_config_editor set --login-path=check_login --host=localhost --user="${db_user}" --password "${db_root_password}") >> "$install_log" 2>&1
     done
 fi
 supress_warning=$(mysql_config_editor set --login-path=user_login --host=localhost --user="${db_user}" --password "${db_user_password}") >> "$install_log" 2>&1
 # Grant user access to database
-mysql --login-path=root_login -e "GRANT ALL ON ${db_name}.* TO '${db_user}'@localhost;" >> "$install_log" 2>&1
+MYSQL_PWD=$db_root_password mysql --login-path=root_login -e "GRANT ALL ON ${db_name}.* TO '${db_user}'@localhost;" >> "$install_log" 2>&1
 # Check if user has access
-db_access=$(mysql --login-path=user_login -se "USE ${db_name};" 2>&1)
+db_access=$(MYSQL_PWD=$db_root_password mysql --login-path=user_login -se "USE ${db_name};" 2>&1)
 if [ ! "${db_access}" == "" ]; then
     echo "Failed to grant user access to database! Please check the installation log!"
     exit -1
@@ -205,6 +205,7 @@ while [[ $admin_password == "" ]];do
    read -s -e -r -p  "Admin password: " admin_password
    echo ""
    read -s -e -r -p  "Confirm admin password: " confirm_admin_password
+   echo ""
    if [[ $admin_password != $confirm_admin_password ]]; then
         echo "Entered passwords did not match! Retrying..."
         admin_password=""

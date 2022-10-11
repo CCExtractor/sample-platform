@@ -134,7 +134,7 @@ def github_token_validity(token: str):
     """
     from run import config
     github_client_id = config.get('GITHUB_CLIENT_ID', '')
-    github_client_secret = config.get('GITHUB_CLIENT_SECRET', '')
+    github_client_secret = config.get('GITHUB_CLIENT_KEY', '')
     url = f'https://api.github.com/applications/{github_client_id}/token'
     session = requests.Session()
     session.auth = (github_client_id, github_client_secret)
@@ -202,7 +202,7 @@ def github_callback():
         url = 'https://github.com/login/oauth/access_token'
         payload = {
             'client_id': config.get('GITHUB_CLIENT_ID', ''),
-            'client_secret': config.get('GITHUB_CLIENT_SECRET', ''),
+            'client_secret': config.get('GITHUB_CLIENT_KEY', ''),
             'code': request.args['code']
         }
         headers = {'Accept': 'application/json'}
@@ -218,7 +218,7 @@ def github_callback():
 
         return redirect(url_for('auth.manage'))
 
-    return '', 404
+    return abort(400)
 
 
 @mod_auth.route('/login', methods=['GET', 'POST'])

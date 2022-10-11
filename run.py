@@ -10,7 +10,8 @@ from typing import Any, Dict, List, Optional
 from flask import Flask, g
 from flask_migrate import Migrate
 from google.cloud.storage import Client
-from werkzeug.exceptions import Forbidden, InternalServerError, NotFound
+from werkzeug.exceptions import (BadRequest, Forbidden, InternalServerError,
+                                 NotFound)
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.routing import BaseConverter, Map
 from werkzeug.utils import ImportStringError
@@ -187,6 +188,13 @@ app.url_map.converters['regex'] = RegexConverter
 @template_renderer('404.html', 404)
 def not_found(error: NotFound):
     """Handle not found error in non-existing routes."""
+    return
+
+
+@app.errorhandler(400)
+@template_renderer('400.html', 400)
+def bad_request(error: BadRequest):
+    """Handle bad request error for existing endpoints."""
     return
 
 

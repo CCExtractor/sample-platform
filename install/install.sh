@@ -151,6 +151,10 @@ echo "You can get details about creating deployment secrets here, https://develo
 userInput github_deploy_key "GitHub Automated Deploy Webhook Secret:" "" "Automated deployment, mod_deploy module functions" 0 
 echo "You can get details about creating WEBHOOK_SECRET here, https://developer.github.com/webhooks/"
 userInput github_ci_key "GitHub CI Webhook Secret:" "" "CI related functions (mod_ci module)" 0
+echo "Get the GitHub client ID and client secret for the platform, by registering the platform here, https://github.com/settings/applications/new"
+echo "Enter /account/github_callback endpoint as the callback URL, you may opt to skip GitHub client ID, client secret for now, and later add it manually"
+userInput github_client_id "GitHub Client ID:" "" "GitHub User Authentication" 0
+userInput github_client_secret "GitHub Client Secret:" "" "GitHub User Authentication" 0
 userInput server_name "FTP Server IP/Domain name:" $config_server_name "" 1
 userInput ftp_port "FTP port:" "21" "" 1
 userInput max_content_length "Max HTTP sample size (in bytes):" "536870912" "" 1
@@ -243,6 +247,8 @@ EMAIL_API_KEY = '${email_api_key}'
 HMAC_KEY = '${hmac_key}'
 GITHUB_DEPLOY_KEY = '${github_deploy_key}'
 GITHUB_CI_KEY = '${github_ci_key}'
+GITHUB_CLIENT_ID = '${github_client_id}'
+GITHUB_CLIENT_SECRET = '${github_client_secret}'
 INSTALL_FOLDER = '${root_dir}'
 SAMPLE_REPOSITORY = '${sample_repository}'
 SESSION_COOKIE_PATH = '/'

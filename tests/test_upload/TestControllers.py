@@ -120,12 +120,11 @@ class TestControllers(BaseTestCase):
             self.assertEqual(response.status_code, 200)
             self.assert_template_used('upload/ftp_index.html')
 
-    @mock.patch('os.remove')
     @mock.patch('os.rename')
     @mock.patch('magic.from_file')
     @mock.patch('mod_upload.controllers.create_hash_for_sample')
-    @mock.patch('shutil.copy')
-    def test_upload_ftp(self, mock_shutil, mock_hash, mock_magic, mock_rename, mock_remove):
+    @mock.patch('shutil.move')
+    def test_upload_ftp(self, mock_shutil, mock_hash, mock_magic, mock_rename):
         """Test successful sample upload via ftp."""
         filehash = 'hash_code'
         mock_hash.return_value = filehash
@@ -136,13 +135,13 @@ class TestControllers(BaseTestCase):
             QueuedSample.sha == filehash).first()
         self.assertEqual(queued_sample.filename, 'hash_code.ts')
         self.assertEqual(queued_sample.extension, '.ts')
-        mock_remove.assert_called_with('/home/1/sample1.ts')
+        mock_shutil.assert_called_with('/home/1/sample1.ts', 'temp/TempFiles/sample1.ts')
 
     @mock.patch('os.remove')
     @mock.patch('os.rename')
     @mock.patch('magic.from_file')
     @mock.patch('mod_upload.controllers.create_hash_for_sample')
-    @mock.patch('shutil.copy')
+    @mock.patch('shutil.move')
     def test_upload_ftp_forbidden_mimetype(self, mock_shutil, mock_hash, mock_magic, mock_rename, mock_remove):
         """Test sample upload via ftp with forbidden mimetype."""
         filehash = 'hash_code'
@@ -158,7 +157,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('os.rename')
     @mock.patch('magic.from_file')
     @mock.patch('mod_upload.controllers.create_hash_for_sample')
-    @mock.patch('shutil.copy')
+    @mock.patch('shutil.move')
     def test_upload_ftp_forbidden_extension(self, mock_shutil, mock_hash, mock_magic, mock_rename, mock_remove):
         """Test sample upload via ftp with forbidden extension."""
         filehash = 'hash_code'

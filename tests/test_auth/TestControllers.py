@@ -229,7 +229,7 @@ class TestGitHubFunctions(BaseTestCase):
         with self.app.test_client() as client:
             response = client.post("/account/github_callback")
 
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, 400)
         mock_post.assert_not_called()
 
     @mock.patch('requests.post')
@@ -238,7 +238,7 @@ class TestGitHubFunctions(BaseTestCase):
         with self.app.test_client() as client:
             response = client.get("/account/github_callback")
 
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, 400)
         mock_post.assert_not_called()
 
     @mock.patch('mod_auth.controllers.User')

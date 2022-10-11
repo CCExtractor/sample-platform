@@ -45,7 +45,7 @@ def get_cached_web_hook_blocks() -> List[str]:
 
     if len(cached_web_hook_blocks) == 0 or cache_has_expired():
         client_id = config.get('GITHUB_CLIENT_ID', '')
-        client_secret = config.get('GITHUB_CLIENT_SECRET', '')
+        client_secret = config.get('GITHUB_CLIENT_KEY', '')
         meta_json = requests.get(
             f'https://api.github.com/meta', auth=(client_id, client_secret)).json()
         try:

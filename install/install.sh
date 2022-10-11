@@ -248,7 +248,7 @@ HMAC_KEY = '${hmac_key}'
 GITHUB_DEPLOY_KEY = '${github_deploy_key}'
 GITHUB_CI_KEY = '${github_ci_key}'
 GITHUB_CLIENT_ID = '${github_client_id}'
-GITHUB_CLIENT_SECRET = '${github_client_secret}'
+GITHUB_CLIENT_KEY = '${github_client_secret_key}'
 INSTALL_FOLDER = '${root_dir}'
 SAMPLE_REPOSITORY = '${sample_repository}'
 SESSION_COOKIE_PATH = '/'
@@ -270,8 +270,7 @@ LINUX_INSTANCE_PROJECT_NAME = '${linux_instance_project_name}'
 LINUX_INSTANCE_FAMILY_NAME = '${linux_instance_family_name}'
 GCP_INSTANCE_MAX_RUNTIME = $gcp_instance_max_runtime  # In minutes
 GCS_BUCKET_NAME = '${gcs_bucket_name}'
-GCS_SIGNED_URL_EXPIRY_LIMIT = $signed_url_expiry_time  # In minutes
-" > "${dir}/../config.py"
+GCS_SIGNED_URL_EXPIRY_LIMIT = $signed_url_expiry_time  # In minutes" > "${dir}/../config.py"
 # Ensure the files are executable by www-data
 chown -R www-data:www-data "${root_dir}" "${sample_repository}"
 echo "* Creating startup script"

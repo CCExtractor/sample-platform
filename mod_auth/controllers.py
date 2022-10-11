@@ -155,13 +155,11 @@ def github_redirect():
     github_client_id = config.get('GITHUB_CLIENT_ID', '')
     github_token = g.user.github_token
     if github_token is not None:
-        validity = github_token_validity(github_token)
-        if validity is False:
-            g.user.github_token = None
-            g.db.commit()
-        else:
-            g.log.error('Failed to validate GitHub token')
+        if github_token_validity(github_token):
             return None
+        g.log.error(f'Invalid GitHub token found for user id: {g.user.id}')
+        g.user.github_token = None
+        g.db.commit()
 
     return f'https://github.com/login/oauth/authorize?client_id={github_client_id}&scope=public_repo'
 

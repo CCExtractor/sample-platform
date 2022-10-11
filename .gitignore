@@ -47,3 +47,6 @@ venv/
 monkeytype.sqlite3
 .pytype/
 .env
+
+# Test related data
+temp/

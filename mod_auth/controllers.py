@@ -218,7 +218,7 @@ def github_callback():
 
         return redirect(url_for('auth.manage'))
 
-    return '', 404
+    return abort(400)
 
 
 @mod_auth.route('/login', methods=['GET', 'POST'])

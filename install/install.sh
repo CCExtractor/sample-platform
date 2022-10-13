@@ -154,7 +154,7 @@ userInput github_ci_key "GitHub CI Webhook Secret:" "" "CI related functions (mo
 echo "Get the GitHub client ID and client secret for the platform, by registering the platform here, https://github.com/settings/applications/new"
 echo "Enter /account/github_callback endpoint as the callback URL, you may opt to skip GitHub client ID, client secret for now, and later add it manually"
 userInput github_client_id "GitHub Client ID:" "" "GitHub User Authentication" 0
-userInput github_client_secret "GitHub Client Secret:" "" "GitHub User Authentication" 0
+userInput github_client_secret_key "GitHub Client Secret:" "" "GitHub User Authentication" 0
 userInput server_name "FTP Server IP/Domain name:" $config_server_name "" 1
 userInput ftp_port "FTP port:" "21" "" 1
 userInput max_content_length "Max HTTP sample size (in bytes):" "536870912" "" 1
@@ -284,11 +284,11 @@ echo "* Creating startup script"
 echo "* Creating RClone config file"
 
 {
-    cp  "${root_dir}/install/ci-vm/ci-windows/rclone_sample.conf"  "${root_dir}/install/ci-vm/ci-windows/ci/rclone.conf"
-    sed -i "s#GCS_BUCKET_NAME#${gcs_bucket_name}#g" "${root_dir}/install/ci-vm/ci-windows/ci/rclone.conf"
-    sed -i "s#GCP_PROJECT_NUMBER#${sample_platform_project_number}#g" "${root_dir}/install/ci-vm/ci-windows/ci/rclone.conf"
-    sed -i "s#GCS_BUCKET_LOCATION_TYPE#${gcs_bucket_location_type}#g" "${root_dir}/install/ci-vm/ci-windows/ci/rclone.conf"
-    sed -i "s#GCS_BUCKET_LOCATION#${gcs_bucket_location}#g" "${root_dir}/install/ci-vm/ci-windows/ci/rclone.conf"
+    cp  "${root_dir}/install/ci-vm/ci-windows/rclone_sample.conf"  "${root_dir}/install/ci-vm/ci-windows/rclone.conf"
+    sed -i "s#GCS_BUCKET_NAME#${gcs_bucket_name}#g" "${root_dir}/install/ci-vm/ci-windows/rclone.conf"
+    sed -i "s#GCP_PROJECT_NUMBER#${sample_platform_project_number}#g" "${root_dir}/install/ci-vm/ci-windows/rclone.conf"
+    sed -i "s#GCS_BUCKET_LOCATION_TYPE#${gcs_bucket_location_type}#g" "${root_dir}/install/ci-vm/ci-windows/rclone.conf"
+    sed -i "s#GCS_BUCKET_LOCATION#${gcs_bucket_location}#g" "${root_dir}/install/ci-vm/ci-windows/rclone.conf"
 }  >> "$install_log" 2>&1
 echo "* Creating Nginx config"
 

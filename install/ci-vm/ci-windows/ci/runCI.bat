@@ -9,7 +9,7 @@ if NOT EXIST "variables.bat" (
 
 echo Loading variables.bat
 rem Source variables
-call %~dp0\variables.bat    
+call %~dp0\variables.bat
 
 for /F %%R in ('curl http://metadata/computeMetadata/v1/instance/attributes/reportURL -H "Metadata-Flavor: Google"') do SET reportURL=%%R
 SET userAgent="CCX/CI_BOT"
@@ -31,7 +31,6 @@ if EXIST "%dstDir%\ccextractorwinfull.exe" (
     echo Done running tests
     call :postStatus "completed" "Ran all tests"
 
-    timeout 60
     shutdown -s -t 0
     exit
 ) else (

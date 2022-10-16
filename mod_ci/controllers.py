@@ -1189,6 +1189,15 @@ def progress_type_request(log, test, test_id, request) -> bool:
         average_time = 0
         total_time = 0
 
+        # Delete the current instance
+        from run import config
+        compute = get_compute_service_object()
+        zone = config.get('ZONE', '')
+        project = config.get('PROJECT_NAME', '')
+        vm_name = f"{test.platform.value}-{test.id}"
+        operation = delete_instance(compute, project, zone, vm_name)
+        wait_for_operation(compute, project, zone, operation['name'])
+
         if current_average is None:
             platform_tests = g.db.query(Test.id).filter(Test.platform == test.platform).subquery()
             finished_tests = g.db.query(TestProgress.test_id).filter(
@@ -1301,16 +1310,6 @@ def progress_type_request(log, test, test_id, request) -> bool:
         gh_commit.post(state=state, description=message, context=context, target_url=target_url)
     except ApiError as a:
         log.error(f'Got an exception while posting to GitHub! Message: {a.message}')
-
-    if status in [TestStatus.completed, TestStatus.canceled]:
-        # Delete the current instance
-        from run import config
-        compute = get_compute_service_object()
-        zone = config.get('ZONE', '')
-        project = config.get('PROJECT_NAME', '')
-        vm_name = f"{test.platform.value}-{test.id}"
-        operation = delete_instance(compute, project, zone, vm_name)
-        wait_for_operation(compute, project, zone, operation['name'])
 
     return True
 

@@ -29,12 +29,13 @@ Start-Sleep -Seconds 5
 start powershell {.\rclone.exe mount $env:mount_path\TestData\ci-windows .\temp --config=".\rclone.conf" --no-console}
 Start-Sleep -Seconds 5
 
-start powershell {.\rclone.exe mount $env:mount_path\TestResults .\TestResults --config=".\rclone.conf" --no-console}
+start powershell {.\rclone.exe mount $env:mount_path\TestResults .\TestResultsRemote --config=".\rclone.conf" --no-console}
 Start-Sleep -Seconds 5
 
 start powershell {.\rclone.exe mount $env:mount_path\vm_data\$env:vm_name .\vm_data --config=".\rclone.conf" --no-console}
 Start-Sleep -Seconds 5
 
 Copy-Item -Path "temp\*" -Destination "."
+Copy-Item -Path "TestResultsRemote" -Destination "TestResults" -Force -Recurse
 
-.\runCI.bat
+powershell -command "Start-Process runCI.bat -Verb runas"

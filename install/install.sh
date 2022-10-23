@@ -27,28 +27,20 @@ echo ""
 echo "* Updating package list"
 apt-get update >> "$install_log" 2>&1
 echo "* Installing nginx, python, pip, mediainfo and gunicorn"
-apt-get -q -y install nginx python3 python-is-python3 python3-pip mediainfo gunicorn3 >> "$install_log" 2>&1
+add-apt-repository ppa:deadsnakes/ppa -y >> "$install_log" 2>&1
+apt-get -q -y install python3.9 nginx python3.9-distutils python3-pip mediainfo gunicorn3 >> "$install_log" 2>&1
+update-alternatives --install /usr/bin/python python /usr/bin/python3.9 1 >> "$install_log" 2>&1
+update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1 >> "$install_log" 2>&1
 rm -f /etc/nginx/sites-available/default
 rm -f /etc/nginx/sites-enabled/default
-for file in /etc/init.d/mysql*
-do
-    if [ ! -f "$file" ]; then
-        mysql_user_resp="Y"
-        while [ "$mysql_user_resp" != "N" ]; do
-            echo "* Installing MySQL (root password will be empty!)"
-            apt-get install -y mysql-server >> "$install_log" 2>&1
-            if [ $? -ne 0 ]; then
-                read -e -r -p "MySQL installation failed! Do you want to try again? [Y for yes | N for No | Q to quit installation] " -i "Y" mysql_user_resp
-                if [ "$mysql_user_resp" = "Q" ]; then
-                    exit 1
-                fi
-            fi
-            if [  -f "$file" ]; then
-                break
-            fi
-        done
+if [ ! -f /etc/init.d/mysql* ]; then
+    echo "* Installing MySQL (root password will be empty!)"
+    apt-get install -y mysql-server >> "$install_log" 2>&1
+    if [ ! -f /etc/init.d/mysql* ]; then
+        echo "Failed to install MySQL! Please check the installation log!"
+        exit -1
     fi
-done
+fi
 
 RED='\033[0;31m'
 NC='\033[0m' 
@@ -117,11 +109,9 @@ if [ "${db_user_exists}" = 0 ]; then
     fi
 else
     read -s -e -r -p "$(tput bold)Password for ${db_user}:$(tput sgr0) " db_user_password
-    supress_warning=$(mysql_config_editor set --login-path=check_login --host=localhost --user="${db_user}" --password "${db_root_password}") >> "$install_log" 2>&1
     # Check if we have access
-    while ! MYSQL_PWD=$db_user_password mysql --login-path=check_login  -e ";" ; do
+    while ! MYSQL_PWD=$db_user_password mysql -u $db_user -e ";" ; do
        read -s -e -r -p "$(tput bold)Invalid password, please retry:$(tput sgr0) " -i "" db_user_password
-       supress_warning=$(mysql_config_editor set --login-path=check_login --host=localhost --user="${db_user}" --password "${db_root_password}") >> "$install_log" 2>&1
     done
 fi
 supress_warning=$(mysql_config_editor set --login-path=user_login --host=localhost --user="${db_user}" --password "${db_user_password}") >> "$install_log" 2>&1
@@ -220,7 +210,8 @@ python "${root_dir}/install/init_db.py" "${config_db_uri}" "${admin_name}" "${ad
 # Create sample database if user wanted to
 if [ "${sample_response}" == 'y' ]; then
     echo "Creating sample database.."
-    cp -r "${dir}/sample_files/*" "${sample_repository}/TestFiles"
+    sample_dir="${dir}/sample_files/*"
+    cp -r $sample_dir "${sample_repository}/TestFiles"
     python "${dir}/sample_db.py" "${config_db_uri}"
 fi
 echo ""

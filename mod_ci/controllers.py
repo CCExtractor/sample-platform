@@ -29,7 +29,7 @@ from sqlalchemy.sql import label
 from sqlalchemy.sql.functions import count
 from werkzeug.utils import secure_filename
 
-from database import DeclEnum
+from database import DeclEnum, create_session
 from decorators import get_menu_entries, template_renderer
 from mailer import Mailer
 from mod_auth.controllers import check_access_rights, login_required
@@ -91,11 +91,18 @@ def before_app_request() -> None:
         g.menu_entries['config'] = config_entries
 
 
-def start_platforms(db, repository, delay=None, platform=None) -> None:
+def start_platforms(repository, delay=None, platform=None) -> None:
     """
     Start new test on both platforms in parallel.
 
     We use multiprocessing module which bypasses Python GIL to make use of multiple cores of the processor.
+
+    :param repository: repository to run tests on
+    :type repository: str
+    :param delay: time delay after which to start gcp_instance function
+    :type delay: int
+    :param platform: operating system
+    :type platform: str
     """
     from run import app, config, log
 
@@ -119,12 +126,16 @@ def start_platforms(db, repository, delay=None, platform=None) -> None:
         app = current_app._get_current_object()
         if platform is None or platform == TestPlatform.linux:
             log.info('Define process to run Linux GCP instances')
+            # Create a database session
+            db = create_session(config.get('DATABASE_URI', ''))
             linux_process = Process(target=gcp_instance, args=(app, db, TestPlatform.linux, repository, delay))
             linux_process.start()
             log.info('Linux GCP instances process kicked off')
 
         if platform is None or platform == TestPlatform.windows:
             log.info('Define process to run Windows GCP instances')
+            # Create a database session
+            db = create_session(config.get('DATABASE_URI', ''))
             windows_process = Process(target=gcp_instance, args=(app, db, TestPlatform.windows, repository, delay))
             windows_process.start()
             log.info('Windows GCP instances process kicked off')
@@ -220,8 +231,10 @@ def gcp_instance(app, db, platform, repository, delay) -> None:
         TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
     ).subquery()
 
+    running_tests = db.query(GcpInstance.test_id).subquery()
+
     pending_tests = Test.query.filter(
-        Test.id.notin_(finished_tests), Test.platform == platform
+        Test.id.notin_(finished_tests), Test.id.notin_(running_tests), Test.platform == platform
     ).order_by(Test.id.asc())
 
     compute = get_compute_service_object()

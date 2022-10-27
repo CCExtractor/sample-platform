@@ -154,7 +154,7 @@ userInput max_pwd_len "Maximum password length:" "500" "" 1
 userInput gcp_service_account_file "GCP service account file name (to be placed at root of project):" "service-account.json" "" 1
 userInput sample_platform_project_name "GCP Project Name for the platform:" "" "" 1
 userInput sample_platform_project_number "GCP Project Number for the platform:" "" "" 1
-userInput gcp_instance_zone_name "Zone name for GCP Instances:" "us-west4-b" "" 1
+userInput gcp_instance_zone_name "Zone name for GCP Instances:" "us-central1-a" "" 1
 userInput gcp_instance_machine_type "Machine type for GCP Instances:" "n1-standard-1" "" 1
 userInput windows_instance_project_name "Windows GCP instance project name:" "windows-cloud" "" 1
 userInput windows_instance_family_name "Windows GCP instance family name:" "windows-2019" "" 1
@@ -162,8 +162,8 @@ userInput linux_instance_project_name "Linux GCP instance project name:" "ubuntu
 userInput linux_instance_family_name "Linux GCP instance family name: " "ubuntu-minimal-2204-lts" "" 1
 userInput gcp_instance_max_runtime "GCP Instance Max Runtime (In minutes):" "120" "" 1
 userInput gcs_bucket_name "Google Cloud Storage bucket name:" "" "" 1
-userInput gcs_bucket_location "Google Cloud Storage bucket location:" "" "" 1
-userInput gcs_bucket_location_type "Google Cloud Storage bucket location type:" "" "" 1
+userInput gcs_bucket_location "Google Cloud Storage bucket location:" "us-central1" "" 1
+userInput gcs_bucket_location_type "Google Cloud Storage bucket location type:" "REGIONAL" "" 1
 userInput signed_url_expiry_time "Signed Download URLs expiry time (In minutes):" "720" "" 1
 
 

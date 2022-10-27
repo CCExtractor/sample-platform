@@ -18,15 +18,15 @@ def cron(testing=False):
     from run import config, log
 
     log.info('Run the cron for kicking off CI platform(s).')
-    # Create session
-    db = create_session(config['DATABASE_URI'])
     gh = GitHub(access_token=config['GITHUB_TOKEN'])
     repository = gh.repos(config['GITHUB_OWNER'])(config['GITHUB_REPOSITORY'])
 
     if testing is True:
+        # Create a database session
+        db = create_session(config['DATABASE_URI'])
         gcp_instance(current_app._get_current_object(), db, TestPlatform.linux, repository, None)
     else:
-        start_platforms(db, repository)
+        start_platforms(repository)
 
 
 cron()

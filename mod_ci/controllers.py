@@ -231,8 +231,10 @@ def gcp_instance(app, db, platform, repository, delay) -> None:
         TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
     ).subquery()
 
+    running_tests = db.query(GcpInstance.test_id).subquery()
+
     pending_tests = Test.query.filter(
-        Test.id.notin_(finished_tests), Test.platform == platform
+        Test.id.notin_(finished_tests), Test.id.notin_(running_tests), Test.platform == platform
     ).order_by(Test.id.asc())
 
     compute = get_compute_service_object()

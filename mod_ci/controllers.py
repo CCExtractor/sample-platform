@@ -286,8 +286,8 @@ def start_test(compute, app, db, repository, test, bot_token) -> None:
     :rtype: None
     """
     from run import config, log
-    log.debug(f'[{test.platform}] Starting test {test.id}')
     gcp_instance_name = f"{test.platform.value}-{test.id}"
+    log.debug(f'[{gcp_instance_name}] Starting test {test.id}')
 
     test_folder = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', gcp_instance_name)
 
@@ -309,9 +309,13 @@ def start_test(compute, app, db, repository, test, bot_token) -> None:
     last_commit = Test.query.filter(and_(Test.commit == commit_hash, Test.platform == test.platform)).first()
 
     if last_commit is not None:
-        log.debug(f"[{test.platform}] We will compare against the results of test {last_commit.id}")
+        log.debug(f"[{gcp_instance_name}] We will compare against the results of test {last_commit.id}")
 
     regression_ids = test.get_customized_regressiontests()
+
+    if len(regression_ids) == 0:
+        log.debug(f"[{gcp_instance_name}] No regression tests, skipping test {test.id}")
+        return
 
     # Init collection file
     multi_test = etree.Element('multitest')

@@ -873,7 +873,7 @@ def start_ci():
 
         if event == "push":
             g.log.debug('push event detected')
-            if 'after' in payload:
+            if 'after' in payload and payload["ref"] == "refs/heads/master":
                 commit_hash = payload['after']
                 github_status = repository.statuses(commit_hash)
                 # Update the db to the new last commit

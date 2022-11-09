@@ -681,7 +681,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.GeneralData')
     def test_webhook_push_valid(self, mock_gd, mock_github, mock_add_test_entry, mock_request):
         """Test webhook triggered with push event with valid data."""
-        data = {'after': 'abcdefgh'}
+        data = {'after': 'abcdefgh', 'ref': 'refs/heads/master'}
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,

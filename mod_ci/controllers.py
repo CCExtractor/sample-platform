@@ -912,7 +912,8 @@ def start_ci():
                 if BlockedUsers.query.filter(BlockedUsers.user_id == user_id).first() is not None:
                     g.log.warning("User Blacklisted")
                     return 'ERROR'
-                add_test_entry(g.db, github_status, commit_hash, TestType.pull_request, pr_nr=pr_nr)
+                if repository.pulls(pr_nr).get()["mergeable"] is not False:
+                    add_test_entry(g.db, github_status, commit_hash, TestType.pull_request, pr_nr=pr_nr)
 
             elif payload['action'] == 'closed':
                 g.log.debug('PR was closed, no after hash available')

@@ -241,6 +241,9 @@ class TestControllers(BaseTestCase):
         response.status_code = 200
         requests.get = MagicMock(return_value=response)
         zipfile.ZipFile = MagicMock(return_value=mock_zip())
+        customized_test = CustomizedTest(1, 1)
+        g.db.add(customized_test)
+        g.db.commit()
         start_test(mock.ANY, self.app, mock_g.db, repo, test, mock.ANY)
         mock_create_instance.assert_called_once()
         mock_wait_for_operation.assert_called_once()
@@ -678,7 +681,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.GeneralData')
     def test_webhook_push_valid(self, mock_gd, mock_github, mock_add_test_entry, mock_request):
         """Test webhook triggered with push event with valid data."""
-        data = {'after': 'abcdefgh'}
+        data = {'after': 'abcdefgh', 'ref': 'refs/heads/master'}
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
@@ -1093,9 +1096,9 @@ class TestControllers(BaseTestCase):
         from mod_ci.controllers import deschedule_test
         repository = git_mock(access_token=g.github['bot_token']).repos(
             g.github['repository_owner'])(g.github['repository'])
-        deschedule_test(repository.statuses(1), TestPlatform.linux)
+        deschedule_test(repository.statuses(1), 1, TestType.commit, TestPlatform.linux)
         mock_debug.assert_not_called()
-        deschedule_test(None, TestPlatform.linux)
+        deschedule_test(None, 1, TestType.commit, TestPlatform.linux)
         mock_debug.assert_not_called()
 
     @mock.patch('run.log.critical')
@@ -1106,9 +1109,9 @@ class TestControllers(BaseTestCase):
         from mod_ci.controllers import deschedule_test
         repository = git_mock(access_token=g.github['bot_token']).repos(
             g.github['repository_owner'])(g.github['repository'])
-        deschedule_test(repository.statuses(1), TestPlatform.windows)
+        deschedule_test(repository.statuses(1), 1, TestType.commit, TestPlatform.windows)
         mock_debug.assert_not_called()
-        deschedule_test(None, TestPlatform.windows)
+        deschedule_test(None, 1, TestType.commit, TestPlatform.windows)
         mock_debug.assert_not_called()
 
     @mock.patch('mod_ci.controllers.inform_mailing_list')
@@ -1134,10 +1137,11 @@ class TestControllers(BaseTestCase):
         from github import GitHub
 
         from mod_ci.controllers import deschedule_test, schedule_test
-        schedule_test(GitHub('1').repos('1')('1').statuses('1'), 1, None)
+        schedule_test(GitHub('1').repos('1')('1').statuses('1'), 1, TestType.commit)
         mock_critical.assert_called()
         mock_critical.reset_mock()
-        deschedule_test(GitHub('1').repos('1')('1').statuses('1'), TestPlatform.linux)
+        deschedule_test(GitHub('1').repos('1')('1').statuses('1'), 1, TestType.commit, TestPlatform.linux)
+        deschedule_test(GitHub('1').repos('1')('1').statuses('1'), 1, TestType.commit, TestPlatform.windows)
         mock_critical.assert_called()
 
     @mock.patch('mod_ci.controllers.is_main_repo')

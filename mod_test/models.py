@@ -256,10 +256,7 @@ class Test(Base):
         rtype: list
         """
         customized_test = self.customized_tests
-        if len(customized_test) != 0:
-            regression_ids = [r.regression_id for r in customized_test]
-        else:
-            regression_ids = [r.id for r in RegressionTest.query.all()]
+        regression_ids = [r.regression_id for r in customized_test]
         return regression_ids
 
 

@@ -203,7 +203,7 @@ class FTPCredentials(Base):
         self.password = password
 
         if home_directory is None:
-            home_directory = f'/home/{user_id}'
+            home_directory = f'/repository/ftpd/{user_id}'
         self.dir = home_directory
 
     @staticmethod

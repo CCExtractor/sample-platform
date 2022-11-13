@@ -1,40 +1,36 @@
 """provide common utility attributes such as root path."""
 
+import datetime
 from os import path
-from typing import Any
 
-from flask import make_response
+import werkzeug
+from flask import redirect
 
 ROOT_DIR = path.dirname(path.abspath(__file__))
 
 
-def serve_file_download(file_name, file_folder, x_accel_folder,
-                        file_sub_folder='', content_type='application/octet-stream') -> Any:
+def serve_file_download(file_name, file_folder, file_sub_folder='') -> werkzeug.wrappers.response.Response:
     """
-    Endpoint to serve file download.
+    Serve file download by redirecting using Signed Download URLs.
 
     :param file_name: name of the file
     :type file_name: str
     :param file_folder: name of the folder
     :type file_folder: str
-    :param x_accel_folder: location of the x-accel folder
-    :type x_accel_folder: str
-    :param file_sub_folder: sub folder of both the x-accel folder and the original folder
+    :param file_sub_folder: sub folder of the original folder
     :type file_sub_folder: str
-    :param content_type: content type of the file, defaults to 'application/octet-stream'
-    :type content_type: str, optional
     :return: response, the file download
-    :rtype: Flask response
+    :rtype: werkzeug.wrappers.response.Responsee
     """
-    from run import config
+    from run import config, storage_client_bucket
 
-    file_path = path.join(config.get('SAMPLE_REPOSITORY', ''), file_folder, file_sub_folder, file_name)
-    response = make_response()
-    response.headers['Content-Description'] = 'File Transfer'
-    response.headers['Cache-Control'] = 'no-cache'
-    response.headers['Content-Type'] = content_type
-    response.headers['Content-Disposition'] = f'attachment; filename={file_name}'
-    response.headers['Content-Length'] = path.getsize(file_path)
-    response.headers['X-Accel-Redirect'] = '/' + path.join(x_accel_folder, file_sub_folder, file_name)
-
-    return response
+    file_path = path.join(file_folder, file_sub_folder, file_name)
+    blob = storage_client_bucket.blob(file_path)
+    blob.content_disposition = f'attachment; filename="{file_name}"'
+    blob.patch()
+    url = blob.generate_signed_url(
+        version="v4",
+        expiration=datetime.timedelta(minutes=config.get('GCS_SIGNED_URL_EXPIRY_LIMIT', '')),
+        method="GET",
+    )
+    return redirect(url)

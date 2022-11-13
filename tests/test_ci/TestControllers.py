@@ -19,8 +19,8 @@ from tests.base import (BaseTestCase, generate_git_api_header,
                         generate_signature, mock_api_request_github)
 
 
-class MockKVM:
-    """Mock KVM object."""
+class MockGcpInstance:
+    """Mock GcpInstance object."""
 
     def __init__(self, name):
         self.name = name
@@ -111,119 +111,114 @@ class TestControllers(BaseTestCase):
             for stat in stats:
                 self.assertEqual(stat.success, None)
 
+    @mock.patch('mod_ci.controllers.get_compute_service_object')
+    @mock.patch('mod_ci.controllers.delete_expired_instances')
     @mock.patch('mod_ci.controllers.Process')
     @mock.patch('run.log')
-    def test_start_platform_none_specified(self, mock_log, mock_process):
-        """Test that both platforms run with no platform value is passed."""
-        start_platforms(mock.ANY, mock.ANY)
+    def test_start_platform_none_specified(self, mock_log, mock_process,
+                                           mock_delete_expired_instances, mock_get_compute_service_object):
+        """Test that both platforms run when no platform value is passed."""
+        start_platforms(mock.ANY, 1)
 
+        mock_delete_expired_instances.assert_called_once()
+        mock_get_compute_service_object.assert_called_once()
         self.assertEqual(2, mock_process.call_count)
         self.assertEqual(4, mock_log.info.call_count)
 
+    @mock.patch('mod_ci.controllers.get_compute_service_object')
+    @mock.patch('mod_ci.controllers.delete_expired_instances')
     @mock.patch('mod_ci.controllers.Process')
     @mock.patch('run.log')
-    def test_start_platform_linux_specified(self, mock_log, mock_process):
-        """Test that only linux platform runs."""
-        start_platforms(mock.ANY, mock.ANY, platform=TestPlatform.linux)
+    def test_start_platform_linux_specified(self, mock_log, mock_process,
+                                            mock_delete_expired_instances, mock_get_compute_service_object):
+        """Test that only Linux platform runs when platform is specified as Linux."""
+        start_platforms(mock.ANY, platform=TestPlatform.linux)
 
         self.assertEqual(1, mock_process.call_count)
         self.assertEqual(2, mock_log.info.call_count)
-        mock_log.info.assert_called_with("Linux VM process kicked off")
+        mock_log.info.assert_called_with("Linux GCP instances process kicked off")
+        mock_delete_expired_instances.assert_called_once()
+        mock_get_compute_service_object.assert_called_once()
 
+    @mock.patch('mod_ci.controllers.get_compute_service_object')
+    @mock.patch('mod_ci.controllers.delete_expired_instances')
     @mock.patch('mod_ci.controllers.Process')
     @mock.patch('run.log')
-    def test_start_platform_windows_specified(self, mock_log, mock_process):
-        """Test that only windows platform runs."""
-        start_platforms(mock.ANY, mock.ANY, platform=TestPlatform.windows)
+    def test_start_platform_windows_specified(self, mock_log, mock_process,
+                                              mock_delete_expired_instances, mock_get_compute_service_object):
+        """Test that only Windows platform runs when platform is specified as Windows."""
+        start_platforms(mock.ANY, platform=TestPlatform.windows)
 
         self.assertEqual(1, mock_process.call_count)
         self.assertEqual(2, mock_log.info.call_count)
-        mock_log.info.assert_called_with("Windows VM process kicked off")
-
-    @mock.patch('run.log')
-    def test_kvm_processor_empty_kvm_name(self, mock_log):
-        """Test that kvm processor fails with empty kvm name."""
-        from mod_ci.controllers import kvm_processor
-
-        resp = kvm_processor(mock.ANY, mock.ANY, "", mock.ANY, mock.ANY, mock.ANY)
-
-        self.assertIsNone(resp)
-        mock_log.info.assert_called_once()
-        mock_log.critical.assert_called_once()
+        mock_log.info.assert_called_with("Windows GCP instances process kicked off")
+        mock_delete_expired_instances.assert_called_once()
+        mock_get_compute_service_object.assert_called_once()
 
     @mock.patch('run.log')
     @mock.patch('mod_ci.controllers.MaintenanceMode')
-    def test_kvm_processor_maintenance_mode(self, mock_maintenance, mock_log):
-        """Test that kvm processor does not run when in mentainenace."""
-        from mod_ci.controllers import kvm_processor
+    def test_gcp_instance_maintenance_mode(self, mock_maintenance, mock_log):
+        """Test that gcp instance does not run when in maintainenace."""
+        from mod_ci.controllers import gcp_instance
 
-        class MockMaintence:
+        class MockMaintenance:
             def __init__(self):
                 self.disabled = True
 
-        mock_maintenance.query.filter.return_value.first.return_value = MockMaintence()
+        mock_maintenance.query.filter.return_value.first.return_value = MockMaintenance()
 
-        resp = kvm_processor(mock.ANY, mock.ANY, "test", mock.ANY, mock.ANY, 1)
+        resp = gcp_instance(mock.ANY, mock.ANY, "test", mock.ANY, 1)
 
         self.assertIsNone(resp)
         mock_log.info.assert_called_once()
         mock_log.critical.assert_not_called()
         self.assertEqual(mock_log.debug.call_count, 2)
 
-    @mock.patch('mod_ci.controllers.libvirt')
-    @mock.patch('run.log')
-    @mock.patch('mod_ci.controllers.MaintenanceMode')
-    def test_kvm_processor_conn_fail(self, mock_maintenance, mock_log, mock_libvirt):
-        """Test that kvm processor logs critically when conn cannot be established."""
-        from mod_ci.controllers import kvm_processor
+    @mock.patch('mod_ci.controllers.delete_expired_instances')
+    @mock.patch('mod_ci.controllers.get_compute_service_object')
+    @mock.patch('mod_ci.controllers.gcp_instance')
+    def test_cron_job_testing_false(self, mock_gcp_instance, mock_get_compute_service_object,
+                                    mock_delete_expired_instances):
+        """Test working of cron function when testing is disabled."""
+        from mod_ci.cron import cron
+        mock_delete_expired_instances.reset_mock()
+        mock_get_compute_service_object.reset_mock()
+        cron()
+        self.assertEqual(mock_delete_expired_instances.call_count, 1)
+        self.assertEqual(mock_get_compute_service_object.call_count, 1)
 
-        mock_libvirt.open.return_value = None
-        mock_maintenance.query.filter.return_value.first.return_value = None
+    @mock.patch('mod_ci.controllers.delete_expired_instances')
+    @mock.patch('mod_ci.controllers.get_compute_service_object')
+    @mock.patch('mod_ci.controllers.gcp_instance')
+    def test_cron_job_testing_true(self, mock_gcp_instance, mock_get_compute_service_object,
+                                   mock_delete_expired_instances):
+        """Test working of cron function when testing is enabled."""
+        from mod_ci.cron import cron
+        mock_delete_expired_instances.reset_mock()
+        mock_get_compute_service_object.reset_mock()
+        cron(testing=True)
+        mock_delete_expired_instances.assert_not_called()
+        mock_get_compute_service_object.assert_not_called()
 
-        resp = kvm_processor(mock.ANY, mock.ANY, "test", mock.ANY, mock.ANY, 1)
-
-        self.assertIsNone(resp)
-        mock_log.info.assert_called_once()
-        mock_log.critical.assert_called_once()
-        self.assertEqual(mock_log.debug.call_count, 1)
-
-    @mock.patch('run.log.critical')
-    @mock.patch('mod_ci.controllers.save_xml_to_file')
+    @mock.patch('mod_ci.controllers.wait_for_operation')
+    @mock.patch('mod_ci.controllers.create_instance')
     @mock.patch('builtins.open', new_callable=mock.mock_open())
     @mock.patch('mod_ci.controllers.g')
-    def test_kvm_processor(self, mock_g, mock_open_file, mock_save_xml, mock_log_critical):
-        """Test kvm_processor function."""
+    def test_start_test(self, mock_g, mock_open_file, mock_create_instance, mock_wait_for_operation):
+        """Test start_test function."""
         import zipfile
 
-        import libvirt
         import requests
+        from googleapiclient.discovery import build
+        from googleapiclient.http import HttpMock, RequestMockBuilder
 
-        from mod_ci.controllers import Artifact_names, kvm_processor
-
-        class mock_conn:
-            def lookupByName(*args):
-                class mock_vm:
-                    def hasCurrentSnapshot(*args):
-                        return 1
-
-                    def info(*args):
-                        return [libvirt.VIR_DOMAIN_SHUTOFF]
-
-                    def snapshotCurrent(*args):
-                        class snapshot:
-                            def getName(*args):
-                                return "test"
-                        return snapshot
-
-                    def revertToSnapshot(*args):
-                        return 1
-
-                    def create(*args):
-                        return 1
-                return mock_vm
-
-            def close(*args):
-                return
+        from mod_ci.controllers import Artifact_names, start_test
+        test = Test.query.first()
+        repo = MagicMock()
+        fakeData = [{'artifacts': [{'name': Artifact_names.windows, 'archive_download_url': "test",
+                                    'workflow_run': {'head_sha': '1978060bf7d2edd119736ba3ba88341f3bec3322'}}]},
+                    {'artifacts': [{'name': Artifact_names.linux, 'archive_download_url': "test",
+                                    'workflow_run': {'head_sha': '1978060bf7d2edd119736ba3ba88341f3bec3323'}}]}]
 
         def getFakeData(*args, **kwargs):
             if len(fakeData) == 0:
@@ -241,87 +236,66 @@ class TestControllers(BaseTestCase):
 
             def extractall(*args, **kwargs):
                 return None
-
-        libvirt.open = MagicMock(return_value=mock_conn)
-        repo = MagicMock()
-        zipfile.ZipFile = MagicMock(return_value=mock_zip())
-        fakeData = [{'artifacts': [{'name': Artifact_names.windows,
-                                    'archive_download_url': "test",
-                                    'workflow_run': {'head_sha': '1978060bf7d2edd119736ba3ba88341f3bec3322'}}]},
-                    {'artifacts': [{'name': Artifact_names.linux,
-                                    'archive_download_url': "test",
-                                    'workflow_run': {'head_sha': '1978060bf7d2edd119736ba3ba88341f3bec3323'}}]}]
         repo.actions.artifacts.return_value.get = getFakeData
         response = requests.models.Response()
         response.status_code = 200
         requests.get = MagicMock(return_value=response)
-        kvm_processor(self.app, mock_g.db, "test", TestPlatform.linux, repo, None)
-        mock_save_xml.assert_called()
-        assert mock.call("Could not find an artifact for this commit") not in mock_log_critical.mock_calls
-
-    @mock.patch('run.log.critical')
-    @mock.patch('mod_ci.controllers.save_xml_to_file')
-    @mock.patch('builtins.open', new_callable=mock.mock_open())
-    @mock.patch('mod_ci.controllers.g')
-    def test_kvm_processor_download_artifact_failed(self, mock_g, mock_open_file, mock_save_xml, mock_log_critical):
-        """Test kvm_processor function when downloading the artifact fails."""
-        import libvirt
-        import requests
-
-        from mod_ci.controllers import Artifact_names, kvm_processor
-
-        class mock_conn:
-            def lookupByName(*args):
-                class mock_vm:
-                    def hasCurrentSnapshot(*args):
-                        return 1
-
-                    def info(*args):
-                        return [libvirt.VIR_DOMAIN_SHUTOFF]
-
-                    def snapshotCurrent(*args):
-                        class snapshot:
-                            def getName(*args):
-                                return "test"
-
-                        return snapshot
-
-                    def revertToSnapshot(*args):
-                        return 1
-
-                    def create(*args):
-                        return 1
-
-                return mock_vm
-
-            def close(*args):
-                return
-
-        def getFakeData(*args, **kwargs):
-            if len(fakeData) == 0:
-                return {'artifacts': []}
-            r = fakeData[0]
-            fakeData.pop(0)
-            return r
-
-        libvirt.open = MagicMock(return_value=mock_conn)
-        repo = MagicMock()
-        fakeData = [{'artifacts': [{'name': Artifact_names.windows,
-                                    'archive_download_url': "test",
-                                    'workflow_run': {'head_sha': '1978060bf7d2edd119736ba3ba88341f3bec3322'}}]},
-                    {'artifacts': [{'name': Artifact_names.windows,
-                                    'archive_download_url': "test",
-                                    'workflow_run': {'head_sha': '1978060bf7d2edd119736ba3ba88341f3bec3323'}}]}]
-        repo.actions.artifacts.return_value.get = getFakeData
-        response = requests.models.Response()
-        response.status_code = 404
-        requests.get = MagicMock(return_value=response)
-        test = Test(TestPlatform.windows, TestType.commit, 1, "master", "1978060bf7d2edd119736ba3ba88341f3bec3323")
-        g.db.add(test)
+        zipfile.ZipFile = MagicMock(return_value=mock_zip())
+        customized_test = CustomizedTest(1, 1)
+        g.db.add(customized_test)
         g.db.commit()
-        kvm_processor(self.app, mock_g.db, "test", TestPlatform.windows, repo, None)
-        mock_save_xml.assert_called()
-        mock_log_critical.assert_called_with(f"Could not fetch artifact, response code: {response.status_code}")
+        start_test(mock.ANY, self.app, mock_g.db, repo, test, mock.ANY)
+        mock_create_instance.assert_called_once()
+        mock_wait_for_operation.assert_called_once()
+
+    @mock.patch('mod_ci.controllers.start_test')
+    @mock.patch('mod_ci.controllers.get_compute_service_object')
+    @mock.patch('mod_ci.controllers.g')
+    def test_gcp_instance(self, mock_g, mock_get_compute_service_object, mock_start_test):
+        """Test gcp_instance function."""
+        from mod_ci.controllers import gcp_instance
+
+        # Making a sample test invalid
+        test = Test.query.get(1)
+        test.pr_nr = 0
+        g.db.commit()
+        gcp_instance(self.app, mock_g.db, TestPlatform.linux, mock.ANY, None)
+
+        mock_start_test.assert_called_once()
+        mock_get_compute_service_object.assert_called_once()
+
+    def test_get_compute_service_object(self):
+        """Test get_compute_service_object function."""
+        import googleapiclient
+        from google.oauth2 import service_account
+
+        from mod_ci.controllers import get_compute_service_object
+        service_account.Credentials.from_service_account_file = MagicMock()
+        compute = get_compute_service_object()
+        self.assertEqual(type(compute), googleapiclient.discovery.Resource)
+
+    @mock.patch('builtins.open', new_callable=mock.mock_open())
+    def test_create_instance_linux(self, mock_open_file):
+        """Test create_instance function for linux platform."""
+        from mod_ci.controllers import create_instance
+        compute = MagicMock()
+        instance = create_instance(compute, "test", "test", Test.query.get(1), "")
+
+        mock_open_file.assert_called()
+        self.assertEqual(str(type(instance)), str(MagicMock))
+
+    @mock.patch('builtins.open', new_callable=mock.mock_open())
+    def test_create_instance_windows(self, mock_open_file):
+        """Test create_instance function for windows platform."""
+        from mod_ci.controllers import create_instance
+        compute = MagicMock()
+        new_test = Test(TestPlatform.windows, TestType.commit, 1, "test", "test")
+        g.db.add(new_test)
+        g.db.commit()
+        instance = create_instance(compute, "test", "test", new_test, "")
+
+        mock_open_file.assert_called()
+        self.assertEqual(str(type(instance)), str(MagicMock))
 
     @mock.patch('mod_ci.controllers.GeneralData')
     @mock.patch('mod_ci.controllers.g')
@@ -406,47 +380,44 @@ class TestControllers(BaseTestCase):
         if flag:
             assert False, "Message not Correct"
 
+    def test_get_running_instances(self):
+        """Test get_running_instances function."""
+        from mod_ci.controllers import get_running_instances
+        result = get_running_instances(MagicMock(), "test", "test")
+        self.assertEqual(result, [])
+
     def test_check_main_repo_returns_in_false_url(self):
         """Test main repo checking."""
         from mod_ci.controllers import is_main_repo
         assert is_main_repo('random_user/random_repo') is False
         assert is_main_repo('test_owner/test_repo') is True
 
-    @mock.patch('github.GitHub')
-    @mock.patch('git.Repo')
-    @mock.patch('libvirt.open')
-    @mock.patch('shutil.rmtree')
-    @mock.patch('mod_ci.controllers.open')
-    @mock.patch('lxml.etree')
-    def test_customize_tests_run_on_selected_regression_tests(self, mock_etree, mock_open,
-                                                              mock_rmtree, mock_libvirt, mock_repo, mock_git):
-        """Test customize tests running on the selected regression tests."""
-        self.create_user_with_role(
-            self.user.name, self.user.email, self.user.password, Role.tester)
-        self.create_forktest("own-fork-commit", TestPlatform.linux, regression_tests=[2])
-        import mod_ci.controllers
-        import mod_ci.cron
-        reload(mod_ci.cron)
-        reload(mod_ci.controllers)
-        from mod_ci.cron import cron
-        conn = mock_libvirt()
-        vm = conn.lookupByName()
-        import libvirt
-        vm.info.return_value = [libvirt.VIR_DOMAIN_SHUTOFF]
-        vm.hasCurrentSnapshot.return_value = 1
-        repo = mock_repo()
-        origin = repo.remote()
-        from collections import namedtuple
-        Remotes = namedtuple('Remotes', 'name')
-        repo.remotes = [Remotes(name='fork_2')]
-        GitPullInfo = namedtuple('GitPullInfo', 'flags')
-        pull_info = GitPullInfo(flags=0)
-        origin.pull.return_value = [pull_info]
-        single_test = mock_etree.Element('tests')
-        mock_etree.Element.return_value = single_test
-        cron(testing=True)
-        mock_etree.SubElement.assert_any_call(single_test, 'entry', id=str(2))
-        assert (single_test, 'entry', str(1)) not in mock_etree.call_args_list
+    @mock.patch('mod_ci.controllers.get_running_instances')
+    def test_delete_expired_instances(self, mock_get_running_instances):
+        """Test working of delete_expired_instances function."""
+        from datetime import datetime, timedelta, timezone
+
+        from mod_ci.controllers import delete_expired_instances
+
+        expired_instance_time = datetime.now(timezone.utc) - timedelta(minutes=150)
+        mock_get_running_instances.return_value = [{
+            'name': 'windows-1',
+            'creationTimestamp': datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f%z"),
+        }, {
+            'name': 'linux-2',
+            'creationTimestamp': expired_instance_time.strftime("%Y-%m-%dT%H:%M:%S.%f%z"),
+        }, {
+            'name': 'osx-3',
+            'creationTimestamp': datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f%z"),
+        }]
+        compute = MagicMock()
+        pendingOperations = [
+            {'status': "DONE"},
+            {'status': "PENDING"}
+        ]
+        compute.zoneOperations.return_value.get.return_value.execute = pendingOperations.pop
+        delete_expired_instances(compute, 120, 'a', 'a')
+        mock_get_running_instances.assert_called_once()
 
     def test_customizedtest_added_to_queue(self):
         """Test queue with a customized test addition."""
@@ -710,7 +681,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.GeneralData')
     def test_webhook_push_valid(self, mock_gd, mock_github, mock_add_test_entry, mock_request):
         """Test webhook triggered with push event with valid data."""
-        data = {'after': 'abcdefgh'}
+        data = {'after': 'abcdefgh', 'ref': 'refs/heads/master'}
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
@@ -1125,9 +1096,9 @@ class TestControllers(BaseTestCase):
         from mod_ci.controllers import deschedule_test
         repository = git_mock(access_token=g.github['bot_token']).repos(
             g.github['repository_owner'])(g.github['repository'])
-        deschedule_test(repository.statuses(1), TestPlatform.linux)
+        deschedule_test(repository.statuses(1), 1, TestType.commit, TestPlatform.linux)
         mock_debug.assert_not_called()
-        deschedule_test(None, TestPlatform.linux)
+        deschedule_test(None, 1, TestType.commit, TestPlatform.linux)
         mock_debug.assert_not_called()
 
     @mock.patch('run.log.critical')
@@ -1138,9 +1109,9 @@ class TestControllers(BaseTestCase):
         from mod_ci.controllers import deschedule_test
         repository = git_mock(access_token=g.github['bot_token']).repos(
             g.github['repository_owner'])(g.github['repository'])
-        deschedule_test(repository.statuses(1), TestPlatform.windows)
+        deschedule_test(repository.statuses(1), 1, TestType.commit, TestPlatform.windows)
         mock_debug.assert_not_called()
-        deschedule_test(None, TestPlatform.windows)
+        deschedule_test(None, 1, TestType.commit, TestPlatform.windows)
         mock_debug.assert_not_called()
 
     @mock.patch('mod_ci.controllers.inform_mailing_list')
@@ -1166,10 +1137,11 @@ class TestControllers(BaseTestCase):
         from github import GitHub
 
         from mod_ci.controllers import deschedule_test, schedule_test
-        schedule_test(GitHub('1').repos('1')('1').statuses('1'), 1, None)
+        schedule_test(GitHub('1').repos('1')('1').statuses('1'), 1, TestType.commit)
         mock_critical.assert_called()
         mock_critical.reset_mock()
-        deschedule_test(GitHub('1').repos('1')('1').statuses('1'), TestPlatform.linux)
+        deschedule_test(GitHub('1').repos('1')('1').statuses('1'), 1, TestType.commit, TestPlatform.linux)
+        deschedule_test(GitHub('1').repos('1')('1').statuses('1'), 1, TestType.commit, TestPlatform.windows)
         mock_critical.assert_called()
 
     @mock.patch('mod_ci.controllers.is_main_repo')

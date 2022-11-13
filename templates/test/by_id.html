@@ -54,7 +54,9 @@
                 <br class="clear" />
                 {% if test.progress|length > 0 %}
                     <input type="button" id="progress_button" class="button" value="Show test progress" />
-                    <a target="_blank" class="button" href = "{{ url_for('test.download_build_log_file',test_id=test.id) }}">Show log file</a>
+                    {% if test.finished %}
+                    <a target="_blank" class="button" href = "{{ url_for('test.download_build_log_file',test_id=test.id) }}">Download log file</a>
+                    {% endif %}
                     <div style="overflow-x:auto;">
                         <table id="progress_table" class="hide striped">
                             <thead>

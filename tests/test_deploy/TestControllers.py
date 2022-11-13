@@ -102,7 +102,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_deploy.controllers.is_valid_signature', return_value=False)
     @mock.patch('mod_deploy.controllers.g')
     def test_headers_invalid_signature_event(self, mock_g, mock_valid_sign, mock_request_get):
-        """Test the view by sending a valid event."""
+        """Test the view by sending an event with invalid signature."""
         mock_request_get.return_value.json.return_value = {"hooks": ['0.0.0.0']}
         self.app.config['INSTALL_FOLDER'] = gettempdir()
         data = {
@@ -125,7 +125,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_deploy.controllers.is_valid_signature', return_value=True)
     @mock.patch('mod_deploy.controllers.g')
     def test_headers_no_payload_event(self, mock_g, mock_valid_sign, mock_request_get):
-        """Test the view by sending a valid event."""
+        """Test the view by sending an event without payload."""
         mock_request_get.return_value.json.return_value = {"hooks": ['0.0.0.0']}
         self.app.config['INSTALL_FOLDER'] = gettempdir()
         data = None
@@ -146,7 +146,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_deploy.controllers.is_valid_signature', return_value=True)
     @mock.patch('mod_deploy.controllers.g')
     def test_headers_not_master_event(self, mock_g, mock_valid_sign, mock_request_get):
-        """Test the view by sending a valid event."""
+        """Test the view by sending a valid event with branch other than master."""
         mock_request_get.return_value.json.return_value = {"hooks": ['0.0.0.0']}
         self.app.config['INSTALL_FOLDER'] = gettempdir()
         data = {
@@ -200,6 +200,6 @@ class TestControllers(BaseTestCase):
         self.assertEqual(response.status_code, 200)
         mock_repo.assert_called_once()
         mock_open.assert_called_once_with('build_commit.py', 'w')
-        mock_copy.assert_called_once()
+        mock_copy.assert_called()
         mock_subprocess.assert_called_once_with(["sudo", "service", "platform", "reload"])
         self.assertIn("somesha", response.data.decode('utf-8'))

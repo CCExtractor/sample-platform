@@ -71,6 +71,24 @@ def generate_keys():
     return {'secret_csrf_path': secret_csrf_path, 'secret_key_path': secret_key_path}
 
 
+def mock_gcs_client(file):
+    """Mock Google Cloud Storage Client object."""
+    class gcs_client:
+        def bucket(bucket_name):
+            class bucket:
+                def blob(file_path):
+                    class blob:
+                        def patch():
+                            pass
+
+                        def generate_signed_url(**kwargs):
+                            return "https://www.test.com"
+                        content_disposition = None
+                    return blob
+            return bucket
+    return gcs_client
+
+
 def load_config(file):
     """Load start config."""
     key_paths = generate_keys()
@@ -94,15 +112,16 @@ def load_config(file):
         'MIN_PWD_LEN': 10,
         'MAX_PWD_LEN': 500,
         'SAMPLE_REPOSITORY': "temp",
-        'KVM_LINUX_NAME': "linux-test",
-        'KVM_WINDOWS_NAME': "window-test",
         'SECRET_KEY': secret_key,
-        'CSRF_SESSION_KEY': secret_csrf
+        'CSRF_SESSION_KEY': secret_csrf,
+        'ZONE': "test_zone",
+        'PROJECT_NAME': "test_zone",
+        'GCS_SIGNED_URL_EXPIRY_LIMIT': 720
     }
 
 
 def mock_api_request_github(url, data=None, timeout=None, auth=None):
-    """Mock all responses to the Github API."""
+    """Mock all responses to the GitHub API."""
     if url == "https://api.github.com/repos/test/test_repo/commits/abcdef":
         return MockResponse({}, 200)
     elif url == "https://api.github.com/user":
@@ -174,8 +193,9 @@ def generate_git_api_header(event, sig):
 class BaseTestCase(TestCase):
     """Base setup for all test cases."""
 
+    @mock.patch('google.cloud.storage.Client.from_service_account_json', side_effect=mock_gcs_client)
     @mock.patch('config_parser.parse_config', side_effect=load_config)
-    def create_app(self, mock_config):
+    def create_app(self, mock_config, mock_storage_client):
         """Create an instance of the app with the testing configuration."""
         user = namedtuple('user', "name password email github_token")
         self.user = user(name="test", password="test123",
@@ -264,11 +284,9 @@ class BaseTestCase(TestCase):
 
         test_result_progress = [
             TestProgress(1, TestStatus.preparation, "Test 1 preparation"),
-            TestProgress(1, TestStatus.building, "Test 1 building"),
             TestProgress(1, TestStatus.testing, "Test 1 testing"),
             TestProgress(1, TestStatus.completed, "Test 1 completed"),
             TestProgress(2, TestStatus.preparation, "Test 2 preparation"),
-            TestProgress(2, TestStatus.building, "Test 2 building"),
             TestProgress(2, TestStatus.testing, "Test 2 testing"),
             TestProgress(2, TestStatus.completed, "Test 2 completed")
         ]

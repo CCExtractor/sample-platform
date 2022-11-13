@@ -23,7 +23,8 @@ logs/*.log
 secret_csrf
 secret_key
 config.py
-install/ci-vm/ci-linux/ci/variables
+service-account.json
+install/ci-vm/ci-windows/rclone.conf
 
 # Build commit
 build_commit.py
@@ -46,3 +47,6 @@ venv/
 monkeytype.sqlite3
 .pytype/
 .env
+
+# Test related data
+temp/

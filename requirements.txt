@@ -4,7 +4,6 @@ passlib==1.7.4
 pymysql==1.0.2
 python-magic==0.4.27
 flask-wtf==0.14.3
-gunicorn==20.1.0
 githubpy==1.1.0
 requests==2.28.1
 pyIsEmail==1.4.0
@@ -13,7 +12,6 @@ xmltodict==0.13.0
 lxml==4.9.1
 pytz==2022.2.1
 tzlocal==4.1
-libvirt-python==7.1.0; sys_platform != 'win32'
 markdown2==2.4.5
 flask-migrate==3.1.0
 flask-script==2.0.6
@@ -24,3 +22,6 @@ WTForms==2.3.3
 MarkupSafe<=2.0.1
 jinja2==3.0.2
 itsdangerous==2.0.1
+google-api-python-client==2.56.0
+google-cloud-storage==2.5.0
+cffi==1.15.1

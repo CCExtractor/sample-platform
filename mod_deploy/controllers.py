@@ -45,7 +45,7 @@ def get_cached_web_hook_blocks() -> List[str]:
 
     if len(cached_web_hook_blocks) == 0 or cache_has_expired():
         client_id = config.get('GITHUB_CLIENT_ID', '')
-        client_secret = config.get('GITHUB_CLIENT_SECRET', '')
+        client_secret = config.get('GITHUB_CLIENT_KEY', '')
         meta_json = requests.get(
             f'https://api.github.com/meta', auth=(client_id, client_secret)).json()
         try:
@@ -179,9 +179,13 @@ def deploy():
     with open('build_commit.py', 'w') as f:
         f.write(build_commit)
 
-    run_ci_repo = path.join(app.config['INSTALL_FOLDER'], 'install', 'ci-vm', 'ci-linux', 'ci', 'runCI')
-    run_ci_nfs = path.join(app.config['SAMPLE_REPOSITORY'], 'vm_data', app.config['KVM_LINUX_NAME'], 'runCI')
-    copyfile(run_ci_repo, run_ci_nfs)
+    run_ci_repo_linux = path.join(app.config['INSTALL_FOLDER'], 'install', 'ci-vm', 'ci-linux', 'ci', 'runCI')
+    run_ci_nfs_linux = path.join(app.config['SAMPLE_REPOSITORY'], 'TestData', 'ci-linux', 'runCI')
+    copyfile(run_ci_repo_linux, run_ci_nfs_linux)
+
+    run_ci_repo_windows = path.join(app.config['INSTALL_FOLDER'], 'install', 'ci-vm', 'ci-windows', 'ci', 'runCI.bat')
+    run_ci_nfs_windows = path.join(app.config['SAMPLE_REPOSITORY'], 'TestData', 'ci-windows', 'runCI.bat')
+    copyfile(run_ci_repo_windows, run_ci_nfs_windows)
 
     g.log.info(f"Platform upgraded to commit {commit_hash}")
     subprocess.Popen(["sudo", "service", "platform", "reload"])

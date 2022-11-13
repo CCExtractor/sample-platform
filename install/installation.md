@@ -7,11 +7,60 @@
 * MySQL
 * Pure-FTPD with mysql
 
+## Configuring Google Cloud Platform
+
+To configure the GCP for the platform, see [the installation guide](ci-vm/installation.md).
+
 ## Automated install
 
-Automated install only works for the platform section, **not** for the KVM
-functionality. To install the VM's for KVM, see 
-[the installation guide](ci-vm/installation.md).
+Automated install only works for the platform section; make sure to have configured the GCP before continuing the platform installation.
+
+## Creation of sample platform server instance
+
+For deployment of the platform on a Google Cloud VM instance, one would require to create an instance and configure some network firewall settings. If you are deploying the platform on a local instance, you can skip these two steps.
+
+1. Creating a VM instance
+
+   - Open the Google Cloud console, navigate to Compute Engine -> VM instances section, and click on "Create Instance".
+   - The following are the details of the VM instance to be entered (most of the default configuration below can be changed as per the requirements):
+        - Region: us-central1 (Iowa)
+        - Zone: us-central1-a
+        - Machine Family: General Purpose
+        - Series: E2
+        - Machine Type: e2-small
+        - Boot Disk
+            - For Linux:
+                - OS: Ubuntu
+                - Version: Ubuntu 22.04 LTS (x86)
+                - Boot type disk: Balanced persistent disk
+                - Size: 10GB
+            - For Windows:
+                - OS: Windows Server
+                - Version: 
+Windows Server 2019 Datacenter
+                - Boot type disk: Balanced persistent disk
+                - Size: 50GB
+        - Choose the service account as the service account you just created for the platform.
+        - Select the "Allow HTTP traffic" and "Allow HTTPS traffic" checkboxes.
+        - Navigate to Advanced options -> Networking -> Network Interfaces -> External IPv4 address, and click on Create IP Address and reserve a new static external IP address for the platform.
+
+2. Setting up firewall settings
+    
+    To allow access to the platform through an external IPv4 address just created, there are some firewall configurations to be made:
+    - Navigate to VPC network -> Firewall and click on "Create Firewall Rule".
+    - Set the rule name as "default-allow-https" and enter the following details for this rule:
+        - Priority: 1000
+        - Direction of Traffic: Ingress
+        - Action on the match: Allow
+        - Target type: Specified target tags -> Target Tags: "https-server"
+        - Source Filter: IPv4 ranges
+        - Source IPv4 ranges: 0.0.0.0/0
+        - Protocols and ports -> Specified protocols and ports -> TCP -> Port: 443  (Nginx server is configured on this port)
+    - Now click on "Save"
+    - Now create another firewall rule for HTTP as "default-allow-http" with the following changes in the above configuration:
+        - Target type: Specified target tags -> Target Tags: "http-server"
+        - Protocols and ports -> Specified protocols and ports -> TCP -> Port: 80
+
 
 ### Linux
 
@@ -26,6 +75,45 @@ cd /var/www/
 sudo git clone https://github.com/CCExtractor/sample-platform.git
 ```
 
+### Mounting the bucket
+
+Mounting on Linux OS can be done using [Google Cloud Storage FUSE](https://cloud.google.com/storage/docs/gcs-fuse).
+
+Steps:
+- Install gcsfuse using [official documentation](https://github.com/GoogleCloudPlatform/gcsfuse/blob/master/docs/installing.md) or using the following script 
+    ```
+    curl -L -O https://github.com/GoogleCloudPlatform/gcsfuse/releases/download/v0.39.2/gcsfuse_0.39.2_amd64.deb
+    sudo dpkg --install gcsfuse_0.39.2_amd64.deb
+    rm gcsfuse_0.39.2_amd64.deb
+    ```
+- Now, there are multiple ways to mount the bucket, official documentation [here](https://github.com/GoogleCloudPlatform/gcsfuse/blob/master/docs/mounting.md). 
+
+    For Ubuntu and derivatives, assuming `/repository` to be the location of samples to be configured, an entry can be added to `/etc/fstab` file, replace _GCS_BUCKET_NAME_ with the name of the bucket created for the platform:
+    ```
+    echo "GCS_BUCKET_NAME   /repository 	gcsfuse rw,gid=33,noatime,async,_netdev,noexec,user,implicit_dirs,allow_other,file_mode=774,dir_mode=775	0 0" | sudo tee -a /etc/fstab
+    ```
+
+- Now run the following command as root to mount the bucket:
+    ```
+    sudo mkdir /repository
+    sudo mount /repository
+    ```
+
+You may check if the mount was successful and if the bucket is accessible by running `ls /repository` command.
+
+#### Troubleshooting: Mounting of Bucket
+
+In case you get "permission denied" for `/repository`, you can check for the following reasons:
+1. Check if the service account created has access to the GCS bucket.
+2. Check the output of `sudo mount /repository` command.
+
+Place the service account key file at the root of the sample-platform folder. 
+
+#### MySQL installation
+The platform has been tested for MySQL v8.0 and Python 3.7 to 3.9. 
+
+It is recommended to install python and MySQL beforehand to avoid any inconvenience. Here is the [installation link](https://www.digitalocean.com/community/tutorials/how-to-install-mysql-on-ubuntu-22-04) of MySQL on Ubuntu 22.04.
+
 Next, navigate to the `install` folder and run `install.sh` with root 
 permissions.
 
@@ -34,23 +122,23 @@ cd sample-platform/install/
 sudo ./install.sh
 ```    
 
-The `install.sh` will begin downloading and updating all the necessary 
-dependencies. Once done, it'll ask to enter some details in order to set up 
-the sample-platform. After filling in these the platform should be ready for
-use.
+The `install.sh` will begin downloading and updating all the necessary dependencies. Once done, it'll ask to enter some details in order to set up the sample-platform. After filling in these details, the platform should be ready for use.
 
 Please read the below troubleshooting notes in case of any error or doubt.
 
 ### Windows
 
 * Install cygwin (http://cygwin.com/install.html). When cygwin asks which
- packages to install, select Python, MySql, virt-manager and openssh. If you 
- already have cygwin installed, you must run its setup file to install the new packages. Make sure the dropdown menu is set to Full, so you can all packages. To select one, click skip and it will change to the version number of the package. Use the end of [this](https://www.davidbaumgold.com/tutorials/set-up-python-windows/) tutorial for help on getting cygwin to recognize python. 
-* Start a terminal session once installation is complete. 
-* Install Nginx (see http://nginx.org/en/docs/windows.html)
-* Install XMing XServer and setup Putty for ssh connections.
-* Virt-manager can call ssh to make the connection to KVM Server and should be 
-able to run virsh and send commands to it. 
+ packages to install, select Python, MySql, and google-api-client. If you 
+ already have cygwin installed, you must run its setup file to install the new packages. Make sure the dropdown menu is set to Full, so you can all packages. To select one, click skip and it will change to the version number of the package. Use the end of [this](https://www.davidbaumgold.com/tutorials/set-up-python-windows/) tutorial for help on getting cygwin to recognize python.
+* Install [WinFsp](https://winfsp.dev/) and [Rclone](https://rclone.org/) from their official websites.
+* Now rclone is a command line program, follow the [official documentation](https://rclone.org/googlecloudstorage/) to mount the google cloud storage bucket, using the service account key file.
+* By default home directory of Cygwin is `C:\cygwin\home\<USERNAME>\` (this can be obtained by running `cygpath -w ~` from cygwin terminal), and assuming `\repository` to be the location of samples to be configured, mount the bucket using rclone at `C:\cygwin\home\<USERNAME>\repository` through the following command using command prompt:
+    ```
+    rclone mount GCS_BUCKET_NAME MOUNT_LOCATION --no-console
+    ```
+* Start a terminal session once installation is complete.
+* Install Nginx (see http://nginx.org/en/docs/windows.html) 
 * Follow the steps from the Linux installation from within the Cygwin terminal
 to complete the platform's installation.
 
@@ -83,40 +171,33 @@ sudo python bootstrap_gunicorn.py
 * If `gunicorn` boots up successfully, most relevant logs will be stored in
  the `logs` directory. Otherwise they'll likely be in `syslog`.
 
-* If it shows the error regarding the `libvirt`, then there is missing `fftw3.h` file. Try the following:
-```
-sudo apt-get install libvirt-dev
-sudo apt-get install libfftw3-dev
-sudo apt-get install libsndfile1-dev
-```
-
 * If any issue still persists, follow the mentioned steps to debug and troubleshoot your issue:
     1. Firstly check the Platform Installation log file in the install folder. Check for any errors, which may have been caused during platform installation on your system, and then try to resolve them accordingly.
     2. Next check for nginx status by `service nginx status` command, if it is not active, check nginx error log file, possibly in `/var/log/nginx/error.log` file.
     3. Next check for platform status by `service platform status` command, if it is not `active(running)` then check for platform logs in the `logs` directory of your project.
     4. In case of any gunicorn error try manually running `/etc/init.d/platform start` command and recheck the platform status.
 
-## Nginx configuration for X-Accel-Redirect
+### Setting Up The Bucket
+After the completion of the automated installation of the platform, the following folder structure is created in the 'SAMPLE_REPOSITORY' set during installation:
+- `LogFiles/` - Directory containing log files of the tests completed
+- `QueuedFiles/` - Directory containing files related to queued samples
+- `README` - A readme file related to SSL certificates required by the platform
+- `TempFiles/` - Directory containing temporary files
+- `TestData/` - Directory containing files required for starting a test - runCI files, variables file, tester
+- `TestFiles/` - Directory containing regression test samples
+- `TestResults/` - Direction containing regression test results
+- `vm_data/` - Directory containing test-specific subfolders, each folder containing files required for testing to be passed to the VM instance, test files and CCExtractor build artefact.
 
-To serve files without any scripting language overhead, the X-Accel-Redirect 
-feature of Nginx is used. To enable it, a special section (as seen below) 
-needs to be added to the nginx configuration file:
+Now for tests to run, we need to download the [CCExtractor testsuite](https://github.com/CCExtractor/ccx_testsuite) release file, extract and put it in `TestData/ci-linux` and `TestData/ci-windows` folders.
 
-```
-location /protected/ {
-    internal;
-    alias /path/to/storage/of/samples/; # Trailing slash is important!
-}
-```
+## GCS configuration to serve file downloads using Signed URLs
 
-More info on this directive is available at the 
-[Nginx wiki](http://wiki.nginx.org/NginxXSendfile).
+To serve file downloads directly from the private GCS bucket, Signed download URLs have been used.
 
-Other web servers can be configured too (see this excellent 
-[SO](http://stackoverflow.com/a/3731639) answer), but will require a small 
-modification in the relevant section of the `serve_file_download` definition 
-in `mod_sample/controllers.py` which is responsible for handling the download
-requests.
+The `serve_file_download` function in the `utility.py` file implements the generation of a signed URL for the file to be downloaded that would expire after a configured time limit (maximum limit: 7 days) and redirects the client to the URL.
+
+For more information about Signed URLs, you can refer to the [official documentation](https://cloud.google.com/storage/docs/access-control/signed-urls).
+
 
 ## File upload size for HTTP
 
@@ -195,23 +276,39 @@ Next, a file called `ChrootEveryone` must be created, so that the individual
 users are jailed:
 
 ```
-echo "yes" > /etc/pure-ftpd/conf/ChrootEveryone
+echo "yes" | sudo tee /etc/pure-ftpd/conf/ChrootEveryone
 ```
 
 The same needs to be done for `CreateHomeDir` and `CallUploadScript`:
 
 ```
-echo "yes" > /etc/pure-ftpd/conf/CreateHomeDir
-echo "yes" > /etc/pure-ftpd/conf/CallUploadScript
+echo "yes" | sudo tee /etc/pure-ftpd/conf/CreateHomeDir
+echo "yes" | sudo tee /etc/pure-ftpd/conf/CallUploadScript
+```
+
+Set `PassivePortRange` for pure-ftpd:
+```
+echo "30000 50000" | sudo tee /etc/pure-ftpd/conf/PassivePortRange
 ```
 
 Also `/etc/default/pure-ftpd-common` needs some modification:
 
 ```
 UPLOADSCRIPT=/path/to/cron/progress_ftp_upload.py
-UPLOADUID=2015 # User that owns the upload.sh script
-UPLOADGID=2015 # Group that owns the upload.sh script
+UPLOADUID=33 # User that owns the upload.sh script
+UPLOADGID=33 # Group that owns the upload.sh script
 ```
+
+You can get the UPLOADUID and UPLOADGID using the following command:
+```
+ls -l /path/to/cron/progress_ftp_upload.py
+```
+
+Since we provide bucket access only to group `www-data`, we will now add `ftpuser` to the group:
+```
+sudo usermod -a -G www-data ftpuser
+```
+In manual installation, you may change `www-data` to the group you provided the bucket access.
 
 When necessary, an appropriate value in the Umask file 
 (`/etc/pure-ftpd/conf/Umask`) should be set as well.
@@ -221,15 +318,30 @@ After this you Pure-FTPD can be restarted using
 
 Note: if there is no output saying: 
 `Restarting ftp upload handler: pure-uploadscript.`, the uploadscript will
-need to be started. This can be done using the next command (assuming 1000 is
+need to be started. This can be done using the next command (assuming 33 is
 the `gid` and `uid` of the user which was specified earlier):
 
 ```
-sudo pure-uploadscript -u 2015 -g 2015 -B -r /home/path/to/src/cron/progress_ftp_upload.py
-sudo chown 2015:2015 /home/path/to/src/cron/progress_ftp_upload.py
-
+sudo pure-uploadscript -u 33 -g 33 -B -r /home/path/to/src/cron/progress_ftp_upload.py
+sudo chown 33:33 /home/path/to/src/cron/progress_ftp_upload.py
 ```
 
 To check if the upload script is running, the next command can help:
 `ps aux | grep pure-uploadscript`. If it still doesn't work, rebooting the 
 server might help as well.
+
+### Configure GCP Firewall for Pure-FTP
+NOTE: These steps need to be performed only if the platform is being installed on a GCP VM instance.
+
+Since pure-ftpd server runs over TCP port 21 and we allow passive TCP port range as 30000-50000, we should now allow incoming communication requests through these ports to the platform server:
+
+- Navigate to VPC network -> Firewall and click on "Create Firewall Rule".
+- Set the name as "default-allow-ftp-ingress" and enter the following details for this rule:
+    - Priority: 1000
+    - Direction of Traffic: Ingress
+    - Action on the match: Allow
+        - Target type: "Allow instances in the network"
+        - Source Filter: IPv4 ranges
+        - Source IPv4 ranges: 0.0.0.0/0
+        - Protocols and ports -> Specified protocols and ports -> TCP -> Port: 21,30000-50000
+    - Now click on "Save"

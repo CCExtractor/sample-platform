@@ -45,7 +45,6 @@ class TestStatus(DeclEnum):
     """Enum to specify test status."""
 
     preparation = "preparation", "Preparation"
-    building = "building", "Building"
     testing = "testing", "Testing"
     completed = "completed", "Completed"
     canceled = "canceled", "Canceled/Error"
@@ -73,8 +72,7 @@ class TestStatus(DeclEnum):
         :return: stages available for test
         :rtype: list
         """
-        return [TestStatus.preparation, TestStatus.building,
-                TestStatus.testing, TestStatus.completed]
+        return [TestStatus.preparation, TestStatus.testing, TestStatus.completed]
 
 
 class Fork(Base):
@@ -258,10 +256,7 @@ class Test(Base):
         rtype: list
         """
         customized_test = self.customized_tests
-        if len(customized_test) != 0:
-            regression_ids = [r.regression_id for r in customized_test]
-        else:
-            regression_ids = [r.id for r in RegressionTest.query.all()]
+        regression_ids = [r.regression_id for r in customized_test]
         return regression_ids
 
 

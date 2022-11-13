@@ -14,6 +14,7 @@ import requests
 from flask import (Blueprint, flash, g, make_response, redirect,
                    render_template, request, url_for)
 from git import InvalidGitRepositoryError, Repo
+from github import GitHub
 from werkzeug.utils import secure_filename
 
 from decorators import get_menu_entries, template_renderer
@@ -249,13 +250,14 @@ def process_id(upload_id):
 
                 if db_committed:
                     if form.report.data == 'y':
-                        data = ""
-                        try:
-                            kvm_name = config.get('KVM_LINUX_NAME', '')
-                            repo = Repo(os.path.join(repo_folder, 'vm_data', kvm_name, 'unsafe-ccextractor'))
-                            data = repo.git.show(f"{repo.heads.master}:.github/ISSUE_TEMPLATE.md")
-                        except InvalidGitRepositoryError:
-                            log.critical("Could not open CCExtractor's repository")
+                        gh = GitHub(access_token=config['GITHUB_TOKEN'])
+                        repo = gh.repos(config['GITHUB_OWNER'])(config['GITHUB_REPOSITORY'])
+                        response = repo.contents(".github/ISSUE_TEMPLATE.md").get()
+                        encoded_data = response['content']
+                        if response['encoding'] == 'base64':
+                            data = base64.b64decode(encoded_data).decode()
+                        else:
+                            log.critical(f"Could not get GitHub issue template, invalid data encoding")
 
                         version = CCExtractorVersion.query.filter(CCExtractorVersion.id == form.version.data).first()
                         data = data.replace("**X.X**", version.version)
@@ -486,8 +488,8 @@ def upload_ftp(db, path) -> None:
     from run import config, log
     upload_path = str(path)
     path_parts = upload_path.split(os.path.sep)
-    # We assume /home/{uid}/ as specified in the model
-    user_id = path_parts[2]
+    # We assume /configured_path/{uid}/{file_name} as specified in the model
+    user_id = path_parts[-2]
     user = User.query.filter(User.id == user_id).first()
 
     if user is None:
@@ -513,11 +515,10 @@ def upload_ftp(db, path) -> None:
         return
 
     log.debug("Moving file to temporary folder and changing permissions...")
-    filename = secure_filename(upload_path.replace(f"/home/{user.id}/", ''))
+    filename = secure_filename(path_parts[-1])
     intermediate_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'TempFiles', filename)
     log.debug(f"Copy {upload_path} to {intermediate_path}")
-    shutil.copy(upload_path, intermediate_path)
-    os.remove(upload_path)
+    shutil.move(upload_path, intermediate_path)
 
     log.debug(f"Checking hash value for {intermediate_path}")
     file_hash = create_hash_for_sample(intermediate_path)

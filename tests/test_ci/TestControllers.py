@@ -428,7 +428,7 @@ class TestControllers(BaseTestCase):
         import mod_ci.controllers
         reload(mod_ci.controllers)
         from mod_ci.controllers import add_test_entry, queue_test
-        add_test_entry(g.db, None, 'customizedcommitcheck', TestType.commit)
+        add_test_entry(g.db, 'customizedcommitcheck', TestType.commit)
         queue_test(None, 'customizedcommitcheck', TestType.commit, TestPlatform.linux)
         queue_test(None, 'customizedcommitcheck', TestType.commit, TestPlatform.windows)
         test = Test.query.filter(Test.id == 3).first()
@@ -1068,7 +1068,7 @@ class TestControllers(BaseTestCase):
         from mod_ci.controllers import add_test_entry, queue_test
         repository = git_mock(access_token=g.github['bot_token']).repos(
             g.github['repository_owner'])(g.github['repository'])
-        add_test_entry(g.db, repository.statuses("1"), 'customizedcommitcheck', TestType.pull_request)
+        add_test_entry(g.db, 'customizedcommitcheck', TestType.pull_request)
         mock_debug.assert_called_once_with('pull request test type detected')
         queue_test(repository.statuses("1"), 'customizedcommitcheck', TestType.pull_request, TestPlatform.linux)
         mock_debug.assert_called_with('Created tests, waiting for cron...')

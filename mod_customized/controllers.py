@@ -1,21 +1,19 @@
 """logic to allow users to test their fork branch with customized set of regression tests."""
 
 from datetime import datetime, timedelta
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
-from flask import Blueprint, flash, g, redirect, request, url_for
-from github import ApiError, GitHub
+from flask import Blueprint, g, redirect, request, url_for
+from github import Github
 from sqlalchemy import and_
 
-from decorators import get_menu_entries, template_renderer
+from decorators import template_renderer
 from mod_auth.controllers import (check_access_rights,
                                   fetch_username_from_token, login_required)
-from mod_auth.models import Role, User
+from mod_auth.models import Role
 from mod_customized.forms import TestForkForm
 from mod_customized.models import CustomizedTest, TestFork
 from mod_regression.models import (Category, RegressionTest,
                                    regressionTestLinkTable)
-from mod_test.controllers import TestNotFoundException, get_data_for_test
 from mod_test.models import Fork, Test, TestPlatform, TestType
 
 mod_customized = Blueprint('custom', __name__)
@@ -50,12 +48,12 @@ def index():
     username = fetch_username_from_token()
     commit_options = False
     if username is not None:
-        gh = GitHub(access_token=g.github['bot_token'])
-        repository = gh.repos(username)(g.github['repository'])
+        gh = Github(g.github['bot_token'])
+        repository = gh.get_repo(f"{username}/{g.github['repository']}")
         # Only commits since last month
         last_month = datetime.now() - timedelta(days=30)
         commit_since = last_month.isoformat() + 'Z'
-        commits = repository.commits().get(since=commit_since)
+        commits = repository.get_commits(since=commit_since)
         commit_arr = []
         for commit in commits:
             commit_url = commit['html_url']

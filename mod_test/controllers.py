@@ -2,11 +2,10 @@
 
 import os
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type
+from typing import Any, Dict
 
-from flask import (Blueprint, Response, abort, g, jsonify, make_response,
-                   redirect, request, url_for)
-from github import GitHub
+from flask import (Blueprint, Response, abort, g, jsonify, redirect, request,
+                   url_for)
 from sqlalchemy import and_, func
 from sqlalchemy.sql import label
 
@@ -15,7 +14,7 @@ from exceptions import TestNotFoundException
 from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role
 from mod_ci.models import GcpInstance
-from mod_customized.models import CustomizedTest, TestFork
+from mod_customized.models import TestFork
 from mod_home.models import CCExtractorVersion, GeneralData
 from mod_regression.models import (Category, RegressionTestOutput,
                                    regressionTestLinkTable)

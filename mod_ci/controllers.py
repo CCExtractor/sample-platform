@@ -10,6 +10,7 @@ import time
 import zipfile
 from multiprocessing import Process
 from pathlib import Path
+from collections import defaultdict
 from typing import Any, Dict
 
 import googleapiclient.discovery
@@ -875,7 +876,7 @@ def start_ci():
                         prev_commit = GeneralData(commit_name, last_commit.value)
                         g.db.add(prev_commit)
 
-                last_commit.value = ref['object']['sha']
+                last_commit.value = ref.object.sha
                 g.db.commit()
                 add_test_entry(g.db, commit_hash, TestType.commit)
             else:
@@ -900,7 +901,7 @@ def start_ci():
                 if BlockedUsers.query.filter(BlockedUsers.user_id == user_id).first() is not None:
                     g.log.warning("User Blacklisted")
                     return 'ERROR'
-                if repository.get_pull(number=pr_nr)["mergeable"] is not False:
+                if repository.get_pull(number=pr_nr).mergeable is not False:
                     add_test_entry(g.db, commit_hash, TestType.pull_request, pr_nr=pr_nr)
 
             elif payload['action'] == 'closed':
@@ -999,24 +1000,30 @@ def start_ci():
                     is_complete = True
                     has_failed = False
                     builds = {"linux": False, "windows": False}
-                    for workflow in repository.get_workflow_runs(
+
+                    # NOTE: Using this workaround because of bug in PyGithub
+                    workflow = defaultdict(lambda: None)
+                    print(repository.get_workflows())
+                    for active_workflow in repository.get_workflows():
+                        workflow[active_workflow.id] = active_workflow.name
+
+                    for workflow_run in repository.get_workflow_runs(
                             event=payload['workflow_run']['event'],
                             actor=payload['sender']['login'],
                             branch=payload['workflow_run']['head_branch']
-                    )['workflow_runs']:
-                        if workflow['head_sha'] == commit_hash:
-                            if workflow['status'] == "completed":
-                                if workflow['conclusion'] != "success":
+                    ):
+                        if workflow_run.head_sha == commit_hash:
+                            if workflow_run.status == "completed":
+                                if workflow_run.conclusion != "success":
                                     has_failed = True
                                     break
-                                if workflow['name'] == Workflow_builds.LINUX:
+                                if workflow[workflow_run.workflow_id] == Workflow_builds.LINUX:
                                     builds["linux"] = True
-                                elif workflow['name'] == Workflow_builds.WINDOWS:
+                                elif workflow[workflow_run.workflow_id] == Workflow_builds.WINDOWS:
                                     builds["windows"] = True
-                            elif workflow['status'] != "completed":
+                            elif workflow_run.status != "completed":
                                 is_complete = False
                                 break
-
                     if has_failed:
                         # no runs to be scheduled since build failed
                         if payload['workflow_run']['event'] == "pull_request":
@@ -1032,8 +1039,8 @@ def start_ci():
                             # In case of pull request run tests only if it is still in an open state
                             # and user is not blacklisted
                             for pull_request in repository.get_pulls(state='open'):
-                                if pull_request['head']['sha'] == commit_hash:
-                                    user_id = pull_request['user']['id']
+                                if pull_request.head.sha == commit_hash:
+                                    user_id = pull_request.user.id
                                     if BlockedUsers.query.filter(BlockedUsers.user_id == user_id).first() is not None:
                                         g.log.warning("User Blacklisted")
                                         github_status.post(
@@ -1045,14 +1052,14 @@ def start_ci():
                                         return 'ERROR'
                                     if builds['linux']:
                                         queue_test(github_status, commit_hash, TestType.pull_request,
-                                                   TestPlatform.linux, pr_nr=pull_request['number'])
+                                                   TestPlatform.linux, pr_nr=pull_request.number)
                                     else:
                                         deschedule_test(github_status, commit_hash, TestType.pull_request,
                                                         TestPlatform.linux, message="Not ran - no code changes",
                                                         state=Status.SUCCESS)
                                     if builds['windows']:
                                         queue_test(github_status, commit_hash, TestType.pull_request,
-                                                   TestPlatform.windows, pr_nr=pull_request['number'])
+                                                   TestPlatform.windows, pr_nr=pull_request.number)
                                     else:
                                         deschedule_test(github_status, commit_hash, TestType.pull_request,
                                                         TestPlatform.windows, message="Not ran - no code changes",

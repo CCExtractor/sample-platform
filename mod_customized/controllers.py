@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta
 
 from flask import Blueprint, g, redirect, request, url_for
-from github import Github
+from github import Github, GithubException
 from sqlalchemy import and_
 
 from decorators import template_renderer
@@ -67,21 +67,18 @@ def index():
         fork_test_form.regression_test.choices = [(regression_test.id, regression_test)
                                                   for regression_test in RegressionTest.query.all()]
         if fork_test_form.add.data and fork_test_form.validate_on_submit():
-            import requests
             regression_tests = fork_test_form.regression_test.data
             commit_hash = fork_test_form.commit_hash.data
-            repo = g.github['repository']
             platforms = fork_test_form.platform.data
-            api_url = f"https://api.github.com/repos/{username}/{repo}/commits/{commit_hash}"
-            # Show error if GitHub fails to recognize commit
-            response = requests.get(api_url)
-            if response.status_code == 500:
-                fork_test_form.commit_hash.errors.append('Error contacting GitHub')
-            elif response.status_code != 200:
-                fork_test_form.commit_hash.errors.append('Wrong Commit Hash')
-            else:
+            try:
+                commit = repository.get_commit(sha=commit_hash)
                 add_tests_to_platforms(username, commit_hash, platforms, regression_tests)
                 return redirect(url_for('custom.index'))
+            except GithubException as e:
+                if e.status == 500:
+                    fork_test_form.commit_hash.errors.append('Error contacting GitHub')
+                else:
+                    fork_test_form.commit_hash.errors.append('Wrong Commit Hash')
 
     populated_categories = g.db.query(regressionTestLinkTable.c.category_id).subquery()
     categories = Category.query.filter(Category.id.in_(populated_categories)).order_by(Category.name.asc()).all()

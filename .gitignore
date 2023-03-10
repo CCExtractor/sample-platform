@@ -17,12 +17,13 @@ instance/
 
 # Log files
 install/PlatformInstall_*
-logs/*.log
+logs/*.log*
 
 # Sensitive information
 secret_csrf
 secret_key
 config.py
+parse.py
 service-account.json
 install/ci-vm/ci-windows/rclone.conf
 
@@ -38,6 +39,7 @@ gunicorn.pid
 # Coverage data
 coverage_report/
 .coverage
+coverage.xml
 
 # virtualenv
 venv/

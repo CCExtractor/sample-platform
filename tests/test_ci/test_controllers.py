@@ -14,8 +14,8 @@ from mod_home.models import CCExtractorVersion, GeneralData
 from mod_regression.models import (RegressionTest, RegressionTestOutput,
                                    RegressionTestOutputFiles)
 from mod_test.models import Test, TestPlatform, TestResultFile, TestType
-from tests.base import (BaseTestCase, generate_git_api_header,
-                        generate_signature, mock_api_request_github, MockResponse)
+from tests.base import (BaseTestCase, MockResponse, generate_git_api_header,
+                        generate_signature, mock_api_request_github)
 
 
 class MockGcpInstance:
@@ -215,7 +215,7 @@ class TestControllers(BaseTestCase):
         from mod_ci.controllers import Artifact_names, start_test
         test = Test.query.first()
         repository = MagicMock()
-        
+
         artifact1 = MagicMock(Artifact)
         artifact1.name = Artifact_names.windows
         artifact1.workflow_run.head_sha = '1978060bf7d2edd119736ba3ba88341f3bec3322'
@@ -335,8 +335,10 @@ class TestControllers(BaseTestCase):
         # Comment on test that passes all regression tests
         comment_pr(1, Status.SUCCESS, 1, 'linux')
         mock_github.assert_called_with(g.github['bot_token'])
-        mock_github(g.github['bot_token']).get_repo.assert_called_with(f"{g.github['repository_owner']}/{g.github['repository']}")
-        repository = mock_github(g.github['bot_token']).get_repo(f"{g.github['repository_owner']}/{g.github['repository']}")
+        mock_github(g.github['bot_token']).get_repo.assert_called_with(
+            f"{g.github['repository_owner']}/{g.github['repository']}")
+        repository = mock_github(g.github['bot_token']).get_repo(
+            f"{g.github['repository_owner']}/{g.github['repository']}")
         repository.get_pull.assert_called_with(number=1)
         pull_request = repository.get_pull(number=1)
         pull_request.get_issue_comments.assert_called_with()
@@ -350,9 +352,9 @@ class TestControllers(BaseTestCase):
         """Check comments in failed PR test."""
         import mod_ci.controllers
         reload(mod_ci.controllers)
-        from mod_ci.controllers import Status, comment_pr
         from github.IssueComment import IssueComment
-        from github.NamedUser import NamedUser
+
+        from mod_ci.controllers import Status, comment_pr
         pull_request = mock_repo.return_value.get_pull(number=1)
         message = ("<b>CCExtractor CI platform</b> finished running the "
                    "test files on <b>linux</b>. Below is a summary of the test results")
@@ -884,7 +886,8 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.BlockedUsers')
     @mock.patch('mod_ci.controllers.queue_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_workflow_run_completed_successful_pr_linux(self, mock_request, mock_queue_test, mock_blocked, mock_repo):
+    def test_webhook_workflow_run_completed_successful_pr_linux(self, mock_request, mock_queue_test,
+                                                                mock_blocked, mock_repo):
         """Test webhook triggered - workflow run event, action completed, status success for pull request on linux."""
         data = {'action': 'completed',
                 'workflow_run': {'event': 'pull_request',
@@ -931,7 +934,8 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.BlockedUsers')
     @mock.patch('mod_ci.controllers.queue_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_workflow_run_completed_successful_pr_windows(self, mock_request, mock_queue_test, mock_blocked, mock_repo):
+    def test_webhook_workflow_run_completed_successful_pr_windows(self, mock_request,
+                                                                  mock_queue_test, mock_blocked, mock_repo):
         """Test webhook triggered - workflow run event, action completed, status success for pull request on windows."""
         data = {'action': 'completed',
                 'workflow_run': {'event': 'pull_request',
@@ -1028,7 +1032,8 @@ class TestControllers(BaseTestCase):
     def test_queue_test_with_pull_request(self, mock_debug, mock_github):
         """Check queue_test function with pull request as test type."""
         from mod_ci.controllers import add_test_entry, queue_test
-        repository = mock_github(g.github['bot_token']).get_repo(f"{g.github['repository_owner']}/{g.github['repository']}")
+        repository = mock_github(g.github['bot_token']).get_repo(
+            f"{g.github['repository_owner']}/{g.github['repository']}")
         add_test_entry(g.db, 'customizedcommitcheck', TestType.pull_request)
         mock_debug.assert_called_once_with('pull request test type detected')
         queue_test(repository.get_commit("1"), 'customizedcommitcheck', TestType.pull_request, TestPlatform.linux)
@@ -1066,7 +1071,8 @@ class TestControllers(BaseTestCase):
     def test_deschedule_test_function_windows(self, git_mock, mock_debug, mock_critical):
         """Check the functioning of deschedule_test function on windows platform."""
         from mod_ci.controllers import deschedule_test
-        repository = git_mock(g.github['bot_token']).get_repo(f"{g.github['repository_owner']}/{g.github['repository']}")
+        repository = git_mock(g.github['bot_token']).get_repo(
+            f"{g.github['repository_owner']}/{g.github['repository']}")
         deschedule_test(repository.get_commit(1), 1, TestType.commit, TestPlatform.windows)
         mock_debug.assert_not_called()
         deschedule_test(None, 1, TestType.commit, TestPlatform.windows)
@@ -1094,10 +1100,11 @@ class TestControllers(BaseTestCase):
     @mock.patch('run.log.critical')
     def test_github_api_error(self, mock_critical, mock_github):
         """Test functions with GitHub API error."""
-        from github import GithubException, Github
+        from github import Github, GithubException
 
         from mod_ci.controllers import deschedule_test, schedule_test
-        github_status = Github('1').get_repo(f"{g.github['repository_owner']}/{g.github['repository']}").get_commit('abcdef')
+        github_status = Github('1').get_repo(
+            f"{g.github['repository_owner']}/{g.github['repository']}").get_commit('abcdef')
         github_status.create_status.side_effect = GithubException(status=500, data="", headers={})
         schedule_test(github_status)
         mock_critical.assert_called()

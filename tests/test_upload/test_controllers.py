@@ -82,7 +82,8 @@ class TestControllers(BaseTestCase):
                 "content": base64.b64encode("test".encode("ascii")).decode("ascii"),
                 "encoding": 'base64'
             })
-            mock_post.return_value = MockResponse({'number': 1, 'title': 'test', 'user': {'login': 'test'}, 'created_at': '2023-03-08T13:25:00Z', 'state': 'open'}, 201)
+            mock_post.return_value = MockResponse({'number': 1, 'title': 'test', 'user': {'login': 'test'},
+                                                   'created_at': '2023-03-08T13:25:00Z', 'state': 'open'}, 201)
             response = c.post(url_for('upload.process_id', upload_id=1),
                               data=dict(
                 notes='test note',

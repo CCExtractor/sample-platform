@@ -23,7 +23,7 @@ from mod_upload.models import Platform, Upload
 
 
 @contextmanager
-def provide_file_at_root(file_name, to_write=None, to_delete = True):
+def provide_file_at_root(file_name, to_write=None, to_delete=True):
     """Provide file with name file_name at application root."""
     if to_write is None:
         to_write = "DATABASE_URI = 'sqlite:///:memory:'"
@@ -69,7 +69,7 @@ def generate_keys():
         secret_key_cmd = f"head -c 24 /dev/urandom > {secret_key_path}"
         os.system(secret_key_cmd)
 
-    open(f"{os.path.join(ROOT_DIR, '')}parse.py", 'w+')    
+    open(f"{os.path.join(ROOT_DIR, '')}parse.py", 'w+')
 
     return {'secret_csrf_path': secret_csrf_path, 'secret_key_path': secret_key_path}
 
@@ -122,9 +122,9 @@ def load_config(file):
         'GCS_SIGNED_URL_EXPIRY_LIMIT': 720
     }
 
+
 def mock_api_request_github(url=None, *args, **kwargs):
     """Mock all responses to the GitHub API."""
-
     if url == "https://api.github.com/meta":
         return MockResponse({'verifiable_password_authentication': True,
                              'github_services_sha': "abcdefg",

@@ -53,7 +53,8 @@ class TestControllers(BaseTestCase):
         with self.app.test_client() as c:
             c.post('/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
             from github import GithubException
-            mock_repo.return_value.get_commit = mock.MagicMock(side_effect=GithubException(status=404, data="", headers={}))
+            mock_repo.return_value.get_commit = mock.MagicMock(
+                side_effect=GithubException(status=404, data="", headers={}))
             response = c.post('/custom/', data=self.create_customize_form('', ['linux']), follow_redirects=True)
             self.assertEqual(response.status_code, 200)
             self.assert_template_used('custom/index.html')

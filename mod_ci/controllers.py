@@ -8,9 +8,9 @@ import re
 import shutil
 import time
 import zipfile
+from collections import defaultdict
 from multiprocessing import Process
 from pathlib import Path
-from collections import defaultdict
 from typing import Any, Dict
 
 import googleapiclient.discovery

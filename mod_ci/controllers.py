@@ -108,11 +108,11 @@ def start_platforms(repository, delay=None, platform=None) -> None:
     project = config.get('PROJECT_NAME', '')
     # Check if zone and project both are provided
     if zone == "":
-        log.critical(f'GCP zone name is empty!')
+        log.critical('GCP zone name is empty!')
         return
 
     if project == "":
-        log.critical(f'GCP project name is empty!')
+        log.critical('GCP project name is empty!')
         return
 
     compute = get_compute_service_object()

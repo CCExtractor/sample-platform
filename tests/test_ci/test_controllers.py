@@ -1528,6 +1528,32 @@ class TestControllers(BaseTestCase):
 
         self.assertIsNotNone(response.data)
 
+    @mock.patch('run.log')
+    @mock.patch('run.config')
+    def test_start_platforms_with_empty_zone(self, mock_config, mock_log):
+        """Test start_platforms function if GCP zone is not provided in config"""
+        def config_get(key, *args, **kwargs):
+            if key == "ZONE":
+                return ""
+            return "test"
+        mock_config.get.side_effect = config_get
+        start_platforms(mock.ANY)
+
+        mock_log.critical.assert_called_with('GCP zone name is empty!')
+
+    @mock.patch('run.log')
+    @mock.patch('run.config')
+    def test_start_platforms_with_empty_project_name(self, mock_config, mock_log):
+        """Test start_platforms function if GCP project name is not provided in config"""
+        def config_get(key, *args, **kwargs):
+            if key == "PROJECT_NAME":
+                return ""
+            return "test"
+        mock_config.get.side_effect = config_get
+        start_platforms(mock.ANY)
+
+        mock_log.critical.assert_called_with('GCP project name is empty!')
+
     @staticmethod
     def generate_header(data, event, ci_key=None):
         """

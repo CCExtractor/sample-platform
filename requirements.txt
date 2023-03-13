@@ -6,7 +6,7 @@ python-magic==0.4.27
 flask-wtf==0.14.3
 requests==2.28.1
 pyIsEmail==2.0.1
-GitPython==3.1.30
+GitPython==3.1.31
 xmltodict==0.13.0
 lxml==4.9.1
 pytz==2022.7.1
@@ -18,7 +18,7 @@ email_validator
 gitdb==4.0.9
 Werkzeug==1.0.1
 WTForms==2.3.3
-MarkupSafe<=2.0.1
+MarkupSafe<=2.1.2
 jinja2==3.0.2
 itsdangerous==2.0.1
 google-api-python-client==2.56.0

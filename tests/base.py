@@ -23,7 +23,7 @@ from mod_upload.models import Platform, Upload
 
 
 @contextmanager
-def provide_file_at_root(file_name, to_write=None):
+def provide_file_at_root(file_name, to_write=None, to_delete=True):
     """Provide file with name file_name at application root."""
     if to_write is None:
         to_write = "DATABASE_URI = 'sqlite:///:memory:'"
@@ -31,7 +31,8 @@ def provide_file_at_root(file_name, to_write=None):
     with open(file_name, 'w+') as f:
         f.write(to_write)
     yield
-    os.remove(file_name)
+    if to_delete:
+        os.remove(file_name)
 
 
 def load_file_lines(filepath):
@@ -67,6 +68,8 @@ def generate_keys():
     if not os.path.exists(secret_key_path):
         secret_key_cmd = f"head -c 24 /dev/urandom > {secret_key_path}"
         os.system(secret_key_cmd)
+
+    open(f"{os.path.join(ROOT_DIR, '')}parse.py", 'w+')
 
     return {'secret_csrf_path': secret_csrf_path, 'secret_key_path': secret_key_path}
 

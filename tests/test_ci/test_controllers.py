@@ -1531,7 +1531,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('run.log')
     @mock.patch('run.config')
     def test_start_platforms_with_empty_zone(self, mock_config, mock_log):
-        """Test start_platforms function if GCP zone is not provided in config"""
+        """Test start_platforms function if GCP zone is not provided in config."""
         def config_get(key, *args, **kwargs):
             if key == "ZONE":
                 return ""
@@ -1544,7 +1544,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('run.log')
     @mock.patch('run.config')
     def test_start_platforms_with_empty_project_name(self, mock_config, mock_log):
-        """Test start_platforms function if GCP project name is not provided in config"""
+        """Test start_platforms function if GCP project name is not provided in config."""
         def config_get(key, *args, **kwargs):
             if key == "PROJECT_NAME":
                 return ""

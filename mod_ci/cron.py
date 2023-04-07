@@ -11,15 +11,15 @@ sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 def cron(testing=False):
     """Script to run from cron for Sampleplatform."""
     from flask import current_app
-    from github import GitHub
+    from github import Github
 
     from database import create_session
     from mod_ci.controllers import TestPlatform, gcp_instance, start_platforms
     from run import config, log
 
     log.info('Run the cron for kicking off CI platform(s).')
-    gh = GitHub(access_token=config['GITHUB_TOKEN'])
-    repository = gh.repos(config['GITHUB_OWNER'])(config['GITHUB_REPOSITORY'])
+    gh = Github(config['GITHUB_TOKEN'])
+    repository = gh.get_repo(f"{config['GITHUB_OWNER']}/{config['GITHUB_REPOSITORY']}")
 
     if testing is True:
         # Create a database session

@@ -13,8 +13,7 @@ import magic
 import requests
 from flask import (Blueprint, flash, g, make_response, redirect,
                    render_template, request, url_for)
-from git import InvalidGitRepositoryError, Repo
-from github import GitHub
+from github import Github
 from werkzeug.utils import secure_filename
 
 from decorators import get_menu_entries, template_renderer
@@ -250,9 +249,9 @@ def process_id(upload_id):
 
                 if db_committed:
                     if form.report.data == 'y':
-                        gh = GitHub(access_token=config['GITHUB_TOKEN'])
-                        repo = gh.repos(config['GITHUB_OWNER'])(config['GITHUB_REPOSITORY'])
-                        response = repo.contents(".github/ISSUE_TEMPLATE.md").get()
+                        gh = Github(config['GITHUB_TOKEN'])
+                        repository = gh.get_repo(f"{config['GITHUB_OWNER']}/{config['GITHUB_REPOSITORY']}")
+                        response = repository.get_contents(".github/ISSUE_TEMPLATE.md")
                         encoded_data = response['content']
                         if response['encoding'] == 'base64':
                             data = base64.b64decode(encoded_data).decode()

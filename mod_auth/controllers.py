@@ -66,7 +66,7 @@ def login_required(f: Callable) -> Callable:
     return decorated_function
 
 
-def check_access_rights(roles: List[Tuple[str, str]] = None, parent_route: None = None) -> Callable:
+def check_access_rights(roles: Optional[List[Tuple[str, str]]] = None, parent_route: None = None) -> Callable:
     """
     Decorate the function to check if a user can access the page.
 

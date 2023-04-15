@@ -889,7 +889,6 @@ def start_ci():
             if payload['action'] in ['opened', 'synchronize', 'reopened']:
                 try:
                     commit_hash = payload['pull_request']['head']['sha']
-                    # github_status = repository.get_commit(sha=commit_hash).get_statuses()
                 except KeyError:
                     g.log.error("Didn't find a SHA value for a newly opened PR!")
                     g.log.error(payload)
@@ -915,7 +914,7 @@ def start_ci():
                     g.db.add(progress)
                     g.db.commit()
                     # If test run status exists, mark them as cancelled
-                    for status in repository.get_commit(sha=commit_hash).get_statuses():
+                    for status in repository.get_commit(test.commit).get_statuses():
                         if status["context"] == f"CI - {test.platform.value}":
                             repository.get_commit(test.commit).create_status(
                                 state=Status.FAILURE,

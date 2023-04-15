@@ -71,7 +71,7 @@ def index():
             commit_hash = fork_test_form.commit_hash.data
             platforms = fork_test_form.platform.data
             try:
-                commit = repository.get_commit(sha=commit_hash)
+                commit = repository.get_commit(commit_hash)
                 add_tests_to_platforms(username, commit_hash, platforms, regression_tests)
                 return redirect(url_for('custom.index'))
             except GithubException as e:

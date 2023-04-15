@@ -680,12 +680,18 @@ class TestControllers(BaseTestCase):
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_pr_closed(self, mock_requests, mock_test, mock_repo):
         """Test webhook triggered with pull_request event with closed action."""
+        platform_name = "platform"
+
         class MockTest:
             def __init__(self):
                 self.id = 1
                 self.progress = []
+                self.platform = MockPlatform(platform_name)
+                self.commit = "test"
 
         mock_test.query.filter.return_value.all.return_value = [MockTest()]
+        mock_repo.return_value.get_commit.return_value.get_statuses.return_value = [
+            {"context": f"CI - {platform_name}"}]
 
         data = {'action': 'closed',
                 'pull_request': {'number': 1234}}
@@ -1044,6 +1050,24 @@ class TestControllers(BaseTestCase):
         mock_debug.assert_called_once_with('pull request test type detected')
         queue_test(repository.get_commit("1"), 'customizedcommitcheck', TestType.pull_request, TestPlatform.linux)
         mock_debug.assert_called_with('Created tests, waiting for cron...')
+
+    @mock.patch('run.log.critical')
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('run.log.debug')
+    def test_queue_test_github_failure(self, mock_debug, mock_repo, mock_critical):
+        """Check queue_test function when updating GitHub status fails."""
+        from github import GithubException
+
+        from mod_ci.controllers import add_test_entry, queue_test
+        add_test_entry(g.db, 'customizedcommitcheck', TestType.pull_request)
+        mock_debug.assert_called_once_with('pull request test type detected')
+        mock_commit = mock_repo.get_commit("1")
+        response_data = "mock 400 response"
+        mock_commit.create_status = mock.MagicMock(
+            side_effect=GithubException(status=400, data=response_data, headers={}))
+        queue_test(mock_commit, 'customizedcommitcheck', TestType.pull_request, TestPlatform.linux)
+        mock_debug.assert_called_with('Created tests, waiting for cron...')
+        mock_critical.assert_called_with(f"Could not post to GitHub! Response: {response_data}")
 
     @mock.patch('run.log.critical')
     @mock.patch('run.log.debug')

@@ -549,7 +549,8 @@ class TestControllers(BaseTestCase):
             response = c.post("/blocked_users/hello", data=dict(remove=True))
             self.assertEqual(response.status_code, 404)
 
-    def test_webhook_wrong_url(self):
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_wrong_url(self, mock_request):
         """Check webhook fails when ping with wrong url."""
         with self.app.test_client() as c:
             # non GitHub ip address

@@ -999,7 +999,8 @@ def start_ci():
                     has_failed = False
                     builds = {"linux": False, "windows": False}
 
-                    # NOTE: Using this workaround because of bug in PyGithub
+                    # NOTE: Using this workaround because workflow name cannot be accessed using PyGitHub
+                    # https://github.com/PyGithub/PyGithub/issues/2276
                     workflow = defaultdict(lambda: None)
                     for active_workflow in repository.get_workflows():
                         workflow[active_workflow.id] = active_workflow.name

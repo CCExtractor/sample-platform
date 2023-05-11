@@ -1018,7 +1018,7 @@ def start_ci():
                                     builds["linux"] = True
                                 elif workflow[workflow_run.workflow_id] == Workflow_builds.WINDOWS:
                                     builds["windows"] = True
-                            elif workflow_run.status != "completed":
+                            else:
                                 is_complete = False
                                 break
 

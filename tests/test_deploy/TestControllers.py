@@ -18,7 +18,9 @@ class TestControllers(BaseTestCase):
     def test_root(self, mock_request_get):
         """Test the Root of mod_deploy."""
         mock_request_get.return_value.json.return_value = {"hooks": ['0.0.0.0']}
-        response = self.app.test_client().get('/deploy', environ_overrides=WSGI_ENVIRONMENT)
+        sig = generate_signature(str(json.dumps({})).encode('utf-8'), g.github['ci_key'])
+        headers = generate_git_api_header('ping', sig)
+        response = self.app.test_client().get('/deploy', environ_overrides=WSGI_ENVIRONMENT, headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertIn("OK", str(response.data))
 

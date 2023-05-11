@@ -78,7 +78,7 @@ def request_from_github(abort_code: int = 418) -> Callable:
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if request.method != 'POST':
-                return 'OK'
+                g.log.info(f"Request type {request.method} detected")
 
             request_ip = ip_address(f"{request.remote_addr}")
             if not is_github_web_hook_ip(request_ip):
@@ -128,6 +128,9 @@ def deploy():
     """Deploy the GitHub request to the test platform."""
     from run import app
     abort_code = 418
+
+    if request.method != 'POST':
+        return 'OK'
 
     event = request.headers.get('X-GitHub-Event')
     if event == "ping":

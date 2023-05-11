@@ -221,9 +221,10 @@ class BaseTestCase(TestCase):
         g.db.add(dummy_user)
         g.db.commit()
 
+        commit_hash = '1978060bf7d2edd119736ba3ba88341f3bec3323'
         test = [
-            Test(TestPlatform.linux, TestType.pull_request, 1, "master", "1978060bf7d2edd119736ba3ba88341f3bec3323", 1),
-            Test(TestPlatform.linux, TestType.pull_request, 1, "master", "abcdefgh", 1)
+            Test(TestPlatform.linux, TestType.pull_request, 1, "pull_request", commit_hash, 1),
+            Test(TestPlatform.linux, TestType.pull_request, 1, "pull_request", "abcdefgh", 1)
         ]
         g.db.add_all(test)
         g.db.commit()

@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.8, 3.9]
+        python-version: ['3.8', '3.9', '3.10', '3.11']
 
     steps:
     - uses: actions/checkout@v3
@@ -48,10 +48,7 @@ jobs:
         pycodestyle ./ --config=./.pycodestylerc
     - name: Test with nose
       run: |
-        nosetests --nocapture --with-cov --cov-config .coveragerc
-    - name: Temporary fix for codecov
-      run: |
-        coverage xml -i
+        nose2
     - name: Upload to codecov
       uses: codecov/codecov-action@v3
       with:

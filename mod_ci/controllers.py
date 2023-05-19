@@ -886,7 +886,8 @@ def start_ci():
             g.log.debug('Pull Request event detected')
             # If it's a valid PR, run the tests
             pr_nr = payload['pull_request']['number']
-            if payload['action'] in ['opened', 'synchronize', 'reopened']:
+            if not payload['pull_request']['draft'] and payload['action'] in ['ready_for_review',
+                                                                              'opened', 'synchronize', 'reopened']:
                 try:
                     commit_hash = payload['pull_request']['head']['sha']
                 except KeyError:
@@ -902,15 +903,16 @@ def start_ci():
                 if repository.get_pull(number=pr_nr).mergeable is not False:
                     add_test_entry(g.db, commit_hash, TestType.pull_request, pr_nr=pr_nr)
 
-            elif payload['action'] == 'closed':
-                g.log.debug('PR was closed, no after hash available')
+            elif payload['action'] in ['closed', 'converted_to_draft']:
+                pr_action = 'closed' if payload['action'] == 'closed' else 'converted to draft'
+                g.log.debug(f'PR was {pr_action}, no after hash available')
                 # Cancel running queue
                 tests = Test.query.filter(Test.pr_nr == pr_nr).all()
                 for test in tests:
                     # Add cancelled status only if the test hasn't started yet
                     if len(test.progress) > 0:
                         continue
-                    progress = TestProgress(test.id, TestStatus.canceled, "PR closed", datetime.datetime.now())
+                    progress = TestProgress(test.id, TestStatus.canceled, f"PR {pr_action}", datetime.datetime.now())
                     g.db.add(progress)
                     g.db.commit()
                     # If test run status exists, mark them as cancelled

@@ -724,7 +724,7 @@ class TestControllers(BaseTestCase):
             {"context": f"CI - {platform_name}"}]
 
         data = {'action': 'closed',
-                'pull_request': {'number': 1234}}
+                'pull_request': {'number': 1234, 'draft': False}}
         # one of ip address from GitHub web hook
         with self.app.test_client() as c:
             response = c.post(
@@ -739,7 +739,7 @@ class TestControllers(BaseTestCase):
     def test_webhook_pr_opened_blocked(self, mock_request, mock_repo, mock_blocked):
         """Test webhook triggered with pull_request event with opened action for blocked user."""
         data = {'action': 'opened',
-                'pull_request': {'number': '1234', 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}}}
+                'pull_request': {'number': '1234', 'draft': False, 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}}}
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
@@ -757,7 +757,7 @@ class TestControllers(BaseTestCase):
         mock_blocked.query.filter.return_value.first.return_value = None
 
         data = {'action': 'opened',
-                'pull_request': {'number': 1234, 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}}}
+                'pull_request': {'number': 1234, 'draft': False, 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}}}
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,

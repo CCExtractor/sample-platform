@@ -767,6 +767,21 @@ class TestControllers(BaseTestCase):
         mock_blocked.query.filter.assert_called_once_with(mock_blocked.user_id == 'test')
         mock_add_test_entry.assert_called_once()
 
+    @mock.patch('mod_ci.controllers.BlockedUsers')
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_pr_invalid_action(self, mock_request, mock_repo, mock_blocked):
+        """Test webhook triggered with pull_request event with an invalid action."""
+        data = {'action': 'invalid',
+                'pull_request': {'number': 1234, 'draft': False, 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}}}
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'pull_request'))
+
+        self.assertEqual(response.data, b'{"msg": "EOL"}')
+        mock_blocked.query.filter.assert_not_called()
+
     @mock.patch('github.Github.get_repo')
     @mock.patch('mod_ci.controllers.schedule_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)

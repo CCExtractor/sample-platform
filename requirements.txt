@@ -4,7 +4,7 @@ passlib==1.7.4
 pymysql==1.0.3
 python-magic==0.4.27
 flask-wtf==1.1.1
-requests==2.30.0
+requests==2.31.0
 pyIsEmail==2.0.1
 GitPython==3.1.31
 xmltodict==0.13.0

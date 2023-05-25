@@ -886,7 +886,11 @@ def start_ci():
             g.log.debug('Pull Request event detected')
             # If it's a valid PR, run the tests
             pr_nr = payload['pull_request']['number']
-            if payload['action'] in ['opened', 'synchronize', 'reopened']:
+
+            if payload['pull_request']['draft']:
+                pass
+
+            elif payload['action'] in ['opened', 'synchronize', 'reopened']:
                 try:
                     commit_hash = payload['pull_request']['head']['sha']
                 except KeyError:

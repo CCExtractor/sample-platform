@@ -889,7 +889,7 @@ def start_ci():
 
             draft = payload['pull_request']['draft']
             action = payload['action']
-            active = action in ['opened', 'synchronize', 'reopened']
+            active = action in ['opened', 'synchronize', 'reopened', 'ready_for_review']
             closed = action == 'closed'
 
             if not draft and active:

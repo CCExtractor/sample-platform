@@ -724,7 +724,35 @@ class TestControllers(BaseTestCase):
             {"context": f"CI - {platform_name}"}]
 
         data = {'action': 'closed',
-                'pull_request': {'number': 1234}}
+                'pull_request': {'number': 1234, 'draft': False}}
+        # one of ip address from GitHub web hook
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'pull_request'))
+
+        mock_test.query.filter.assert_called_once()
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('mod_ci.controllers.Test')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_pr_converted_to_draft(self, mock_requests, mock_test, mock_repo):
+        """Test webhook triggered with pull_request event with converted_to_draft action."""
+        platform_name = "platform"
+
+        class MockTest:
+            def __init__(self):
+                self.id = 1
+                self.progress = []
+                self.platform = MockPlatform(platform_name)
+                self.commit = "test"
+
+        mock_test.query.filter.return_value.all.return_value = [MockTest()]
+        mock_repo.return_value.get_commit.return_value.get_statuses.return_value = [
+            {"context": f"CI - {platform_name}"}]
+
+        data = {'action': 'converted_to_draft',
+                'pull_request': {'number': 1234, 'draft': False}}
         # one of ip address from GitHub web hook
         with self.app.test_client() as c:
             response = c.post(
@@ -739,7 +767,7 @@ class TestControllers(BaseTestCase):
     def test_webhook_pr_opened_blocked(self, mock_request, mock_repo, mock_blocked):
         """Test webhook triggered with pull_request event with opened action for blocked user."""
         data = {'action': 'opened',
-                'pull_request': {'number': '1234', 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}}}
+                'pull_request': {'number': '1234', 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}, 'draft': False}}
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
@@ -757,7 +785,7 @@ class TestControllers(BaseTestCase):
         mock_blocked.query.filter.return_value.first.return_value = None
 
         data = {'action': 'opened',
-                'pull_request': {'number': 1234, 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}}}
+                'pull_request': {'number': 1234, 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}, 'draft': False}}
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
@@ -766,6 +794,51 @@ class TestControllers(BaseTestCase):
         self.assertEqual(response.data, b'{"msg": "EOL"}')
         mock_blocked.query.filter.assert_called_once_with(mock_blocked.user_id == 'test')
         mock_add_test_entry.assert_called_once()
+
+    @mock.patch('mod_ci.controllers.BlockedUsers')
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('mod_ci.controllers.add_test_entry')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_pr_ready_for_review(self, mock_request, mock_add_test_entry, mock_repo, mock_blocked):
+        """Test webhook triggered with pull_request event with ready_for_review action."""
+        mock_blocked.query.filter.return_value.first.return_value = None
+
+        data = {'action': 'ready_for_review',
+                'pull_request': {'number': 1234, 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}, 'draft': False}}
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'pull_request'))
+
+        self.assertEqual(response.data, b'{"msg": "EOL"}')
+        mock_blocked.query.filter.assert_called_once_with(mock_blocked.user_id == 'test')
+        mock_add_test_entry.assert_called_once()
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_pr_opened_draft(self, mock_request, mock_repo):
+        """Test webhook triggered with pull_request event with open action, marked as draft."""
+        data = {'action': 'opened',
+                'pull_request': {'number': 1234, 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}, 'draft': True}}
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'pull_request'))
+
+        self.assertEqual(response.data, b'{"msg": "EOL"}')
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_pr_synchronize_draft(self, mock_request, mock_repo):
+        """Test webhook triggered with pull_request event with synchronize action, marked as draft."""
+        data = {'action': 'synchronize',
+                'pull_request': {'number': 1234, 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}, 'draft': True}}
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'pull_request'))
+
+        self.assertEqual(response.data, b'{"msg": "EOL"}')
 
     @mock.patch('github.Github.get_repo')
     @mock.patch('mod_ci.controllers.schedule_test')

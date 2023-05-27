@@ -681,7 +681,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('run.log')
     def test_webhook_push_no_after(self, mock_log, mock_request, mock_repo):
         """Test webhook triggered with push event without 'after' in payload."""
-        data = {'draft': False, 'no_after': 'test'}
+        data = {'no_after': 'test'}
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
@@ -696,7 +696,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.GeneralData')
     def test_webhook_push_valid(self, mock_gd, mock_add_test_entry, mock_request, mock_repo):
         """Test webhook triggered with push event with valid data."""
-        data = {'after': 'abcdefgh', 'draft': False, 'ref': 'refs/heads/master'}
+        data = {'after': 'abcdefgh', 'ref': 'refs/heads/master'}
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
@@ -724,8 +724,7 @@ class TestControllers(BaseTestCase):
             {"context": f"CI - {platform_name}"}]
 
         data = {'action': 'closed',
-                'draft': False,
-                'pull_request': {'number': 1234}}
+                'pull_request': {'number': 1234, 'draft': False}}
         # one of ip address from GitHub web hook
         with self.app.test_client() as c:
             response = c.post(
@@ -753,8 +752,7 @@ class TestControllers(BaseTestCase):
             {"context": f"CI - {platform_name}"}]
 
         data = {'action': 'converted_to_draft',
-                'draft': True,
-                'pull_request': {'number': 1234}}
+                'pull_request': {'number': 1234, 'draft': False}}
         # one of ip address from GitHub web hook
         with self.app.test_client() as c:
             response = c.post(
@@ -769,8 +767,7 @@ class TestControllers(BaseTestCase):
     def test_webhook_pr_opened_blocked(self, mock_request, mock_repo, mock_blocked):
         """Test webhook triggered with pull_request event with opened action for blocked user."""
         data = {'action': 'opened',
-                'draft': False,
-                'pull_request': {'number': '1234', 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}}}
+                'pull_request': {'number': '1234', 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}, 'draft': False}}
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
@@ -788,8 +785,7 @@ class TestControllers(BaseTestCase):
         mock_blocked.query.filter.return_value.first.return_value = None
 
         data = {'action': 'opened',
-                'draft': False,
-                'pull_request': {'number': 1234, 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}}}
+                'pull_request': {'number': 1234, 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}, 'draft': False}}
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
@@ -808,8 +804,7 @@ class TestControllers(BaseTestCase):
         mock_blocked.query.filter.return_value.first.return_value = None
 
         data = {'action': 'ready_for_review',
-                'draft': False,
-                'pull_request': {'number': 1234, 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}}}
+                'pull_request': {'number': 1234, 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}, 'draft': False}}
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
@@ -824,8 +819,7 @@ class TestControllers(BaseTestCase):
     def test_webhook_pr_opened_draft(self, mock_request, mock_repo):
         """Test webhook triggered with pull_request event with open action, marked as draft."""
         data = {'action': 'opened',
-                'draft': True,
-                'pull_request': {'number': 1234, 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}}}
+                'pull_request': {'number': 1234, 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}, 'draft': True}}
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
@@ -838,8 +832,7 @@ class TestControllers(BaseTestCase):
     def test_webhook_pr_synchronize_draft(self, mock_request, mock_repo):
         """Test webhook triggered with pull_request event with synchronize action, marked as draft."""
         data = {'action': 'synchronize',
-                'draft': True,
-                'pull_request': {'number': 1234, 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}}}
+                'pull_request': {'number': 1234, 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}, 'draft': True}}
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,

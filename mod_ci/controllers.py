@@ -890,7 +890,7 @@ def start_ci():
             draft = payload['pull_request']['draft']
             action = payload['action']
             active = action in ['opened', 'synchronize', 'reopened', 'ready_for_review']
-            closed = action == 'closed'
+            inactive = action in ['closed', 'converted_to_draft']
 
             if not draft and active:
                 try:
@@ -908,7 +908,7 @@ def start_ci():
                 if repository.get_pull(number=pr_nr).mergeable is not False:
                     add_test_entry(g.db, commit_hash, TestType.pull_request, pr_nr=pr_nr)
 
-            elif closed:
+            elif inactive:
                 g.log.debug('PR was closed, no after hash available')
                 # Cancel running queue
                 tests = Test.query.filter(Test.pr_nr == pr_nr).all()

@@ -734,6 +734,35 @@ class TestControllers(BaseTestCase):
 
         mock_test.query.filter.assert_called_once()
 
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('mod_ci.controllers.Test')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_pr_converted_to_draft(self, mock_requests, mock_test, mock_repo):
+        """Test webhook triggered with pull_request event with converted_to_draft action."""
+        platform_name = "platform"
+
+        class MockTest:
+            def __init__(self):
+                self.id = 1
+                self.progress = []
+                self.platform = MockPlatform(platform_name)
+                self.commit = "test"
+
+        mock_test.query.filter.return_value.all.return_value = [MockTest()]
+        mock_repo.return_value.get_commit.return_value.get_statuses.return_value = [
+            {"context": f"CI - {platform_name}"}]
+
+        data = {'action': 'converted_to_draft',
+                'draft': True,
+                'pull_request': {'number': 1234}}
+        # one of ip address from GitHub web hook
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'pull_request'))
+
+        mock_test.query.filter.assert_called_once()
+
     @mock.patch('mod_ci.controllers.BlockedUsers')
     @mock.patch('github.Github.get_repo')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
@@ -792,10 +821,8 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('github.Github.get_repo')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_pr_opened_draft(self, mock_request, mock_add_test_entry, mock_repo, mock_blocked):
+    def test_webhook_pr_opened_draft(self, mock_request, mock_repo):
         """Test webhook triggered with pull_request event with open action, marked as draft."""
-        mock_blocked.query.filter.return_value.first.return_value = None
-
         data = {'action': 'opened',
                 'draft': True,
                 'pull_request': {'number': 1234, 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}}}
@@ -808,10 +835,8 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('github.Github.get_repo')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_pr_synchronize_draft(self, mock_request, mock_add_test_entry, mock_repo, mock_blocked):
+    def test_webhook_pr_synchronize_draft(self, mock_request, mock_repo):
         """Test webhook triggered with pull_request event with synchronize action, marked as draft."""
-        mock_blocked.query.filter.return_value.first.return_value = None
-
         data = {'action': 'synchronize',
                 'draft': True,
                 'pull_request': {'number': 1234, 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}}}

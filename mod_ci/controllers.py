@@ -886,8 +886,13 @@ def start_ci():
             g.log.debug('Pull Request event detected')
             # If it's a valid PR, run the tests
             pr_nr = payload['pull_request']['number']
-            if not payload['pull_request']['draft'] and payload['action'] in ['ready_for_review',
-                                                                              'opened', 'synchronize', 'reopened']:
+
+            draft = payload['pull_request']['draft']
+            action = payload['action']
+            active = action in ['opened', 'synchronize', 'reopened', 'ready_for_review']
+            inactive = action in ['closed', 'converted_to_draft']
+
+            if not draft and active:
                 try:
                     commit_hash = payload['pull_request']['head']['sha']
                 except KeyError:
@@ -903,9 +908,10 @@ def start_ci():
                 if repository.get_pull(number=pr_nr).mergeable is not False:
                     add_test_entry(g.db, commit_hash, TestType.pull_request, pr_nr=pr_nr)
 
-            elif payload['action'] in ['closed', 'converted_to_draft']:
-                pr_action = 'closed' if payload['action'] == 'closed' else 'converted to draft'
+            elif inactive:
+                pr_action = 'closed' if action == 'closed' else 'converted to draft'
                 g.log.debug(f'PR was {pr_action}, no after hash available')
+
                 # Cancel running queue
                 tests = Test.query.filter(Test.pr_nr == pr_nr).all()
                 for test in tests:

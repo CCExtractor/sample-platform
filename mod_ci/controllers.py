@@ -909,14 +909,16 @@ def start_ci():
                     add_test_entry(g.db, commit_hash, TestType.pull_request, pr_nr=pr_nr)
 
             elif inactive:
-                g.log.debug('PR was closed, no after hash available')
+                pr_action = 'closed' if action == 'closed' else 'converted to draft'
+                g.log.debug(f'PR was {pr_action}, no after hash available')
+
                 # Cancel running queue
                 tests = Test.query.filter(Test.pr_nr == pr_nr).all()
                 for test in tests:
                     # Add cancelled status only if the test hasn't started yet
                     if len(test.progress) > 0:
                         continue
-                    progress = TestProgress(test.id, TestStatus.canceled, "PR closed", datetime.datetime.now())
+                    progress = TestProgress(test.id, TestStatus.canceled, f"PR {pr_action}", datetime.datetime.now())
                     g.db.add(progress)
                     g.db.commit()
                     # If test run status exists, mark them as cancelled

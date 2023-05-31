@@ -68,7 +68,7 @@ class Artifact_names(DeclEnum):
     """Define CCExtractor GitHub Artifacts names."""
 
     linux = "CCExtractor Linux build"
-    windows = "CCExtractor Windows OCR and HardSubX Release build"
+    windows = "CCExtractor Windows Release build"
 
 
 @mod_ci.before_app_request

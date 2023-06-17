@@ -1141,26 +1141,26 @@ def progress_reporter(test_id, token):
 
         if 'type' in request.form:
             if request.form['type'] == 'progress':
-                log.info('[PROGRESS_REPORTER] Progress reported')
+                log.info(f'[PROGRESS_REPORTER] Progress reported, test_id:{test_id}')
                 if not progress_type_request(log, test, test_id, request):
                     return "FAIL"
 
             elif request.form['type'] == 'equality':
-                log.info('[PROGRESS_REPORTER] Equality reported')
+                log.info(f'[PROGRESS_REPORTER] Equality reported, test_id:{test_id}')
                 equality_type_request(log, test_id, test, request)
 
             elif request.form['type'] == 'logupload':
-                log.info('[PROGRESS_REPORTER] Log upload')
+                log.info(f'[PROGRESS_REPORTER] Log upload, test_id:{test_id}')
                 if not upload_log_type_request(log, test_id, repo_folder, test, request):
                     return "EMPTY"
 
             elif request.form['type'] == 'upload':
-                log.info('[PROGRESS_REPORTER] File upload')
+                log.info(f'[PROGRESS_REPORTER] File upload, test_id:{test_id}')
                 if not upload_type_request(log, test_id, repo_folder, test, request):
                     return "EMPTY"
 
             elif request.form['type'] == 'finish':
-                log.info('[PROGRESS_REPORTER] Test finished')
+                log.info(f'[PROGRESS_REPORTER] Test finished, test_id:{test_id}')
                 finish_type_request(log, test_id, test, request)
             else:
                 return "FAIL"
@@ -1236,15 +1236,6 @@ def progress_type_request(log, test, test_id, request) -> bool:
         current_average = GeneralData.query.filter(GeneralData.key == var_average).first()
         average_time = 0
         total_time = 0
-
-        # Delete the current instance
-        from run import config
-        compute = get_compute_service_object()
-        zone = config.get('ZONE', '')
-        project = config.get('PROJECT_NAME', '')
-        vm_name = f"{test.platform.value}-{test.id}"
-        operation = delete_instance(compute, project, zone, vm_name)
-        wait_for_operation(compute, project, zone, operation['name'])
 
         if current_average is None:
             platform_tests = g.db.query(Test.id).filter(Test.platform == test.platform).subquery()
@@ -1358,6 +1349,16 @@ def progress_type_request(log, test, test_id, request) -> bool:
         gh_commit.create_status(state=state, description=message, context=context, target_url=target_url)
     except GithubException as a:
         log.error(f'Got an exception while posting to GitHub! Message: {a.data}')
+
+    if status in [TestStatus.completed, TestStatus.canceled]:
+        # Delete the current instance
+        from run import config
+        compute = get_compute_service_object()
+        zone = config.get('ZONE', '')
+        project = config.get('PROJECT_NAME', '')
+        vm_name = f"{test.platform.value}-{test.id}"
+        operation = delete_instance(compute, project, zone, vm_name)
+        wait_for_operation(compute, project, zone, operation['name'])
 
     return True
 

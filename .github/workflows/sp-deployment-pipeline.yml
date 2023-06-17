@@ -1,0 +1,56 @@
+name: Deploy Sample Platform
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ master ]
+
+# permission can be added at job level or workflow level
+permissions:
+  id-token: write
+  contents: read # This is required for actions/checkout
+
+env:
+  DEPLOY_BRANCH: main
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_deployment:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Staging deployment with ssh commands using staging ssh key
+        uses: appleboy/ssh-action@master
+        with:
+          host: spdev.ccextractor.org
+          username: ubuntu
+          key: ${{ secrets.SSH_KEY_PRIVATE }}
+          port: 22
+          script_stop: true
+          command_timeout: 10m
+          script: |
+            echo "Jump to app folder"
+            cd /var/www/sample-platform
+
+            echo "checkout branch"
+            git checkout ${{env.DEPLOY_BRANCH}}
+            git fetch origin ${{env.DEPLOY_BRANCH}}
+
+            echo "avoid Merge conflicts"
+            git reset --hard origin/${{env.DEPLOY_BRANCH}}
+            git clean -f -d
+
+            echo "Update app from Git"
+            git pull origin ${{env.DEPLOY_BRANCH}}
+
+            echo "Export Python Path"
+            export PATH="TODO"
+
+            echo "Update Dependencies"
+            python -m pip install -r requirements.txt
+
+            echo "Run migrations"
+            TODO
+
+            echo "Reload server"
+            sudo systemctl reload platform

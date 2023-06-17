@@ -183,6 +183,8 @@ def delete_expired_instances(compute, max_runtime, project, zone) -> None:
     :param zone: Zone for the new VM instance
     :type zone: str
     """
+    from run import log
+
     for instance in get_running_instances(compute, project, zone):
         vm_name = instance['name']
         if is_instance_testing(vm_name):
@@ -191,6 +193,24 @@ def delete_expired_instances(compute, max_runtime, project, zone) -> None:
             if currentTimestamp - creationTimestamp >= datetime.timedelta(minutes=max_runtime):
                 operation = delete_instance(compute, project, zone, vm_name)
                 wait_for_operation(compute, project, zone, operation['name'])
+
+                platform_name, test_id = vm_name.split('-')
+                test = Test.query.filter(Test.id == test_id).first()
+                message = "Could not complete test, time limit exceeded"
+                progress = TestProgress(test_id, TestStatus.canceled, message)
+                g.db.add(progress)
+                g.db.commit()
+
+                gh = Github(g.github['bot_token'])
+                repository = gh.get_repo(f"{g.github['repository_owner']}/{g.github['repository']}")
+                try:
+                    repository.get_commit(test.commit).create_status(
+                        state=Status.ERROR,
+                        description=message,
+                        context=f"CI - {platform_name}",
+                    )
+                except GithubException as a:
+                    log.critical(f'Could not post to GitHub! Response: {a.data}')
 
 
 def gcp_instance(app, db, platform, repository, delay) -> None:

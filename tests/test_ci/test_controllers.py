@@ -407,23 +407,26 @@ class TestControllers(BaseTestCase):
         assert is_main_repo('random_user/random_repo') is False
         assert is_main_repo('test_owner/test_repo') is True
 
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('mod_ci.controllers.update_status_on_github')
     @mock.patch('mod_ci.controllers.get_running_instances')
-    def test_delete_expired_instances(self, mock_get_running_instances):
+    def test_delete_expired_instances(self, mock_get_running_instances, mock_update_github_status, mock_repo):
         """Test working of delete_expired_instances function."""
         from datetime import datetime, timedelta, timezone
 
         from mod_ci.controllers import delete_expired_instances
 
-        expired_instance_time = datetime.now(timezone.utc) - timedelta(minutes=150)
+        current_timestamp = datetime.now(timezone.utc)
+        expired_instance_time = current_timestamp - timedelta(minutes=150)
         mock_get_running_instances.return_value = [{
             'name': 'windows-1',
-            'creationTimestamp': datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f%z"),
+            'creationTimestamp': current_timestamp.strftime("%Y-%m-%dT%H:%M:%S.%f%z"),
         }, {
             'name': 'linux-2',
             'creationTimestamp': expired_instance_time.strftime("%Y-%m-%dT%H:%M:%S.%f%z"),
         }, {
             'name': 'osx-3',
-            'creationTimestamp': datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f%z"),
+            'creationTimestamp': current_timestamp.strftime("%Y-%m-%dT%H:%M:%S.%f%z"),
         }]
         compute = MagicMock()
         pendingOperations = [
@@ -433,6 +436,7 @@ class TestControllers(BaseTestCase):
         compute.zoneOperations.return_value.get.return_value.execute = pendingOperations.pop
         delete_expired_instances(compute, 120, 'a', 'a')
         mock_get_running_instances.assert_called_once()
+        mock_update_github_status.assert_called_once()
 
     def test_customizedtest_added_to_queue(self):
         """Test queue with a customized test addition."""

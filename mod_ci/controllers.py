@@ -6,9 +6,9 @@ import json
 import os
 import re
 import shutil
-import sys
 import time
 import zipfile
+from collections import defaultdict
 from multiprocessing import Process
 from pathlib import Path
 from typing import Any, Dict
@@ -17,11 +17,9 @@ import googleapiclient.discovery
 import requests
 from flask import (Blueprint, abort, flash, g, jsonify, redirect, request,
                    url_for)
-from git import GitCommandError, InvalidGitRepositoryError, Repo
-from github import ApiError, GitHub
+from github import Commit, Github, GithubException, GithubObject, Repository
 from google.oauth2 import service_account
 from lxml import etree
-from lxml.etree import Element
 from markdown2 import markdown
 from pymysql.err import IntegrityError
 from sqlalchemy import and_, func, or_
@@ -31,7 +29,6 @@ from werkzeug.utils import secure_filename
 
 from database import DeclEnum, create_session
 from decorators import get_menu_entries, template_renderer
-from mailer import Mailer
 from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role
 from mod_ci.forms import AddUsersToBlacklist, DeleteUserForm
@@ -71,7 +68,7 @@ class Artifact_names(DeclEnum):
     """Define CCExtractor GitHub Artifacts names."""
 
     linux = "CCExtractor Linux build"
-    windows = "CCExtractor Windows OCR and HardSubX Release build"
+    windows = "CCExtractor Windows Release build"
 
 
 @mod_ci.before_app_request
@@ -111,11 +108,11 @@ def start_platforms(repository, delay=None, platform=None) -> None:
     project = config.get('PROJECT_NAME', '')
     # Check if zone and project both are provided
     if zone == "":
-        log.critical(f'GCP zone name is empty!')
+        log.critical('GCP zone name is empty!')
         return
 
     if project == "":
-        log.critical(f'GCP project name is empty!')
+        log.critical('GCP project name is empty!')
         return
 
     compute = get_compute_service_object()
@@ -192,6 +189,21 @@ def delete_expired_instances(compute, max_runtime, project, zone) -> None:
             creationTimestamp = datetime.datetime.strptime(instance['creationTimestamp'], '%Y-%m-%dT%H:%M:%S.%f%z')
             currentTimestamp = datetime.datetime.now(datetime.timezone.utc)
             if currentTimestamp - creationTimestamp >= datetime.timedelta(minutes=max_runtime):
+                # Update test status in database and on GitHub
+                platform_name, test_id = vm_name.split('-')
+                test = Test.query.filter(Test.id == test_id).first()
+                message = "Could not complete test, time limit exceeded"
+                progress = TestProgress(test_id, TestStatus.canceled, message)
+                g.db.add(progress)
+                g.db.commit()
+
+                gh = Github(g.github['bot_token'])
+                repository = gh.get_repo(f"{g.github['repository_owner']}/{g.github['repository']}")
+                gh_commit = repository.get_commit(test.commit)
+                if gh_commit is not None:
+                    update_status_on_github(gh_commit, Status.ERROR, message, f"CI - {platform_name}")
+
+                # Delete VM instance
                 operation = delete_instance(compute, project, zone, vm_name)
                 wait_for_operation(compute, project, zone, operation['name'])
 
@@ -260,7 +272,7 @@ def get_compute_service_object() -> googleapiclient.discovery.Resource:
     return googleapiclient.discovery.build('compute', 'v1', credentials=credentials)
 
 
-def start_test(compute, app, db, repository, test, bot_token) -> None:
+def start_test(compute, app, db, repository: Repository.Repository, test, bot_token) -> None:
     """
     Start a VM instance and run the tests.
 
@@ -377,15 +389,15 @@ def start_test(compute, app, db, repository, test, bot_token) -> None:
     artifact_saved = False
     base_folder = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', gcp_instance_name, 'unsafe-ccextractor')
     Path(base_folder).mkdir(parents=True, exist_ok=True)
-    artifacts = repository.actions.artifacts().get(per_page="100")["artifacts"]
-    page_number = 2
+
+    artifacts = repository.get_artifacts()
     if test.platform == TestPlatform.linux:
         artifact_name = Artifact_names.linux
     else:
         artifact_name = Artifact_names.windows
     for index, artifact in enumerate(artifacts):
-        if artifact['name'] == artifact_name and artifact["workflow_run"]["head_sha"] == test.commit:
-            artifact_url = artifact["archive_download_url"]
+        if artifact.name == artifact_name and artifact.workflow_run.head_sha == test.commit:
+            artifact_url = artifact.archive_download_url
             try:
                 auth_header = f"token {bot_token}"
                 r = requests.get(artifact_url, headers={"Authorization": auth_header})
@@ -402,10 +414,6 @@ def start_test(compute, app, db, repository, test, bot_token) -> None:
 
             artifact_saved = True
             break
-
-        if index + 1 == len(artifacts):
-            artifacts.extend(repository.actions.artifacts().get(per_page="100", page=str(page_number))["artifacts"])
-            page_number += 1
 
     if not artifact_saved:
         log.critical("Could not find an artifact for this commit")
@@ -605,7 +613,7 @@ def save_xml_to_file(xml_node, folder_name, file_name) -> None:
     )
 
 
-def add_test_entry(db, gh_commit, commit, test_type, branch="master", pr_nr=0) -> None:
+def add_test_entry(db, commit, test_type, branch="master", pr_nr=0) -> None:
     """
     Add test details entry into Test model for each platform.
 
@@ -640,9 +648,9 @@ def add_test_entry(db, gh_commit, commit, test_type, branch="master", pr_nr=0) -
     db.commit()
 
 
-def schedule_test(gh_commit, commit, test_type, branch="master", pr_nr=0) -> None:
+def schedule_test(gh_commit: Commit.Commit) -> None:
     """
-    Post status to GitHub as waiting for Github Actions completion.
+    Post status to GitHub as waiting for GitHub Actions completion.
 
     :param gh_commit: The GitHub API call for the commit. Can be None
     :type gh_commit: Any
@@ -657,28 +665,44 @@ def schedule_test(gh_commit, commit, test_type, branch="master", pr_nr=0) -> Non
     :return: Nothing
     :rtype: None
     """
-    from run import log
-
-    if test_type == TestType.pull_request:
-        log.debug('pull request test type detected')
-        branch = "pull_request"
-
     if gh_commit is not None:
         for platform in TestPlatform:
-            try:
-                gh_commit.post(
-                    state=Status.PENDING,
-                    description="Waiting for actions to complete",
-                    context=f"CI - {platform.value}",
-                )
-            except ApiError as a:
-                log.critical(f'Could not post to GitHub! Response: {a.response}')
+            status_description = "Waiting for actions to complete"
+            update_status_on_github(gh_commit, Status.PENDING, status_description, f"CI - {platform.value}")
 
 
-def deschedule_test(gh_commit, commit, test_type, platform, branch="master",
+def update_status_on_github(gh_commit: Commit.Commit, state, description, context, target_url=GithubObject._NotSetType):
+    """
+    Update status on GitHub.
+
+    :param gh_commit: The GitHub API call for the commit. Can be None
+    :type gh_commit: Any
+    :param state: The test status.
+    :type state: Status
+    :param description: Description of test status.
+    :type description: str
+    :param context: Context for Github status.
+    :type context: str
+    :param target_url: Platform url for test status
+    :type target_url: _NotSetType | str
+    """
+    from run import log
+
+    try:
+        gh_commit.create_status(
+            state=state,
+            description=description,
+            context=context,
+            target_url=target_url
+        )
+    except GithubException as a:
+        log.critical(f'Could not post to GitHub! Response: {a.data}')
+
+
+def deschedule_test(gh_commit: Commit.Commit, commit, test_type, platform, branch="master",
                     message="Tests have been cancelled", state=Status.FAILURE) -> None:
     """
-    Post status to GitHub (default: as failure due to Github Actions incompletion).
+    Post status to GitHub (default: as failure due to GitHub Actions incompletion).
 
     :param gh_commit: The GitHub API call for the commit. Can be None
     :type gh_commit: Any
@@ -719,17 +743,10 @@ def deschedule_test(gh_commit, commit, test_type, platform, branch="master",
         g.db.commit()
 
     if gh_commit is not None:
-        try:
-            gh_commit.post(
-                state=state,
-                description=message,
-                context=f"CI - {platform.value}",
-            )
-        except ApiError as a:
-            log.critical(f'Could not post to GitHub! Response: {a.response}')
+        update_status_on_github(gh_commit, state, message, f"CI - {platform.value}")
 
 
-def queue_test(gh_commit, commit, test_type, platform, branch="master", pr_nr=0) -> None:
+def queue_test(gh_commit: Commit.Commit, commit, test_type, platform, branch="master", pr_nr=0) -> None:
     """
     Store test details into Test model for each platform, and post the status to GitHub.
 
@@ -767,15 +784,9 @@ def queue_test(gh_commit, commit, test_type, platform, branch="master", pr_nr=0)
     add_customized_regression_tests(platform_test.id)
 
     if gh_commit is not None:
-        try:
-            gh_commit.post(
-                state=Status.PENDING,
-                description="Tests queued",
-                context=f"CI - {platform_test.platform.value}",
-                target_url=url_for('test.by_id', test_id=platform_test.id, _external=True)
-            )
-        except ApiError as a:
-            log.critical(f'Could not post to GitHub! Response: {a.response}')
+        target_url = url_for('test.by_id', test_id=platform_test.id, _external=True)
+        status_context = f"CI - {platform_test.platform.value}"
+        update_status_on_github(gh_commit, Status.PENDING, "Tests queued", status_context, target_url)
 
     log.debug("Created tests, waiting for cron...")
 
@@ -868,16 +879,15 @@ def start_ci():
             g.log.warning(f'CI payload is empty')
             abort(abort_code)
 
-        gh = GitHub(access_token=g.github['bot_token'])
-        repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
+        gh = Github(g.github['bot_token'])
+        repository = gh.get_repo(f"{g.github['repository_owner']}/{g.github['repository']}")
 
         if event == "push":
             g.log.debug('push event detected')
             if 'after' in payload and payload["ref"] == "refs/heads/master":
                 commit_hash = payload['after']
-                github_status = repository.statuses(commit_hash)
                 # Update the db to the new last commit
-                ref = repository.git().refs('heads/master').get()
+                ref = repository.get_git_ref("heads/master")
                 last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
                 for platform in TestPlatform.values():
                     commit_name = 'fetch_commit_' + platform
@@ -887,9 +897,9 @@ def start_ci():
                         prev_commit = GeneralData(commit_name, last_commit.value)
                         g.db.add(prev_commit)
 
-                last_commit.value = ref['object']['sha']
+                last_commit.value = ref.object.sha
                 g.db.commit()
-                add_test_entry(g.db, github_status, commit_hash, TestType.commit)
+                add_test_entry(g.db, commit_hash, TestType.commit)
             else:
                 g.log.warning('Unknown push type! Dumping payload for analysis')
                 g.log.warning(payload)
@@ -898,10 +908,15 @@ def start_ci():
             g.log.debug('Pull Request event detected')
             # If it's a valid PR, run the tests
             pr_nr = payload['pull_request']['number']
-            if payload['action'] in ['opened', 'synchronize', 'reopened']:
+
+            draft = payload['pull_request']['draft']
+            action = payload['action']
+            active = action in ['opened', 'synchronize', 'reopened', 'ready_for_review']
+            inactive = action in ['closed', 'converted_to_draft']
+
+            if not draft and active:
                 try:
                     commit_hash = payload['pull_request']['head']['sha']
-                    github_status = repository.statuses(commit_hash)
                 except KeyError:
                     g.log.error("Didn't find a SHA value for a newly opened PR!")
                     g.log.error(payload)
@@ -912,24 +927,26 @@ def start_ci():
                 if BlockedUsers.query.filter(BlockedUsers.user_id == user_id).first() is not None:
                     g.log.warning("User Blacklisted")
                     return 'ERROR'
-                if repository.pulls(pr_nr).get()["mergeable"] is not False:
-                    add_test_entry(g.db, github_status, commit_hash, TestType.pull_request, pr_nr=pr_nr)
+                if repository.get_pull(number=pr_nr).mergeable is not False:
+                    add_test_entry(g.db, commit_hash, TestType.pull_request, pr_nr=pr_nr)
 
-            elif payload['action'] == 'closed':
-                g.log.debug('PR was closed, no after hash available')
+            elif inactive:
+                pr_action = 'closed' if action == 'closed' else 'converted to draft'
+                g.log.debug(f'PR was {pr_action}, no after hash available')
+
                 # Cancel running queue
                 tests = Test.query.filter(Test.pr_nr == pr_nr).all()
                 for test in tests:
                     # Add cancelled status only if the test hasn't started yet
                     if len(test.progress) > 0:
                         continue
-                    progress = TestProgress(test.id, TestStatus.canceled, "PR closed", datetime.datetime.now())
+                    progress = TestProgress(test.id, TestStatus.canceled, f"PR {pr_action}", datetime.datetime.now())
                     g.db.add(progress)
                     g.db.commit()
                     # If test run status exists, mark them as cancelled
-                    for status in repository.commits(test.commit).status.get()["statuses"]:
+                    for status in repository.get_commit(test.commit).get_statuses():
                         if status["context"] == f"CI - {test.platform.value}":
-                            repository.statuses(test.commit).post(
+                            repository.get_commit(test.commit).create_status(
                                 state=Status.FAILURE,
                                 description="Tests cancelled",
                                 context=f"CI - {test.platform.value}",
@@ -1005,27 +1022,34 @@ def start_ci():
             if workflow_name in [Workflow_builds.LINUX, Workflow_builds.WINDOWS]:
                 g.log.debug('workflow_run event detected')
                 commit_hash = payload['workflow_run']['head_sha']
-                github_status = repository.statuses(commit_hash)
+                github_status = repository.get_commit(commit_hash)
 
                 if payload['action'] == "completed":
                     is_complete = True
                     has_failed = False
                     builds = {"linux": False, "windows": False}
-                    for workflow in repository.actions.runs.get(
+
+                    # NOTE: Using this workaround because workflow name cannot be accessed using PyGitHub
+                    # https://github.com/PyGithub/PyGithub/issues/2276
+                    workflow = defaultdict(lambda: None)
+                    for active_workflow in repository.get_workflows():
+                        workflow[active_workflow.id] = active_workflow.name
+
+                    for workflow_run in repository.get_workflow_runs(
                             event=payload['workflow_run']['event'],
                             actor=payload['sender']['login'],
                             branch=payload['workflow_run']['head_branch']
-                    )['workflow_runs']:
-                        if workflow['head_sha'] == commit_hash:
-                            if workflow['status'] == "completed":
-                                if workflow['conclusion'] != "success":
+                    ):
+                        if workflow_run.head_sha == commit_hash:
+                            if workflow_run.status == "completed":
+                                if workflow_run.conclusion != "success":
                                     has_failed = True
                                     break
-                                if workflow['name'] == Workflow_builds.LINUX:
+                                if workflow[workflow_run.workflow_id] == Workflow_builds.LINUX:
                                     builds["linux"] = True
-                                elif workflow['name'] == Workflow_builds.WINDOWS:
+                                elif workflow[workflow_run.workflow_id] == Workflow_builds.WINDOWS:
                                     builds["windows"] = True
-                            elif workflow['status'] != "completed":
+                            else:
                                 is_complete = False
                                 break
 
@@ -1043,9 +1067,9 @@ def start_ci():
                         if payload['workflow_run']['event'] == "pull_request":
                             # In case of pull request run tests only if it is still in an open state
                             # and user is not blacklisted
-                            for pull_request in repository.pulls.get(state="open"):
-                                if pull_request['head']['sha'] == commit_hash:
-                                    user_id = pull_request['user']['id']
+                            for pull_request in repository.get_pulls(state='open'):
+                                if pull_request.head.sha == commit_hash:
+                                    user_id = pull_request.user.id
                                     if BlockedUsers.query.filter(BlockedUsers.user_id == user_id).first() is not None:
                                         g.log.warning("User Blacklisted")
                                         github_status.post(
@@ -1057,14 +1081,14 @@ def start_ci():
                                         return 'ERROR'
                                     if builds['linux']:
                                         queue_test(github_status, commit_hash, TestType.pull_request,
-                                                   TestPlatform.linux, pr_nr=pull_request['number'])
+                                                   TestPlatform.linux, pr_nr=pull_request.number)
                                     else:
                                         deschedule_test(github_status, commit_hash, TestType.pull_request,
                                                         TestPlatform.linux, message="Not ran - no code changes",
                                                         state=Status.SUCCESS)
                                     if builds['windows']:
                                         queue_test(github_status, commit_hash, TestType.pull_request,
-                                                   TestPlatform.windows, pr_nr=pull_request['number'])
+                                                   TestPlatform.windows, pr_nr=pull_request.number)
                                     else:
                                         deschedule_test(github_status, commit_hash, TestType.pull_request,
                                                         TestPlatform.windows, message="Not ran - no code changes",
@@ -1089,7 +1113,7 @@ def start_ci():
                                 deschedule_test(github_status, commit_hash, TestType.commit, TestPlatform.windows,
                                                 message="Not ran - no code changes", state=Status.SUCCESS)
                 elif payload['action'] == 'requested':
-                    schedule_test(github_status, commit_hash, TestType.commit)
+                    schedule_test(github_status)
             else:
                 g.log.warning('Unknown action type in workflow_run! Dumping payload for analysis')
                 g.log.warning(payload)
@@ -1213,8 +1237,8 @@ def progress_type_request(log, test, test_id, request) -> bool:
     g.db.add(progress)
     g.db.commit()
 
-    gh = GitHub(access_token=g.github['bot_token'])
-    repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
+    gh = Github(g.github['bot_token'])
+    repository = gh.get_repo(f"{g.github['repository_owner']}/{g.github['repository']}")
     # Store the test commit for testing in case of commit
     if status == TestStatus.completed and is_main_repo(test.fork.github):
         commit_name = 'fetch_commit_' + test.platform.value
@@ -1351,11 +1375,11 @@ def progress_type_request(log, test, test_id, request) -> bool:
     else:
         message = progress.message
 
-    gh_commit = repository.statuses(test.commit)
+    gh_commit = repository.get_commit(test.commit)
     try:
-        gh_commit.post(state=state, description=message, context=context, target_url=target_url)
-    except ApiError as a:
-        log.error(f'Got an exception while posting to GitHub! Message: {a.message}')
+        gh_commit.create_status(state=state, description=message, context=context, target_url=target_url)
+    except GithubException as a:
+        log.error(f'Got an exception while posting to GitHub! Message: {a.data}')
 
     return True
 
@@ -1582,23 +1606,22 @@ def comment_pr(test_id, state, pr_nr, platform) -> None:
                               test_id=test_id, state=state, platform=platform)
     log.debug(f"GitHub PR Comment Message Created for Test_id: {test_id}")
     try:
-        gh = GitHub(access_token=g.github['bot_token'])
-        repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
+        gh = Github(g.github['bot_token'])
+        repository = gh.get_repo(f"{g.github['repository_owner']}/{g.github['repository']}")
         # Pull requests are just issues with code, so GitHub considers PR comments in issues
-        pull_request = repository.issues(pr_nr)
-        comments = pull_request.comments().get()
+        pull_request = repository.get_pull(number=pr_nr)
+        comments = pull_request.get_issue_comments()
         bot_name = g.github['bot_name']
         comment_id = None
         for comment in comments:
-            if comment['user']['login'] == bot_name and platform in comment['body']:
-                comment_id = comment['id']
+            if comment.user.login == bot_name and platform in comment.body:
+                comment_id = comment.id
+                comment.edit(body=message)
                 break
         log.debug(f"GitHub PR Comment ID Fetched for Test_id: {test_id}")
         if comment_id is None:
-            comment = pull_request.comments().post(body=message)
-            comment_id = comment['id']
-        else:
-            repository.issues().comments(comment_id).post(body=message)
+            comment = pull_request.create_issue_comment(body=message)
+            comment_id = comment.id
         log.debug(f"GitHub PR Comment ID {comment_id} Uploaded for Test_id: {test_id}")
     except Exception as e:
         log.error(f"GitHub PR Comment Failed for Test_id: {test_id} with Exception {e}")
@@ -1660,10 +1683,10 @@ def blocked_users():
 
         try:
             # Remove any queued pull request from blocked user
-            gh = GitHub(access_token=g.github['bot_token'])
-            repository = gh.repos(g.github['repository_owner'])(g.github['repository'])
+            gh = Github(g.github['bot_token'])
+            repository = gh.get_repo(f"{g.github['repository_owner']}/{g.github['repository']}")
             # Getting all pull requests by blocked user on the repo
-            pulls = repository.pulls.get()
+            pulls = repository.get_pulls(state='open')
             for pull in pulls:
                 if pull['user']['id'] != add_user_form.user_id.data:
                     continue
@@ -1676,16 +1699,16 @@ def blocked_users():
                     g.db.add(progress)
                     g.db.commit()
                     try:
-                        repository.statuses(test.commit).post(
+                        repository.get_commit(test.commit).create_status(
                             state=Status.FAILURE,
                             description="Tests canceled since user blacklisted",
                             context=f"CI - {test.platform.value}",
                             target_url=url_for('test.by_id', test_id=test.id, _external=True)
                         )
-                    except ApiError as a:
-                        g.log.error(f"Got an exception while posting to GitHub! Message: {a.message}")
-        except ApiError as a:
-            g.log.error(f"Pull Requests of Blocked User could not be fetched: {a.response}")
+                    except GithubException as a:
+                        g.log.error(f"Got an exception while posting to GitHub! Message: {a.data}")
+        except GithubException as a:
+            g.log.error(f"Pull Requests of Blocked User could not be fetched: {a.data}")
 
         return redirect(url_for('.blocked_users'))
 

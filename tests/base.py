@@ -23,7 +23,7 @@ from mod_upload.models import Platform, Upload
 
 
 @contextmanager
-def provide_file_at_root(file_name, to_write=None):
+def provide_file_at_root(file_name, to_write=None, to_delete=True):
     """Provide file with name file_name at application root."""
     if to_write is None:
         to_write = "DATABASE_URI = 'sqlite:///:memory:'"
@@ -31,7 +31,8 @@ def provide_file_at_root(file_name, to_write=None):
     with open(file_name, 'w+') as f:
         f.write(to_write)
     yield
-    os.remove(file_name)
+    if to_delete:
+        os.remove(file_name)
 
 
 def load_file_lines(filepath):
@@ -67,6 +68,8 @@ def generate_keys():
     if not os.path.exists(secret_key_path):
         secret_key_cmd = f"head -c 24 /dev/urandom > {secret_key_path}"
         os.system(secret_key_cmd)
+
+    open(f"{os.path.join(ROOT_DIR, '')}parse.py", 'w+')
 
     return {'secret_csrf_path': secret_csrf_path, 'secret_key_path': secret_key_path}
 
@@ -120,30 +123,15 @@ def load_config(file):
     }
 
 
-def mock_api_request_github(url, data=None, timeout=None, auth=None):
+def mock_api_request_github(url=None, *args, **kwargs):
     """Mock all responses to the GitHub API."""
-    if url == "https://api.github.com/repos/test/test_repo/commits/abcdef":
-        return MockResponse({}, 200)
-    elif url == "https://api.github.com/user":
-        return MockResponse({"login": "test"}, 200)
-    elif "https://api.github.com/user" in url:
-        return MockResponse({"login": url.split("/")[-1]}, 200)
-    elif url == "https://api.github.com/repos/test_owner/test_repo/issues":
-        return MockResponse({'number': 1,
-                             'title': "test title",
-                             'user': {'login': "test_user"},
-                             'created_at': "2011-04-14T16:00:49Z",
-                             'state': "open"}, 201)
-    elif url == "https://api.github.com/repos/test/test_repo/commits/mockWillReturn500":
-        return MockResponse({}, 500)
-    elif url == "https://api.github.com/meta":
+    if url == "https://api.github.com/meta":
         return MockResponse({'verifiable_password_authentication': True,
                              'github_services_sha': "abcdefg",
                              'hooks': [
                                  "192.30.252.0/22",
                                  "185.199.108.0/22"
                              ]}, 200)
-
     return MockResponse({}, 404)
 
 
@@ -217,10 +205,12 @@ class BaseTestCase(TestCase):
             GeneralData(f'fetch_commit_{TestPlatform.windows.value}', "1978060bf7d2edd119736ba3ba88341f3bec3323")
         ]
         g.db.add_all(general_data)
+        g.db.commit()
 
         self.ccextractor_version = CCExtractorVersion(
             "1.2.3", "2013-02-27T19:35:32Z", "1978060bf7d2edd119736ba3ba88341f3bec3323")
         g.db.add(self.ccextractor_version)
+        g.db.commit()
 
         fork = Fork(f"https://github.com/{g.github['repository_owner']}/{g.github['repository']}.git")
         g.db.add(fork)
@@ -231,9 +221,10 @@ class BaseTestCase(TestCase):
         g.db.add(dummy_user)
         g.db.commit()
 
+        commit_hash = '1978060bf7d2edd119736ba3ba88341f3bec3323'
         test = [
-            Test(TestPlatform.linux, TestType.pull_request, 1, "master", "1978060bf7d2edd119736ba3ba88341f3bec3323", 1),
-            Test(TestPlatform.linux, TestType.pull_request, 1, "master", "abcdefgh", 1)
+            Test(TestPlatform.linux, TestType.pull_request, 1, "pull_request", commit_hash, 1),
+            Test(TestPlatform.linux, TestType.pull_request, 1, "pull_request", "abcdefgh", 1)
         ]
         g.db.add_all(test)
         g.db.commit()

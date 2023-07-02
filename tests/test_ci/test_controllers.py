@@ -1,10 +1,9 @@
 import json
 from importlib import reload
 from unittest import mock
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock
 
 from flask import g
-from werkzeug.datastructures import Headers
 
 from mod_auth.models import Role
 from mod_ci.controllers import (Workflow_builds, get_info_for_pr_comment,
@@ -15,7 +14,7 @@ from mod_home.models import CCExtractorVersion, GeneralData
 from mod_regression.models import (RegressionTest, RegressionTestOutput,
                                    RegressionTestOutputFiles)
 from mod_test.models import Test, TestPlatform, TestResultFile, TestType
-from tests.base import (BaseTestCase, generate_git_api_header,
+from tests.base import (BaseTestCase, MockResponse, generate_git_api_header,
                         generate_signature, mock_api_request_github)
 
 
@@ -174,11 +173,12 @@ class TestControllers(BaseTestCase):
         mock_log.critical.assert_not_called()
         self.assertEqual(mock_log.debug.call_count, 2)
 
+    @mock.patch('github.Github')
     @mock.patch('mod_ci.controllers.delete_expired_instances')
     @mock.patch('mod_ci.controllers.get_compute_service_object')
     @mock.patch('mod_ci.controllers.gcp_instance')
     def test_cron_job_testing_false(self, mock_gcp_instance, mock_get_compute_service_object,
-                                    mock_delete_expired_instances):
+                                    mock_delete_expired_instances, mock_github):
         """Test working of cron function when testing is disabled."""
         from mod_ci.cron import cron
         mock_delete_expired_instances.reset_mock()
@@ -187,11 +187,12 @@ class TestControllers(BaseTestCase):
         self.assertEqual(mock_delete_expired_instances.call_count, 1)
         self.assertEqual(mock_get_compute_service_object.call_count, 1)
 
+    @mock.patch('github.Github')
     @mock.patch('mod_ci.controllers.delete_expired_instances')
     @mock.patch('mod_ci.controllers.get_compute_service_object')
     @mock.patch('mod_ci.controllers.gcp_instance')
     def test_cron_job_testing_true(self, mock_gcp_instance, mock_get_compute_service_object,
-                                   mock_delete_expired_instances):
+                                   mock_delete_expired_instances, mock_github):
         """Test working of cron function when testing is enabled."""
         from mod_ci.cron import cron
         mock_delete_expired_instances.reset_mock()
@@ -209,23 +210,19 @@ class TestControllers(BaseTestCase):
         import zipfile
 
         import requests
-        from googleapiclient.discovery import build
-        from googleapiclient.http import HttpMock, RequestMockBuilder
+        from github.Artifact import Artifact
 
         from mod_ci.controllers import Artifact_names, start_test
         test = Test.query.first()
-        repo = MagicMock()
-        fakeData = [{'artifacts': [{'name': Artifact_names.windows, 'archive_download_url': "test",
-                                    'workflow_run': {'head_sha': '1978060bf7d2edd119736ba3ba88341f3bec3322'}}]},
-                    {'artifacts': [{'name': Artifact_names.linux, 'archive_download_url': "test",
-                                    'workflow_run': {'head_sha': '1978060bf7d2edd119736ba3ba88341f3bec3323'}}]}]
+        repository = MagicMock()
 
-        def getFakeData(*args, **kwargs):
-            if len(fakeData) == 0:
-                return {'artifacts': []}
-            r = fakeData[0]
-            fakeData.pop(0)
-            return r
+        artifact1 = MagicMock(Artifact)
+        artifact1.name = Artifact_names.windows
+        artifact1.workflow_run.head_sha = '1978060bf7d2edd119736ba3ba88341f3bec3322'
+
+        artifact2 = MagicMock(Artifact)
+        artifact2.name = Artifact_names.linux
+        artifact2.workflow_run.head_sha = '1978060bf7d2edd119736ba3ba88341f3bec3323'
 
         class mock_zip:
             def __enter__(self):
@@ -236,7 +233,7 @@ class TestControllers(BaseTestCase):
 
             def extractall(*args, **kwargs):
                 return None
-        repo.actions.artifacts.return_value.get = getFakeData
+        repository.get_artifacts.return_value = [artifact1, artifact2]
         response = requests.models.Response()
         response.status_code = 200
         requests.get = MagicMock(return_value=response)
@@ -244,7 +241,7 @@ class TestControllers(BaseTestCase):
         customized_test = CustomizedTest(1, 1)
         g.db.add(customized_test)
         g.db.commit()
-        start_test(mock.ANY, self.app, mock_g.db, repo, test, mock.ANY)
+        start_test(mock.ANY, self.app, mock_g.db, repository, test, mock.ANY)
         mock_create_instance.assert_called_once()
         mock_wait_for_operation.assert_called_once()
 
@@ -328,49 +325,67 @@ class TestControllers(BaseTestCase):
         self.assertEqual(mock_g.db.add.call_count, 0)
         mock_g.db.commit.assert_called_once()
 
-    @mock.patch('github.GitHub')
-    def test_comments_successfully_in_passed_pr_test(self, git_mock):
+    @mock.patch('github.Github')
+    def test_comments_successfully_in_passed_pr_test(self, mock_github):
         """Check comments in passed PR test."""
         import mod_ci.controllers
         reload(mod_ci.controllers)
+        from github.IssueComment import IssueComment
+
         from mod_ci.controllers import Status, comment_pr
 
-        # Comment on test that passes all regression tests
+        repository = mock_github(g.github['bot_token']).get_repo(
+            f"{g.github['repository_owner']}/{g.github['repository']}")
+        pull_request = repository.get_pull(number=1)
+
+        comment1 = MagicMock(IssueComment)
+        comment1.user.login = 'invalid'
+
+        comment2 = MagicMock(IssueComment)
+        comment2.user.login = ''
+        comment2.body = 'linux test passed'
+
+        # When previous comment is found, and is to be edited
+        pull_request.get_issue_comments.return_value = [comment1, comment2]
         comment_pr(1, Status.SUCCESS, 1, 'linux')
-        git_mock.assert_called_with(access_token=g.github['bot_token'])
-        git_mock(access_token=g.github['bot_token']).repos.assert_called_with(g.github['repository_owner'])
-        git_mock(access_token=g.github['bot_token']).repos(
-            g.github['repository_owner']).assert_called_with(g.github['repository'])
-        repository = git_mock(access_token=g.github['bot_token']).repos(
-            g.github['repository_owner'])(g.github['repository'])
-        repository.issues.assert_called_with(1)
-        pull_request = repository.issues(1)
-        pull_request.comments.assert_called_with()
-        new_comment = pull_request.comments()
-        args, kwargs = new_comment.post.call_args
+        mock_github.assert_called_with(g.github['bot_token'])
+        mock_github(g.github['bot_token']).get_repo.assert_called_with(
+            f"{g.github['repository_owner']}/{g.github['repository']}")
+
+        repository.get_pull.assert_called_with(number=1)
+        pull_request.get_issue_comments.assert_called_once()
+        args, kwargs = comment2.edit.call_args
         message = kwargs['body']
         if "passed" not in message:
             assert False, "Message not Correct"
 
-    @mock.patch('github.GitHub')
-    def test_comments_successfuly_in_failed_pr_test(self, git_mock):
+        # When commit is not found, and is to be created
+        pull_request.reset_mock()
+        pull_request.get_issue_comments.return_value = [comment1]
+        comment_pr(1, Status.SUCCESS, 1, 'linux')
+        repository.get_pull.assert_called_with(number=1)
+        pull_request.get_issue_comments.assert_called_once()
+        args, kwargs = pull_request.create_issue_comment.call_args
+        message = kwargs['body']
+        if "passed" not in message:
+            assert False, "Message not Correct"
+
+    @mock.patch('github.Github.get_repo')
+    def test_comments_successfuly_in_failed_pr_test(self, mock_repo):
         """Check comments in failed PR test."""
         import mod_ci.controllers
         reload(mod_ci.controllers)
+        from github.IssueComment import IssueComment
+
         from mod_ci.controllers import Status, comment_pr
-        repository = git_mock(access_token=g.github['bot_token']).repos(
-            g.github['repository_owner'])(g.github['repository'])
-        pull_request = repository.issues(1)
+        pull_request = mock_repo.return_value.get_pull(number=1)
         message = ("<b>CCExtractor CI platform</b> finished running the "
                    "test files on <b>linux</b>. Below is a summary of the test results")
-        pull_request.comments().get.return_value = [{'user': {'login': g.github['bot_name']},
-                                                    'id': 1, 'body': message}]
+        pull_request.get_issue_comments.return_value = [MagicMock(IssueComment)]
         # Comment on test that fails some/all regression tests
         comment_pr(2, Status.FAILURE, 1, 'linux')
-        pull_request = repository.issues(1)
-        pull_request.comments.assert_called_with(1)
-        new_comment = pull_request.comments(1)
-        args, kwargs = new_comment.post.call_args
+        pull_request.get_issue_comments.assert_called_with()
+        args, kwargs = pull_request.create_issue_comment.call_args
         message = kwargs['body']
         reg_tests = RegressionTest.query.all()
         flag = False
@@ -392,23 +407,26 @@ class TestControllers(BaseTestCase):
         assert is_main_repo('random_user/random_repo') is False
         assert is_main_repo('test_owner/test_repo') is True
 
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('mod_ci.controllers.update_status_on_github')
     @mock.patch('mod_ci.controllers.get_running_instances')
-    def test_delete_expired_instances(self, mock_get_running_instances):
+    def test_delete_expired_instances(self, mock_get_running_instances, mock_update_github_status, mock_repo):
         """Test working of delete_expired_instances function."""
         from datetime import datetime, timedelta, timezone
 
         from mod_ci.controllers import delete_expired_instances
 
-        expired_instance_time = datetime.now(timezone.utc) - timedelta(minutes=150)
+        current_timestamp = datetime.now(timezone.utc)
+        expired_instance_time = current_timestamp - timedelta(minutes=150)
         mock_get_running_instances.return_value = [{
             'name': 'windows-1',
-            'creationTimestamp': datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f%z"),
+            'creationTimestamp': current_timestamp.strftime("%Y-%m-%dT%H:%M:%S.%f%z"),
         }, {
             'name': 'linux-2',
             'creationTimestamp': expired_instance_time.strftime("%Y-%m-%dT%H:%M:%S.%f%z"),
         }, {
             'name': 'osx-3',
-            'creationTimestamp': datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f%z"),
+            'creationTimestamp': current_timestamp.strftime("%Y-%m-%dT%H:%M:%S.%f%z"),
         }]
         compute = MagicMock()
         pendingOperations = [
@@ -418,6 +436,7 @@ class TestControllers(BaseTestCase):
         compute.zoneOperations.return_value.get.return_value.execute = pendingOperations.pop
         delete_expired_instances(compute, 120, 'a', 'a')
         mock_get_running_instances.assert_called_once()
+        mock_update_github_status.assert_called_once()
 
     def test_customizedtest_added_to_queue(self):
         """Test queue with a customized test addition."""
@@ -428,7 +447,7 @@ class TestControllers(BaseTestCase):
         import mod_ci.controllers
         reload(mod_ci.controllers)
         from mod_ci.controllers import add_test_entry, queue_test
-        add_test_entry(g.db, None, 'customizedcommitcheck', TestType.commit)
+        add_test_entry(g.db, 'customizedcommitcheck', TestType.commit)
         queue_test(None, 'customizedcommitcheck', TestType.commit, TestPlatform.linux)
         queue_test(None, 'customizedcommitcheck', TestType.commit, TestPlatform.windows)
         test = Test.query.filter(Test.id == 3).first()
@@ -476,8 +495,7 @@ class TestControllers(BaseTestCase):
 
         mock_markdown.assert_called_once_with(body, extras=["target-blank-links", "task_list", "code-friendly"])
 
-    @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_add_blocked_users(self, mock_request):
+    def test_add_blocked_users(self):
         """Check adding a user to block list."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
         with self.app.test_client() as c:
@@ -488,8 +506,7 @@ class TestControllers(BaseTestCase):
                 flash_message = dict(session['_flashes']).get('message')
             self.assertEqual(flash_message, "User blocked successfully.")
 
-    @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_add_blocked_users_wrong_id(self, mock_request):
+    def test_add_blocked_users_wrong_id(self):
         """Check adding invalid user id to block list."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
         with self.app.test_client() as c:
@@ -498,8 +515,7 @@ class TestControllers(BaseTestCase):
             self.assertEqual(BlockedUsers.query.filter(BlockedUsers.user_id == 0).first(), None)
             self.assertIn("GitHub User ID not filled in", str(response.data))
 
-    @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_add_blocked_users_empty_id(self, mock_request):
+    def test_add_blocked_users_empty_id(self):
         """Check adding blank user id to block list."""
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
@@ -509,7 +525,7 @@ class TestControllers(BaseTestCase):
             self.assertEqual(BlockedUsers.query.filter(BlockedUsers.user_id.is_(None)).first(), None)
             self.assertIn("GitHub User ID not filled in", str(response.data))
 
-    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    @mock.patch('requests.get', return_value=MockResponse({"login": "test"}, 200))
     def test_add_blocked_users_already_exists(self, mock_request):
         """Check adding existing blocked user again."""
         self.create_user_with_role(
@@ -524,8 +540,7 @@ class TestControllers(BaseTestCase):
                 flash_message = dict(session['_flashes']).get('message')
             self.assertEqual(flash_message, "User already blocked.")
 
-    @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_remove_blocked_users(self, mock_request):
+    def test_remove_blocked_users(self):
         """Check removing user from block list."""
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
@@ -541,8 +556,7 @@ class TestControllers(BaseTestCase):
                 flash_message = dict(session['_flashes']).get('message')
             self.assertEqual(flash_message, "User removed successfully.")
 
-    @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_remove_blocked_users_wrong_id(self, mock_request):
+    def test_remove_blocked_users_wrong_id(self):
         """Check removing non existing id from block list."""
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
@@ -553,8 +567,7 @@ class TestControllers(BaseTestCase):
                 flash_message = dict(session['_flashes']).get('message')
             self.assertEqual(flash_message, "No such user in Blacklist")
 
-    @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_remove_blocked_users_invalid_id(self, mock_request):
+    def test_remove_blocked_users_invalid_id(self):
         """Check invalid id for the blocked_user url."""
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin)
@@ -587,26 +600,27 @@ class TestControllers(BaseTestCase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.data, b'{"msg": "Hi!"}')
 
+    @mock.patch('github.Github.get_repo')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_release(self, mock_request):
+    def test_webhook_release(self, mock_request, mock_repo):
         """Check webhook release update CCExtractor Version for release."""
+        last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
+        # abcdefgh is the new commit after previous version defined in base.py
+        last_commit.value = 'abcdefgh'
+        g.db.commit()
         with self.app.test_client() as c:
             # Full Release with version with 2.1
             data = {'action': 'published',
                     'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': 'v2.1'}}
-            # one of ip address from GitHub web hook
-            last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
-            # abcdefgh is the new commit after previous version defined in base.py
-            last_commit.value = 'abcdefgh'
-            g.db.commit()
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
                 data=json.dumps(data), headers=self.generate_header(data, 'release'))
             last_release = CCExtractorVersion.query.order_by(CCExtractorVersion.released.desc()).first()
             self.assertEqual(last_release.version, '2.1')
 
+    @mock.patch('github.Github.get_repo')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_release_edited(self, mock_request):
+    def test_webhook_release_edited(self, mock_request, mock_repo):
         """Check webhook action "edited" updates the specified version."""
         from datetime import datetime
         with self.app.test_client() as c:
@@ -627,8 +641,9 @@ class TestControllers(BaseTestCase):
             self.assertEqual(last_release.released,
                              datetime.strptime('2018-06-30T20:18:44Z', '%Y-%m-%dT%H:%M:%SZ').date())
 
+    @mock.patch('github.Github.get_repo')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_release_deleted(self, mock_request):
+    def test_webhook_release_deleted(self, mock_request, mock_repo):
         """Check webhook action "delete" removes the specified version."""
         with self.app.test_client() as c:
             release = CCExtractorVersion('2.1', '2018-05-30T20:18:44Z', 'abcdefgh')
@@ -647,8 +662,7 @@ class TestControllers(BaseTestCase):
             last_release = CCExtractorVersion.query.order_by(CCExtractorVersion.released.desc()).first()
             self.assertNotEqual(last_release.version, '2.1')
 
-    @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_prerelease(self, mock_request):
+    def test_webhook_prerelease(self):
         """Check webhook release update CCExtractor Version for prerelease."""
         with self.app.test_client() as c:
             # Full Release with version with 2.1
@@ -666,8 +680,10 @@ class TestControllers(BaseTestCase):
             last_release = CCExtractorVersion.query.order_by(CCExtractorVersion.released.desc()).first()
             self.assertNotEqual(last_release.version, '2.1')
 
+    @mock.patch('github.Github.get_repo')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_push_no_after(self, mock_request):
+    @mock.patch('run.log')
+    def test_webhook_push_no_after(self, mock_log, mock_request, mock_repo):
         """Test webhook triggered with push event without 'after' in payload."""
         data = {'no_after': 'test'}
         with self.app.test_client() as c:
@@ -675,11 +691,14 @@ class TestControllers(BaseTestCase):
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
                 data=json.dumps(data), headers=self.generate_header(data, 'push'))
 
+        mock_log.debug.assert_called_with("push event detected")
+        mock_log.warning.assert_any_call("Unknown push type! Dumping payload for analysis")
+
+    @mock.patch('github.Github.get_repo')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     @mock.patch('mod_ci.controllers.add_test_entry')
-    @mock.patch('mod_ci.controllers.GitHub')
     @mock.patch('mod_ci.controllers.GeneralData')
-    def test_webhook_push_valid(self, mock_gd, mock_github, mock_add_test_entry, mock_request):
+    def test_webhook_push_valid(self, mock_gd, mock_add_test_entry, mock_request, mock_repo):
         """Test webhook triggered with push event with valid data."""
         data = {'after': 'abcdefgh', 'ref': 'refs/heads/master'}
         with self.app.test_client() as c:
@@ -688,22 +707,56 @@ class TestControllers(BaseTestCase):
                 data=json.dumps(data), headers=self.generate_header(data, 'push'))
 
         mock_gd.query.filter.assert_called()
-        mock_github.assert_called_once()
         mock_add_test_entry.assert_called_once()
 
+    @mock.patch('github.Github.get_repo')
     @mock.patch('mod_ci.controllers.Test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_pr_closed(self, mock_request, mock_test):
+    def test_webhook_pr_closed(self, mock_requests, mock_test, mock_repo):
         """Test webhook triggered with pull_request event with closed action."""
+        platform_name = "platform"
+
         class MockTest:
             def __init__(self):
                 self.id = 1
                 self.progress = []
+                self.platform = MockPlatform(platform_name)
+                self.commit = "test"
 
         mock_test.query.filter.return_value.all.return_value = [MockTest()]
+        mock_repo.return_value.get_commit.return_value.get_statuses.return_value = [
+            {"context": f"CI - {platform_name}"}]
 
         data = {'action': 'closed',
-                'pull_request': {'number': '1234'}}
+                'pull_request': {'number': 1234, 'draft': False}}
+        # one of ip address from GitHub web hook
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'pull_request'))
+
+        mock_test.query.filter.assert_called_once()
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('mod_ci.controllers.Test')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_pr_converted_to_draft(self, mock_requests, mock_test, mock_repo):
+        """Test webhook triggered with pull_request event with converted_to_draft action."""
+        platform_name = "platform"
+
+        class MockTest:
+            def __init__(self):
+                self.id = 1
+                self.progress = []
+                self.platform = MockPlatform(platform_name)
+                self.commit = "test"
+
+        mock_test.query.filter.return_value.all.return_value = [MockTest()]
+        mock_repo.return_value.get_commit.return_value.get_statuses.return_value = [
+            {"context": f"CI - {platform_name}"}]
+
+        data = {'action': 'converted_to_draft',
+                'pull_request': {'number': 1234, 'draft': False}}
         # one of ip address from GitHub web hook
         with self.app.test_client() as c:
             response = c.post(
@@ -713,16 +766,12 @@ class TestControllers(BaseTestCase):
         mock_test.query.filter.assert_called_once()
 
     @mock.patch('mod_ci.controllers.BlockedUsers')
-    @mock.patch('mod_ci.controllers.GitHub')
+    @mock.patch('github.Github.get_repo')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_pr_opened_blocked(self, mock_request, mock_github, mock_blocked):
+    def test_webhook_pr_opened_blocked(self, mock_request, mock_repo, mock_blocked):
         """Test webhook triggered with pull_request event with opened action for blocked user."""
-        class MockTest:
-            def __init__(self):
-                self.id = 1
-
         data = {'action': 'opened',
-                'pull_request': {'number': '1234', 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}}}
+                'pull_request': {'number': '1234', 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}, 'draft': False}}
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
@@ -732,15 +781,15 @@ class TestControllers(BaseTestCase):
         mock_blocked.query.filter.assert_called_once()
 
     @mock.patch('mod_ci.controllers.BlockedUsers')
-    @mock.patch('mod_ci.controllers.GitHub')
+    @mock.patch('github.Github.get_repo')
     @mock.patch('mod_ci.controllers.add_test_entry')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_pr_opened(self, mock_request, mock_add_test_entry, mock_github, mock_blocked):
+    def test_webhook_pr_opened(self, mock_request, mock_add_test_entry, mock_repo, mock_blocked):
         """Test webhook triggered with pull_request event with opened action."""
         mock_blocked.query.filter.return_value.first.return_value = None
 
         data = {'action': 'opened',
-                'pull_request': {'number': '1234', 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}}}
+                'pull_request': {'number': 1234, 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}, 'draft': False}}
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
@@ -750,12 +799,73 @@ class TestControllers(BaseTestCase):
         mock_blocked.query.filter.assert_called_once_with(mock_blocked.user_id == 'test')
         mock_add_test_entry.assert_called_once()
 
+    @mock.patch('mod_ci.controllers.BlockedUsers')
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('mod_ci.controllers.add_test_entry')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_pr_ready_for_review(self, mock_request, mock_add_test_entry, mock_repo, mock_blocked):
+        """Test webhook triggered with pull_request event with ready_for_review action."""
+        mock_blocked.query.filter.return_value.first.return_value = None
+
+        data = {'action': 'ready_for_review',
+                'pull_request': {'number': 1234, 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}, 'draft': False}}
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'pull_request'))
+
+        self.assertEqual(response.data, b'{"msg": "EOL"}')
+        mock_blocked.query.filter.assert_called_once_with(mock_blocked.user_id == 'test')
+        mock_add_test_entry.assert_called_once()
+
+    @mock.patch('mod_ci.controllers.BlockedUsers')
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_pr_invalid_action(self, mock_request, mock_repo, mock_blocked):
+        """Test webhook triggered with pull_request event with an invalid action."""
+        data = {'action': 'invalid',
+                'pull_request': {'number': 1234, 'draft': False, 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}}}
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'pull_request'))
+
+        self.assertEqual(response.data, b'{"msg": "EOL"}')
+        mock_blocked.query.filter.assert_not_called()
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_pr_opened_draft(self, mock_request, mock_repo):
+        """Test webhook triggered with pull_request event with open action, marked as draft."""
+        data = {'action': 'opened',
+                'pull_request': {'number': 1234, 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}, 'draft': True}}
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'pull_request'))
+
+        self.assertEqual(response.data, b'{"msg": "EOL"}')
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_pr_synchronize_draft(self, mock_request, mock_repo):
+        """Test webhook triggered with pull_request event with synchronize action, marked as draft."""
+        data = {'action': 'synchronize',
+                'pull_request': {'number': 1234, 'head': {'sha': 'abcd1234'}, 'user': {'id': 'test'}, 'draft': True}}
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'pull_request'))
+
+        self.assertEqual(response.data, b'{"msg": "EOL"}')
+
+    @mock.patch('github.Github.get_repo')
     @mock.patch('mod_ci.controllers.schedule_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_workflow_run_requested_valid_workflow_name(self, mock_request, mock_schedule_test):
+    def test_webhook_workflow_run_requested_valid_workflow_name(self, mock_requests, mock_schedule_test, mock_repo):
         """Test webhook triggered with workflow run event with action requested with a valid workflow name."""
         data = {'action': 'requested', 'workflow_run': {
-            'name': 'Build CCExtractor on Linux', 'head_sha': 'abcd1234'}}
+            'name': Workflow_builds.LINUX, 'head_sha': 'abcd1234'}}
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
@@ -763,117 +873,148 @@ class TestControllers(BaseTestCase):
         self.assertEqual(response.data, b'{"msg": "EOL"}')
         mock_schedule_test.assert_called_once()
 
+    @mock.patch('github.Github.get_repo')
     @mock.patch('mod_ci.controllers.queue_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_workflow_run_completed_successful_linux(self, mock_request, mock_queue_test):
+    def test_webhook_workflow_run_completed_successful_linux(self, mock_request, mock_queue_test, mock_repo):
         """Test webhook triggered with workflow run event with action completed and status success on linux."""
         data = {'action': 'completed',
                 'workflow_run': {'event': 'push',
                                  'name': Workflow_builds.LINUX, 'head_sha': '1',
                                  'head_branch': 'master'}, 'sender': {'login': 'test_owner'}}
-        fakedata = {'workflow_runs': [
-            {'head_sha': '1', 'status': 'completed',
-                'conclusion': 'success', 'name': Workflow_builds.LINUX}
-        ]}
+        from github.Workflow import Workflow
+        workflow = MagicMock(Workflow)
+        workflow.id = 1
+        workflow.name = Workflow_builds.LINUX
+        mock_repo.return_value.get_workflows.return_value = [workflow]
 
-        class MockedRepository:
-            def statuses(self, *args):
-                return None
+        from github.WorkflowRun import WorkflowRun
+        workflow_run1 = MagicMock(WorkflowRun)
+        workflow_run1.head_sha = '1'
+        workflow_run1.workflow_id = 1
+        workflow_run1.status = 'completed'
+        workflow_run1.conclusion = 'success'
+        workflow_run1.name = Workflow_builds.LINUX
 
-            class actions:
-                class runs:
-                    def get(*args, **kwargs):
-                        return fakedata
+        workflow_run2 = MagicMock(WorkflowRun)
+        workflow_run2.head_sha = '2'
 
-        class MockedGitHub:
-            def repos(self, *args):
-                return MockedRepository
+        mock_repo.return_value.get_workflow_runs.return_value = [workflow_run2, workflow_run1]
 
         with self.app.test_client() as c:
-            from github import GitHub
-            GitHub.repos = Mock(return_value=MockedGitHub.repos)
-
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
                 data=json.dumps(data), headers=self.generate_header(data, 'workflow_run'))
             mock_queue_test.assert_called_once()
 
+    @mock.patch('github.Github.get_repo')
     @mock.patch('mod_ci.controllers.queue_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_workflow_run_completed_successful_windows(self, mock_request, mock_queue_test):
+    def test_webhook_workflow_run_completed_successful_windows(self, mock_request, mock_queue_test, mock_repo):
         """Test webhook triggered with workflow run event with action completed and status success on windows."""
         data = {'action': 'completed',
                 'workflow_run': {'event': 'push',
                                  'name': Workflow_builds.WINDOWS, 'head_sha': '1',
                                  'head_branch': 'master'}, 'sender': {'login': 'test_owner'}}
-        fakedata = {'workflow_runs': [
-            {'head_sha': '1', 'status': 'completed',
-                'conclusion': 'success', 'name': Workflow_builds.WINDOWS}
-        ]}
+        from github.Workflow import Workflow
+        workflow = MagicMock(Workflow)
+        workflow.id = 1
+        workflow.name = Workflow_builds.WINDOWS
+        mock_repo.return_value.get_workflows.return_value = [workflow]
 
-        class MockedRepository:
-            def statuses(self, *args):
-                return None
-
-            class actions:
-                class runs:
-                    def get(*args, **kwargs):
-                        return fakedata
-
-        class MockedGitHub:
-            def repos(self, *args):
-                return MockedRepository
+        from github.WorkflowRun import WorkflowRun
+        workflow_run1 = MagicMock(WorkflowRun)
+        workflow_run1.head_sha = '1'
+        workflow_run1.workflow_id = 1
+        workflow_run1.status = 'completed'
+        workflow_run1.conclusion = 'success'
+        workflow_run1.name = Workflow_builds.WINDOWS
+        mock_repo.return_value.get_workflow_runs.return_value = [workflow_run1]
 
         with self.app.test_client() as c:
-            from github import GitHub
-            GitHub.repos = Mock(return_value=MockedGitHub.repos)
-
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
                 data=json.dumps(data), headers=self.generate_header(data, 'workflow_run'))
             mock_queue_test.assert_called_once()
 
-    @mock.patch('mod_ci.controllers.deschedule_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_workflow_run_completed_failure(self, mock_request, mock_deschedule_test):
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('mod_ci.controllers.deschedule_test')
+    def test_webhook_workflow_run_completed_failure(self, mock_deschedule_test, mock_repo, mock_request):
         """Test webhook triggered with workflow run event with action completed and status failure."""
         data = {'action': 'completed',
                 'workflow_run': {'event': 'push',
-                                 'name': Workflow_builds.LINUX, 'head_sha': '1',
+                                 'name': Workflow_builds.WINDOWS, 'head_sha': '1',
                                  'head_branch': 'master'}, 'sender': {'login': 'test_owner'}}
-        fakedata = {'workflow_runs': [
-            {'head_sha': '1', 'status': 'completed',
-             'conclusion': 'failure', 'name': Workflow_builds.LINUX}
-        ]}
 
-        class MockedRepository:
-            def statuses(self, *args):
-                return None
+        from github.Workflow import Workflow
+        workflow = MagicMock(Workflow)
+        workflow.id = 1
+        workflow.name = Workflow_builds.WINDOWS
+        mock_repo.return_value.get_workflows.return_value = [workflow]
 
-            class actions:
-                class runs:
-                    def get(*args, **kwargs):
-                        return fakedata
+        from github.WorkflowRun import WorkflowRun
+        workflow_run1 = MagicMock(WorkflowRun)
+        workflow_run1.head_sha = '1'
+        workflow_run1.workflow_id = 1
+        workflow_run1.status = 'completed'
+        workflow_run1.conclusion = 'failure'
+        workflow_run1.name = Workflow_builds.WINDOWS
+        mock_repo.return_value.get_workflow_runs.return_value = [workflow_run1]
 
-        class MockedGitHub:
-            def repos(self, *args):
-                return MockedRepository
+        from github.PullRequest import PullRequest
+        pr = MagicMock(PullRequest)
+        pr.head.sha = '1'
+        pr.user.id = 1
+        pr.number = 1
+        mock_repo.return_value.get_pulls.return_value = [pr]
 
         with self.app.test_client() as c:
-            from github import GitHub
-            GitHub.repos = Mock(return_value=MockedGitHub.repos)
-
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
                 data=json.dumps(data), headers=self.generate_header(data, 'workflow_run'))
         mock_deschedule_test.assert_called()
 
+    @mock.patch('mod_ci.controllers.deschedule_test')
+    @mock.patch('mod_ci.controllers.schedule_test')
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_workflow_run_running(self, mock_request, mock_repo, mock_schedule_test, mock_deschedule_test):
+        """Test webhook triggered with workflow run event where github actions is still in progress."""
+        data = {'action': 'completed',
+                'workflow_run': {'event': 'push',
+                                 'name': Workflow_builds.WINDOWS, 'head_sha': '1',
+                                 'head_branch': 'master'}, 'sender': {'login': 'test_owner'}}
+
+        from github.Workflow import Workflow
+        workflow = MagicMock(Workflow)
+        workflow.id = 1
+        workflow.name = Workflow_builds.WINDOWS
+        mock_repo.return_value.get_workflows.return_value = [workflow]
+
+        from github.WorkflowRun import WorkflowRun
+        workflow_run1 = MagicMock(WorkflowRun)
+        workflow_run1.head_sha = '1'
+        workflow_run1.workflow_id = 1
+        workflow_run1.status = 'not_completed_yet'
+        workflow_run1.name = Workflow_builds.WINDOWS
+        mock_repo.return_value.get_workflow_runs.return_value = [workflow_run1]
+
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'workflow_run'))
+
+        mock_schedule_test.assert_not_called()
+        mock_deschedule_test.assert_not_called()
+
+    @mock.patch('github.Github.get_repo')
     @mock.patch('mod_ci.controllers.schedule_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_workflow_run_requested_invalid_workflow_name(self, mock_request, mock_schedule_test):
+    def test_webhook_workflow_run_requested_invalid_workflow_name(self, mock_request, mock_schedule_test, mock_repo):
         """Test webhook triggered with workflow run event with an invalid action."""
         data = {'action': 'requested', 'workflow_run': {
-            'name': 'Invalid', 'head_sha': 'abcd1234'}}
+            'name': 'Invalid', 'head_sha': 'abcdef'}}
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
@@ -881,12 +1022,13 @@ class TestControllers(BaseTestCase):
         mock_schedule_test.assert_not_called()
         self.assertEqual(response.data, b'{"msg": "EOL"}')
 
+    @mock.patch('github.Github.get_repo')
     @mock.patch('mod_ci.controllers.schedule_test')
     @mock.patch('mod_ci.controllers.deschedule_test')
     @mock.patch('mod_ci.controllers.add_test_entry')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_with_unrecognized_event(self, mock_github, mock_schedule_test,
-                                             mock_deschedule_test, mock_add_test_entry):
+    def test_webhook_with_unrecognized_event(self, mock_requests, mock_schedule_test,
+                                             mock_deschedule_test, mock_add_test_entry, mock_repo):
         """Test webhook with an unrecognised event triggered via GitHub Actions."""
         with self.app.test_client() as c:
             response = c.post(
@@ -907,43 +1049,39 @@ class TestControllers(BaseTestCase):
                 data=json.dumps({}), headers=self.generate_header({}, 'workflow_run', "1"))
         mock_warning.assert_called_once()
 
+    @mock.patch('github.Github.get_repo')
     @mock.patch('mod_ci.controllers.BlockedUsers')
     @mock.patch('mod_ci.controllers.queue_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_workflow_run_completed_successful_pr_linux(self, mock_request, mock_queue_test, mock_blocked):
+    def test_webhook_workflow_run_completed_successful_pr_linux(self, mock_request, mock_queue_test,
+                                                                mock_blocked, mock_repo):
         """Test webhook triggered - workflow run event, action completed, status success for pull request on linux."""
         data = {'action': 'completed',
                 'workflow_run': {'event': 'pull_request',
                                  'name': Workflow_builds.LINUX, 'head_sha': '1',
                                  'head_branch': 'master'}, 'sender': {'login': 'test_owner'}}
-        fakedata = {'workflow_runs': [
-            {'head_sha': '1', 'status': 'completed',
-             'conclusion': 'success', 'name': Workflow_builds.LINUX}
-        ]}
-        pull_requests = [{'head': {'sha': '1'}, 'user': {'id': 1}, 'number': '1'}]
+        from github.Workflow import Workflow
+        workflow = MagicMock(Workflow)
+        workflow.id = 1
+        workflow.name = Workflow_builds.LINUX
+        mock_repo.return_value.get_workflows.return_value = [workflow]
 
-        class MockedRepository:
-            def statuses(self, *args):
-                class gh_status:
-                    def post(*args, **kwargs):
-                        return None
-                return gh_status
+        from github.WorkflowRun import WorkflowRun
+        workflow_run1 = MagicMock(WorkflowRun)
+        workflow_run1.head_sha = '1'
+        workflow_run1.workflow_id = 1
+        workflow_run1.status = 'completed'
+        workflow_run1.conclusion = 'success'
+        workflow_run1.name = Workflow_builds.LINUX
+        mock_repo.return_value.get_workflow_runs.return_value = [workflow_run1]
 
-            class actions:
-                class runs:
-                    def get(*args, **kwargs):
-                        return fakedata
-
-            class pulls:
-                def get(*args, **kwargs):
-                    return pull_requests
-
-        class MockedGitHub:
-            def repos(self, *args):
-                return MockedRepository
+        from github.PullRequest import PullRequest
+        pr = MagicMock(PullRequest)
+        pr.head.sha = '1'
+        pr.user.id = 1
+        pr.number = 1
+        mock_repo.return_value.get_pulls.return_value = [pr]
         with self.app.test_client() as c:
-            from github import GitHub
-            GitHub.repos = Mock(return_value=MockedGitHub.repos)
             mock_blocked.query.filter.return_value.first.return_value = None
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
@@ -958,43 +1096,40 @@ class TestControllers(BaseTestCase):
             mock_queue_test.assert_not_called()
             self.assertEqual(response.data, b'ERROR')
 
+    @mock.patch('github.Github.get_repo')
     @mock.patch('mod_ci.controllers.BlockedUsers')
     @mock.patch('mod_ci.controllers.queue_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_workflow_run_completed_successful_pr_windows(self, mock_request, mock_queue_test, mock_blocked):
+    def test_webhook_workflow_run_completed_successful_pr_windows(self, mock_request,
+                                                                  mock_queue_test, mock_blocked, mock_repo):
         """Test webhook triggered - workflow run event, action completed, status success for pull request on windows."""
         data = {'action': 'completed',
                 'workflow_run': {'event': 'pull_request',
                                  'name': Workflow_builds.WINDOWS, 'head_sha': '1',
                                  'head_branch': 'master'}, 'sender': {'login': 'test_owner'}}
-        fakedata = {'workflow_runs': [
-            {'head_sha': '1', 'status': 'completed',
-             'conclusion': 'success', 'name': Workflow_builds.WINDOWS}
-        ]}
-        pull_requests = [{'head': {'sha': '1'}, 'user': {'id': 1}, 'number': '1'}]
+        from github.Workflow import Workflow
+        workflow = MagicMock(Workflow)
+        workflow.id = 1
+        workflow.name = Workflow_builds.WINDOWS
+        mock_repo.return_value.get_workflows.return_value = [workflow]
 
-        class MockedRepository:
-            def statuses(self, *args):
-                class gh_status:
-                    def post(*args, **kwargs):
-                        return None
-                return gh_status
+        from github.WorkflowRun import WorkflowRun
+        workflow_run1 = MagicMock(WorkflowRun)
+        workflow_run1.head_sha = '1'
+        workflow_run1.workflow_id = 1
+        workflow_run1.status = 'completed'
+        workflow_run1.conclusion = 'success'
+        workflow_run1.name = Workflow_builds.WINDOWS
+        mock_repo.return_value.get_workflow_runs.return_value = [workflow_run1]
 
-            class actions:
-                class runs:
-                    def get(*args, **kwargs):
-                        return fakedata
+        from github.PullRequest import PullRequest
+        pr = MagicMock(PullRequest)
+        pr.head.sha = '1'
+        pr.user.id = 1
+        pr.number = 1
+        mock_repo.return_value.get_pulls.return_value = [pr]
 
-            class pulls:
-                def get(*args, **kwargs):
-                    return pull_requests
-
-        class MockedGitHub:
-            def repos(self, *args):
-                return MockedRepository
         with self.app.test_client() as c:
-            from github import GitHub
-            GitHub.repos = Mock(return_value=MockedGitHub.repos)
             mock_blocked.query.filter.return_value.first.return_value = None
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
@@ -1009,45 +1144,42 @@ class TestControllers(BaseTestCase):
             mock_queue_test.assert_not_called()
             self.assertEqual(response.data, b'ERROR')
 
+    @mock.patch('github.Github.get_repo')
     @mock.patch('mod_ci.controllers.deschedule_test')
     @mock.patch('mod_ci.controllers.BlockedUsers')
     @mock.patch('mod_ci.controllers.queue_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_workflow_run_completed_successful_pr_updated(self, mock_request, mock_queue_test,
-                                                                  mock_blocked, mock_deschedule_test):
+                                                                  mock_blocked, mock_deschedule_test, mock_repo):
         """Test webhook triggered - workflow run event, action completed, for a pull request whose head was updated."""
         data = {'action': 'completed',
                 'workflow_run': {'event': 'pull_request',
                                  'name': Workflow_builds.WINDOWS, 'head_sha': '1',
                                  'head_branch': 'master'}, 'sender': {'login': 'test_owner'}}
-        fakedata = {'workflow_runs': [
-            {'head_sha': '1', 'status': 'completed',
-             'conclusion': 'success', 'name': Workflow_builds.WINDOWS}
-        ]}
-        pull_requests = [{'head': {'sha': '2'}, 'user': {'id': 1}, 'number': '1'}]
 
-        class MockedRepository:
-            def statuses(self, *args):
-                class gh_status:
-                    def post(*args, **kwargs):
-                        return None
-                return gh_status
+        from github.Workflow import Workflow
+        workflow = MagicMock(Workflow)
+        workflow.id = 1
+        workflow.name = Workflow_builds.WINDOWS
+        mock_repo.return_value.get_workflows.return_value = [workflow]
 
-            class actions:
-                class runs:
-                    def get(*args, **kwargs):
-                        return fakedata
+        from github.WorkflowRun import WorkflowRun
+        workflow_run1 = MagicMock(WorkflowRun)
+        workflow_run1.head_sha = '1'
+        workflow_run1.workflow_id = 1
+        workflow_run1.status = 'completed'
+        workflow_run1.conclusion = 'success'
+        workflow_run1.name = Workflow_builds.WINDOWS
+        mock_repo.return_value.get_workflow_runs.return_value = [workflow_run1]
 
-            class pulls:
-                def get(*args, **kwargs):
-                    return pull_requests
+        from github.PullRequest import PullRequest
+        pr = MagicMock(PullRequest)
+        pr.head.sha = '2'
+        pr.user.id = 1
+        pr.number = 1
+        mock_repo.return_value.get_pulls.return_value = [pr]
 
-        class MockedGitHub:
-            def repos(self, *args):
-                return MockedRepository
         with self.app.test_client() as c:
-            from github import GitHub
-            GitHub.repos = Mock(return_value=MockedGitHub.repos)
             mock_blocked.query.filter.return_value.first.return_value = None
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
@@ -1057,68 +1189,81 @@ class TestControllers(BaseTestCase):
 
     def test_start_ci_with_a_get_request(self):
         """Test start_ci function with a request method other than post."""
-        from mod_ci.controllers import start_ci
-        response = start_ci()
-        self.assertEqual(response, 'OK')
+        with self.app.test_client() as c:
+            response = c.get('/start-ci', environ_overrides=WSGI_ENVIRONMENT, headers=self.generate_header({}, 'test'))
+            self.assertEqual(response.data, b'OK')
 
-    @mock.patch('github.GitHub')
+    @mock.patch('github.Github')
     @mock.patch('run.log.debug')
-    def test_queue_test_with_pull_request(self, mock_debug, git_mock):
+    def test_queue_test_with_pull_request(self, mock_debug, mock_github):
         """Check queue_test function with pull request as test type."""
         from mod_ci.controllers import add_test_entry, queue_test
-        repository = git_mock(access_token=g.github['bot_token']).repos(
-            g.github['repository_owner'])(g.github['repository'])
-        add_test_entry(g.db, repository.statuses("1"), 'customizedcommitcheck', TestType.pull_request)
+        repository = mock_github(g.github['bot_token']).get_repo(
+            f"{g.github['repository_owner']}/{g.github['repository']}")
+        add_test_entry(g.db, 'customizedcommitcheck', TestType.pull_request)
         mock_debug.assert_called_once_with('pull request test type detected')
-        queue_test(repository.statuses("1"), 'customizedcommitcheck', TestType.pull_request, TestPlatform.linux)
+        queue_test(repository.get_commit("1"), 'customizedcommitcheck', TestType.pull_request, TestPlatform.linux)
         mock_debug.assert_called_with('Created tests, waiting for cron...')
 
     @mock.patch('run.log.critical')
+    @mock.patch('github.Github.get_repo')
     @mock.patch('run.log.debug')
-    @mock.patch('github.GitHub')
-    def test_schedule_test_function(self, git_mock, mock_debug, mock_critical):
+    def test_queue_test_github_failure(self, mock_debug, mock_repo, mock_critical):
+        """Check queue_test function when updating GitHub status fails."""
+        from github import GithubException
+
+        from mod_ci.controllers import add_test_entry, queue_test
+        add_test_entry(g.db, 'customizedcommitcheck', TestType.pull_request)
+        mock_debug.assert_called_once_with('pull request test type detected')
+        mock_commit = mock_repo.get_commit("1")
+        response_data = "mock 400 response"
+        mock_commit.create_status = mock.MagicMock(
+            side_effect=GithubException(status=400, data=response_data, headers={}))
+        queue_test(mock_commit, 'customizedcommitcheck', TestType.pull_request, TestPlatform.linux)
+        mock_debug.assert_called_with('Created tests, waiting for cron...')
+        mock_critical.assert_called_with(f"Could not post to GitHub! Response: {response_data}")
+
+    @mock.patch('run.log')
+    @mock.patch('github.Github')
+    def test_schedule_test_function(self, git_mock, mock_log):
         """Check the functioning of schedule_test function."""
         from mod_ci.controllers import schedule_test
-        repository = git_mock(access_token=g.github['bot_token']).repos(
-            g.github['repository_owner'])(g.github['repository'])
-        schedule_test(repository.statuses(1), "1", TestType.commit)
-        mock_debug.assert_not_called()
-        schedule_test(None, None, TestType.commit)
-        mock_debug.assert_not_called()
-        schedule_test(repository.statuses(1), "1", TestType.pull_request)
-        mock_debug.assert_called_once_with('pull request test type detected')
+        repository = git_mock(g.github['bot_token']).get_repo(
+            f"{g.github['repository_owner']}/{g.github['repository']}")
+        schedule_test(repository.get_commit(1))
+        mock_log.debug.assert_not_called()
+        mock_log.critical.assert_not_called()
 
-    @mock.patch('run.log.critical')
-    @mock.patch('run.log.debug')
-    @mock.patch('github.GitHub')
-    def test_deschedule_test_function_linux(self, git_mock, mock_debug, mock_critical):
+        mock_log.reset_mock()
+        schedule_test(None)
+        mock_log.debug.assert_not_called()
+        mock_log.critical.assert_not_called()
+
+    @mock.patch('run.log')
+    @mock.patch('github.Github')
+    def test_deschedule_test_function(self, git_mock, mock_log):
         """Check the functioning of deschedule_test function on linux platform."""
         from mod_ci.controllers import deschedule_test
-        repository = git_mock(access_token=g.github['bot_token']).repos(
-            g.github['repository_owner'])(g.github['repository'])
-        deschedule_test(repository.statuses(1), 1, TestType.commit, TestPlatform.linux)
-        mock_debug.assert_not_called()
+        repository = git_mock(g.github['bot_token']).get_repo(
+            f"{g.github['repository_owner']}/{g.github['repository']}")
+        commit = Test.query.filter(Test.platform == TestPlatform.linux).first().commit
+        deschedule_test(repository.get_commit(commit), commit, TestType.pull_request, TestPlatform.linux)
+        mock_log.debug.assert_called_once_with("pull request test type detected")
+        mock_log.critical.assert_not_called()
+
+        # Test deschedule function with github commit None
+        mock_log.reset_mock()
         deschedule_test(None, 1, TestType.commit, TestPlatform.linux)
-        mock_debug.assert_not_called()
+        mock_log.debug.assert_not_called()
+        mock_log.critical.assert_not_called()
 
-    @mock.patch('run.log.critical')
-    @mock.patch('run.log.debug')
-    @mock.patch('github.GitHub')
-    def test_deschedule_test_function_windows(self, git_mock, mock_debug, mock_critical):
-        """Check the functioning of deschedule_test function on windows platform."""
-        from mod_ci.controllers import deschedule_test
-        repository = git_mock(access_token=g.github['bot_token']).repos(
-            g.github['repository_owner'])(g.github['repository'])
-        deschedule_test(repository.statuses(1), 1, TestType.commit, TestPlatform.windows)
-        mock_debug.assert_not_called()
-        deschedule_test(None, 1, TestType.commit, TestPlatform.windows)
-        mock_debug.assert_not_called()
-
-    @mock.patch('mod_ci.controllers.inform_mailing_list')
+    @mock.patch('github.Github.get_repo')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    @mock.patch('mod_ci.controllers.Issue')
-    def test_webhook_issue_opened(self, mock_issue, mock_requests, mock_mailing):
+    @mock.patch('mod_ci.controllers.inform_mailing_list')
+    @mock.patch('mod_sample.models.Issue.query')
+    def test_webhook_issue_opened(self, mock_issue, mock_mailing, mock_request, mock_github):
         """Test webhook triggered with issues event with opened action."""
+        from mod_sample.models import Issue
         data = {'action': 'opened',
                 'issue': {'number': '1234', 'title': 'testTitle', 'body': 'testing', 'state': 'opened',
                           'user': {'login': 'testAuthor'}}}
@@ -1128,20 +1273,25 @@ class TestControllers(BaseTestCase):
                 data=json.dumps(data), headers=self.generate_header(data, 'issues'))
 
         self.assertEqual(response.data, b'{"msg": "EOL"}')
-        mock_issue.query.filter(mock_issue.issue_id == '1234')
         mock_mailing.assert_called_once_with(mock.ANY, '1234', 'testTitle', 'testAuthor', 'testing')
 
+    @mock.patch('github.Github')
     @mock.patch('run.log.critical')
-    def test_github_api_error(self, mock_critical):
+    def test_github_api_error(self, mock_critical, mock_github):
         """Test functions with GitHub API error."""
-        from github import GitHub
+        from github import Github, GithubException
 
         from mod_ci.controllers import deschedule_test, schedule_test
-        schedule_test(GitHub('1').repos('1')('1').statuses('1'), 1, TestType.commit)
+        github_status = Github('1').get_repo(
+            f"{g.github['repository_owner']}/{g.github['repository']}").get_commit('abcdef')
+        github_status.create_status.side_effect = GithubException(status=500, data="", headers={})
+        schedule_test(github_status)
         mock_critical.assert_called()
         mock_critical.reset_mock()
-        deschedule_test(GitHub('1').repos('1')('1').statuses('1'), 1, TestType.commit, TestPlatform.linux)
-        deschedule_test(GitHub('1').repos('1')('1').statuses('1'), 1, TestType.commit, TestPlatform.windows)
+        deschedule_test(github_status, 1, TestType.commit, TestPlatform.linux)
+        mock_critical.assert_called()
+        mock_critical.reset_mock()
+        deschedule_test(github_status, 1, TestType.commit, TestPlatform.windows)
         mock_critical.assert_called()
 
     @mock.patch('mod_ci.controllers.is_main_repo')
@@ -1556,6 +1706,32 @@ class TestControllers(BaseTestCase):
                 '/maintenance/windows')
 
         self.assertIsNotNone(response.data)
+
+    @mock.patch('run.log')
+    @mock.patch('run.config')
+    def test_start_platforms_with_empty_zone(self, mock_config, mock_log):
+        """Test start_platforms function if GCP zone is not provided in config."""
+        def config_get(key, *args, **kwargs):
+            if key == "ZONE":
+                return ""
+            return "test"
+        mock_config.get.side_effect = config_get
+        start_platforms(mock.ANY)
+
+        mock_log.critical.assert_called_with('GCP zone name is empty!')
+
+    @mock.patch('run.log')
+    @mock.patch('run.config')
+    def test_start_platforms_with_empty_project_name(self, mock_config, mock_log):
+        """Test start_platforms function if GCP project name is not provided in config."""
+        def config_get(key, *args, **kwargs):
+            if key == "PROJECT_NAME":
+                return ""
+            return "test"
+        mock_config.get.side_effect = config_get
+        start_platforms(mock.ANY)
+
+        mock_log.critical.assert_called_with('GCP project name is empty!')
 
     @staticmethod
     def generate_header(data, event, ci_key=None):

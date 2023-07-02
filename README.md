@@ -97,7 +97,7 @@ virtualenv venv                          # create a virtual environment
 source venv/bin/activate                 # activate the virtual environment
 pip install -r requirements.txt          # install dependencies
 pip install -r test-requirements.txt     # install test dependencies
-TESTING=True nosetests --with-cov --cov-config .coveragerc
+TESTING=True nose2
 ```
 
 ## Migrating platform between machines

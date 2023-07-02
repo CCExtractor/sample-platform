@@ -8,7 +8,7 @@ from flask import g, url_for
 from mod_auth.models import Role
 from mod_sample.models import Issue, Sample
 from mod_upload.models import QueuedSample
-from tests.base import BaseTestCase, mock_api_request_github, mock_decorator
+from tests.base import BaseTestCase, MockResponse
 
 
 class TestControllers(BaseTestCase):
@@ -58,9 +58,10 @@ class TestControllers(BaseTestCase):
             self.assertEqual(queued_sample.filename, saved_filename)
             self.assertEqual(queued_sample.extension, '.ts')
 
-    @mock.patch('requests.Session.post', side_effect=mock_api_request_github)
+    @mock.patch('github.Github')
+    @mock.patch('requests.Session.post')
     @mock.patch('os.rename')
-    def test_process(self, mock_rename, mock_post):
+    def test_process(self, mock_rename, mock_post, mock_github):
         """Test sample upload process."""
         import mod_upload.controllers
         reload(mod_upload.controllers)
@@ -76,12 +77,12 @@ class TestControllers(BaseTestCase):
             g.db.commit()
             response = c.post('/account/login', data=self.create_login_form_data(
                 self.user.email, self.user.password))
-            from github import GitHub
-            GitHub.repos = mock.MagicMock()
-            GitHub.repos.return_value.return_value.contents.return_value.get.return_value = {
+            mock_github.return_value.get_repo.return_value.get_contents = mock.MagicMock(return_value={
                 "content": base64.b64encode("test".encode("ascii")).decode("ascii"),
                 "encoding": 'base64'
-            }
+            })
+            mock_post.return_value = MockResponse({'number': 1, 'title': 'test', 'user': {'login': 'test'},
+                                                   'created_at': '2023-03-08T13:25:00Z', 'state': 'open'}, 201)
             response = c.post(url_for('upload.process_id', upload_id=1),
                               data=dict(
                 notes='test note',

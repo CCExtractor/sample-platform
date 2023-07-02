@@ -15,7 +15,7 @@ class TestConfigParser(BaseTestCase):
         file_config = "TEST = 'run'"
         expected_config = {'TEST': 'run'}
 
-        with provide_file_at_root('parse.py', file_config):
+        with provide_file_at_root('parse.py', file_config, to_delete=False):
             out_config = parse_config('parse')
 
         self.assertEquals(out_config, expected_config)

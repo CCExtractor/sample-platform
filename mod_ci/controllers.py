@@ -17,7 +17,7 @@ import googleapiclient.discovery
 import requests
 from flask import (Blueprint, abort, flash, g, jsonify, redirect, request,
                    url_for)
-from github import Commit, Github, GithubException, Repository
+from github import Commit, Github, GithubException, GithubObject, Repository
 from google.oauth2 import service_account
 from lxml import etree
 from markdown2 import markdown
@@ -189,6 +189,21 @@ def delete_expired_instances(compute, max_runtime, project, zone) -> None:
             creationTimestamp = datetime.datetime.strptime(instance['creationTimestamp'], '%Y-%m-%dT%H:%M:%S.%f%z')
             currentTimestamp = datetime.datetime.now(datetime.timezone.utc)
             if currentTimestamp - creationTimestamp >= datetime.timedelta(minutes=max_runtime):
+                # Update test status in database and on GitHub
+                platform_name, test_id = vm_name.split('-')
+                test = Test.query.filter(Test.id == test_id).first()
+                message = "Could not complete test, time limit exceeded"
+                progress = TestProgress(test_id, TestStatus.canceled, message)
+                g.db.add(progress)
+                g.db.commit()
+
+                gh = Github(g.github['bot_token'])
+                repository = gh.get_repo(f"{g.github['repository_owner']}/{g.github['repository']}")
+                gh_commit = repository.get_commit(test.commit)
+                if gh_commit is not None:
+                    update_status_on_github(gh_commit, Status.ERROR, message, f"CI - {platform_name}")
+
+                # Delete VM instance
                 operation = delete_instance(compute, project, zone, vm_name)
                 wait_for_operation(compute, project, zone, operation['name'])
 
@@ -650,18 +665,38 @@ def schedule_test(gh_commit: Commit.Commit) -> None:
     :return: Nothing
     :rtype: None
     """
-    from run import log
-
     if gh_commit is not None:
         for platform in TestPlatform:
-            try:
-                gh_commit.create_status(
-                    state=Status.PENDING,
-                    description="Waiting for actions to complete",
-                    context=f"CI - {platform.value}",
-                )
-            except GithubException as a:
-                log.critical(f'Could not post to GitHub! Response: {a.data}')
+            status_description = "Waiting for actions to complete"
+            update_status_on_github(gh_commit, Status.PENDING, status_description, f"CI - {platform.value}")
+
+
+def update_status_on_github(gh_commit: Commit.Commit, state, description, context, target_url=GithubObject._NotSetType):
+    """
+    Update status on GitHub.
+
+    :param gh_commit: The GitHub API call for the commit. Can be None
+    :type gh_commit: Any
+    :param state: The test status.
+    :type state: Status
+    :param description: Description of test status.
+    :type description: str
+    :param context: Context for Github status.
+    :type context: str
+    :param target_url: Platform url for test status
+    :type target_url: _NotSetType | str
+    """
+    from run import log
+
+    try:
+        gh_commit.create_status(
+            state=state,
+            description=description,
+            context=context,
+            target_url=target_url
+        )
+    except GithubException as a:
+        log.critical(f'Could not post to GitHub! Response: {a.data}')
 
 
 def deschedule_test(gh_commit: Commit.Commit, commit, test_type, platform, branch="master",
@@ -708,14 +743,7 @@ def deschedule_test(gh_commit: Commit.Commit, commit, test_type, platform, branc
         g.db.commit()
 
     if gh_commit is not None:
-        try:
-            gh_commit.create_status(
-                state=state,
-                description=message,
-                context=f"CI - {platform.value}",
-            )
-        except GithubException as a:
-            log.critical(f'Could not post to GitHub! Response: {a.data}')
+        update_status_on_github(gh_commit, state, message, f"CI - {platform.value}")
 
 
 def queue_test(gh_commit: Commit.Commit, commit, test_type, platform, branch="master", pr_nr=0) -> None:
@@ -756,15 +784,9 @@ def queue_test(gh_commit: Commit.Commit, commit, test_type, platform, branch="ma
     add_customized_regression_tests(platform_test.id)
 
     if gh_commit is not None:
-        try:
-            gh_commit.create_status(
-                state=Status.PENDING,
-                description="Tests queued",
-                context=f"CI - {platform_test.platform.value}",
-                target_url=url_for('test.by_id', test_id=platform_test.id, _external=True)
-            )
-        except GithubException as a:
-            log.critical(f'Could not post to GitHub! Response: {a.data}')
+        target_url = url_for('test.by_id', test_id=platform_test.id, _external=True)
+        status_context = f"CI - {platform_test.platform.value}"
+        update_status_on_github(gh_commit, Status.PENDING, "Tests queued", status_context, target_url)
 
     log.debug("Created tests, waiting for cron...")
 

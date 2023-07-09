@@ -1524,12 +1524,18 @@ class TestControllers(BaseTestCase):
     def test_progress_type_request(self, mock_repo, mock_update_build_badge, mock_get_compute_service_object,
                                    mock_delete_instance, mock_wait_for_operation):
         """Test progress_type_request function."""
+        from mod_ci.models import GcpInstance
         from run import log
+
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.tester)
         self.create_forktest("own-fork-commit", TestPlatform.linux, regression_tests=[2])
         request = MagicMock()
         request.form = {'status': 'completed', 'message': 'Ran all tests'}
+        gcp_instance = GcpInstance(name='test_instance', test_id=3)
+        g.db.add(gcp_instance)
+        g.db.commit()
+
         test = Test.query.filter(Test.id == 3).first()
 
         response = progress_type_request(log, test, test.id, request)

@@ -654,14 +654,6 @@ def schedule_test(gh_commit: Commit.Commit) -> None:
 
     :param gh_commit: The GitHub API call for the commit. Can be None
     :type gh_commit: Any
-    :param commit: The commit hash.
-    :type commit: str
-    :param test_type: The type of test
-    :type test_type: TestType
-    :param branch: Branch name
-    :type branch: str
-    :param pr_nr: Pull Request number, if applicable.
-    :type pr_nr: int
     :return: Nothing
     :rtype: None
     """
@@ -671,7 +663,8 @@ def schedule_test(gh_commit: Commit.Commit) -> None:
             update_status_on_github(gh_commit, Status.PENDING, status_description, f"CI - {platform.value}")
 
 
-def update_status_on_github(gh_commit: Commit.Commit, state, description, context, target_url=GithubObject._NotSetType):
+def update_status_on_github(gh_commit: Commit.Commit, state, description, context,
+                            target_url=GithubObject._NotSetType()):
     """
     Update status on GitHub.
 
@@ -684,7 +677,7 @@ def update_status_on_github(gh_commit: Commit.Commit, state, description, contex
     :param context: Context for Github status.
     :type context: str
     :param target_url: Platform url for test status
-    :type target_url: _NotSetType | str
+    :type target_url: _NotSetType() | str
     """
     from run import log
 

@@ -1163,26 +1163,26 @@ def progress_reporter(test_id, token):
 
         if 'type' in request.form:
             if request.form['type'] == 'progress':
-                log.info(f'[PROGRESS_REPORTER] Progress reported, test_id:{test_id}')
+                log.info(f'[PROGRESS_REPORTER][Test: {test_id}] Progress reported')
                 if not progress_type_request(log, test, test_id, request):
                     return "FAIL"
 
             elif request.form['type'] == 'equality':
-                log.info(f'[PROGRESS_REPORTER] Equality reported, test_id:{test_id}')
+                log.info(f'[PROGRESS_REPORTER][Test: {test_id}] Equality reported')
                 equality_type_request(log, test_id, test, request)
 
             elif request.form['type'] == 'logupload':
-                log.info(f'[PROGRESS_REPORTER] Log upload, test_id:{test_id}')
+                log.info(f'[PROGRESS_REPORTER][Test: {test_id}] Log upload')
                 if not upload_log_type_request(log, test_id, repo_folder, test, request):
                     return "EMPTY"
 
             elif request.form['type'] == 'upload':
-                log.info(f'[PROGRESS_REPORTER] File upload, test_id:{test_id}')
+                log.info(f'[PROGRESS_REPORTER][Test: {test_id}] File upload')
                 if not upload_type_request(log, test_id, repo_folder, test, request):
                     return "EMPTY"
 
             elif request.form['type'] == 'finish':
-                log.info(f'[PROGRESS_REPORTER] Test finished, test_id:{test_id}')
+                log.info(f'[PROGRESS_REPORTER][Test: {test_id}] Test finished')
                 finish_type_request(log, test_id, test, request)
             else:
                 return "FAIL"
@@ -1224,7 +1224,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
             gcp_instance_entry = GcpInstance.query.filter(GcpInstance.test_id == test_id).first()
 
             if status == TestStatus.testing:
-                log.info('test preparation finished')
+                log.info(f'[Test: {test_id}] Preparation finished')
                 prep_finish_time = datetime.datetime.now()
                 # save preparation finish time
                 gcp_instance_entry.timestamp_prep_finished = prep_finish_time
@@ -1253,7 +1253,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
 
     # If status is complete, remove the GCP Instance entry
     if status in [TestStatus.completed, TestStatus.canceled]:
-        log.debug(f"Test {test_id} has been {status}")
+        log.debug(f"[Test: {test_id}] Test {status}")
         var_average = 'average_time_' + test.platform.value
         current_average = GeneralData.query.filter(GeneralData.key == var_average).first()
         average_time = 0
@@ -1281,8 +1281,8 @@ def progress_type_request(log, test, test_id, request) -> bool:
 
             for p in times:
                 parts = p.time.split(',')
-                start = datetime.datetime.strptime(parts[0], '%Y-%m-%d %H:%M:%S')
-                end = datetime.datetime.strptime(parts[-1], '%Y-%m-%d %H:%M:%S')
+                start = datetime.datetime.strptime(parts[0], '%Y-%m-%d %H:%M:%S.%f')
+                end = datetime.datetime.strptime(parts[-1], '%Y-%m-%d %H:%M:%S.%f')
                 total_time += int((end - start).total_seconds())
 
             if len(times) != 0:
@@ -1317,7 +1317,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
         gcp_instance = GcpInstance.query.filter(GcpInstance.test_id == test_id).first()
 
         if gcp_instance is not None:
-            log.debug("Removing GCP Instance entry")
+            log.debug(f"Removing GCP Instance entry: {gcp_instance}")
             g.db.delete(gcp_instance)
             g.db.commit()
 
@@ -1351,7 +1351,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
                 TestResultFile.got.isnot(None)
             )
         ).scalar()
-        log.debug(f'Test {test.id} completed: {crashes} crashes, {results} results')
+        log.debug(f'[Test: {test.id}] Test completed: {crashes} crashes, {results} results')
         if crashes > 0 or results > 0:
             state = Status.FAILURE
             message = 'Not all tests completed successfully, please check'

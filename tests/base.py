@@ -53,8 +53,7 @@ def mock_decorator(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         return f(*args, **kwargs)
-
-        return decorated_function
+    return decorated_function
 
 
 def generate_keys():

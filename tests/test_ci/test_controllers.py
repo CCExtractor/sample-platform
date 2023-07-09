@@ -7,7 +7,7 @@ from flask import g
 
 from mod_auth.models import Role
 from mod_ci.controllers import (Workflow_builds, get_info_for_pr_comment,
-                                start_platforms)
+                                progress_type_request, start_platforms)
 from mod_ci.models import BlockedUsers
 from mod_customized.models import CustomizedTest
 from mod_home.models import CCExtractorVersion, GeneralData
@@ -1515,6 +1515,33 @@ class TestControllers(BaseTestCase):
         mock_log.debug.assert_called_once()
         mock_rto.query.filter.assert_called_once_with(mock_rto.id == 1)
         mock_log.info.assert_called_once()
+
+    @mock.patch('mod_ci.controllers.wait_for_operation')
+    @mock.patch('mod_ci.controllers.delete_instance')
+    @mock.patch('mod_ci.controllers.get_compute_service_object')
+    @mock.patch('mod_ci.controllers.update_build_badge')
+    @mock.patch('github.Github.get_repo')
+    def test_progress_type_request(self, mock_repo, mock_update_build_badge, mock_get_compute_service_object,
+                                   mock_delete_instance, mock_wait_for_operation):
+        """Test progress_type_request function."""
+        from mod_ci.models import GcpInstance
+        from run import log
+
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.tester)
+        self.create_forktest("own-fork-commit", TestPlatform.linux, regression_tests=[2])
+        request = MagicMock()
+        request.form = {'status': 'completed', 'message': 'Ran all tests'}
+        gcp_instance = GcpInstance(name='test_instance', test_id=3)
+        g.db.add(gcp_instance)
+        g.db.commit()
+
+        test = Test.query.filter(Test.id == 3).first()
+
+        response = progress_type_request(log, test, test.id, request)
+        mock_update_build_badge.assert_called_once()
+        mock_get_compute_service_object.assert_called()
+        self.assertTrue(response)
 
     @mock.patch('mod_ci.controllers.g')
     @mock.patch('mod_ci.controllers.TestResultFile')

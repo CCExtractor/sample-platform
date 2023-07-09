@@ -663,7 +663,8 @@ def schedule_test(gh_commit: Commit.Commit) -> None:
             update_status_on_github(gh_commit, Status.PENDING, status_description, f"CI - {platform.value}")
 
 
-def update_status_on_github(gh_commit: Commit.Commit, state, description, context, target_url=GithubObject._NotSetType()):
+def update_status_on_github(gh_commit: Commit.Commit, state, description, context,
+                            target_url=GithubObject._NotSetType()):
     """
     Update status on GitHub.
 

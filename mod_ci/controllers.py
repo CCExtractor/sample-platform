@@ -664,7 +664,7 @@ def schedule_test(gh_commit: Commit.Commit) -> None:
 
 
 def update_status_on_github(gh_commit: Commit.Commit, state, description, context,
-                            target_url=GithubObject._NotSetType()):
+                            target_url=GithubObject.NotSet):  # type: ignore
     """
     Update status on GitHub.
 

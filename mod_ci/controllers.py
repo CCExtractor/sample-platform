@@ -1244,76 +1244,6 @@ def progress_type_request(log, test, test_id, request) -> bool:
             commit.value = test.commit
             g.db.commit()
 
-    # If status is complete, remove the GCP Instance entry
-    if status in [TestStatus.completed, TestStatus.canceled]:
-        log.debug(f"[Test: {test_id}] Test {status}")
-        var_average = 'average_time_' + test.platform.value
-        current_average = GeneralData.query.filter(GeneralData.key == var_average).first()
-        average_time = 0
-        total_time = 0
-
-        if current_average is None:
-            platform_tests = g.db.query(Test.id).filter(Test.platform == test.platform).subquery()
-            finished_tests = g.db.query(TestProgress.test_id).filter(
-                and_(
-                    TestProgress.status.in_([TestStatus.canceled, TestStatus.completed]),
-                    TestProgress.test_id.in_(platform_tests)
-                )
-            ).subquery()
-            in_progress_statuses = [TestStatus.preparation, TestStatus.completed, TestStatus.canceled]
-            finished_tests_progress = g.db.query(TestProgress).filter(
-                and_(
-                    TestProgress.test_id.in_(finished_tests),
-                    TestProgress.status.in_(in_progress_statuses)
-                )
-            ).subquery()
-            times = g.db.query(
-                finished_tests_progress.c.test_id,
-                label('time', func.group_concat(finished_tests_progress.c.timestamp))
-            ).group_by(finished_tests_progress.c.test_id).all()
-
-            for p in times:
-                parts = p.time.split(',')
-                start = datetime.datetime.strptime(parts[0], '%Y-%m-%d %H:%M:%S.%f')
-                end = datetime.datetime.strptime(parts[-1], '%Y-%m-%d %H:%M:%S.%f')
-                total_time += int((end - start).total_seconds())
-
-            if len(times) != 0:
-                average_time = total_time // len(times)
-
-            new_avg = GeneralData(var_average, average_time)
-            log.info(f'new average time {str(average_time)} set successfully')
-            g.db.add(new_avg)
-            g.db.commit()
-
-        else:
-            all_results = TestResult.query.count()
-            regression_test_count = RegressionTest.query.count()
-            number_test = all_results / regression_test_count
-            updated_average = float(current_average.value) * (number_test - 1)
-            pr = test.progress_data()
-            end_time = pr['end']
-            start_time = pr['start']
-
-            if end_time.tzinfo is not None:
-                end_time = end_time.replace(tzinfo=None)
-
-            if start_time.tzinfo is not None:
-                start_time = start_time.replace(tzinfo=None)
-
-            last_running_test = end_time - start_time
-            updated_average = updated_average + last_running_test.total_seconds()
-            current_average.value = updated_average // number_test
-            g.db.commit()
-            log.info(f'average time updated to {str(current_average.value)}')
-
-        gcp_instance = GcpInstance.query.filter(GcpInstance.test_id == test_id).first()
-
-        if gcp_instance is not None:
-            log.debug(f"Removing GCP Instance entry: {gcp_instance}")
-            g.db.delete(gcp_instance)
-            g.db.commit()
-
     # Post status update
     state = Status.PENDING
     target_url = url_for('test.by_id', test_id=test.id, _external=True)
@@ -1374,6 +1304,76 @@ def progress_type_request(log, test, test_id, request) -> bool:
         vm_name = f"{test.platform.value}-{test.id}"
         operation = delete_instance(compute, project, zone, vm_name)
         wait_for_operation(compute, project, zone, operation['name'])
+
+    # If status is complete, remove the GCP Instance entry
+    if status in [TestStatus.completed, TestStatus.canceled]:
+        gcp_instance = GcpInstance.query.filter(GcpInstance.test_id == test_id).first()
+
+        if gcp_instance is not None:
+            log.debug(f"Removing GCP Instance entry: {gcp_instance}")
+            g.db.delete(gcp_instance)
+            g.db.commit()
+
+        log.debug(f"[Test: {test_id}] Test {status}")
+        var_average = 'average_time_' + test.platform.value
+        current_average = GeneralData.query.filter(GeneralData.key == var_average).first()
+        average_time = 0
+        total_time = 0
+
+        if current_average is None:
+            platform_tests = g.db.query(Test.id).filter(Test.platform == test.platform).subquery()
+            finished_tests = g.db.query(TestProgress.test_id).filter(
+                and_(
+                    TestProgress.status.in_([TestStatus.canceled, TestStatus.completed]),
+                    TestProgress.test_id.in_(platform_tests)
+                )
+            ).subquery()
+            in_progress_statuses = [TestStatus.preparation, TestStatus.completed, TestStatus.canceled]
+            finished_tests_progress = g.db.query(TestProgress).filter(
+                and_(
+                    TestProgress.test_id.in_(finished_tests),
+                    TestProgress.status.in_(in_progress_statuses)
+                )
+            ).subquery()
+            times = g.db.query(
+                finished_tests_progress.c.test_id,
+                label('time', func.group_concat(finished_tests_progress.c.timestamp))
+            ).group_by(finished_tests_progress.c.test_id).all()
+
+            for p in times:
+                parts = p.time.split(',')
+                start = datetime.datetime.strptime(parts[0], '%Y-%m-%d %H:%M:%S.%f')
+                end = datetime.datetime.strptime(parts[-1], '%Y-%m-%d %H:%M:%S.%f')
+                total_time += int((end - start).total_seconds())
+
+            if len(times) != 0:
+                average_time = total_time // len(times)
+
+            new_avg = GeneralData(var_average, average_time)
+            log.info(f'new average time {str(average_time)} set successfully')
+            g.db.add(new_avg)
+            g.db.commit()
+
+        else:
+            all_results = TestResult.query.count()
+            regression_test_count = RegressionTest.query.count()
+            number_test = all_results / regression_test_count
+            updated_average = float(current_average.value) * (number_test - 1)
+            pr = test.progress_data()
+            end_time = pr['end']
+            start_time = pr['start']
+
+            if end_time.tzinfo is not None:
+                end_time = end_time.replace(tzinfo=None)
+
+            if start_time.tzinfo is not None:
+                start_time = start_time.replace(tzinfo=None)
+
+            last_running_test = end_time - start_time
+            updated_average = updated_average + last_running_test.total_seconds()
+            current_average.value = updated_average // number_test
+            g.db.commit()
+            log.info(f'average time updated to {str(current_average.value)}')
 
     return True
 

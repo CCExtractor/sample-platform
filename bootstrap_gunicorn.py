@@ -4,12 +4,12 @@ import subprocess
 from os import path
 
 current_dir = path.dirname(path.abspath(__file__))
-TIMEOUT = 120
+TIMEOUT = 120  # In seconds
 
 # Arguments to start gunicorn
 args = [
     "gunicorn", "-w", "4", "--daemon", "--pid", "gunicorn.pid", "-b", "unix:sampleplatform.sock", "-m", "007",
-    "-g", "www-data", "-u", "www-data", f"--chdir={current_dir}", "--log-level", "debug", "--timeout", TIMEOUT,
+    "-g", "www-data", "-u", "www-data", f"--chdir={current_dir}", "--log-level", "debug", "--timeout", f"{TIMEOUT}",
     "--access-logfile", f"{current_dir}/logs/access.log", "--capture-output",
     "--log-file", f"{current_dir}/logs/error.log", "run:app"
 ]

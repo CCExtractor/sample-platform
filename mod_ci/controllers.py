@@ -1564,7 +1564,7 @@ def get_info_for_pr_comment(test_id: int) -> PrCommentInfo:
             and_(
                 RegressionTestOutput.regression_id == TestResult.regression_test_id,
                 RegressionTestOutput.ignore.is_(True),
-            ))).subquery()
+            ))).distinct().subquery()
     passed = g.db.query(label('category_id', Category.id), label(
         'success', count(regressionTestLinkTable.c.regression_id))).filter(
             regressionTestLinkTable.c.regression_id.in_(regression_testid_passed),

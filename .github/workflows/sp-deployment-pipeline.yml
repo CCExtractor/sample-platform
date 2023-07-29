@@ -15,7 +15,7 @@ jobs:
       id-token: write
       contents: read # required for actions/checkout
     steps:
-      - name: Deployment with ssh commands using staging ssh key
+      - name: Deployment with ssh commands using ssh key
         uses: appleboy/ssh-action@master
         with:
           host: ${{ vars.PLATFORM_DOMAIN }}

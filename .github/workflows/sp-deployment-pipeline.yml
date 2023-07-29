@@ -18,8 +18,8 @@ jobs:
       - name: Deployment with ssh commands using staging ssh key
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.PLATFORM_DOMAIN }}
-          username: ${{ secrets.SSH_USER }}
+          host: ${{ vars.PLATFORM_DOMAIN }}
+          username: ${{ vars.SSH_USER }}
           key: ${{ secrets.SSH_KEY_PRIVATE }}
           port: 22
           script_stop: true

@@ -1,0 +1,50 @@
+name: Deploy sample platform
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ master ]
+
+env:
+  DEPLOY_BRANCH: master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read # required for actions/checkout
+    steps:
+      - name: Deployment with ssh commands using ssh key
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ vars.PLATFORM_DOMAIN }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.SSH_KEY_PRIVATE }}
+          port: 22
+          script_stop: true
+          command_timeout: 10m
+          script: |
+            echo "jump to app folder"
+            cd /var/www/sample-platform
+
+            echo "checkout branch"
+            sudo git restore .
+            sudo git checkout ${{env.DEPLOY_BRANCH}}
+            sudo git fetch origin ${{env.DEPLOY_BRANCH}}
+
+            echo "avoid merge conflicts"
+            sudo git reset --hard origin/${{env.DEPLOY_BRANCH}}
+            sudo git clean -f -d
+
+            echo "update app from git"
+            sudo git pull origin ${{env.DEPLOY_BRANCH}}
+
+            echo "update dependencies"
+            sudo python -m pip install -r requirements.txt
+
+            echo "run migrations"
+            sudo FLASK_APP=./run.py flask db upgrade
+
+            echo "reload server"
+            sudo systemctl reload platform

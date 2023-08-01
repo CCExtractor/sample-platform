@@ -11,7 +11,7 @@ xmltodict==0.13.0
 lxml==4.9.3
 pytz==2023.3
 tzlocal==4.1
-markdown2==2.4.9
+markdown2==2.4.10
 flask-migrate==4.0.4
 flask-script==2.0.6
 email_validator

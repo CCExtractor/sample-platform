@@ -345,3 +345,26 @@ Since pure-ftpd server runs over TCP port 21 and we allow passive TCP port range
         - Source IPv4 ranges: 0.0.0.0/0
         - Protocols and ports -> Specified protocols and ports -> TCP -> Port: 21,30000-50000
     - Now click on "Save"
+
+### Setup Automated Deployments for Platform via GitHub
+To setup automated deployments via GitHub workflows, follow these steps:
+- Ensure GitHub Actions is enabled in the repository (It is disabled for forks by default).
+- Create two new GitHub repository variables, from the Settings tab
+    - Navigate to "Secrets and variables" -> "Actions" -> "Variables".
+    - Click on "New repository variable" and setup the following variables:
+        - `PLATFORM_DOMAIN`: The domain your platform is to be deployed, for example: `sampleplatform.ccextractor.org`.
+        - `SSH_USER`: The user that has root access and would be used to SSH into the server. 
+        
+            (You can see a list of users in your system by running the command ```less /etc/passwd```)
+
+    - Now get the SSH private and public(`.pub`) keys by running the following command locally:
+        ```
+        ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
+        ```
+    - Now SSH into the VM instance where the platform is to be deployed, open the file `/home/<SSH_USER>/.ssh/authorized_keys` and append the contents of the public key to the end of the file.
+    - Now the last step is to add the SSH private key to the GitHub secrets
+        - Navigate to "Secrets and variables" -> "Actions" -> "Secrets".
+        - Click on "New repository secret" and setup the following variable:
+            - `SSH_KEY_PRIVATE`: Save the contents of the private SSH key file created in the last step as this secret.
+    - Also checkout the variables `INSTALL_FOLDER` and `SAMPLE_REPOSITORY` in the [deployment pipeline](/.github/workflows/sp-deployment-pipeline.yml) in case you have configured values other than default.
+    

@@ -104,7 +104,6 @@ def load_config(file):
         'DATABASE_URI': 'sqlite:///:memory:',
         'WTF_CSRF_ENABLED': False,
         'SQLALCHEMY_POOL_SIZE': 1,
-        'GITHUB_DEPLOY_KEY': "test_deploy",
         'GITHUB_CI_KEY': "test_ci",
         'GITHUB_TOKEN': "",
         'GITHUB_BOT': "",

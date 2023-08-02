@@ -26,7 +26,6 @@ from mailer import Mailer
 from mod_auth.controllers import mod_auth
 from mod_ci.controllers import mod_ci
 from mod_customized.controllers import mod_customized
-from mod_deploy.controllers import mod_deploy
 from mod_home.controllers import mod_home
 from mod_regression.controllers import mod_regression
 from mod_sample.controllers import mod_sample
@@ -245,7 +244,6 @@ def get_github_config(config: Dict[str, str]) -> Dict[str, str]:
     :rtype: dict
     """
     return {
-        'deploy_key': config.get('GITHUB_DEPLOY_KEY', ''),
         'ci_key': config.get('GITHUB_CI_KEY', ''),
         'bot_token': config.get('GITHUB_TOKEN', ''),
         'bot_name': config.get('GITHUB_BOT', ''),
@@ -268,7 +266,6 @@ app.register_blueprint(mod_upload, url_prefix='/upload')
 app.register_blueprint(mod_regression, url_prefix='/regression')
 app.register_blueprint(mod_sample, url_prefix='/sample')
 app.register_blueprint(mod_home)
-app.register_blueprint(mod_deploy)
 app.register_blueprint(mod_test, url_prefix="/test")
 app.register_blueprint(mod_ci)
 app.register_blueprint(mod_customized, url_prefix='/custom')

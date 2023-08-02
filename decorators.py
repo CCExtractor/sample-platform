@@ -4,6 +4,7 @@ from datetime import date
 from functools import wraps
 from typing import Any, Callable, Dict, List, Optional, Union
 
+import git
 from flask import g, render_template, request
 
 from database import EnumSymbol
@@ -93,10 +94,9 @@ def template_renderer(template: Optional[str] = None, status: int = 200) -> Call
             ctx['applicationName'] = 'CCExtractor CI platform'
             ctx['applicationVersion'] = getattr(g, 'version', 'Unknown')
             ctx['currentYear'] = date.today().strftime('%Y')
-            try:
-                from build_commit import build_commit
-            except ImportError:
-                build_commit = 'Unknown'
+            repo = git.Repo(search_parent_directories=True)
+            sha = repo.head.object.hexsha
+            build_commit = sha or 'Unknown'
             ctx['build_commit'] = build_commit
             user = getattr(g, 'user', None)
             ctx['user'] = user

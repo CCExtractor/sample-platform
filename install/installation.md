@@ -359,6 +359,10 @@ To setup automated deployments via GitHub workflows, follow these steps:
 
     - Now get the SSH private and public(`.pub`) keys by running the following command locally:
         ```
+        ssh-keygen -t ed25519 -C "your_email@example.com"
+        ```
+        Note: If you are using a legacy system that doesn't support the Ed25519 algorithm, use:
+        ```
         ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
         ```
     - Now SSH into the VM instance where the platform is to be deployed, open the file `/home/<SSH_USER>/.ssh/authorized_keys` and append the contents of the public key to the end of the file.

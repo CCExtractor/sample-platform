@@ -7,6 +7,7 @@ import traceback
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+import git
 from flask import Flask, g
 from flask_migrate import Migrate
 from google.cloud.storage import Client
@@ -42,10 +43,7 @@ except ImportStringError:
     raise MissingConfigError()
 
 app.config.from_mapping(config)
-try:
-    app.config['DEBUG'] = os.environ['DEBUG']
-except KeyError:
-    app.config['DEBUG'] = False
+app.config['DEBUG'] = os.environ.get('DEBUG', False)
 
 # embed flask-migrate in the app itself
 try:
@@ -65,6 +63,10 @@ log = log_configuration.create_logger("Platform")
 sa_file = os.path.join(app.config.get('INSTALL_FOLDER', ''), app.config.get('SERVICE_ACCOUNT_FILE', ''))
 storage_client = Client.from_service_account_json(sa_file)
 storage_client_bucket = storage_client.bucket(app.config.get('GCS_BUCKET_NAME', ''))
+
+# Save build commit
+repo = git.Repo(search_parent_directories=True)
+app.config['BUILD_COMMIT'] = repo.head.object.hexsha
 
 
 def load_secret_keys(application: Flask, secret_session: str = 'secret_key',
@@ -232,6 +234,7 @@ def before_request() -> None:
     g.version = "0.1"
     g.log = log
     g.github = get_github_config(app.config)
+    g.build_commit = app.config['BUILD_COMMIT']
 
 
 def get_github_config(config: Dict[str, str]) -> Dict[str, str]:

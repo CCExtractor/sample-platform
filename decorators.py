@@ -94,10 +94,7 @@ def template_renderer(template: Optional[str] = None, status: int = 200) -> Call
             ctx['applicationName'] = 'CCExtractor CI platform'
             ctx['applicationVersion'] = getattr(g, 'version', 'Unknown')
             ctx['currentYear'] = date.today().strftime('%Y')
-            repo = git.Repo(search_parent_directories=True)
-            sha = repo.head.object.hexsha
-            build_commit = sha or 'Unknown'
-            ctx['build_commit'] = build_commit
+            ctx['build_commit'] = getattr(g, 'build_commit', "Unknown")
             user = getattr(g, 'user', None)
             ctx['user'] = user
             # Create menu entries

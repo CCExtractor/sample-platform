@@ -61,7 +61,7 @@ def request_from_github(abort_code: int = 418) -> Callable:
                     g.log.critical(f"{header} not in headers!")
                     abort(abort_code)
 
-            ua = request.headers.get('User-Agent')
+            ua = request.headers.get('User-Agent', '')
             if not ua.startswith('GitHub-Hookshot/'):
                 g.log.critical("User-Agent does not begin with GitHub-Hookshot/!")
                 abort(abort_code)

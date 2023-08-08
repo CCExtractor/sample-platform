@@ -29,3 +29,22 @@ class TestUtility(BaseTestCase):
 
         mock_get.assert_called_once()
         mock_critical.assert_called_once_with("Failed to retrieve hook IP's from GitHub! API returned {}")
+
+    @mock.patch('flask.g.log')
+    @mock.patch('utility.abort')
+    @mock.patch('utility.is_github_web_hook_ip', return_value=False)
+    @mock.patch('utility.ip_address')
+    def test_request_from_github_invalid_request(self, mock_ip_address, mock_is_github_ip, mock_abort, mock_log):
+        """Test request_from_github decorator when request is invalid."""
+        from utility import request_from_github
+
+        @request_from_github()
+        def example_function(*args, **kwargs):
+            return "Test Success"
+
+        response = example_function()
+
+        mock_ip_address.assert_called_once()
+        mock_is_github_ip.assert_called_once()
+        self.assertEqual(mock_abort.call_count, 7)
+        self.assertEqual(response, "Test Success")

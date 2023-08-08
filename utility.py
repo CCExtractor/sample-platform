@@ -71,7 +71,9 @@ def request_from_github(abort_code: int = 418) -> Callable:
                 abort(abort_code)
 
             return f(*args, **kwargs)
+
         return decorated_function
+
     return decorator
 
 
@@ -101,6 +103,7 @@ def is_github_web_hook_ip(request_ip: Union[IPv4Address, IPv6Address]) -> bool:
     for block in get_cached_web_hook_blocks():
         if request_ip in ip_network(block):
             return True
+
     return False
 
 
@@ -142,4 +145,5 @@ def is_valid_signature(x_hub_signature, data, private_key):
     algorithm = hashlib.__dict__.get(hash_algorithm)
     encoded_key = bytes(private_key, 'latin-1')
     mac = hmac.new(encoded_key, msg=data, digestmod=algorithm)
+
     return hmac.compare_digest(mac.hexdigest(), github_signature)

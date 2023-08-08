@@ -137,8 +137,6 @@ userInput email_domain "Email Domain:" $config_server_name "" 1
 echo "You can generate your own Email API key here, https://www.mailgun.com/)"
 userInput email_api_key "Email API key:" "" "Authentication, Email notification related functions" 0 
 hmac_key=$(head -80 /dev/urandom | LC_ALL=c tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
-echo "You can get details about creating deployment secrets here, https://developer.github.com/webhooks/"
-userInput github_deploy_key "GitHub Automated Deploy Webhook Secret:" "" "Automated deployment, mod_deploy module functions" 0 
 echo "You can get details about creating WEBHOOK_SECRET here, https://developer.github.com/webhooks/"
 userInput github_ci_key "GitHub CI Webhook Secret:" "" "CI related functions (mod_ci module)" 0
 echo "Get the GitHub client ID and client secret for the platform, by registering the platform here, https://github.com/settings/applications/new"
@@ -236,7 +234,6 @@ SERVER_NAME = '${server_name}'
 EMAIL_DOMAIN = '${email_domain}'
 EMAIL_API_KEY = '${email_api_key}'
 HMAC_KEY = '${hmac_key}'
-GITHUB_DEPLOY_KEY = '${github_deploy_key}'
 GITHUB_CI_KEY = '${github_ci_key}'
 GITHUB_CLIENT_ID = '${github_client_id}'
 GITHUB_CLIENT_KEY = '${github_client_secret_key}'

@@ -35,7 +35,6 @@ from mod_ci.forms import AddUsersToBlacklist, DeleteUserForm
 from mod_ci.models import (BlockedUsers, GcpInstance, MaintenanceMode,
                            PrCommentInfo)
 from mod_customized.models import CustomizedTest
-from mod_deploy.controllers import is_valid_signature, request_from_github
 from mod_home.models import CCExtractorVersion, GeneralData
 from mod_regression.models import (Category, RegressionTest,
                                    RegressionTestOutput,
@@ -44,6 +43,7 @@ from mod_regression.models import (Category, RegressionTest,
 from mod_sample.models import Issue
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
                              TestResult, TestResultFile, TestStatus, TestType)
+from utility import is_valid_signature, request_from_github
 
 mod_ci = Blueprint('ci', __name__)
 

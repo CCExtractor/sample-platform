@@ -1,5 +1,5 @@
 [pycodestyle]
 count = True
 max-line-length = 120
-exclude=test_diff.py,migrations,venv*,parse.py
+exclude=test_diff.py,migrations,venv*,parse.py,config.py
 ignore = E701

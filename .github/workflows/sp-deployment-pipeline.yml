@@ -29,8 +29,12 @@ jobs:
           script_stop: true
           command_timeout: 10m
           script: |
+            echo "defining directories"
+            INSTALL_FOLDER="/var/www/sample-platform"
+            SAMPLE_REPOSITORY="/repository"
+
             echo "jump to app folder"
-            cd /var/www/sample-platform
+            cd $INSTALL_FOLDER
 
             echo "checkout branch"
             sudo git restore .
@@ -49,6 +53,11 @@ jobs:
 
             echo "run migrations"
             sudo FLASK_APP=./run.py flask db upgrade
+
+            echo "update runCI script files"
+            sudo cp "install/ci-vm/ci-linux/ci/bootstrap" "${SAMPLE_REPOSITORY}/TestData/ci-linux/bootstrap"
+            sudo cp "install/ci-vm/ci-linux/ci/runCI" "${SAMPLE_REPOSITORY}/TestData/ci-linux/runCI"
+            sudo cp "install/ci-vm/ci-windows/ci/runCI.bat" "${SAMPLE_REPOSITORY}/TestData/ci-windows/runCI.bat"
 
             echo "reload server"
             sudo systemctl reload platform

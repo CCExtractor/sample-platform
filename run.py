@@ -7,6 +7,7 @@ import traceback
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+import git
 from flask import Flask, g
 from flask_migrate import Migrate
 from google.cloud.storage import Client
@@ -26,7 +27,6 @@ from mailer import Mailer
 from mod_auth.controllers import mod_auth
 from mod_ci.controllers import mod_ci
 from mod_customized.controllers import mod_customized
-from mod_deploy.controllers import mod_deploy
 from mod_home.controllers import mod_home
 from mod_regression.controllers import mod_regression
 from mod_sample.controllers import mod_sample
@@ -43,10 +43,7 @@ except ImportStringError:
     raise MissingConfigError()
 
 app.config.from_mapping(config)
-try:
-    app.config['DEBUG'] = os.environ['DEBUG']
-except KeyError:
-    app.config['DEBUG'] = False
+app.config['DEBUG'] = os.environ.get('DEBUG', False)
 
 # embed flask-migrate in the app itself
 try:
@@ -66,6 +63,10 @@ log = log_configuration.create_logger("Platform")
 sa_file = os.path.join(app.config.get('INSTALL_FOLDER', ''), app.config.get('SERVICE_ACCOUNT_FILE', ''))
 storage_client = Client.from_service_account_json(sa_file)
 storage_client_bucket = storage_client.bucket(app.config.get('GCS_BUCKET_NAME', ''))
+
+# Save build commit
+repo = git.Repo(search_parent_directories=True)
+app.config['BUILD_COMMIT'] = repo.head.object.hexsha
 
 
 def load_secret_keys(application: Flask, secret_session: str = 'secret_key',
@@ -233,6 +234,7 @@ def before_request() -> None:
     g.version = "0.1"
     g.log = log
     g.github = get_github_config(app.config)
+    g.build_commit = app.config['BUILD_COMMIT']
 
 
 def get_github_config(config: Dict[str, str]) -> Dict[str, str]:
@@ -245,7 +247,6 @@ def get_github_config(config: Dict[str, str]) -> Dict[str, str]:
     :rtype: dict
     """
     return {
-        'deploy_key': config.get('GITHUB_DEPLOY_KEY', ''),
         'ci_key': config.get('GITHUB_CI_KEY', ''),
         'bot_token': config.get('GITHUB_TOKEN', ''),
         'bot_name': config.get('GITHUB_BOT', ''),
@@ -268,7 +269,6 @@ app.register_blueprint(mod_upload, url_prefix='/upload')
 app.register_blueprint(mod_regression, url_prefix='/regression')
 app.register_blueprint(mod_sample, url_prefix='/sample')
 app.register_blueprint(mod_home)
-app.register_blueprint(mod_deploy)
 app.register_blueprint(mod_test, url_prefix="/test")
 app.register_blueprint(mod_ci)
 app.register_blueprint(mod_customized, url_prefix='/custom')

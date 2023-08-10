@@ -47,7 +47,7 @@
                         <tr data-category="[{{ test.categories|join(', ', attribute='id') }}]">
                             <td>{{ test.id }}</td>
                             <td>{{ test.command }}</td>
-                            <td id="status-toggle-{{test.id}}">{{ true if test.active == 1 else false}}</td>
+                            <td id="status-toggle-{{test.id}}">{{ test.active }}</td>
                             <td>
                                 <a href="{{ url_for('.test_view', regression_id=test.id) }}" title="View details"><i class="fa fa-info-circle"></i></a>&nbsp;
                                 {% if user is not none and user.has_role('contributor') %}

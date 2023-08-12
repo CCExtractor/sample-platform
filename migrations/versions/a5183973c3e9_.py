@@ -16,7 +16,7 @@ depends_on = None
 
 
 def upgrade():
-    op.alter_column('regression_test', 'active', existing_type=sa.Boolean(), type_=sa.Boolean(), nullable=False)
+    op.alter_column('regression_test', 'active', existing_type=sa.dialects.mysql.BIT(1), type_=sa.Boolean(), nullable=False)
 
 
 def downgrade():

@@ -1135,6 +1135,10 @@ def update_build_badge(status, test) -> None:
         shutil.copyfile(original_location, build_status_location)
         g.log.info('Build badge updated successfully!')
 
+        regression_testid_passed = get_subquery_regression_testid_passed(test.id)
+        test_ids_to_update = [result[0] for result in regression_testid_passed]
+        g.db.query(RegressionTest).filter(RegressionTest.id.in_(test_ids_to_update)).update({"last_passed_on": test.id}, synchronize_session=False)
+        g.db.commit()
 
 @mod_ci.route('/progress-reporter/<test_id>/<token>', methods=['POST'])
 def progress_reporter(test_id, token):
@@ -1546,8 +1550,7 @@ def set_avg_time(platform, process_type: str, time_taken: int) -> None:
     g.db.commit()
 
 
-def get_info_for_pr_comment(test_id: int) -> PrCommentInfo:
-    """Return info about the given test id for use in a PR comment."""
+def get_subquery_regression_testid_passed(test_id: int):
     regression_testid_passed = g.db.query(TestResult.regression_test_id).outerjoin(
         TestResultFile, TestResult.test_id == TestResultFile.test_id).filter(
         TestResult.test_id == test_id,
@@ -1571,6 +1574,14 @@ def get_info_for_pr_comment(test_id: int) -> PrCommentInfo:
                      TestResultFile.got == RegressionTestOutputFiles.file_hashes
                  )))
         )).distinct().union(g.db.query(regression_testid_passed.c.regression_test_id))
+    
+    return regression_testid_passed
+
+
+def get_info_for_pr_comment(test_id: int) -> PrCommentInfo:
+    """Return info about the given test id for use in a PR comment."""
+    
+    regression_testid_passed = get_subquery_regression_testid_passed(test_id)
 
     passed = g.db.query(label('category_id', Category.id), label(
         'success', count(regressionTestLinkTable.c.regression_id))).filter(

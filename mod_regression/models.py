@@ -95,6 +95,8 @@ class RegressionTest(Base):
     expected_rc = Column(Integer)
     active = Column(Boolean(), default=True)
 
+    last_passed_on = Column(Integer, ForeignKey('test.id', onupdate="CASCADE", ondelete="SET NULL"))
+
     def __init__(self, sample_id, command, input_type, output_type, category_id, expected_rc, active=True) -> None:
         """
         Parametrized constructor for the RegressionTest model.

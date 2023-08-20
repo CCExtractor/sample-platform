@@ -1590,7 +1590,6 @@ def get_query_regression_testid_passed(test_id: int) -> Query:
 
 def get_info_for_pr_comment(test_id: int) -> PrCommentInfo:
     """Return info about the given test id for use in a PR comment."""
-
     regression_testid_passed = get_query_regression_testid_passed(test_id)
 
     passed = g.db.query(label('category_id', Category.id), label(

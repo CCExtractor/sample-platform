@@ -52,12 +52,11 @@ def index():
         repository = gh.get_repo(f"{username}/{g.github['repository']}")
         # Only commits since last month
         last_month = datetime.now() - timedelta(days=30)
-        commit_since = last_month.isoformat() + 'Z'
-        commits = repository.get_commits(since=commit_since)
+        commits = repository.get_commits(since=last_month)
         commit_arr = []
         for commit in commits:
-            commit_url = commit['html_url']
-            commit_sha = commit['sha']
+            commit_url = commit.html_url
+            commit_sha = commit.sha
             commit_option = f'<a href="{commit_url}">{commit_sha}</a>'
             commit_arr.append((commit_sha, commit_option))
         # If there are commits present, display it on webpage

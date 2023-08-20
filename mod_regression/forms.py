@@ -2,7 +2,7 @@
 
 from flask_wtf import FlaskForm
 from wtforms import (HiddenField, IntegerField, SelectField, StringField,
-                     SubmitField)
+                     SubmitField, TextAreaField)
 from wtforms.validators import DataRequired, InputRequired
 
 from mod_regression.models import InputType, OutputType
@@ -21,6 +21,7 @@ class CommonTestForm(FlaskForm):
 
     sample_id = SelectField("Sample", coerce=int)
     command = StringField("Command")
+    description = TextAreaField("Description")
     input_type = SelectField(
         "Input Type",
         [DataRequired(message="Input Type is not selected")],

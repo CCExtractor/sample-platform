@@ -118,6 +118,7 @@ class TestControllers(BaseTestCase):
     def test_customize_test_creates_with_select_arr(self, mock_user, mock_repo):
         """Test customize test creation with commits list."""
         from flask import g
+        from github.Commit import Commit
 
         import mod_customized.controllers
         reload(mod_customized.controllers)
@@ -128,14 +129,17 @@ class TestControllers(BaseTestCase):
         for i in range(num_commits):
             commit_hash = self.create_random_string()
             url = f"https://github.com/{return_git_user()}/{g.github['repository']}/commit/{commit_hash}"
-            commits.append({'html_url': url, 'sha': commit_hash})
+            new_commit = mock.MagicMock(Commit)
+            new_commit.sha = commit_hash
+            new_commit.html_url = url
+            commits.append(new_commit)
         with self.app.test_client() as c:
             c.post('/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
 
             mock_repo.return_value.get_commits.return_value = commits
             response = c.get('/custom/')
             for commit in commits:
-                self.assertIn(commit['sha'], str(response.data))
+                self.assertIn(commit.sha, str(response.data))
 
     def test_customize_regression_tests_load(self, mock_user, mock_repo):
         """Test loading of the regression tests."""

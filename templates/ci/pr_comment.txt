@@ -30,7 +30,7 @@ Your PR breaks these cases:
             {{ test.sample.sha[:10] }}...
         </a>
         {% if test.last_passed_on %}
-            , Last passed: <a href="{{ url_for('test.by_id', test_id=test.last_passed_on, _external=True) }}"></a>
+            , Last passed: <a href="{{ url_for('test.by_id', test_id=test.last_passed_on, _external=True) }}">Test {{ test.last_passed_on }}</a>
         {% endif %}
     </li>
     {% endfor %}

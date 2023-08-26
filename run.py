@@ -249,7 +249,6 @@ def get_github_config(config: Dict[str, str]) -> Dict[str, str]:
     return {
         'ci_key': config.get('GITHUB_CI_KEY', ''),
         'bot_token': config.get('GITHUB_TOKEN', ''),
-        'bot_name': config.get('GITHUB_BOT', ''),
         'repository_owner': config.get('GITHUB_OWNER', ''),
         'repository': config.get('GITHUB_REPOSITORY', '')
     }

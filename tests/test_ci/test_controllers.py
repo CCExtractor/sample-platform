@@ -337,15 +337,16 @@ class TestControllers(BaseTestCase):
         repository = mock_github(g.github['bot_token']).get_repo(
             f"{g.github['repository_owner']}/{g.github['repository']}")
         pull_request = repository.get_pull(number=1)
+        mock_github(g.github['bot_token']).get_user().login = 'test-bot'
 
         comment1 = MagicMock(IssueComment)
         comment1.user.login = 'invalid'
 
         comment2 = MagicMock(IssueComment)
-        comment2.user.login = ''
+        comment2.user.login = 'test-bot'
         comment2.body = 'linux test passed'
 
-        # When previous comment is found, and is to be edited
+        # Delete old bot comments and create a new comment
         pull_request.get_issue_comments.return_value = [comment1, comment2]
         comment_pr(1, Status.SUCCESS, 1, 'linux')
         mock_github.assert_called_with(g.github['bot_token'])
@@ -354,31 +355,23 @@ class TestControllers(BaseTestCase):
 
         repository.get_pull.assert_called_with(number=1)
         pull_request.get_issue_comments.assert_called_once()
-        args, kwargs = comment2.edit.call_args
-        message = kwargs['body']
-        if "passed" not in message:
-            assert False, "Message not Correct"
+        comment1.delete.assert_not_called()
+        comment2.delete.assert_called_once()
 
-        # When commit is not found, and is to be created
-        pull_request.reset_mock()
-        pull_request.get_issue_comments.return_value = [comment1]
-        comment_pr(1, Status.SUCCESS, 1, 'linux')
-        repository.get_pull.assert_called_with(number=1)
-        pull_request.get_issue_comments.assert_called_once()
         args, kwargs = pull_request.create_issue_comment.call_args
         message = kwargs['body']
         if "passed" not in message:
             assert False, "Message not Correct"
 
-    @mock.patch('github.Github.get_repo')
-    def test_comments_successfuly_in_failed_pr_test(self, mock_repo):
+    @mock.patch('github.Github')
+    def test_comments_successfuly_in_failed_pr_test(self, mock_github):
         """Check comments in failed PR test."""
         import mod_ci.controllers
         reload(mod_ci.controllers)
         from github.IssueComment import IssueComment
 
         from mod_ci.controllers import Status, comment_pr
-        pull_request = mock_repo.return_value.get_pull(number=1)
+        pull_request = mock_github.return_value.get_repo.return_value.get_pull(number=1)
         message = ("<b>CCExtractor CI platform</b> finished running the "
                    "test files on <b>linux</b>. Below is a summary of the test results")
         pull_request.get_issue_comments.return_value = [MagicMock(IssueComment)]

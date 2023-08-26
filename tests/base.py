@@ -106,7 +106,6 @@ def load_config(file):
         'SQLALCHEMY_POOL_SIZE': 1,
         'GITHUB_CI_KEY': "test_ci",
         'GITHUB_TOKEN': "",
-        'GITHUB_BOT': "",
         'GITHUB_OWNER': "test_owner",
         'GITHUB_REPOSITORY': "test_repo",
         'HMAC_KEY': "test_key",

@@ -27,10 +27,12 @@ Your PR breaks these cases:
     {% for test in failed_tests %}
     <li> ccextractor {{ test.command }} 
         <a href="{{ url_for('sample.sample_by_id', sample_id=test.sample.id, _external=True) }}">
-            {{ test.sample.sha[:10] }}...
+            {{ test.sample.sha[:10] }}..., Last passed: 
         </a>
         {% if test.last_passed_on %}
-            , Last passed: <a href="{{ url_for('test.by_id', test_id=test.last_passed_on, _external=True) }}">Test {{ test.last_passed_on }}</a>
+            <a href="{{ url_for('test.by_id', test_id=test.last_passed_on, _external=True) }}">Test {{ test.last_passed_on }}</a>
+        {% else %}
+            <span>Never</span>
         {% endif %}
     </li>
     {% endfor %}

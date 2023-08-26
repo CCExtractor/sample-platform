@@ -256,6 +256,16 @@ class TestControllers(BaseTestCase):
             ))
             self.assertEqual(response.status_code, 302)
 
+    def test_edit_test_get_request(self):
+        """Test editing of regression test with a GET request."""
+        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
+
+        with self.app.test_client() as c:
+            c.post('/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.get('/regression/test/2/edit')
+            self.assertEqual(response.status_code, 200)
+            self.assertIn('Editing regression test with id 2', str(response.data))
+
     def test_edit_test(self):
         """Check it will edit a regression test."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)

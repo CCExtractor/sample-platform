@@ -133,7 +133,6 @@ echo "You can get details about creating a Personal-Access-Token, https://help.g
 userInput github_token "GitHub Token:" "" "Creating GitHub issues, updating comments on Pull Requests" 0
 userInput github_owner_name "GitHub Owner Name:" "CCExtractor" "" 1
 userInput github_repository "GitHub repository:" "ccextractor" "" 1
-userInput github_bot_name "Github bot name:" "ccextractor-bot" "" 1
 userInput email_domain "Email Domain:" $config_server_name "" 1
 echo "You can generate your own Email API key here, https://www.mailgun.com/)"
 userInput email_api_key "Email API key:" "" "Authentication, Email notification related functions" 0 
@@ -231,7 +230,6 @@ DATABASE_URI = '${config_db_uri}?charset=utf8'
 GITHUB_TOKEN = '${github_token}'
 GITHUB_OWNER = '${github_owner_name}'
 GITHUB_REPOSITORY = '${github_repository}'
-GITHUB_BOT = '${github_bot_name}'
 SERVER_NAME = '${server_name}'
 EMAIL_DOMAIN = '${email_domain}'
 EMAIL_API_KEY = '${email_api_key}'

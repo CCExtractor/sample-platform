@@ -1613,17 +1613,12 @@ def comment_pr(test_id, state, pr_nr, platform) -> None:
         pull_request = repository.get_pull(number=pr_nr)
         comments = pull_request.get_issue_comments()
         bot_name = g.github['bot_name']
-        comment_id = None
         for comment in comments:
             if comment.user.login == bot_name and platform in comment.body:
-                comment_id = comment.id
-                comment.edit(body=message)
-                break
+                comment.delete()
         log.debug(f"GitHub PR Comment ID Fetched for Test_id: {test_id}")
-        if comment_id is None:
-            comment = pull_request.create_issue_comment(body=message)
-            comment_id = comment.id
-        log.debug(f"GitHub PR Comment ID {comment_id} Uploaded for Test_id: {test_id}")
+        comment = pull_request.create_issue_comment(body=message)
+        log.debug(f"GitHub PR Comment ID {comment.id} Uploaded for Test_id: {test_id}")
     except Exception as e:
         log.error(f"GitHub PR Comment Failed for Test_id: {test_id} with Exception {e}")
 

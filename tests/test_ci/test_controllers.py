@@ -112,28 +112,28 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_ci.controllers.get_compute_service_object')
     @mock.patch('mod_ci.controllers.delete_expired_instances')
-    @mock.patch('mod_ci.controllers.Process')
+    @mock.patch('mod_ci.controllers.gcp_instance')
     @mock.patch('run.log')
-    def test_start_platform_none_specified(self, mock_log, mock_process,
+    def test_start_platform_none_specified(self, mock_log, mock_gcp_instance,
                                            mock_delete_expired_instances, mock_get_compute_service_object):
         """Test that both platforms run when no platform value is passed."""
         start_platforms(mock.ANY, 1)
 
         mock_delete_expired_instances.assert_called_once()
         mock_get_compute_service_object.assert_called_once()
-        self.assertEqual(2, mock_process.call_count)
+        self.assertEqual(2, mock_gcp_instance.call_count)
         self.assertEqual(4, mock_log.info.call_count)
 
     @mock.patch('mod_ci.controllers.get_compute_service_object')
     @mock.patch('mod_ci.controllers.delete_expired_instances')
-    @mock.patch('mod_ci.controllers.Process')
+    @mock.patch('mod_ci.controllers.gcp_instance')
     @mock.patch('run.log')
-    def test_start_platform_linux_specified(self, mock_log, mock_process,
+    def test_start_platform_linux_specified(self, mock_log, mock_gcp_instance,
                                             mock_delete_expired_instances, mock_get_compute_service_object):
         """Test that only Linux platform runs when platform is specified as Linux."""
         start_platforms(mock.ANY, platform=TestPlatform.linux)
 
-        self.assertEqual(1, mock_process.call_count)
+        self.assertEqual(1, mock_gcp_instance.call_count)
         self.assertEqual(2, mock_log.info.call_count)
         mock_log.info.assert_called_with("Linux GCP instances process kicked off")
         mock_delete_expired_instances.assert_called_once()
@@ -141,14 +141,14 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_ci.controllers.get_compute_service_object')
     @mock.patch('mod_ci.controllers.delete_expired_instances')
-    @mock.patch('mod_ci.controllers.Process')
+    @mock.patch('mod_ci.controllers.gcp_instance')
     @mock.patch('run.log')
-    def test_start_platform_windows_specified(self, mock_log, mock_process,
+    def test_start_platform_windows_specified(self, mock_log, mock_gcp_instance,
                                               mock_delete_expired_instances, mock_get_compute_service_object):
         """Test that only Windows platform runs when platform is specified as Windows."""
         start_platforms(mock.ANY, platform=TestPlatform.windows)
 
-        self.assertEqual(1, mock_process.call_count)
+        self.assertEqual(1, mock_gcp_instance.call_count)
         self.assertEqual(2, mock_log.info.call_count)
         mock_log.info.assert_called_with("Windows GCP instances process kicked off")
         mock_delete_expired_instances.assert_called_once()

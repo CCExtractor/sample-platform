@@ -11,6 +11,7 @@
             <p>Command: {{ test.command }}</p>
             <p>Input type: {{ test.input_type.description }}</p>
             <p>Output type: {{ test.output_type.description }}</p>
+            <p>Description: {{ test.description or "No description" }}</p>
             <p>Output files:</p>
             <ul>
                 {% for i in range(test.output_files|length) %}

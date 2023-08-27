@@ -23,7 +23,7 @@ It seems that not all tests were passed completely. This is an indication that t
 Your PR breaks these cases:
 <ul>
 {% for test in failed_tests %}
-<li> ccextractor {{ test.command }} <a href="{{ url_for('sample.sample_by_id', sample_id=test.sample.id, _external=True) }}">{{ test.sample.sha[:10] }}...</a> </li>
+<li> ccextractor {{ test.command }} <a href="{{ url_for('sample.sample_by_id', sample_id=test.sample.id, _external=True) }}">{{ test.sample.sha[:10] }}...</a>, Last passed: {% if test.last_passed_on %}<a href="{{ url_for('test.by_id', test_id=test.last_passed_on, _external=True) }}">Test {{ test.last_passed_on }}</a>{% else %}<span>Never</span>{% endif %}</li>
 {% endfor %}
 </ul>
 {% else %}

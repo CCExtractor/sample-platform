@@ -9,7 +9,6 @@ import shutil
 import time
 import zipfile
 from collections import defaultdict
-from multiprocessing import Process
 from pathlib import Path
 from typing import Any, Dict
 
@@ -91,9 +90,7 @@ def before_app_request() -> None:
 
 def start_platforms(repository, delay=None, platform=None) -> None:
     """
-    Start new test on both platforms in parallel.
-
-    We use multiprocessing module which bypasses Python GIL to make use of multiple cores of the processor.
+    Start new test on both platforms.
 
     :param repository: repository to run tests on
     :type repository: str
@@ -122,20 +119,18 @@ def start_platforms(repository, delay=None, platform=None) -> None:
     with app.app_context():
         from flask import current_app
         app = current_app._get_current_object()
+
+        # Create a database session
+        db = create_session(config.get('DATABASE_URI', ''))
+
         if platform is None or platform == TestPlatform.linux:
             log.info('Define process to run Linux GCP instances')
-            # Create a database session
-            db = create_session(config.get('DATABASE_URI', ''))
-            linux_process = Process(target=gcp_instance, args=(app, db, TestPlatform.linux, repository, delay))
-            linux_process.start()
+            gcp_instance(app, db, TestPlatform.linux, repository, delay)
             log.info('Linux GCP instances process kicked off')
 
         if platform is None or platform == TestPlatform.windows:
             log.info('Define process to run Windows GCP instances')
-            # Create a database session
-            db = create_session(config.get('DATABASE_URI', ''))
-            windows_process = Process(target=gcp_instance, args=(app, db, TestPlatform.windows, repository, delay))
-            windows_process.start()
+            gcp_instance(app, db, TestPlatform.windows, repository, delay)
             log.info('Windows GCP instances process kicked off')
 
 

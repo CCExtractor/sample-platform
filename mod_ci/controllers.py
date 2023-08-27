@@ -898,12 +898,12 @@ def start_ci():
             # If it's a valid PR, run the tests
             pr_nr = payload['pull_request']['number']
 
-            draft = payload['pull_request']['draft']
+            is_draft = payload['pull_request']['draft']
             action = payload['action']
-            active = action in ['opened', 'synchronize', 'reopened', 'ready_for_review']
-            inactive = action in ['closed', 'converted_to_draft']
+            is_active = action in ['opened', 'synchronize', 'reopened', 'ready_for_review']
+            is_inactive = action in ['closed', 'converted_to_draft']
 
-            if not draft and active:
+            if not is_draft and is_active:
                 try:
                     commit_hash = payload['pull_request']['head']['sha']
                 except KeyError:
@@ -919,7 +919,7 @@ def start_ci():
                 if repository.get_pull(number=pr_nr).mergeable is not False:
                     add_test_entry(g.db, commit_hash, TestType.pull_request, pr_nr=pr_nr)
 
-            elif inactive:
+            elif is_inactive:
                 pr_action = 'closed' if action == 'closed' else 'converted to draft'
                 g.log.debug(f'PR was {pr_action}, no after hash available')
 
@@ -1029,14 +1029,17 @@ def start_ci():
                             actor=payload['sender']['login'],
                             branch=payload['workflow_run']['head_branch']
                     ):
+                        workflow_run_name = workflow[workflow_run.workflow_id]
+                        if workflow_run_name not in [Workflow_builds.LINUX, Workflow_builds.WINDOWS]:
+                            continue
                         if workflow_run.head_sha == commit_hash:
                             if workflow_run.status == "completed":
                                 if workflow_run.conclusion != "success":
                                     has_failed = True
                                     break
-                                if workflow[workflow_run.workflow_id] == Workflow_builds.LINUX:
+                                if workflow_run_name == Workflow_builds.LINUX:
                                     builds["linux"] = True
-                                elif workflow[workflow_run.workflow_id] == Workflow_builds.WINDOWS:
+                                elif workflow_run_name == Workflow_builds.WINDOWS:
                                     builds["windows"] = True
                             else:
                                 is_complete = False

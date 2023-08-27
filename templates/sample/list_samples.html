@@ -6,6 +6,7 @@
             <th>{{ 'Original name' if use_sample_original|default(false) else 'SHA-256' }}</th>
             <th>Video-stream type</th>
             <th>Actions</th>
+            <th>Tags</th>
         </tr>
         </thead>
         <tbody>
@@ -18,6 +19,17 @@
                     {% if user.is_admin %}
                         &nbsp;<a href="{{ url_for("sample.edit_sample", sample_id=sample.id) }}" title="Edit sample"><i class="fa fa-edit"></i></a>
                         &nbsp;<a href="{{ url_for("sample.delete_sample", sample_id=sample.id) }}" title="Delete sample"><i class="fa fa-remove"></i></a>
+                    {% endif %}
+                </td>
+                <td>
+                    {% set visible_tags_count = 2 %}
+                    {% for tag in sample.tags[:visible_tags_count] %}
+                        <span class="tag" title="{{tag.description or tag.name}}">{{ tag.name }}</span>
+                    {% endfor %}
+                    {% if sample.tags|length > visible_tags_count %}
+                        <a href="{{ url_for('sample.sample_by_hash', sample_hash=sample.sha) }}#tags" title="View details">
+                            <span>+{{ sample.tags|length - visible_tags_count }} more</span>
+                        </a>
                     {% endif %}
                 </td>
             </tr>

@@ -29,6 +29,25 @@
                         {% endfor %}
                     </span>
                 </p>
+                <p class="grid-x">
+                    <div class="cell small-12 medium-6">
+                        <label>Filter by tags
+                            <select id="tagDropdown" multiple>
+                                <option value="tag1">Tag 1</option>
+                                <option value="tag2">Tag 2</option>
+                                <option value="tag4">Tag 4</option>
+                                <option value="tag5">Tag 5</option>
+                                <option value="tag6">Tag 6</option>
+                                <option value="tag7">Tag 7</option>
+                                <option value="tag8">Tag 8</option>
+                                <option value="tag9">Tag 9</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="cell small-12 medium-6">
+                        <button id="searchButton" class="button">Search</button>
+                    </div>
+                </p>
                 <div class="grid-x callout alert" style="display:none;" id="message"></div>
                 <table id="regression_tests" class="sortable tight striped">
                     <thead>
@@ -37,6 +56,7 @@
                         <th>Command</th>
                         <th>Active</th>
                         <th>Actions</th>
+                        <th>Tags</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -55,6 +75,18 @@
                                     <div id="loader-toggle-{{test.id}}" class="loader" style="display:none;"></div>
                                     <a href="{{ url_for('.test_edit', regression_id=test.id) }}" title="Edit regression test"><i class="fa fa-edit"></i></a>&nbsp;
                                     <a href="{{ url_for('.test_delete', regression_id=test.id) }}" title="Delete regression test"><i class="fa fa-remove"></i></a>&nbsp;
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% set sample = test.sample %}
+                                {% set visible_tags_count = 3 %}
+                                {% for tag in sample.tags[:visible_tags_count] %}
+                                    <span class="tag" title="{{tag.description or tag.name}}">{{ tag.name }}</span>
+                                {% endfor %}
+                                {% if sample.tags|length > visible_tags_count %}
+                                    <a href="{{ url_for('sample.sample_by_hash', sample_hash=sample.sha) }}#tags" title="View details">
+                                        <span>+{{ sample.tags|length - visible_tags_count }} more</span>
+                                    </a>
                                 {% endif %}
                             </td>
                         </tr>

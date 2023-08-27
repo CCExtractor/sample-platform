@@ -68,6 +68,14 @@
                         </tbody>
                     </table>
                 {% endif %}
+                {% if sample.tags|length %}
+                <p id="tags" href="#tags">
+                    Tags:
+                    {% for tag in sample.tags %}
+                        <span class="tag">{{ tag.name }}</span>
+                    {% endfor %}
+                </p>
+                {% endif %}
                 <h2>Test status & regression tests</h2>
                 <p>Repository: {{ latest_commit }}</p>
                 <p>Last release: {{ latest_release }}</p>

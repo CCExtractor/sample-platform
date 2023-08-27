@@ -27,8 +27,9 @@ parse.py
 service-account.json
 install/ci-vm/ci-windows/rclone.conf
 
-# Build commit
-build_commit.py
+# Build svgs
+static/img/status/build-linux.svg
+static/img/status/build-windows.svg
 
 # Gunicorn
 gunicorn.pid

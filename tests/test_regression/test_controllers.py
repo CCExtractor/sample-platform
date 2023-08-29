@@ -164,6 +164,16 @@ class TestControllers(BaseTestCase):
                    data=dict(category_name="Sheldon", category_description="That's my spot", submit=True))
             self.assertNotEqual(Category.query.filter(Category.name == "Sheldon").first(), None)
 
+    def test_edit_category_get_request(self):
+        """Test editing of a category with a GET request."""
+        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
+
+        with self.app.test_client() as c:
+            c.post('/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.get('/regression/category/1/edit')
+            self.assertEqual(response.status_code, 200)
+            self.assertIn('Category Edit', str(response.data))
+
     def test_edit_category_empty(self):
         """Check it won't edit a category with an empty name."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)

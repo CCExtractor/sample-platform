@@ -178,6 +178,7 @@ sudo python bootstrap_gunicorn.py
     4. In case of any gunicorn error try manually running `/etc/init.d/platform start` command and recheck the platform status.
 
 ### Setting Up The Bucket
+
 After the completion of the automated installation of the platform, the following folder structure is created in the 'SAMPLE_REPOSITORY' set during installation:
 - `LogFiles/` - Directory containing log files of the tests completed
 - `QueuedFiles/` - Directory containing files related to queued samples
@@ -198,6 +199,16 @@ The `serve_file_download` function in the `utility.py` file implements the gener
 
 For more information about Signed URLs, you can refer to the [official documentation](https://cloud.google.com/storage/docs/access-control/signed-urls).
 
+## Setting up cron job to run tests
+
+Now the server being running, new tests would be queued and therefore a cron job is to be setup to run those tests.
+The file `mod_ci/cron.py` is to be run in periodic intervals. To setup a cron job follow the steps below:
+1. Open your terminal and enter the command `sudo crontab -e`.
+2. To setup a cron job that runs this file every 10 minutes, append this at the bottom of the file
+    ```
+    */10 * * * * python /var/www/sample-platform/mod_ci/cron.py > /var/www/sample-platform/logs/cron.log 2>&1
+    ```
+    Change the `/var/www/sample-plaform` directory, if you have installed the platform in a different directory.
 
 ## File upload size for HTTP
 

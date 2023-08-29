@@ -422,6 +422,8 @@ def start_test(compute, app, db, repository: Repository.Repository, test, bot_to
     if 'error' not in result:
         db.add(status)
         db.commit()
+    else:
+        log.error(f"Error creating test instance for test {test.id}, result: {result}")
 
 
 def create_instance(compute, project, zone, test, reportURL) -> Dict:

@@ -65,7 +65,7 @@ storage_client = Client.from_service_account_json(sa_file)
 storage_client_bucket = storage_client.bucket(app.config.get('GCS_BUCKET_NAME', ''))
 
 # Save build commit
-repo = git.Repo(search_parent_directories=True)
+repo = git.Repo(app.config.get('INSTALL_FOLDER', ''))
 app.config['BUILD_COMMIT'] = repo.head.object.hexsha
 
 

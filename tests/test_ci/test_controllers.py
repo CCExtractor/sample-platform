@@ -241,7 +241,18 @@ class TestControllers(BaseTestCase):
         customized_test = CustomizedTest(1, 1)
         g.db.add(customized_test)
         g.db.commit()
+
+        # Test when gcp create instance fails
+        mock_wait_for_operation.return_value = 'error occurred'
         start_test(mock.ANY, self.app, mock_g.db, repository, test, mock.ANY)
+        mock_g.db.commit.assert_not_called()
+        mock_create_instance.reset_mock()
+        mock_wait_for_operation.reset_mock()
+
+        # Test when gcp create instance is successful
+        mock_wait_for_operation.return_value = 'success'
+        start_test(mock.ANY, self.app, mock_g.db, repository, test, mock.ANY)
+        mock_g.db.commit.assert_called_once()
         mock_create_instance.assert_called_once()
         mock_wait_for_operation.assert_called_once()
 

@@ -22,6 +22,7 @@ from lxml import etree
 from markdown2 import markdown
 from pymysql.err import IntegrityError
 from sqlalchemy import and_, func, or_
+from sqlalchemy.orm.query import Query
 from sqlalchemy.sql import label
 from sqlalchemy.sql.functions import count
 from werkzeug.utils import secure_filename
@@ -421,6 +422,8 @@ def start_test(compute, app, db, repository: Repository.Repository, test, bot_to
     if 'error' not in result:
         db.add(status)
         db.commit()
+    else:
+        log.error(f"Error creating test instance for test {test.id}, result: {result}")
 
 
 def create_instance(compute, project, zone, test, reportURL) -> Dict:
@@ -897,12 +900,12 @@ def start_ci():
             # If it's a valid PR, run the tests
             pr_nr = payload['pull_request']['number']
 
-            draft = payload['pull_request']['draft']
+            is_draft = payload['pull_request']['draft']
             action = payload['action']
-            active = action in ['opened', 'synchronize', 'reopened', 'ready_for_review']
-            inactive = action in ['closed', 'converted_to_draft']
+            is_active = action in ['opened', 'synchronize', 'reopened', 'ready_for_review']
+            is_inactive = action in ['closed', 'converted_to_draft']
 
-            if not draft and active:
+            if not is_draft and is_active:
                 try:
                     commit_hash = payload['pull_request']['head']['sha']
                 except KeyError:
@@ -918,7 +921,7 @@ def start_ci():
                 if repository.get_pull(number=pr_nr).mergeable is not False:
                     add_test_entry(g.db, commit_hash, TestType.pull_request, pr_nr=pr_nr)
 
-            elif inactive:
+            elif is_inactive:
                 pr_action = 'closed' if action == 'closed' else 'converted to draft'
                 g.log.debug(f'PR was {pr_action}, no after hash available')
 
@@ -1028,14 +1031,17 @@ def start_ci():
                             actor=payload['sender']['login'],
                             branch=payload['workflow_run']['head_branch']
                     ):
+                        workflow_run_name = workflow[workflow_run.workflow_id]
+                        if workflow_run_name not in [Workflow_builds.LINUX, Workflow_builds.WINDOWS]:
+                            continue
                         if workflow_run.head_sha == commit_hash:
                             if workflow_run.status == "completed":
                                 if workflow_run.conclusion != "success":
                                     has_failed = True
                                     break
-                                if workflow[workflow_run.workflow_id] == Workflow_builds.LINUX:
+                                if workflow_run_name == Workflow_builds.LINUX:
                                     builds["linux"] = True
-                                elif workflow[workflow_run.workflow_id] == Workflow_builds.WINDOWS:
+                                elif workflow_run_name == Workflow_builds.WINDOWS:
                                     builds["windows"] = True
                             else:
                                 is_complete = False
@@ -1129,6 +1135,12 @@ def update_build_badge(status, test) -> None:
         build_status_location = os.path.join(parent_dir, 'static', 'img', 'status', f'build-{test.platform.value}.svg')
         shutil.copyfile(original_location, build_status_location)
         g.log.info('Build badge updated successfully!')
+
+        regression_testid_passed = get_query_regression_testid_passed(test.id)
+        test_ids_to_update = [result[0] for result in regression_testid_passed]
+        g.db.query(RegressionTest).filter(RegressionTest.id.in_(test_ids_to_update)
+                                          ).update({"last_passed_on": test.id}, synchronize_session=False)
+        g.db.commit()
 
 
 @mod_ci.route('/progress-reporter/<test_id>/<token>', methods=['POST'])
@@ -1541,8 +1553,14 @@ def set_avg_time(platform, process_type: str, time_taken: int) -> None:
     g.db.commit()
 
 
-def get_info_for_pr_comment(test_id: int) -> PrCommentInfo:
-    """Return info about the given test id for use in a PR comment."""
+def get_query_regression_testid_passed(test_id: int) -> Query:
+    """Get sqlalchemy query to fetch all regression tests which passed on given test id.
+
+    :param test_id: test id of the test whose query is required
+    :type test_id: int
+    :return: Query object for passed regression tests
+    :rtype: sqlalchemy.orm.query.Query
+    """
     regression_testid_passed = g.db.query(TestResult.regression_test_id).outerjoin(
         TestResultFile, TestResult.test_id == TestResultFile.test_id).filter(
         TestResult.test_id == test_id,
@@ -1566,6 +1584,13 @@ def get_info_for_pr_comment(test_id: int) -> PrCommentInfo:
                      TestResultFile.got == RegressionTestOutputFiles.file_hashes
                  )))
         )).distinct().union(g.db.query(regression_testid_passed.c.regression_test_id))
+
+    return regression_testid_passed
+
+
+def get_info_for_pr_comment(test_id: int) -> PrCommentInfo:
+    """Return info about the given test id for use in a PR comment."""
+    regression_testid_passed = get_query_regression_testid_passed(test_id)
 
     passed = g.db.query(label('category_id', Category.id), label(
         'success', count(regressionTestLinkTable.c.regression_id))).filter(

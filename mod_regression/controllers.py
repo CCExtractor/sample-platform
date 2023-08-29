@@ -159,6 +159,7 @@ def test_edit(regression_id):
         test.expected_rc = form.expected_rc.data
         test.input_type = InputType.from_string(form.input_type.data)
         test.output_type = OutputType.from_string(form.output_type.data)
+        test.description = form.description.data
 
         g.db.commit()
         g.log.info(f'regression test with id: {regression_id} updated!')
@@ -172,6 +173,7 @@ def test_edit(regression_id):
         form.expected_rc.data = test.expected_rc
         form.input_type.data = test.input_type.value
         form.output_type.data = test.output_type.value
+        form.description.data = test.description
 
     return {'form': form, 'regression_id': regression_id}
 
@@ -241,7 +243,8 @@ def test_add():
             category_id=form.category_id.data,
             expected_rc=form.expected_rc.data,
             input_type=InputType.from_string(form.input_type.data),
-            output_type=OutputType.from_string(form.output_type.data)
+            output_type=OutputType.from_string(form.output_type.data),
+            description=form.description.data,
         )
         g.db.add(new_test)
         category = Category.query.filter(Category.id == form.category_id.data).first()

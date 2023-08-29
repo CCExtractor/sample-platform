@@ -3,7 +3,8 @@
 from datetime import datetime
 from typing import Any, Dict, Type
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Table, Text, Index
+from sqlalchemy import (Column, DateTime, ForeignKey, Index, Integer, String,
+                        Table, Text)
 from sqlalchemy.orm import relationship
 
 import database
@@ -44,7 +45,9 @@ class Tag(Base):
         self.name = name
         self.description = description
 
+
 tag_name_index = Index('tag_name_index', Tag.name)
+
 
 class Sample(Base):
     """Model to store and manage sample."""

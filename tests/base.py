@@ -93,6 +93,7 @@ def mock_gcs_client(file):
 
 def load_config(file):
     """Load start config."""
+    from utility import ROOT_DIR
     key_paths = generate_keys()
     with open(key_paths['secret_key_path'], 'rb') as secret_key_file:
         secret_key = secret_key_file.read()
@@ -116,7 +117,8 @@ def load_config(file):
         'CSRF_SESSION_KEY': secret_csrf,
         'ZONE': "test_zone",
         'PROJECT_NAME': "test_zone",
-        'GCS_SIGNED_URL_EXPIRY_LIMIT': 720
+        'GCS_SIGNED_URL_EXPIRY_LIMIT': 720,
+        'INSTALL_FOLDER': ROOT_DIR,
     }
 
 

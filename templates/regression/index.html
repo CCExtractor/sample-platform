@@ -224,7 +224,7 @@
                 }
             });
 
-            query_tags = urlParams.get("tags").split(",");
+            query_tags = (urlParams.get("tags") || "").split(",");
             query_tags.forEach(tagId => {
                 if(isNaN(parseInt(tagId))) return;
                 $("#tag").val(tagId);

@@ -300,20 +300,26 @@ def category_edit(category_id):
     :return: form and category id
     :rtype: dict
     """
-    test = Category.query.filter(Category.id == category_id).first()
+    category = Category.query.filter(Category.id == category_id).first()
 
-    if test is None:
+    if category is None:
         g.log.error(f'requested category with id: {category_id} not found!')
         abort(404)
 
     form = AddCategoryForm(request.form)
     if form.validate():
-        test.name = form.category_name.data
-        test.description = form.category_description.data
+        category.name = form.category_name.data
+        category.description = form.category_description.data
         g.db.commit()
         g.log.info(f'category with id: {category_id} updated!')
         flash('Category Updated')
         return redirect(url_for('.index'))
+
+    if not form.is_submitted():
+        # Populate form with current set category values
+        form.category_name.data = category.name
+        form.category_description.data = category.description
+
     return {'form': form, 'category_id': category_id}
 
 

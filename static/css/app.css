@@ -545,19 +545,17 @@ input.toggle-round:checked + label:after {
 }
 
 .tag:nth-child(even) {
-    background-color: #f1f8ff;; /* Alternate background color for even tags */
-    color: #0366d6; /* Text color for even tags */
     border: 1px solid #c8e1ff;
 }
 
 .tag:nth-child(odd) {
-    background-color: #f8f8f8; /* Alternate background color for odd tags */
-    color: #333; /* Text color for odd tags */
+    color: #1779ba;
     border: 1px solid #c8e1ff;
 }
 
 .tag {
     display: inline-block;
+    background-color: var(--off-canvas-content-bg);
     padding: 5px 10px;
     border-radius: 4px;
     margin-right: 5px;

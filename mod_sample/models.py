@@ -26,8 +26,8 @@ def get_extension(extension: str) -> str:
 sample_tag_association = Table(
     'sample_tag_association',
     Base.metadata,
-    Column('sample_id', ForeignKey('sample.id'), primary_key=True),
-    Column('tag_id', ForeignKey('tag.id'), primary_key=True)
+    Column('sample_id', ForeignKey('sample.id'), primary_key=True, nullable=False),
+    Column('tag_id', ForeignKey('tag.id'), primary_key=True, nullable=False)
 )
 
 

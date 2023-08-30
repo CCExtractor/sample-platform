@@ -13,7 +13,7 @@ from mod_regression.forms import (AddCategoryForm, AddCorrectOutputForm,
 from mod_regression.models import (Category, InputType, OutputType,
                                    RegressionTest, RegressionTestOutput,
                                    RegressionTestOutputFiles)
-from mod_sample.models import Sample
+from mod_sample.models import Sample, Tag
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
                              TestResult, TestResultFile, TestStatus, TestType)
 from utility import serve_file_download
@@ -37,7 +37,8 @@ def index():
     """Display all regression tests."""
     return {
         'tests': RegressionTest.query.all(),
-        'categories': Category.query.order_by(Category.name.asc()).all()
+        'categories': Category.query.order_by(Category.name.asc()).all(),
+        'tags': Tag.query.all()
     }
 
 

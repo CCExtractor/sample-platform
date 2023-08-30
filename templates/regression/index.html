@@ -8,12 +8,13 @@
         <div class="column medium-9">
             <h1>Regression tests</h1>
             {% if tests|length > 0 %}
-                <p class="grid-x">
-                    <label for="category" class="column medium-4">Select a category</label>
-                    <select id="category" style="background-position: right 0 center"onchange="switchCategory();" class="column medium-6">
+                <div class="grid-x">
+                    <label for="category" class="column medium-4">Select a category:</label>
+                    <select id="category" style="background-position: right 0 center" onchange="selectedCategoryChange();" class="column small-6">
                         {% for category in categories %}
                             <option value="{{ category.id }}">{{ category.name }}</option>
                         {% endfor %}
+                        <option value="0">All Categories</option>
                     </select>&nbsp;
                     {% if user is not none and user.is_admin %}
                         <span class="medium-2">
@@ -21,33 +22,40 @@
                             <a href="{{ url_for(".category_delete", category_id=categories[0].id) }}" title="Delete category" id="category_delete"><i class="fa fa-remove"></i></a>&nbsp;
                         </span>
                     {% endif %}
-                </p>
-                <p style="display: inline-block;">Category description:
-                    <span id="category-descriptions">
+                </div>
+                <div class="grid-x">
+                    <label class="column medium-4">Category description:</label>
+                    <span id="category-descriptions" class="column medium-8">
                         {% for category in categories %}
                             <span {% if not loop.first %}class="hide" {% endif %}data-category="{{ category.id }}">{{ category.description }}</span>
                         {% endfor %}
+                        <span class="hide" data-category="0">{{ 'All Categories' }}</span>
+                    </span>&nbsp;
+                </div>&nbsp;
+                <div class="grid-x">
+                    <label class="column medium-4" for="tag">Filter Tags:</label>
+                    <select id="tag" style="background-position: right 0 center;" class="column medium-5" onchange="selectedTagsChange('add');" >
+                        {% if tags|length %}
+                            <option value="0">Select Tags</option>
+                        {% else %}
+                            <option value="0">No Tags Available</option>
+                        {% endif %}
+                        {% for tag in tags %}
+                            <option id="tag-option" value="{{ tag.id }}">{{ tag.name }}</option>
+                        {% endfor %}
+                    </select>&nbsp;
+                    <span class="medium-2">
+                        <button id="searchButton" class="button" onclick="searchRegressionTests();">Search</button>
                     </span>
-                </p>
-                <p class="grid-x">
-                    <div class="cell small-12 medium-6">
-                        <label>Filter by tags
-                            <select id="tagDropdown" multiple>
-                                <option value="tag1">Tag 1</option>
-                                <option value="tag2">Tag 2</option>
-                                <option value="tag4">Tag 4</option>
-                                <option value="tag5">Tag 5</option>
-                                <option value="tag6">Tag 6</option>
-                                <option value="tag7">Tag 7</option>
-                                <option value="tag8">Tag 8</option>
-                                <option value="tag9">Tag 9</option>
-                            </select>
-                        </label>
-                    </div>
-                    <div class="cell small-12 medium-6">
-                        <button id="searchButton" class="button">Search</button>
-                    </div>
-                </p>
+                    <span class="medium-2">
+                        <button id="resetButton" class="button" onclick="selectedTagsChange('reset');">Reset</button>
+                    </span>
+                </div>
+                <div class="grid-x">
+                    <label class="column medium-3" for="tag">Selected Tags</label>
+                    <div id="selected_tags" class="column medium-8">
+                    </div>&nbsp;
+                </div>&nbsp;
                 <div class="grid-x callout alert" style="display:none;" id="message"></div>
                 <table id="regression_tests" class="sortable tight striped">
                     <thead>
@@ -77,11 +85,11 @@
                                     <a href="{{ url_for('.test_delete', regression_id=test.id) }}" title="Delete regression test"><i class="fa fa-remove"></i></a>&nbsp;
                                 {% endif %}
                             </td>
-                            <td>
+                            <td class="tags">
                                 {% set sample = test.sample %}
                                 {% set visible_tags_count = 3 %}
                                 {% for tag in sample.tags[:visible_tags_count] %}
-                                    <span class="tag" title="{{tag.description or tag.name}}">{{ tag.name }}</span>
+                                    <span class="tag regression_test_tag" title="{{tag.description or tag.name}}" data-id="{{tag.id}}">{{ tag.name }}</span>
                                 {% endfor %}
                                 {% if sample.tags|length > visible_tags_count %}
                                     <a href="{{ url_for('sample.sample_by_hash', sample_hash=sample.sha) }}#tags" title="View details">
@@ -114,12 +122,77 @@
 {% block scripts %}
     {{ super() }}
     <script type="text/javascript">
-        function switchCategory(){
+        function selectedTagsChange(mode, id=0){
+            if(mode === "add"){
+                let tagId = $("#tag").val();
+                let selectedTagName = $("#tag").find("option:selected").text();
+                if(!selectedTagName){
+                    $("#tag").val("0");
+                    return;
+                }
+
+                let newTag = $("<span>").addClass("tag selected_tag").attr("title", selectedTagName).attr("data-id", tagId).html(`${selectedTagName}&nbsp;`);
+                let removeButton = $("<button>").html('<i class="fa fa-remove"></i>').click(function() {
+                    $(this).parent().remove();
+                    selectedTagsChange('remove', tagId); 
+                });
+                newTag.append(removeButton);
+
+                $("#selected_tags").append(newTag);
+
+                $(`#tag option[value=${tagId}]`).prop("disabled", true);
+                $("#tag").val("0");
+                searchRegressionTests();
+            }
+            else if(mode === "remove"){
+                $(`#tag option[value=${id}]`).prop("disabled", false);
+                searchRegressionTests();
+            }
+            else if(mode === "reset"){
+                $("#tag option").prop("disabled", false);
+                $("#selected_tags").empty();
+                searchRegressionTests();
+            }
+        }
+
+        function areTagsPresent(search_tags, available_tags){
+            const elementSet = {};
+            available_tags.forEach(tagId => {
+                elementSet[tagId] = true;
+            });
+            for (const tagId of search_tags){
+                if(elementSet[tagId] !== true) return false;
+            }
+            return true;
+        }
+
+        function selectedCategoryChange(){
+            searchRegressionTests()
+        }
+
+        function updateUrlWithQueryParam(paramName, paramValue) {
+            const url = new URL(window.location.href);
+            url.searchParams.set(paramName, paramValue);
+            window.history.replaceState({}, "", url.toString());
+        }
+
+        function searchRegressionTests(){
+            selected_tags = []
+            $(".selected_tag").each(function() {
+                selected_tags.push($(this).data("id"))
+            });
+
             var id = $("#category").val();
-            window.location.hash = id;
             $("tbody tr[data-category]").each(function(idx, elm){
-                var array = JSON.parse(elm.getAttribute("data-category"));
-                elm.setAttribute("class", array.indexOf(parseInt(id)) > -1 ? "" : "hide");
+                let array = JSON.parse(elm.getAttribute("data-category"));
+                category_id = parseInt(id)
+                let regression_test_tags = []
+                $(elm).find('.tags > .regression_test_tag').each(function() {
+                    regression_test_tags.push($(this).data("id"))
+                })
+                let are_tags_present = areTagsPresent(selected_tags, regression_test_tags)
+                let is_element_visible = (are_tags_present && (category_id===0 || array.indexOf(category_id) > -1))
+                elm.setAttribute("class", is_element_visible ? "" : "hide");
             });
             var cat_desc = $("#category-descriptions");
             cat_desc.find("span[data-category='"+id+"']").each(function(idx, elm){
@@ -136,16 +209,31 @@
             cat_parts = cat_delete.attr("href").split("/");
             cat_delete.attr("href",cat_parts[cat_parts.length-3]+"/"+id+"/"+cat_parts[cat_parts.length-1]);
             {% endif %}
+
+            updateUrlWithQueryParam("tags", selected_tags.join(","))
+            updateUrlWithQueryParam("category", id)
         }
+
         $(document).ready(function(){
-            var hash = window.location.hash.slice(1);
+            const urlParams = new URLSearchParams(window.location.search);
+            const hash = urlParams.get("category");
+            if(hash === "") hash = "1";
             $("#category").find("option").each(function(idx, elm){
                 if($(elm).val() === hash){
-                    $(elm).attr("selected","selected");
+                    $(elm).attr("selected",true);
                 }
             });
-            switchCategory();
+
+            query_tags = urlParams.get("tags").split(",");
+            query_tags.forEach(tagId => {
+                if(isNaN(parseInt(tagId))) return;
+                $("#tag").val(tagId);
+                selectedTagsChange('add');
+            })
+
+            searchRegressionTests();
         });
+
         function toggleactive(test_id) {
             $.ajax({
                 type: "GET",

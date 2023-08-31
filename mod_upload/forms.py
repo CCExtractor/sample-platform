@@ -6,7 +6,8 @@ from typing import Any, Type
 
 import magic
 from flask_wtf import FlaskForm
-from wtforms import FileField, SelectField, SubmitField, TextAreaField
+from wtforms import (FileField, SelectField, SelectMultipleField, SubmitField,
+                     TextAreaField)
 from wtforms.validators import DataRequired, ValidationError
 
 import mod_home.models
@@ -75,6 +76,7 @@ class CommonSampleForm(FlaskForm):
         coerce=str,
         choices=[(p.value, p.description) for p in Platform]
     )
+    tags = SelectMultipleField('Tags', coerce=int)
     version = SelectField('Version', [DataRequired(message='Version is not selected')], coerce=int)
 
     @staticmethod

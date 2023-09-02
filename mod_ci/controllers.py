@@ -1699,9 +1699,9 @@ def blocked_users():
             # Getting all pull requests by blocked user on the repo
             pulls = repository.get_pulls(state='open')
             for pull in pulls:
-                if pull['user']['id'] != add_user_form.user_id.data:
+                if pull.user.id != add_user_form.user_id.data:
                     continue
-                tests = Test.query.filter(Test.pr_nr == pull['number']).all()
+                tests = Test.query.filter(Test.pr_nr == pull.number).all()
                 for test in tests:
                     # Add canceled status only if the test hasn't started yet
                     if len(test.progress) > 0:

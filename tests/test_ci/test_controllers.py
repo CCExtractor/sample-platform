@@ -499,9 +499,21 @@ class TestControllers(BaseTestCase):
 
         mock_markdown.assert_called_once_with(body, extras=["target-blank-links", "task_list", "code-friendly"])
 
-    def test_add_blocked_users(self):
+    @mock.patch('mod_ci.controllers.update_status_on_github')
+    @mock.patch('github.Github.get_repo')
+    def test_add_blocked_users(self, mock_repo, mock_update_gh_status):
         """Check adding a user to block list."""
+        from github.PullRequest import PullRequest
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
+        mock_pr = MagicMock(PullRequest)
+        mock_pr.user.id = 1
+        mock_pr.number = 3
+        mock_repo.return_value.get_pulls.return_value = [mock_pr]
+
+        new_test = Test(TestPlatform.linux, TestType.pull_request, 1, "test", "test", 3)
+        g.db.add(new_test)
+        g.db.commit()
+
         with self.app.test_client() as c:
             c.post("/account/login", data=self.create_login_form_data(self.user.email, self.user.password))
             c.post("/blocked_users", data=dict(user_id=1, comment="Bad user", add=True))

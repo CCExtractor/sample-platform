@@ -935,14 +935,12 @@ def start_ci():
                     g.db.add(progress)
                     g.db.commit()
                     # If test run status exists, mark them as cancelled
+                    gh_commit = repository.get_commit(test.commit)
                     for status in repository.get_commit(test.commit).get_statuses():
                         if status["context"] == f"CI - {test.platform.value}":
-                            repository.get_commit(test.commit).create_status(
-                                state=Status.FAILURE,
-                                description="Tests cancelled",
-                                context=f"CI - {test.platform.value}",
-                                target_url=url_for('test.by_id', test_id=test.id, _external=True)
-                            )
+                            target_url = url_for('test.by_id', test_id=test.id, _external=True)
+                            update_status_on_github(gh_commit, Status.FAILURE, "Tests canceled",
+                                                    status["context"], target_url=target_url)
 
         elif event == "issues":
             g.log.debug('issues event detected')
@@ -1297,10 +1295,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
         message = progress.message
 
     gh_commit = repository.get_commit(test.commit)
-    try:
-        gh_commit.create_status(state=state, description=message, context=context, target_url=target_url)
-    except GithubException as a:
-        log.error(f'Got an exception while posting to GitHub! Message: {a.data}')
+    update_status_on_github(gh_commit, state, message, context, target_url=target_url)
 
     if status in [TestStatus.completed, TestStatus.canceled]:
         # Delete the current instance
@@ -1714,15 +1709,11 @@ def blocked_users():
                     progress = TestProgress(test.id, TestStatus.canceled, "PR closed", datetime.datetime.now())
                     g.db.add(progress)
                     g.db.commit()
-                    try:
-                        repository.get_commit(test.commit).create_status(
-                            state=Status.FAILURE,
-                            description="Tests canceled since user blacklisted",
-                            context=f"CI - {test.platform.value}",
-                            target_url=url_for('test.by_id', test_id=test.id, _external=True)
-                        )
-                    except GithubException as a:
-                        g.log.error(f"Got an exception while posting to GitHub! Message: {a.data}")
+                    gh_commit = repository.get_commit(test.commit)
+                    message = "Tests canceled since user blacklisted"
+                    target_url = url_for('test.by_id', test_id=test.id, _external=True)
+                    update_status_on_github(gh_commit, Status.FAILURE, message,
+                                            f"CI - {test.platform.value}", target_url=target_url)
         except GithubException as a:
             g.log.error(f"Pull Requests of Blocked User could not be fetched: {a.data}")
 

@@ -735,11 +735,11 @@ def deschedule_test(gh_commit: Commit.Commit, commit=None, test_type=None, platf
         fork_url = f"%/{g.github['repository_owner']}/{g.github['repository']}.git"
         fork = Fork.query.filter(Fork.github.like(fork_url)).first()
         test = Test.query.filter(and_(Test.platform == platform,
-                                            Test.commit == commit,
-                                            Test.fork_id == fork.id,
-                                            Test.test_type == test_type,
-                                            Test.branch == branch,
-                                            )).first()
+                                      Test.commit == commit,
+                                      Test.fork_id == fork.id,
+                                      Test.test_type == test_type,
+                                      Test.branch == branch,
+                                      )).first()
 
     if test is not None:
         progress = TestProgress(test.id, TestStatus.canceled, message, datetime.datetime.now())

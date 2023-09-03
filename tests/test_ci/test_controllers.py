@@ -477,9 +477,10 @@ class TestControllers(BaseTestCase):
         self.assertIn(2, customized_test)
         self.assertNotIn(1, customized_test)
 
+    @mock.patch('flask.g.log.error')
     @mock.patch('mailer.Mailer')
     @mock.patch('mod_ci.controllers.get_html_issue_body')
-    def test_inform_mailing_list(self, mock_get_html_issue_body, mock_email):
+    def test_inform_mailing_list(self, mock_get_html_issue_body, mock_email, mock_log_error):
         """Test the inform_mailing_list function."""
         from mod_ci.controllers import inform_mailing_list
 
@@ -500,6 +501,11 @@ class TestControllers(BaseTestCase):
             }
         )
         mock_get_html_issue_body.assert_called_once()
+        mock_log_error.assert_not_called()
+
+        mock_email.send_simple_message.return_value = False
+        inform_mailing_list(mock_email, "matejmecka", "2430", "Some random string", "Lorem Ipsum sit dolor amet...")
+        mock_log_error.assert_called_once()
 
     @staticmethod
     @mock.patch('mod_ci.controllers.markdown')

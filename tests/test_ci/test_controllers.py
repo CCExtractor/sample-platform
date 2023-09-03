@@ -276,14 +276,18 @@ class TestControllers(BaseTestCase):
         repo.get_pull.return_value.head.sha = pr_head_sha
         repo.get_pull.return_value.state = 'open'
 
-        # Creating a test that is valid
+        # Creating a test with pull_request type that is valid
         test_3 = Test(TestPlatform.linux, TestType.pull_request, 1, "pull_request", pr_head_sha, 2)
         g.db.add(test_3)
+
+        # Creating a test with commit type that is valid
+        test_4 = Test(TestPlatform.linux, TestType.commit, 1, "master", pr_head_sha)
+        g.db.add(test_4)
         g.db.commit()
 
         gcp_instance(self.app, mock_g.db, TestPlatform.linux, repo, None)
 
-        mock_start_test.assert_called_once()
+        self.assertEqual(mock_start_test.call_count, 2)
         mock_get_compute_service_object.assert_called_once()
 
     def test_get_compute_service_object(self):

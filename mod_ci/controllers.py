@@ -934,9 +934,9 @@ def start_ci():
                     progress = TestProgress(test.id, TestStatus.canceled, f"PR {pr_action}", datetime.datetime.now())
                     g.db.add(progress)
                     g.db.commit()
-                    # If test run status exists, mark them as cancelled
                     gh_commit = repository.get_commit(test.commit)
-                    for status in repository.get_commit(test.commit).get_statuses():
+                    # If test run status exists, mark them as cancelled
+                    for status in gh_commit.get_statuses():
                         if status["context"] == f"CI - {test.platform.value}":
                             target_url = url_for('test.by_id', test_id=test.id, _external=True)
                             update_status_on_github(gh_commit, Status.FAILURE, "Tests canceled",

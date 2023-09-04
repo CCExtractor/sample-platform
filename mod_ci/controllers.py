@@ -1581,8 +1581,9 @@ def get_query_regression_testid_passed(test_id: int) -> Query:
 
 def get_info_for_pr_comment(test_id: int) -> PrCommentInfo:
     """Return info about the given test id for use in a PR comment."""
-    last_test_master = g.db.query(Test).filter(Test.branch=="master", Test.test_type==TestType.commit).join(
-        TestProgress, Test.id==TestProgress.test_id).filter(TestProgress.status == TestStatus.completed).order_by(TestProgress.id.desc()).first()
+    last_test_master = g.db.query(Test).filter(Test.branch == "master", Test.test_type == TestType.commit).join(
+        TestProgress, Test.id == TestProgress.test_id).filter(
+            TestProgress.status == TestStatus.completed).order_by(TestProgress.id.desc()).first()
     regression_test_passed = get_query_regression_testid_passed(test_id)
 
     passed = g.db.query(label('category_id', Category.id), label(
@@ -1597,13 +1598,15 @@ def get_info_for_pr_comment(test_id: int) -> PrCommentInfo:
         regressionTestLinkTable.c.category_id).all()
     regression_test_failed = RegressionTest.query.filter(RegressionTest.id.notin_(regression_test_passed)).all()
 
+    last_test_master_id = last_test_master.id if last_test_master else 0
     extra_failed_tests = [test for test in regression_test_failed if test.last_passed_on == last_test_master]
-    fixed_tests = RegressionTest.query.filter(RegressionTest.id.in_(regression_test_passed), RegressionTest.last_passed_on!=last_test_master.id).all()
+    fixed_tests = RegressionTest.query.filter(RegressionTest.id.in_(regression_test_passed),
+                                              RegressionTest.last_passed_on != last_test_master_id).all()
     common_failed_tests = [test for test in regression_test_failed if test.last_passed_on != last_test_master]
     return PrCommentInfo(tot, extra_failed_tests, fixed_tests, common_failed_tests, last_test_master)
 
 
-def comment_pr(test_id, pr_nr, platform) -> Status:
+def comment_pr(test_id, pr_nr, platform) -> str:
     """
     Upload the test report to the GitHub PR as comment.
 

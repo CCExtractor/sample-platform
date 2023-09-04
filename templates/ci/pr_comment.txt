@@ -1,4 +1,4 @@
-<b>CCExtractor CI platform</b> finished running the test files on <b>{{platform}}</b>. Below is a summary of the test results, when compared to <a href="{{ url_for('test.by_id', test_id=comment_info.last_test_master.id, _external=True) }}">test for commit  {{ comment_info.last_test_master.commit[:7] }}...</a>:
+<b>CCExtractor CI platform</b> finished running the test files on <b>{{platform}}</b>. Below is a summary of the test results{% if comment_info.last_test_master %}, when compared to <a href="{{ url_for('test.by_id', test_id=comment_info.last_test_master.id, _external=True) }}">test for commit  {{ comment_info.last_test_master.commit[:7] }}...</a>{% endif %}:
 <table>
 <thead>
 <td> Report Name </td>

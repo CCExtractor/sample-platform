@@ -16,7 +16,6 @@ from sqlalchemy import (Boolean, Column, DateTime, ForeignKey, Integer, String,
                         Text)
 from sqlalchemy.orm import relationship
 
-import mod_test.models
 from database import Base
 from mod_regression.models import RegressionTest
 from mod_test.models import Test, TestPlatform
@@ -124,11 +123,22 @@ class CategoryTestInfo:
     success: Optional[int]
 
 
+class Status:
+    """Define different states for the tests."""
+
+    PENDING = "pending"
+    SUCCESS = "success"
+    ERROR = "error"
+    FAILURE = "failure"
+
+
 @dataclass
 class PrCommentInfo:
     """Contains info about a test run that is useful for displaying a PR comment."""
 
     # info about successes and failures for each category
     category_stats: List[CategoryTestInfo]
-    # list of regression tests that failed
-    failed_tests: List[RegressionTest]
+    extra_failed_tests: List[RegressionTest]
+    fixed_tests: List[RegressionTest]
+    common_failed_tests: List[RegressionTest]
+    last_test_master: Test

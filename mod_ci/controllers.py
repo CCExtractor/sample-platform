@@ -33,7 +33,7 @@ from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role
 from mod_ci.forms import AddUsersToBlacklist, DeleteUserForm
 from mod_ci.models import (BlockedUsers, GcpInstance, MaintenanceMode,
-                           PrCommentInfo)
+                           PrCommentInfo, Status)
 from mod_customized.models import CustomizedTest
 from mod_home.models import CCExtractorVersion, GeneralData
 from mod_regression.models import (Category, RegressionTest,
@@ -46,15 +46,6 @@ from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
 from utility import is_valid_signature, request_from_github
 
 mod_ci = Blueprint('ci', __name__)
-
-
-class Status:
-    """Define different states for the tests."""
-
-    PENDING = "pending"
-    SUCCESS = "success"
-    ERROR = "error"
-    FAILURE = "failure"
 
 
 class Workflow_builds(DeclEnum):
@@ -1304,7 +1295,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
             state = Status.SUCCESS
             message = 'Tests completed'
         if test.test_type == TestType.pull_request:
-            comment_pr(test.id, state, test.pr_nr, test.platform.name)
+            state = comment_pr(test.id, test.pr_nr, test.platform.name)
         update_build_badge(state, test)
 
     else:
@@ -1604,11 +1595,14 @@ def get_query_regression_testid_passed(test_id: int) -> Query:
 
 def get_info_for_pr_comment(test_id: int) -> PrCommentInfo:
     """Return info about the given test id for use in a PR comment."""
-    regression_testid_passed = get_query_regression_testid_passed(test_id)
+    last_test_master = g.db.query(Test).filter(Test.branch == "master", Test.test_type == TestType.commit).join(
+        TestProgress, Test.id == TestProgress.test_id).filter(
+            TestProgress.status == TestStatus.completed).order_by(TestProgress.id.desc()).first()
+    regression_test_passed = get_query_regression_testid_passed(test_id)
 
     passed = g.db.query(label('category_id', Category.id), label(
         'success', count(regressionTestLinkTable.c.regression_id))).filter(
-            regressionTestLinkTable.c.regression_id.in_(regression_testid_passed),
+            regressionTestLinkTable.c.regression_id.in_(regression_test_passed),
             Category.id == regressionTestLinkTable.c.category_id).group_by(
             regressionTestLinkTable.c.category_id).subquery()
     tot = g.db.query(label('category', Category.name), label('total', count(regressionTestLinkTable.c.regression_id)),
@@ -1616,11 +1610,17 @@ def get_info_for_pr_comment(test_id: int) -> PrCommentInfo:
         passed, passed.c.category_id == Category.id).filter(
         Category.id == regressionTestLinkTable.c.category_id).group_by(
         regressionTestLinkTable.c.category_id).all()
-    regression_testid_failed = RegressionTest.query.filter(RegressionTest.id.notin_(regression_testid_passed)).all()
-    return PrCommentInfo(tot, regression_testid_failed)
+    regression_test_failed = RegressionTest.query.filter(RegressionTest.id.notin_(regression_test_passed)).all()
+
+    last_test_master_id = last_test_master.id if last_test_master else 0
+    extra_failed_tests = [test for test in regression_test_failed if test.last_passed_on == last_test_master]
+    fixed_tests = RegressionTest.query.filter(RegressionTest.id.in_(regression_test_passed),
+                                              RegressionTest.last_passed_on != last_test_master_id).all()
+    common_failed_tests = [test for test in regression_test_failed if test.last_passed_on != last_test_master]
+    return PrCommentInfo(tot, extra_failed_tests, fixed_tests, common_failed_tests, last_test_master)
 
 
-def comment_pr(test_id, state, pr_nr, platform) -> None:
+def comment_pr(test_id, pr_nr, platform) -> str:
     """
     Upload the test report to the GitHub PR as comment.
 
@@ -1637,8 +1637,7 @@ def comment_pr(test_id, state, pr_nr, platform) -> None:
 
     comment_info = get_info_for_pr_comment(test_id)
     template = app.jinja_env.get_or_select_template('ci/pr_comment.txt')
-    message = template.render(tests=comment_info.category_stats, failed_tests=comment_info.failed_tests,
-                              test_id=test_id, state=state, platform=platform)
+    message = template.render(comment_info=comment_info, test_id=test_id, platform=platform)
     log.debug(f"GitHub PR Comment Message Created for Test_id: {test_id}")
     try:
         gh = Github(g.github['bot_token'])
@@ -1655,6 +1654,7 @@ def comment_pr(test_id, state, pr_nr, platform) -> None:
         log.debug(f"GitHub PR Comment ID {comment.id} Uploaded for Test_id: {test_id}")
     except Exception as e:
         log.error(f"GitHub PR Comment Failed for Test_id: {test_id} with Exception {e}")
+    return Status.SUCCESS if len(comment_info.extra_failed_tests) == 0 else Status.FAILURE
 
 
 @mod_ci.route('/show_maintenance')

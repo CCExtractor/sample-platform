@@ -85,7 +85,9 @@ class TestControllers(BaseTestCase):
         test: Test = Test.query.filter(Test.id == TEST_RUN_ID).first()
         comment_info = get_info_for_pr_comment(test.id)
         # we got a valid variant, so should still pass
-        self.assertEqual(comment_info.failed_tests, [])
+        self.assertEqual(comment_info.common_failed_tests, [])
+        self.assertEqual(comment_info.extra_failed_tests, [])
+        self.assertEqual(comment_info.fixed_tests, [])
         for stats in comment_info.category_stats:
             # make sure the stats for the category confirm that everything passed too
             self.assertEqual(stats.success, stats.total)
@@ -377,7 +379,7 @@ class TestControllers(BaseTestCase):
 
         # Delete old bot comments and create a new comment
         pull_request.get_issue_comments.return_value = [comment1, comment2]
-        comment_pr(1, Status.SUCCESS, 1, 'linux')
+        comment_pr(1, 1, 'linux')
         mock_github.assert_called_with(g.github['bot_token'])
         mock_github(g.github['bot_token']).get_repo.assert_called_with(
             f"{g.github['repository_owner']}/{g.github['repository']}")
@@ -405,7 +407,7 @@ class TestControllers(BaseTestCase):
                    "test files on <b>linux</b>. Below is a summary of the test results")
         pull_request.get_issue_comments.return_value = [MagicMock(IssueComment)]
         # Comment on test that fails some/all regression tests
-        comment_pr(2, Status.FAILURE, 1, 'linux')
+        comment_pr(2, 1, 'linux')
         pull_request.get_issue_comments.assert_called_with()
         args, kwargs = pull_request.create_issue_comment.call_args
         message = kwargs['body']

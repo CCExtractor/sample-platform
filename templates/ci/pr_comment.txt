@@ -1,10 +1,10 @@
-<b>CCExtractor CI platform</b> finished running the test files on <b>{{platform}}</b>. Below is a summary of the test results:
+<b>CCExtractor CI platform</b> finished running the test files on <b>{{platform}}</b>. Below is a summary of the test results{% if comment_info.last_test_master %}, when compared to <a href="{{ url_for('test.by_id', test_id=comment_info.last_test_master.id, _external=True) }}">test for commit  {{ comment_info.last_test_master.commit[:7] }}...</a>{% endif %}:
 <table>
 <thead>
 <td> Report Name </td>
 <td> Tests Passed </td>
 </thead>
-{% for test in tests%}
+{% for test in comment_info.category_stats %}
 <tr>
 <td> {{test.category}} </td>
 {% if test.success==None %}
@@ -17,17 +17,33 @@
 </tr>
 {% endfor %}
 </table>
-{% if state == "failure" %}
+{% if comment_info.extra_failed_tests | length %}
 It seems that not all tests were passed completely. This is an indication that the output of some files is not as expected (but might be according to you). 
 
 Your PR breaks these cases:
 <ul>
-{% for test in failed_tests %}
-<li> ccextractor {{ test.command }} <a href="{{ url_for('sample.sample_by_id', sample_id=test.sample.id, _external=True) }}">{{ test.sample.sha[:10] }}...</a>, Last passed: {% if test.last_passed_on %}<a href="{{ url_for('test.by_id', test_id=test.last_passed_on, _external=True) }}">Test {{ test.last_passed_on }}</a>{% else %}<span>Never</span>{% endif %}</li>
+{% for test in comment_info.extra_failed_tests %}
+<li> ccextractor {{ test.command }} <a href="{{ url_for('sample.sample_by_id', sample_id=test.sample.id, _external=True) }}">{{ test.sample.sha[:10] }}...</a></li>
 {% endfor %}
 </ul>
 {% else %}
-All tests were passed completely.
+All tests passing on the master branch were passed completely.
+{% endif %}
+{% if comment_info.common_failed_tests | length %}
+NOTE: The following tests have been failing on the master branch as well as the PR:
+<ul>
+{% for test in comment_info.common_failed_tests %}
+<li> ccextractor {{ test.command }} <a href="{{ url_for('sample.sample_by_id', sample_id=test.sample.id, _external=True) }}">{{ test.sample.sha[:10] }}...</a>, Last passed: {% if test.last_passed_on %}<a href="{{ url_for('test.by_id', test_id=test.last_passed_on, _external=True) }}">Test {{ test.last_passed_on }}</a>{% else %}<span>Never</span>{% endif %}</li>
+{% endfor %}
+</ul>
+{% endif %}
+{% if comment_info.fixed_tests | length %}
+Congratulations: Merging this PR would fix the following tests:
+<ul>
+{% for test in comment_info.fixed_tests %}
+<li> ccextractor {{ test.command }} <a href="{{ url_for('sample.sample_by_id', sample_id=test.sample.id, _external=True) }}">{{ test.sample.sha[:10] }}...</a>, Last passed: {% if test.last_passed_on %}<a href="{{ url_for('test.by_id', test_id=test.last_passed_on, _external=True) }}">Test {{ test.last_passed_on }}</a>{% else %}<span>Never</span>{% endif %}</li>
+{% endfor %}
+</ul>
 {% endif %}
 <br>
 Check the <a href="{{ url_for('test.by_id', test_id=test_id, _external=True) }}">result</a> page for more info.

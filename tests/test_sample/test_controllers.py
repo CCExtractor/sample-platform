@@ -201,6 +201,16 @@ class TestControllers(BaseTestCase):
             self.assertEqual(sample.upload.notes, 'mp4')
             self.assertEqual(sample.upload.parameters, '-latin1')
 
+    def test_edit_sample_get_request(self):
+        """Check the edit sample get form request."""
+        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
+
+        with self.app.test_client() as c:
+            c.post('/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.get('/sample/edit/1')
+            self.assertIn("Editing sample with id 1", str(response.data))
+            self.assertEqual(response.status_code, 200)
+
     def test_add_tag(self):
         """Check add tags api endpoint."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)

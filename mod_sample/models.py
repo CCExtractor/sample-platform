@@ -1,13 +1,12 @@
 """Maintain database models regarding various sample, ExtraFile, ForbiddenExtension, ForbiddenMimeType, Issue."""
 
 from datetime import datetime
-from typing import Any, Dict, Type
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import (Column, DateTime, ForeignKey, Index, Integer, String,
+                        Table, Text)
 from sqlalchemy.orm import relationship
 
-import database
-from database import Base, DeclEnum
+from database import Base
 
 
 def get_extension(extension: str) -> str:
@@ -22,6 +21,32 @@ def get_extension(extension: str) -> str:
     return ("." + extension) if len(extension) > 0 else ""
 
 
+sample_tag_association = Table(
+    'sample_tag_association',
+    Base.metadata,
+    Column('sample_id', ForeignKey('sample.id'), primary_key=True, nullable=False),
+    Column('tag_id', ForeignKey('tag.id'), primary_key=True, nullable=False)
+)
+
+
+class Tag(Base):
+    """Model to store tags."""
+
+    __tablename__ = 'tag'
+    __table_args__ = {'mysql_engine': 'InnoDB'}
+    id = Column(Integer, primary_key=True)
+    name = Column(String(64), unique=True, nullable=False)
+    description = Column(String(length=1024))
+    samples = relationship('Sample', secondary=sample_tag_association, back_populates='tags')
+
+    def __init__(self, name, description="") -> None:
+        self.name = name
+        self.description = description
+
+
+tag_name_index = Index('tag_name_index', Tag.name)
+
+
 class Sample(Base):
     """Model to store and manage sample."""
 
@@ -34,6 +59,7 @@ class Sample(Base):
     extra_files = relationship('ExtraFile', back_populates='sample')
     tests = relationship('RegressionTest', back_populates='sample')
     upload = relationship('Upload', uselist=False, back_populates='sample')
+    tags = relationship('Tag', secondary=sample_tag_association, back_populates='samples')
 
     def __init__(self, sha, extension, original_name) -> None:
         """

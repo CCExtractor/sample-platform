@@ -6,7 +6,7 @@ from flask import g
 from mod_auth.models import Role
 from mod_home.models import CCExtractorVersion
 from mod_sample.media_info_parser import InvalidMediaInfoError
-from mod_sample.models import Sample
+from mod_sample.models import Sample, Tag
 from tests.base import BaseTestCase
 
 
@@ -210,3 +210,19 @@ class TestControllers(BaseTestCase):
             response = c.get('/sample/edit/1')
             self.assertIn("Editing sample with id 1", str(response.data))
             self.assertEqual(response.status_code, 200)
+
+    def test_add_tag(self):
+        """Check add tags api endpoint."""
+        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
+
+        with self.app.test_client() as c:
+            c.post('/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.post('/sample/add_tag', data=dict(name="test", description="test_description"))
+            self.assertEqual(response.status_code, 200)
+            tag = Tag.query.filter(Tag.name == "test", Tag.description == "test_description").first()
+            self.assertIsNotNone(tag)
+
+            # Check no addition of tag with same name is allowed
+            response = c.post('/sample/add_tag', data=dict(name="test", description="test_description_copy"))
+            tag = Tag.query.filter(Tag.name == "test", Tag.description == "test_description_copy").first()
+            self.assertIsNone(tag)

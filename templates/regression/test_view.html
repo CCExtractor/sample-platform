@@ -12,6 +12,20 @@
             <p>Input type: {{ test.input_type.description }}</p>
             <p>Output type: {{ test.output_type.description }}</p>
             <p>Description: {{ test.description or "No description" }}</p>
+            <p id="tags" href="#tags">
+                {% set sample = test.sample %}
+                Tags of sample:
+                {% if sample.tags|length %}
+                    {% for tag in sample.tags %}
+                        <span class="tag" title="{{tag.description or tag.name}}">{{ tag.name }}</span>
+                    {% endfor %}
+                {% else %}
+                    No tags yet.
+                {% endif %}
+                {% if user.is_admin %}
+                &nbsp;<a href="{{ url_for("sample.edit_sample", sample_id=sample.id) }}" title="Edit sample"><i class="fa fa-edit"></i></a>
+                {% endif %}
+            </p>
             <p>Output files:</p>
             <ul>
                 {% for i in range(test.output_files|length) %}

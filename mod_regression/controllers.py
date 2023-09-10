@@ -2,7 +2,7 @@
 
 from flask import (Blueprint, abort, flash, g, jsonify, redirect, request,
                    url_for)
-from sqlalchemy import and_, func
+from sqlalchemy import and_
 
 from decorators import template_renderer
 from mod_auth.controllers import check_access_rights, login_required
@@ -13,9 +13,8 @@ from mod_regression.forms import (AddCategoryForm, AddCorrectOutputForm,
 from mod_regression.models import (Category, InputType, OutputType,
                                    RegressionTest, RegressionTestOutput,
                                    RegressionTestOutputFiles)
-from mod_sample.models import Sample
-from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
-                             TestResult, TestResultFile, TestStatus, TestType)
+from mod_sample.models import Sample, Tag
+from mod_test.models import TestResultFile
 from utility import serve_file_download
 
 mod_regression = Blueprint('regression', __name__)
@@ -37,7 +36,8 @@ def index():
     """Display all regression tests."""
     return {
         'tests': RegressionTest.query.all(),
-        'categories': Category.query.order_by(Category.name.asc()).all()
+        'categories': Category.query.order_by(Category.name.asc()).all(),
+        'tags': Tag.query.all()
     }
 
 

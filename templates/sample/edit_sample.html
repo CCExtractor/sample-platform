@@ -2,58 +2,186 @@
 
 {% block title %}Edit sample {{ super() }}{% endblock %}
 {% block body %}
-    {{ super() }}
-    <br />
+{{ super() }}
+<br />
+<div class="grid-x">
     <div class="grid-x">
-        <div class="grid-x">
-            <div class="column medium-12">
-                <h1>Edit sample</h1>
-                <p>Editing sample with id {{ sample.id }}</p>
-                <form method="post" name="editForm" id="editForm" action="{{ url_for('.edit_sample', sample_id=sample.id) }}">
-                    {{ form.csrf_token }}
+        <div class="column medium-9">
+            <h1>Edit sample</h1>
+            <p>Editing sample with id {{ sample.id }}</p>
+            <form method="post" name="editForm" id="editForm"
+                action="{{ url_for('.edit_sample', sample_id=sample.id) }}">
+                {{ form.csrf_token }}
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                <div class="grid-x">
+                    <div class="callout alert">
+                        <ul class="flashes">
+                            {% for category, message in messages %}
+                            <li class="{{ category }}">{{ message }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+                {% endif %}
+                {% endwith %}
+                {% if form.errors %}
+                <div class="grid-x">
+                    <div class="callout alert">
+                        {% for field, error in form.errors.items() %}
+                        {% for e in error %}
+                        {{ e }}<br>
+                        {% endfor %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                <div class="grid-x">
+                    <div class="medium-6 columns">
+                        {{ macros.render_field(form.version) }}
+                    </div>
+                    <div class="medium-6 columns">
+                        {{ macros.render_field(form.platform) }}
+                    </div>
+                    <div class="medium-6 columns">
+                        {{ macros.render_field(form.tags) }}
+                    </div>
+                    <div class="medium-6 columns selected_tags">
+                        <label>Selected Tags</label>
+                    </div>
+                    <div class="medium-12 columns">
+                        {{ macros.render_field(form.parameters, placeholder="-autoprogram -latin1 ...") }}
+                    </div>
+                    <div class="medium-12 columns">
+                        {{ macros.render_field(form.notes) }}
+                    </div>
+                    <div class="medium-12 columns">
+                        {{ macros.render_field(form.submit) }}
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="column medium-3">
+            <h5>Actions</h5>
+            <ul class="no-bullet">
+                <li><a href="{{ url_for('.sample_by_id', sample_id=sample.id) }}">View Sample</a></li>
+            </ul>
+            <ul class="no-bullet">
+                <h5>Add Tag</h5>
+                <form method="post" name="addTagForm" id="addTagForm"
+                    action="{{ url_for('.add_tag') }}">
+                    {{ add_tag_form.csrf_token }}
                     {% with messages = get_flashed_messages(with_categories=true) %}
-                        {% if messages %}
-                            <div class="grid-x">
-                                <div class="callout alert">
-                                    <ul class="flashes">
-                                        {% for category, message in messages %}
-                                        <li class="{{ category }}">{{ message }}</li>
-                                        {% endfor %}
-                                    </ul>
-                                </div>
-                            </div>
-                        {% endif %}
-                    {% endwith %}
-                    {% if form.errors %}
-                        <div class="grid-x">
-                            <div class="callout alert">
-                                {% for field, error in form.errors.items() %}
-                                    {% for e in error %}
-                                        {{ e }}<br>
-                                    {% endfor %}
+                    {% if messages %}
+                        <div class="callout alert">
+                            <ul class="flashes">
+                                {% for category, message in messages %}
+                                <li class="{{ category }}">{{ message }}</li>
                                 {% endfor %}
-                            </div>
+                            </ul>
                         </div>
                     {% endif %}
-                    <div class="grid-x">
-                        <div class="medium-6 columns">
-                            {{ macros.render_field(form.version) }}
+                    {% endwith %}
+                    {% if add_tag_form.errors %}
+                        <div class="callout alert">
+                            {% for field, error in add_tag_form.errors.items() %}
+                            {% for e in error %}
+                            {{ e }}<br>
+                            {% endfor %}
+                            {% endfor %}
                         </div>
-                        <div class="medium-6 columns">
-                            {{ macros.render_field(form.platform) }}
+                    {% endif %}
+                    <div class="grid-x callout" style="display:none;" id="add-tag-message"></div>
+                    <div>
+                        <div>
+                            {{ macros.render_field(add_tag_form.name) }}
                         </div>
-                        <div class="medium-12 columns">
-                            {{ macros.render_field(form.parameters, placeholder="-autoprogram -latin1 ...") }}
+                        <div>
+                            {{ macros.render_field(add_tag_form.description) }}
                         </div>
-                        <div class="medium-12 columns">
-                            {{ macros.render_field(form.notes) }}
-                        </div>
-                        <div class="medium-12 columns">
-                            {{ macros.render_field(form.submit) }}
+                        <div>
+                            {{ macros.render_field(add_tag_form.submit) }}
                         </div>
                     </div>
                 </form>
-            </div>
+            </ul>
         </div>
     </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script type="text/javascript">
+    function populateTags() {
+        const selectedTagsDiv = $(".selected_tags");
+        selectedTagsDiv.empty();
+        let labelTag = $("<label>").html('Selected Tags');
+        selectedTagsDiv.append(labelTag);
+
+        $("#tags").find("option:selected").each(function () {
+            const tagId = $(this).val();
+            const tagName = $(this).text();
+
+            let newTag = getNewTagOption(tagId, tagName)
+            selectedTagsDiv.append(newTag);
+        });
+    }
+
+    $(document).ready(function () {
+        $("#tags").on('change', populateTags);
+        populateTags();
+
+        $("#addTagForm").on("submit", function(event) {
+            event.preventDefault();
+            
+            const formData = new FormData(this);
+            const form = this;
+            
+            $.ajax({
+                type: "POST",
+                url: $(this).attr("action"),
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    let message_div = $("#add-tag-message")
+                    if(response.errors){
+                        message_div.html(`Error: ${response.errors.name[0]}`);
+                        message_div.addClass("alert");
+                        message_div.removeClass("success");
+                    }
+                    else{
+                        const selectField = $("#tags");
+                        const option = $("<option></option>")
+                            .attr("value", response.id)
+                            .text(response.name);
+                        selectField.prepend(option);
+                        message_div.html(`Success: Tag Added Successfully`);
+                        message_div.addClass("success");
+                        message_div.removeClass("alert");
+                        $(form).trigger("reset");
+                    }
+                    message_div.show()
+                    setTimeout(function() {
+                        message_div.hide();
+                    }, 5000);
+                },
+                error: function(error) {
+                    console.error("Error:", error);
+                }
+            });
+        });
+    });
+
+    function getNewTagOption(tagId, tagName) {
+        let newTag = $("<span>").addClass("tag selected_tag").attr("title", tagName).attr("data-id", tagId).html(`${tagName}&nbsp;`);
+        let removeButton = $("<button>").html('<i class="fa fa-remove"></i>').click(function () {
+            $(this).parent().remove();
+            $(`#tags > option[value=${tagId}]`).prop("selected", false);
+        });
+        newTag.append(removeButton);
+        return newTag;
+    }
+</script>
 {% endblock %}

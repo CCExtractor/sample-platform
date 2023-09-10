@@ -108,6 +108,10 @@ html[dark=''] {
     display: none;
 }
 
+label {
+    font-size: 16px;
+}
+
 label.success {
     background-color: #e1faea;
     padding: 0 5px;
@@ -538,4 +542,22 @@ input.toggle-round:checked + label:after {
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+
+.tag:nth-child(even) {
+    border: 1px solid #c8e1ff;
+}
+
+.tag:nth-child(odd) {
+    color: #1779ba;
+    border: 1px solid #c8e1ff;
+}
+
+.tag {
+    display: inline-block;
+    background-color: var(--off-canvas-content-bg);
+    padding: 5px 10px;
+    border-radius: 4px;
+    margin-right: 5px;
+    font-size: 14px;
 }

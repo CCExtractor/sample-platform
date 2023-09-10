@@ -68,6 +68,19 @@
                         </tbody>
                     </table>
                 {% endif %}
+                <p id="tags" href="#tags">
+                    Tags:
+                    {% if sample.tags|length %}
+                        {% for tag in sample.tags %}
+                            <span class="tag" title="{{tag.description or tag.name}}">{{ tag.name }}</span>
+                        {% endfor %}
+                    {% else %}
+                        No tags yet.
+                    {% endif %}
+                    {% if user.is_admin %}
+                    &nbsp;<a href="{{ url_for(".edit_sample", sample_id=sample.id) }}" title="Edit sample"><i class="fa fa-edit"></i></a>
+                    {% endif %}
+                </p>
                 <h2>Test status & regression tests</h2>
                 <p>Repository: {{ latest_commit }}</p>
                 <p>Last release: {{ latest_release }}</p>

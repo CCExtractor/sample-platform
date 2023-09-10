@@ -1,12 +1,10 @@
 """Logic to fetch sample information, uploading, editing, deleting sample."""
 
-import json
 import os
 from operator import and_
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type
+from typing import Any, Dict
 
-import requests
-from flask import Blueprint, g, make_response, redirect, request, url_for
+from flask import Blueprint, g, redirect, request, url_for
 
 from decorators import template_renderer
 from exceptions import SampleNotFoundException
@@ -14,11 +12,11 @@ from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role
 from mod_home.models import CCExtractorVersion, GeneralData
 from mod_regression.models import RegressionTest
-from mod_sample.forms import (DeleteAdditionalSampleForm, DeleteSampleForm,
-                              EditSampleForm)
+from mod_sample.forms import (AddTagForm, DeleteAdditionalSampleForm,
+                              DeleteSampleForm, EditSampleForm)
 from mod_sample.media_info_parser import (InvalidMediaInfoError,
                                           MediaInfoFetcher)
-from mod_sample.models import ExtraFile, ForbiddenExtension, Issue, Sample
+from mod_sample.models import ExtraFile, Issue, Sample, Tag
 from mod_test.models import Test, TestResult, TestResultFile
 from mod_upload.models import Platform
 from utility import serve_file_download
@@ -240,6 +238,34 @@ def download_sample_additional(sample_id, additional_id):
     raise SampleNotFoundException(f"Sample with id {sample_id} not found")
 
 
+@mod_sample.route('/add_tag', methods=['POST'])
+@login_required
+@check_access_rights([Role.admin])
+def add_tag():
+    """
+    Add tags on sample api, requires admin role.
+
+    :return: api response
+    :rtype: dict
+    """
+    form = AddTagForm(request.form)
+
+    if form.validate_on_submit():
+        new_tag = Tag(form.name.data, form.description.data)
+        g.db.add(new_tag)
+        g.db.commit()
+
+        return {
+            'id': new_tag.id,
+            'name': new_tag.name,
+            'description': new_tag.description
+        }
+
+    return {
+        'errors': form.errors
+    }
+
+
 @mod_sample.route('/edit/<sample_id>', methods=['GET', 'POST'])
 @login_required
 @check_access_rights([Role.admin])
@@ -258,9 +284,12 @@ def edit_sample(sample_id):
 
     if sample is not None:
         versions = CCExtractorVersion.query.all()
+        tags = Tag.query.all()
         # Process or render form
         form = EditSampleForm(request.form)
+        add_tag_form = AddTagForm(request.form)
         form.version.choices = [(v.id, v.version) for v in versions]
+        form.tags.choices = [(tag.id, tag.name) for tag in tags]
 
         if form.validate_on_submit():
             # Store values
@@ -269,6 +298,7 @@ def edit_sample(sample_id):
             upload.version_id = form.version.data
             upload.platform = Platform.from_string(form.platform.data)
             upload.parameters = form.parameters.data
+            sample.tags = list(Tag.query.filter(Tag.id.in_(form.tags.data)))
             g.db.commit()
             g.log.info(f"sample with id: {sample_id} updated")
             return redirect(url_for('.sample_by_id', sample_id=sample.id))
@@ -279,10 +309,12 @@ def edit_sample(sample_id):
             form.platform.data = sample.upload.platform.name
             form.notes.data = sample.upload.notes
             form.parameters.data = sample.upload.parameters
+            form.tags.data = [tag.id for tag in sample.tags]
 
         return {
             'sample': sample,
-            'form': form
+            'form': form,
+            'add_tag_form': add_tag_form
         }
 
     raise SampleNotFoundException(f"Sample with id {sample_id} not found")

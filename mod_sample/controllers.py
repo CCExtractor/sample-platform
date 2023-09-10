@@ -1,12 +1,10 @@
 """Logic to fetch sample information, uploading, editing, deleting sample."""
 
-import json
 import os
 from operator import and_
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type
+from typing import Any, Dict
 
-import requests
-from flask import Blueprint, g, make_response, redirect, request, url_for
+from flask import Blueprint, g, redirect, request, url_for
 
 from decorators import template_renderer
 from exceptions import SampleNotFoundException
@@ -18,7 +16,7 @@ from mod_sample.forms import (AddTagForm, DeleteAdditionalSampleForm,
                               DeleteSampleForm, EditSampleForm)
 from mod_sample.media_info_parser import (InvalidMediaInfoError,
                                           MediaInfoFetcher)
-from mod_sample.models import ExtraFile, ForbiddenExtension, Issue, Sample, Tag
+from mod_sample.models import ExtraFile, Issue, Sample, Tag
 from mod_test.models import Test, TestResult, TestResultFile
 from mod_upload.models import Platform
 from utility import serve_file_download
@@ -256,6 +254,7 @@ def add_tag():
         new_tag = Tag(form.name.data, form.description.data)
         g.db.add(new_tag)
         g.db.commit()
+
         return {
             'id': new_tag.id,
             'name': new_tag.name,

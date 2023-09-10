@@ -1,14 +1,12 @@
 """Maintain database models regarding various sample, ExtraFile, ForbiddenExtension, ForbiddenMimeType, Issue."""
 
 from datetime import datetime
-from typing import Any, Dict, Type
 
 from sqlalchemy import (Column, DateTime, ForeignKey, Index, Integer, String,
                         Table, Text)
 from sqlalchemy.orm import relationship
 
-import database
-from database import Base, DeclEnum
+from database import Base
 
 
 def get_extension(extension: str) -> str:

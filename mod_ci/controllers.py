@@ -211,7 +211,7 @@ def gcp_instance(app, db, platform, repository, delay) -> None:
     :param app: The Flask app
     :type app: Flask
     :param db: database connection
-    :type db: sqlalchemy.orm.scoped_session
+    :type db: sqlalchemy.orm.scoping.scoped_session
     :param platform: operating system
     :type platform: str
     :param repository: repository to run tests on
@@ -248,11 +248,20 @@ def gcp_instance(app, db, platform, repository, delay) -> None:
     compute = get_compute_service_object()
 
     for test in pending_tests:
-        if test.test_type == TestType.pull_request and test.pr_nr == 0:
-            log.warn(f'[{platform}] Test {test.id} is invalid, deleting')
-            db.delete(test)
-            db.commit()
-            continue
+        if test.test_type == TestType.pull_request:
+            gh_commit = repository.get_commit(test.commit)
+            if test.pr_nr == 0:
+                log.warn(f'[{platform}] Test {test.id} is invalid')
+                deschedule_test(gh_commit, message="Invalid PR number", test=test, db=db)
+                continue
+            test_pr = repository.get_pull(test.pr_nr)
+            if test.commit != test_pr.head.sha:
+                log.warn(f'[{platform}] Test {test.id} is invalid')
+                deschedule_test(gh_commit, message="PR closed or updated", test=test, db=db)
+                continue
+            if test_pr.state != 'open':
+                log.debug(f"PR {test.pr_nr} not in open state, skipping test {test.id}")
+                continue
         start_test(compute, app, db, repository, test, github_config['bot_token'])
 
 
@@ -281,7 +290,7 @@ def start_test(compute, app, db, repository: Repository.Repository, test, bot_to
     :param app: The Flask app
     :type app: Flask
     :param db: database connection
-    :type db: sqlalchemy.orm.scoped_session
+    :type db: sqlalchemy.orm.scoping.scoped_session
     :param platform: operating system
     :type platform: str
     :param repository: repository to run tests on
@@ -616,7 +625,7 @@ def add_test_entry(db, commit, test_type, branch="master", pr_nr=0) -> None:
     Add test details entry into Test model for each platform.
 
     :param db: Database connection.
-    :type db: sqlalchemy.orm.scoped_session
+    :type db: sqlalchemy.orm.scoping.scoped_session
     :param gh_commit: The GitHub API call for the commit. Can be None
     :type gh_commit: Any
     :param commit: The commit hash.
@@ -690,8 +699,8 @@ def update_status_on_github(gh_commit: Commit.Commit, state, description, contex
         log.critical(f'Could not post to GitHub! Response: {a.data}')
 
 
-def deschedule_test(gh_commit: Commit.Commit, commit, test_type, platform, branch="master",
-                    message="Tests have been cancelled", state=Status.FAILURE) -> None:
+def deschedule_test(gh_commit: Commit.Commit, commit=None, test_type=None, platform=None, branch="master",
+                    message="Tests have been cancelled", state=Status.FAILURE, test=None, db=None) -> None:
     """
     Post status to GitHub (default: as failure due to GitHub Actions incompletion).
 
@@ -709,32 +718,37 @@ def deschedule_test(gh_commit: Commit.Commit, commit, test_type, platform, branc
     :type message: str
     :param state: The status badge of the test
     :type state: Status
+    :param test: The test which is to be canceled (optional)
+    :type state: Test
+    :param db: db session
+    :type db: sqlalchemy.orm.scoping.scoped_session
     :return: Nothing
     :rtype: None
     """
     from run import log
 
-    fork_url = f"%/{g.github['repository_owner']}/{g.github['repository']}.git"
-    fork = Fork.query.filter(Fork.github.like(fork_url)).first()
-
     if test_type == TestType.pull_request:
         log.debug('pull request test type detected')
         branch = "pull_request"
 
-    platform_test = Test.query.filter(and_(Test.platform == platform,
-                                           Test.commit == commit,
-                                           Test.fork_id == fork.id,
-                                           Test.test_type == test_type,
-                                           Test.branch == branch,
-                                           )).first()
+    if test is None:
+        fork_url = f"%/{g.github['repository_owner']}/{g.github['repository']}.git"
+        fork = Fork.query.filter(Fork.github.like(fork_url)).first()
+        test = Test.query.filter(and_(Test.platform == platform,
+                                      Test.commit == commit,
+                                      Test.fork_id == fork.id,
+                                      Test.test_type == test_type,
+                                      Test.branch == branch,
+                                      )).first()
 
-    if platform_test is not None:
-        progress = TestProgress(platform_test.id, TestStatus.canceled, message, datetime.datetime.now())
-        g.db.add(progress)
-        g.db.commit()
+    if test is not None:
+        progress = TestProgress(test.id, TestStatus.canceled, message, datetime.datetime.now())
+        db = db or g.db
+        db.add(progress)
+        db.commit()
 
-    if gh_commit is not None:
-        update_status_on_github(gh_commit, state, message, f"CI - {platform.value}")
+        if gh_commit is not None:
+            update_status_on_github(gh_commit, state, message, f"CI - {test.platform.value}")
 
 
 def queue_test(gh_commit: Commit.Commit, commit, test_type, platform, branch="master", pr_nr=0) -> None:
@@ -900,12 +914,11 @@ def start_ci():
             # If it's a valid PR, run the tests
             pr_nr = payload['pull_request']['number']
 
-            is_draft = payload['pull_request']['draft']
             action = payload['action']
-            is_active = action in ['opened', 'synchronize', 'reopened', 'ready_for_review']
-            is_inactive = action in ['closed', 'converted_to_draft']
+            is_active = action in ['opened', 'synchronize', 'reopened']
+            is_inactive = action in ['closed']
 
-            if not is_draft and is_active:
+            if is_active:
                 try:
                     commit_hash = payload['pull_request']['head']['sha']
                 except KeyError:

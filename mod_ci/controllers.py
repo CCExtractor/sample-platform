@@ -1596,8 +1596,9 @@ def get_info_for_pr_comment(test_id: int, platform) -> PrCommentInfo:
     :param platform
     :type: str
     """
+    platform = TestPlatform.from_string(platform)
     last_test_master = g.db.query(Test).filter(Test.branch == "master", Test.test_type == TestType.commit,
-                                               Test.platform.name == platform).join(
+                                               Test.platform == platform).join(
         TestProgress, Test.id == TestProgress.test_id).filter(
             TestProgress.status == TestStatus.completed).order_by(TestProgress.id.desc()).first()
     regression_test_passed = get_query_regression_testid_passed(test_id)

@@ -1587,9 +1587,18 @@ def get_query_regression_testid_passed(test_id: int) -> Query:
     return regression_testid_passed
 
 
-def get_info_for_pr_comment(test_id: int) -> PrCommentInfo:
-    """Return info about the given test id for use in a PR comment."""
-    last_test_master = g.db.query(Test).filter(Test.branch == "master", Test.test_type == TestType.commit).join(
+def get_info_for_pr_comment(test_id: int, platform) -> PrCommentInfo:
+    """
+    Return info about the given test id for use in a PR comment.
+
+    :param test_id: The identity of Test whose report will be uploaded
+    :type test_id: str
+    :param platform
+    :type: str
+    """
+    platform = TestPlatform.from_string(platform)
+    last_test_master = g.db.query(Test).filter(Test.branch == "master", Test.test_type == TestType.commit,
+                                               Test.platform == platform).join(
         TestProgress, Test.id == TestProgress.test_id).filter(
             TestProgress.status == TestStatus.completed).order_by(TestProgress.id.desc()).first()
     regression_test_passed = get_query_regression_testid_passed(test_id)
@@ -1620,8 +1629,6 @@ def comment_pr(test_id, pr_nr, platform) -> str:
 
     :param test_id: The identity of Test whose report will be uploaded
     :type test_id: str
-    :param state: The state of the PR.
-    :type state: Status
     :param pr_nr: PR number to which test commit is related and comment will be uploaded
     :type: str
     :param platform
@@ -1629,7 +1636,7 @@ def comment_pr(test_id, pr_nr, platform) -> str:
     """
     from run import app, log
 
-    comment_info = get_info_for_pr_comment(test_id)
+    comment_info = get_info_for_pr_comment(test_id, platform)
     template = app.jinja_env.get_or_select_template('ci/pr_comment.txt')
     message = template.render(comment_info=comment_info, test_id=test_id, platform=platform)
     log.debug(f"GitHub PR Comment Message Created for Test_id: {test_id}")

@@ -83,7 +83,7 @@ class TestControllers(BaseTestCase):
 
         # The actual test
         test: Test = Test.query.filter(Test.id == TEST_RUN_ID).first()
-        comment_info = get_info_for_pr_comment(test.id)
+        comment_info = get_info_for_pr_comment(test.id, test.platform.name)
         # we got a valid variant, so should still pass
         self.assertEqual(comment_info.common_failed_tests, [])
         self.assertEqual(comment_info.extra_failed_tests, [])
@@ -105,7 +105,7 @@ class TestControllers(BaseTestCase):
         g.db.commit()
 
         test: Test = Test.query.filter(Test.id == TEST_RUN_ID).first()
-        comment_info = get_info_for_pr_comment(test.id)
+        comment_info = get_info_for_pr_comment(test.id, test.platform.name)
         # all categories that this regression test applies to should fail because of the invalid hash
         for category in test_result_file.regression_test.categories:
             stats = [stat for stat in comment_info.category_stats if stat.category == category.name]

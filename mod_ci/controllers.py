@@ -1590,12 +1590,14 @@ def get_query_regression_testid_passed(test_id: int) -> Query:
 def get_info_for_pr_comment(test_id: int, platform) -> PrCommentInfo:
     """
     Return info about the given test id for use in a PR comment.
+
     :param test_id: The identity of Test whose report will be uploaded
     :type test_id: str
     :param platform
     :type: str
     """
-    last_test_master = g.db.query(Test).filter(Test.branch == "master", Test.test_type == TestType.commit, Test.platform.name == platform).join(
+    last_test_master = g.db.query(Test).filter(Test.branch == "master", Test.test_type == TestType.commit,
+                                               Test.platform.name == platform).join(
         TestProgress, Test.id == TestProgress.test_id).filter(
             TestProgress.status == TestStatus.completed).order_by(TestProgress.id.desc()).first()
     regression_test_passed = get_query_regression_testid_passed(test_id)

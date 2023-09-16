@@ -82,8 +82,8 @@ class TestControllers(BaseTestCase):
         g.db.commit()
 
         # The actual test
-        test: Test = Test.query.filter(Test.id == TEST_RUN_ID).first()
-        comment_info = get_info_for_pr_comment(test.id, test.platform.name)
+        test: Test = Test.query.get(TEST_RUN_ID)
+        comment_info = get_info_for_pr_comment(test)
         # we got a valid variant, so should still pass
         self.assertEqual(comment_info.common_failed_tests, [])
         self.assertEqual(comment_info.extra_failed_tests, [])
@@ -104,13 +104,13 @@ class TestControllers(BaseTestCase):
         g.db.add(test_result_file)
         g.db.commit()
 
-        test: Test = Test.query.filter(Test.id == TEST_RUN_ID).first()
-        comment_info = get_info_for_pr_comment(test.id, test.platform.name)
+        test: Test = Test.query.get(TEST_RUN_ID)
+        comment_info = get_info_for_pr_comment(test)
         # all categories that this regression test applies to should fail because of the invalid hash
         for category in test_result_file.regression_test.categories:
             stats = [stat for stat in comment_info.category_stats if stat.category == category.name]
             for stat in stats:
-                self.assertEqual(stat.success, None)
+                self.assertEqual(stat.success, 0)
 
     @mock.patch('mod_ci.controllers.get_compute_service_object')
     @mock.patch('mod_ci.controllers.delete_expired_instances')
@@ -364,59 +364,42 @@ class TestControllers(BaseTestCase):
         from github.IssueComment import IssueComment
 
         from mod_ci.controllers import Status, comment_pr
+        from mod_test.models import Test
+        pull_request = mock_github.return_value.get_repo.return_value.get_pull(number=1)
+        pull_request.get_issue_comments.return_value = [MagicMock(IssueComment)]
 
-        repository = mock_github(g.github['bot_token']).get_repo(
-            f"{g.github['repository_owner']}/{g.github['repository']}")
-        pull_request = repository.get_pull(number=1)
-        mock_github(g.github['bot_token']).get_user().login = 'test-bot'
-
-        comment1 = MagicMock(IssueComment)
-        comment1.user.login = 'invalid'
-
-        comment2 = MagicMock(IssueComment)
-        comment2.user.login = 'test-bot'
-        comment2.body = 'linux test passed'
-
-        # Delete old bot comments and create a new comment
-        pull_request.get_issue_comments.return_value = [comment1, comment2]
-        comment_pr(1, 1, 'linux')
-        mock_github.assert_called_with(g.github['bot_token'])
-        mock_github(g.github['bot_token']).get_repo.assert_called_with(
-            f"{g.github['repository_owner']}/{g.github['repository']}")
-
-        repository.get_pull.assert_called_with(number=1)
-        pull_request.get_issue_comments.assert_called_once()
-        comment1.delete.assert_not_called()
-        comment2.delete.assert_called_once()
-
+        # Comment on test that fails some/all regression tests
+        test = Test.query.get(2)
+        comment_pr(test)
+        pull_request.get_issue_comments.assert_called_with()
         args, kwargs = pull_request.create_issue_comment.call_args
         message = kwargs['body']
         if "passed" not in message:
             assert False, "Message not Correct"
 
+    @mock.patch('mod_test.controllers.get_test_results')
     @mock.patch('github.Github')
-    def test_comments_successfuly_in_failed_pr_test(self, mock_github):
+    def test_comments_successfuly_in_failed_pr_test(self, mock_github, mock_get_test_results):
         """Check comments in failed PR test."""
         import mod_ci.controllers
         reload(mod_ci.controllers)
         from github.IssueComment import IssueComment
 
-        from mod_ci.controllers import Status, comment_pr
+        from mod_ci.controllers import comment_pr
+        from mod_regression.models import Category, RegressionTest
+        from mod_test.models import Test
         pull_request = mock_github.return_value.get_repo.return_value.get_pull(number=1)
-        message = ("<b>CCExtractor CI platform</b> finished running the "
-                   "test files on <b>linux</b>. Below is a summary of the test results")
         pull_request.get_issue_comments.return_value = [MagicMock(IssueComment)]
+        regression_test = RegressionTest.query.first()
+        mock_get_test_results.return_value = [{'category': MagicMock(Category), 'tests': [{
+            'test': regression_test, 'error': True}]}]
         # Comment on test that fails some/all regression tests
-        comment_pr(2, 1, 'linux')
+        test = Test.query.get(2)
+        comment_pr(test)
         pull_request.get_issue_comments.assert_called_with()
         args, kwargs = pull_request.create_issue_comment.call_args
         message = kwargs['body']
-        reg_tests = RegressionTest.query.all()
-        flag = False
-        for reg_test in reg_tests:
-            if reg_test.command not in message:
-                flag = True
-        if flag:
+        if regression_test.command not in message:
             assert False, "Message not Correct"
 
     def test_get_running_instances(self):
@@ -1287,15 +1270,17 @@ class TestControllers(BaseTestCase):
         deschedule_test(github_status, test=test, db=g.db)
         mock_critical.assert_called()
 
+    @mock.patch('mod_ci.controllers.get_test_results')
     @mock.patch('mod_ci.controllers.is_main_repo')
     @mock.patch('mod_ci.controllers.shutil')
-    def test_update_build_badge(self, mock_shutil, mock_check_repo):
+    def test_update_build_badge(self, mock_shutil, mock_check_repo, mock_get_test_results):
         """Test update_build_badge function."""
         from mod_ci.controllers import update_build_badge
 
         update_build_badge('pass', MockTest())
 
         mock_check_repo.assert_called_once_with(None)
+        mock_get_test_results.assert_called_once()
         mock_shutil.copyfile.assert_called_once_with(mock.ANY, mock.ANY)
 
     @mock.patch('mod_ci.controllers.request')

@@ -2,7 +2,7 @@
 
 import os
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from flask import (Blueprint, Response, abort, g, jsonify, redirect, request,
                    url_for)
@@ -56,63 +56,15 @@ def index():
     }
 
 
-def get_data_for_test(test, title=None) -> Dict[str, Any]:
+def get_test_results(test) -> List[Dict[str, Any]]:
     """
-    Retrieve the data for a single test, with an optional title.
+    Get test results for each category.
 
     :param test: The test to retrieve the data for.
     :type test: Test
-    :param title: The title to use in the result. If empty, it's set to 'test {id}'
-    :type title: str
-    :return: A dictionary with the appropriate values.
-    :rtype: dict
     """
-    if title is None:
-        title = f"test {test.id}"
-
     populated_categories = g.db.query(regressionTestLinkTable.c.category_id).subquery()
     categories = Category.query.filter(Category.id.in_(populated_categories)).order_by(Category.name.asc()).all()
-    hours = 0.00
-    minutes = 0.00
-    queued_tests = 0
-
-    """
-    evaluating estimated time if the test is still in queue
-    estimated time = (number of tests already in queue + 1) * (average time of that platform)
-                      - (time already spend by those tests)
-    calculates time in minutes and hours
-    """
-    if len(test.progress) == 0:
-        var_average = 'average_time_' + test.platform.value
-
-        # get average build and prep time.
-        prep_average_key = 'avg_prep_time_' + test.platform.value
-        average_prep_time = int(float(GeneralData.query.filter(GeneralData.key == prep_average_key).first().value))
-
-        test_progress_last_entry = g.db.query(func.max(TestProgress.test_id)).first()
-        queued_gcp_instance = g.db.query(GcpInstance.test_id).filter(GcpInstance.test_id < test.id).subquery()
-        queued_gcp_instance_entries = g.db.query(Test.id).filter(
-            and_(Test.id.in_(queued_gcp_instance), Test.platform == test.platform)
-        ).subquery()
-        gcp_instance_test = g.db.query(TestProgress.test_id, label('time', func.group_concat(
-            TestProgress.timestamp))).filter(TestProgress.test_id.in_(queued_gcp_instance_entries)).group_by(
-            TestProgress.test_id).all()
-        number_gcp_instance_test = g.db.query(Test.id).filter(
-            and_(Test.id > test_progress_last_entry[0], Test.id < test.id, Test.platform == test.platform)
-        ).count()
-        average_duration = float(GeneralData.query.filter(GeneralData.key == var_average).first().value)
-        queued_tests = number_gcp_instance_test
-        time_run = 0.00
-        for pr_test in gcp_instance_test:
-            timestamps = pr_test.time.split(',')
-            start = datetime.strptime(timestamps[0], '%Y-%m-%d %H:%M:%S')
-            end = datetime.strptime(timestamps[-1], '%Y-%m-%d %H:%M:%S')
-            time_run += (end - start).total_seconds()
-        # subtracting current running tests
-        total = (average_prep_time + (average_duration * (queued_tests + 1))) - time_run
-        minutes = (total % 3600) // 60
-        hours = total // 3600
-
     results = [{
         'category': category,
         'tests': [{
@@ -164,6 +116,66 @@ def get_data_for_test(test, title=None) -> Dict[str, Any]:
             error = error or test_error
         category['error'] = error
     results.sort(key=lambda entry: entry['category'].name)
+    return results
+
+
+def get_data_for_test(test, title=None) -> Dict[str, Any]:
+    """
+    Retrieve the data for a single test, with an optional title.
+
+    :param test: The test to retrieve the data for.
+    :type test: Test
+    :param title: The title to use in the result. If empty, it's set to 'test {id}'
+    :type title: str
+    :return: A dictionary with the appropriate values.
+    :rtype: dict
+    """
+    if title is None:
+        title = f"test {test.id}"
+
+    hours = 0.00
+    minutes = 0.00
+    queued_tests = 0
+
+    """
+    evaluating estimated time if the test is still in queue
+    estimated time = (number of tests already in queue + 1) * (average time of that platform)
+                      - (time already spend by those tests)
+    calculates time in minutes and hours
+    """
+    if len(test.progress) == 0:
+        var_average = 'average_time_' + test.platform.value
+
+        # get average build and prep time.
+        prep_average_key = 'avg_prep_time_' + test.platform.value
+        average_prep_time = int(float(GeneralData.query.filter(GeneralData.key == prep_average_key).first().value))
+
+        test_progress_last_entry = g.db.query(func.max(TestProgress.test_id)).first()
+        queued_gcp_instance = g.db.query(GcpInstance.test_id).filter(GcpInstance.test_id < test.id).subquery()
+        queued_gcp_instance_entries = g.db.query(Test.id).filter(
+            and_(Test.id.in_(queued_gcp_instance), Test.platform == test.platform)
+        ).subquery()
+        gcp_instance_test = g.db.query(TestProgress.test_id, label('time', func.group_concat(
+            TestProgress.timestamp))).filter(TestProgress.test_id.in_(queued_gcp_instance_entries)).group_by(
+            TestProgress.test_id).all()
+        number_gcp_instance_test = g.db.query(Test.id).filter(
+            and_(Test.id > test_progress_last_entry[0], Test.id < test.id, Test.platform == test.platform)
+        ).count()
+        average_duration = float(GeneralData.query.filter(GeneralData.key == var_average).first().value)
+        queued_tests = number_gcp_instance_test
+        time_run = 0.00
+        for pr_test in gcp_instance_test:
+            timestamps = pr_test.time.split(',')
+            start = datetime.strptime(timestamps[0], '%Y-%m-%d %H:%M:%S')
+            end = datetime.strptime(timestamps[-1], '%Y-%m-%d %H:%M:%S')
+            time_run += (end - start).total_seconds()
+        # subtracting current running tests
+        total = average_prep_time + average_duration - time_run
+        minutes = (total % 3600) // 60
+        hours = total // 3600
+
+    results = get_test_results(test)
+
     return {
         'test': test,
         'TestType': TestType,

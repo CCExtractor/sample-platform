@@ -21,8 +21,7 @@ from google.oauth2 import service_account
 from lxml import etree
 from markdown2 import markdown
 from pymysql.err import IntegrityError
-from sqlalchemy import and_, func, or_
-from sqlalchemy.orm.query import Query
+from sqlalchemy import and_, func
 from sqlalchemy.sql import label
 from sqlalchemy.sql.functions import count
 from werkzeug.utils import secure_filename
@@ -37,9 +36,7 @@ from mod_ci.models import (BlockedUsers, CategoryTestInfo, GcpInstance,
 from mod_customized.models import CustomizedTest
 from mod_home.models import CCExtractorVersion, GeneralData
 from mod_regression.models import (Category, RegressionTest,
-                                   RegressionTestOutput,
-                                   RegressionTestOutputFiles,
-                                   regressionTestLinkTable)
+                                   RegressionTestOutput)
 from mod_sample.models import Issue
 from mod_test.controllers import get_test_results
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
@@ -1572,9 +1569,11 @@ def get_info_for_pr_comment(test: Test) -> PrCommentInfo:
     common_failed_tests = []
     fixed_tests = []
     category_stats = []
+
     test_results = get_test_results(test)
     for category_results in test_results:
         category_name = category_results['category'].name
+
         category_test_pass_count = 0
         for test in category_results['tests']:
             if not test['error']:
@@ -1586,6 +1585,7 @@ def get_info_for_pr_comment(test: Test) -> PrCommentInfo:
                     common_failed_tests.append(test['test'])
                 else:
                     extra_failed_tests.append(test['test'])
+
         category_stats.append(CategoryTestInfo(category_name, len(category_results['tests']), category_test_pass_count))
 
     return PrCommentInfo(category_stats, extra_failed_tests, fixed_tests, common_failed_tests, last_test_master)

@@ -21,8 +21,7 @@ from google.oauth2 import service_account
 from lxml import etree
 from markdown2 import markdown
 from pymysql.err import IntegrityError
-from sqlalchemy import and_, func, or_
-from sqlalchemy.orm.query import Query
+from sqlalchemy import and_, func
 from sqlalchemy.sql import label
 from sqlalchemy.sql.functions import count
 from werkzeug.utils import secure_filename
@@ -32,15 +31,14 @@ from decorators import get_menu_entries, template_renderer
 from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role
 from mod_ci.forms import AddUsersToBlacklist, DeleteUserForm
-from mod_ci.models import (BlockedUsers, GcpInstance, MaintenanceMode,
-                           PrCommentInfo, Status)
+from mod_ci.models import (BlockedUsers, CategoryTestInfo, GcpInstance,
+                           MaintenanceMode, PrCommentInfo, Status)
 from mod_customized.models import CustomizedTest
 from mod_home.models import CCExtractorVersion, GeneralData
 from mod_regression.models import (Category, RegressionTest,
-                                   RegressionTestOutput,
-                                   RegressionTestOutputFiles,
-                                   regressionTestLinkTable)
+                                   RegressionTestOutput)
 from mod_sample.models import Issue
+from mod_test.controllers import get_test_results
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
                              TestResult, TestResultFile, TestStatus, TestType)
 from utility import is_valid_signature, request_from_github
@@ -1138,8 +1136,11 @@ def update_build_badge(status, test) -> None:
         shutil.copyfile(original_location, build_status_location)
         g.log.info('Build badge updated successfully!')
 
-        regression_testid_passed = get_query_regression_testid_passed(test.id)
-        test_ids_to_update = [result[0] for result in regression_testid_passed]
+        test_results = get_test_results(test)
+        test_ids_to_update = []
+        for category_results in test_results:
+            test_ids_to_update.extend([test['test'].id for test in category_results['tests'] if not test['error']])
+
         g.db.query(RegressionTest).filter(RegressionTest.id.in_(test_ids_to_update)
                                           ).update({"last_passed_on": test.id}, synchronize_session=False)
         g.db.commit()
@@ -1292,7 +1293,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
             state = Status.SUCCESS
             message = 'Tests completed'
         if test.test_type == TestType.pull_request:
-            state = comment_pr(test.id, test.pr_nr, test.platform.name)
+            state = comment_pr(test)
         update_build_badge(state, test)
 
     else:
@@ -1552,91 +1553,56 @@ def set_avg_time(platform, process_type: str, time_taken: int) -> None:
     g.db.commit()
 
 
-def get_query_regression_testid_passed(test_id: int) -> Query:
-    """Get sqlalchemy query to fetch all regression tests which passed on given test id.
-
-    :param test_id: test id of the test whose query is required
-    :type test_id: int
-    :return: Query object for passed regression tests
-    :rtype: sqlalchemy.orm.query.Query
+def get_info_for_pr_comment(test: Test) -> PrCommentInfo:
     """
-    regression_testid_passed = g.db.query(TestResult.regression_test_id).outerjoin(
-        TestResultFile, TestResult.test_id == TestResultFile.test_id).filter(
-        TestResult.test_id == test_id,
-        TestResult.expected_rc == TestResult.exit_code,
-        and_(
-            RegressionTestOutput.regression_id == TestResult.regression_test_id,
-            RegressionTestOutput.ignore.is_(True)
-        )).distinct().subquery()
+    Return info about the given test for use in a PR comment.
 
-    regression_testid_passed = g.db.query(TestResult.regression_test_id).outerjoin(
-        TestResultFile, TestResult.test_id == TestResultFile.test_id).filter(
-        TestResult.test_id == test_id,
-        TestResult.expected_rc == TestResult.exit_code,
-        or_(
-            TestResult.exit_code != 0,
-            and_(TestResult.exit_code == 0,
-                 TestResult.regression_test_id == TestResultFile.regression_test_id,
-                 or_(TestResultFile.got.is_(None),
-                     and_(
-                     RegressionTestOutputFiles.regression_test_output_id == TestResultFile.regression_test_output_id,
-                     TestResultFile.got == RegressionTestOutputFiles.file_hashes
-                 )))
-        )).distinct().union(g.db.query(regression_testid_passed.c.regression_test_id))
-
-    return regression_testid_passed
-
-
-def get_info_for_pr_comment(test_id: int, platform) -> PrCommentInfo:
+    :param test: The test whose report will be returned
+    :type test: Test
     """
-    Return info about the given test id for use in a PR comment.
-
-    :param test_id: The identity of Test whose report will be uploaded
-    :type test_id: str
-    :param platform
-    :type: str
-    """
-    platform = TestPlatform.from_string(platform)
     last_test_master = g.db.query(Test).filter(Test.branch == "master", Test.test_type == TestType.commit,
-                                               Test.platform == platform).join(
+                                               Test.platform == test.platform).join(
         TestProgress, Test.id == TestProgress.test_id).filter(
             TestProgress.status == TestStatus.completed).order_by(TestProgress.id.desc()).first()
-    regression_test_passed = get_query_regression_testid_passed(test_id)
 
-    passed = g.db.query(label('category_id', Category.id), label(
-        'success', count(regressionTestLinkTable.c.regression_id))).filter(
-            regressionTestLinkTable.c.regression_id.in_(regression_test_passed),
-            Category.id == regressionTestLinkTable.c.category_id).group_by(
-            regressionTestLinkTable.c.category_id).subquery()
-    tot = g.db.query(label('category', Category.name), label('total', count(regressionTestLinkTable.c.regression_id)),
-                     label('success', passed.c.success)).outerjoin(
-        passed, passed.c.category_id == Category.id).filter(
-        Category.id == regressionTestLinkTable.c.category_id).group_by(
-        regressionTestLinkTable.c.category_id).all()
-    regression_test_failed = RegressionTest.query.filter(RegressionTest.id.notin_(regression_test_passed)).all()
+    extra_failed_tests = []
+    common_failed_tests = []
+    fixed_tests = []
+    category_stats = []
 
-    last_test_master_id = last_test_master.id if last_test_master else 0
-    extra_failed_tests = [test for test in regression_test_failed if test.last_passed_on == last_test_master]
-    fixed_tests = RegressionTest.query.filter(RegressionTest.id.in_(regression_test_passed),
-                                              RegressionTest.last_passed_on != last_test_master_id).all()
-    common_failed_tests = [test for test in regression_test_failed if test.last_passed_on != last_test_master]
-    return PrCommentInfo(tot, extra_failed_tests, fixed_tests, common_failed_tests, last_test_master)
+    test_results = get_test_results(test)
+    for category_results in test_results:
+        category_name = category_results['category'].name
+
+        category_test_pass_count = 0
+        for test in category_results['tests']:
+            if not test['error']:
+                category_test_pass_count += 1
+                if test['test'].last_passed_on != last_test_master:
+                    fixed_tests.append(test['test'])
+            else:
+                if test['test'].last_passed_on != last_test_master:
+                    common_failed_tests.append(test['test'])
+                else:
+                    extra_failed_tests.append(test['test'])
+
+        category_stats.append(CategoryTestInfo(category_name, len(category_results['tests']), category_test_pass_count))
+
+    return PrCommentInfo(category_stats, extra_failed_tests, fixed_tests, common_failed_tests, last_test_master)
 
 
-def comment_pr(test_id, pr_nr, platform) -> str:
+def comment_pr(test: Test) -> str:
     """
     Upload the test report to the GitHub PR as comment.
 
-    :param test_id: The identity of Test whose report will be uploaded
-    :type test_id: str
-    :param pr_nr: PR number to which test commit is related and comment will be uploaded
-    :type: str
-    :param platform
-    :type: str
+    :param test: The test whose report will be uploaded
+    :type test: Test
     """
     from run import app, log
 
-    comment_info = get_info_for_pr_comment(test_id, platform)
+    test_id = test.id
+    platform = test.platform.name
+    comment_info = get_info_for_pr_comment(test)
     template = app.jinja_env.get_or_select_template('ci/pr_comment.txt')
     message = template.render(comment_info=comment_info, test_id=test_id, platform=platform)
     log.debug(f"GitHub PR Comment Message Created for Test_id: {test_id}")
@@ -1644,7 +1610,7 @@ def comment_pr(test_id, pr_nr, platform) -> str:
         gh = Github(g.github['bot_token'])
         repository = gh.get_repo(f"{g.github['repository_owner']}/{g.github['repository']}")
         # Pull requests are just issues with code, so GitHub considers PR comments in issues
-        pull_request = repository.get_pull(number=pr_nr)
+        pull_request = repository.get_pull(number=test.pr_nr)
         comments = pull_request.get_issue_comments()
         bot_name = gh.get_user().login
         for comment in comments:

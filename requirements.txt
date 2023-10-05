@@ -10,7 +10,7 @@ GitPython==3.1.32
 xmltodict==0.13.0
 lxml==4.9.3
 pytz==2023.3.post1
-tzlocal==4.1
+tzlocal==5.1
 markdown2==2.4.10
 flask-migrate==4.0.4
 flask-script==2.0.6

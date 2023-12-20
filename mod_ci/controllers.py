@@ -319,9 +319,10 @@ def start_test(compute, app, db, repository: Repository.Repository, test, bot_to
 
     regression_ids = test.get_customized_regressiontests()
 
-    if len(regression_ids) == 0:
-        log.debug(f"[{gcp_instance_name}] No regression tests, skipping test {test.id}")
-        return
+    # BREAKS REGULAR TESTS
+    # if len(regression_ids) == 0:
+    #     log.debug(f"[{gcp_instance_name}] No regression tests, skipping test {test.id}")
+    #     return
 
     # Init collection file
     multi_test = etree.Element('multitest')

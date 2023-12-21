@@ -63,7 +63,7 @@ if [ -e "${dstDir}/ccextractor" ]; then
         chmod +x ${tester}
         postStatus "testing" "Running tests"
         executeCommand cd ${suiteDstDir}
-        executeCommand ${tester} --entries "${testFile}" --executable "ccextractor" --tempfolder "${tempFolder}" --timeout 3000 --reportfolder "${reportFolder}" --resultfolder "${resultFolder}" --samplefolder "${sampleFolder}" --method Server --url "${reportURL}"
+        executeCommand ${tester} --debug --entries "${testFile}" --executable "ccextractor" --tempfolder "${tempFolder}" --timeout 3000 --reportfolder "${reportFolder}" --resultfolder "${resultFolder}" --samplefolder "${sampleFolder}" --method Server --url "${reportURL}"
         sendLogFile
         postStatus "completed" "Ran all tests"
 

@@ -5,8 +5,8 @@
 
 # The URL to check if the VM is in maintenance
 maintenanceURL="http://foo.bar/maintenance/linux"
-# The URL with the runCI blob
-runCIURL="https://raw.githubusercontent.com/CCExtractor/sample-platform/master/install/ci-vm/ci-linux/ci/runCI"
+# The runCI file URL
+runCIFile="/repository/TestData/ci-linux/runCI"
 # Directory where the test suite is located
 suiteDstDir="/repository"
 # Shell script to launch the test suite

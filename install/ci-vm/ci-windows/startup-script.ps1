@@ -23,16 +23,16 @@ curl.exe http://metadata/computeMetadata/v1/instance/attributes/rclone_conf -H "
 curl.exe http://metadata/computeMetadata/v1/instance/attributes/service_account -H "Metadata-Flavor: Google" > service-account.json
 (Get-Content -path .\service-account.json) | Set-Content -Encoding ASCII -Path .\service-account.json
 
-start powershell {.\rclone.exe mount $env:mount_path\TestFiles .\TestFiles --config=".\rclone.conf" --no-console}
+start powershell {.\rclone.exe mount $env:mount_path\TestFiles .\TestFiles --config=".\rclone.conf" --no-console --read-only}
 Start-Sleep -Seconds 5
 
-start powershell {.\rclone.exe mount $env:mount_path\TestData\ci-windows .\temp --config=".\rclone.conf" --no-console}
+start powershell {.\rclone.exe mount $env:mount_path\TestData\ci-windows .\temp --config=".\rclone.conf" --no-console --read-only}
 Start-Sleep -Seconds 5
 
-start powershell {.\rclone.exe mount $env:mount_path\TestResults .\TestResultsRemote --config=".\rclone.conf" --no-console}
+start powershell {.\rclone.exe mount $env:mount_path\TestResults .\TestResultsRemote --config=".\rclone.conf" --no-console --read-only}
 Start-Sleep -Seconds 5
 
-start powershell {.\rclone.exe mount $env:mount_path\vm_data\$env:vm_name .\vm_data --config=".\rclone.conf" --no-console}
+start powershell {.\rclone.exe mount $env:mount_path\vm_data\$env:vm_name .\vm_data --config=".\rclone.conf" --no-console --read-only}
 Start-Sleep -Seconds 5
 
 Copy-Item -Path "temp\*" -Destination "."

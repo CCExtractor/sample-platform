@@ -12,7 +12,7 @@ lxml==4.9.3
 pytz==2023.3.post1
 tzlocal==4.1
 markdown2==2.4.10
-flask-migrate==4.0.4
+flask-migrate==4.0.7
 flask-script==2.0.6
 email_validator
 gitdb==4.0.10

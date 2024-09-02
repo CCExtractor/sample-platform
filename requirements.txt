@@ -24,4 +24,4 @@ itsdangerous==2.0.1
 google-api-python-client==2.111.0
 google-cloud-storage==2.10.0
 cffi==1.15.1
-PyGithub==1.58.2
+PyGithub==2.4.0

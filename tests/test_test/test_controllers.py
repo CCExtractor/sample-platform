@@ -7,6 +7,7 @@ from mod_regression.models import RegressionTest
 from mod_test.models import (Test, TestPlatform, TestProgress, TestResult,
                              TestResultFile, TestStatus)
 from tests.base import BaseTestCase
+from tests.test_auth.test_controllers import MockUser
 
 
 class TestControllers(BaseTestCase):
@@ -209,12 +210,14 @@ class TestControllers(BaseTestCase):
         self.assertTrue(response, mock_response())
 
     @mock.patch('mod_test.controllers.Test')
-    def test_download_build_log_file_test_not_found(self, mock_test):
+    @mock.patch('mod_auth.controllers.g')
+    def test_download_build_log_file_test_not_found(self, mock_g, mock_test):
         """Try to download build log for invalid test."""
         from mod_test.controllers import (TestNotFoundException,
                                           download_build_log_file)
 
         mock_test.query.filter.return_value.first.return_value = None
+        mock_g.user = MockUser(id=1, role="None")
 
         with self.assertRaises(TestNotFoundException):
             download_build_log_file(1)
@@ -223,12 +226,14 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_test.controllers.os')
     @mock.patch('mod_test.controllers.Test')
-    def test_download_build_log_file_log_not_file(self, mock_test, mock_os):
+    @mock.patch('mod_auth.controllers.g')
+    def test_download_build_log_file_log_not_file(self, mock_g, mock_test, mock_os):
         """Try to download build log for invalid file path."""
         from mod_test.controllers import (TestNotFoundException,
                                           download_build_log_file)
 
         mock_os.path.isfile.side_effect = TestNotFoundException('msg')
+        mock_g.user = MockUser(id=1, role="None")
 
         with self.assertRaises(TestNotFoundException):
             download_build_log_file('1')
@@ -239,10 +244,13 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_test.controllers.os')
     @mock.patch('mod_test.controllers.Test')
     @mock.patch('mod_test.controllers.serve_file_download')
-    def test_download_build_log_file(self, mock_serve, mock_test, mock_os):
+    @mock.patch('mod_auth.controllers.g')
+    def test_download_build_log_file(self, mock_g, mock_serve, mock_test, mock_os):
         """Try to download build log."""
         from mod_test.controllers import (TestNotFoundException,
                                           download_build_log_file)
+
+        mock_g.user = MockUser(id=1, role="None")
 
         response = download_build_log_file('1')
 

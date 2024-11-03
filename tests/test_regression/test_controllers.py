@@ -12,6 +12,7 @@ from mod_regression.models import (Category, InputType, OutputType,
 from mod_sample.models import Sample
 from mod_test.models import Test, TestResultFile
 from tests.base import BaseTestCase
+from tests.test_auth.test_controllers import MockUser
 
 
 class TestControllers(BaseTestCase):
@@ -48,10 +49,12 @@ class TestControllers(BaseTestCase):
                 self.assertEqual('True', response.json['active'])
 
     @mock.patch('mod_regression.controllers.RegressionTestOutput')
-    def test_download_result_file_not_found(self, mock_regression_output):
+    @mock.patch('mod_auth.controllers.g')
+    def test_download_result_file_not_found(self, mock_g, mock_regression_output):
         """Test that non-existent result file gives 404."""
         from mod_regression.controllers import test_result_file
         mock_regression_output.query.filter.return_value.first.return_value = None
+        mock_g.user = MockUser(id=1, role="None")
 
         with self.assertRaises(NotFound):
             test_result_file(1)
@@ -59,10 +62,12 @@ class TestControllers(BaseTestCase):
         mock_regression_output.query.filter.assert_called_once_with(mock_regression_output.id == 1)
 
     @mock.patch('mod_regression.controllers.RegressionTestOutputFiles')
-    def test_download_result_file_not_found_variant(self, mock_regression_output_file):
+    @mock.patch('mod_auth.controllers.g')
+    def test_download_result_file_not_found_variant(self, mock_g, mock_regression_output_file):
         """Test that non-existent result file gives 404."""
         from mod_regression.controllers import multiple_test_result_file
         mock_regression_output_file.query.filter.return_value.first.return_value = None
+        mock_g.user = MockUser(id=1, role="None")
 
         with self.assertRaises(NotFound):
             multiple_test_result_file(1)
@@ -71,10 +76,12 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_regression.controllers.serve_file_download')
     @mock.patch('mod_regression.controllers.RegressionTestOutput')
-    def test_download_result_file(self, mock_regression_output, mock_serve):
+    @mock.patch('mod_auth.controllers.g')
+    def test_download_result_file(self, mock_g, mock_regression_output, mock_serve):
         """Test that correct result file triggers serve download."""
         from mod_regression.controllers import test_result_file
 
+        mock_g.user = MockUser(id=1, role="None")
         response = test_result_file(1)
 
         mock_regression_output.query.filter.assert_called_once_with(mock_regression_output.id == 1)
@@ -82,10 +89,12 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_regression.controllers.serve_file_download')
     @mock.patch('mod_regression.controllers.RegressionTestOutputFiles')
-    def test_download_result_file_variant(self, mock_regression_output_file, mock_serve):
+    @mock.patch('mod_auth.controllers.g')
+    def test_download_result_file_variant(self, mock_g, mock_regression_output_file, mock_serve):
         """Test that correct result file triggers serve download for variants."""
         from mod_regression.controllers import multiple_test_result_file
 
+        mock_g.user = MockUser(id=1, role="None")
         response = multiple_test_result_file(1)
 
         mock_regression_output_file.query.filter.assert_called_once_with(mock_regression_output_file.id == 1)

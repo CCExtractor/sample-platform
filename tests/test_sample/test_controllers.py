@@ -8,6 +8,7 @@ from mod_home.models import CCExtractorVersion
 from mod_sample.media_info_parser import InvalidMediaInfoError
 from mod_sample.models import Sample, Tag
 from tests.base import BaseTestCase
+from tests.test_auth.test_controllers import MockUser
 
 
 def raise_media_exception():
@@ -75,10 +76,12 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_sample.controllers.serve_file_download')
     @mock.patch('mod_sample.controllers.Sample')
-    def test_download_sample(self, mock_sample, mock_serve_download):
+    @mock.patch('mod_auth.controllers.g')
+    def test_download_sample(self, mock_g, mock_sample, mock_serve_download):
         """Test function download_sample."""
         from mod_sample.controllers import download_sample
 
+        mock_g.user = MockUser(id=1, role="None")
         response = download_sample(1)
 
         self.assertEqual(response, mock_serve_download())
@@ -86,12 +89,14 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_sample.controllers.serve_file_download')
     @mock.patch('mod_sample.controllers.Sample')
-    def test_download_sample_raise_exception(self, mock_sample, mock_serve_download):
+    @mock.patch('mod_auth.controllers.g')
+    def test_download_sample_raise_exception(self, mock_g, mock_sample, mock_serve_download):
         """Test function download_sample to raise SampleNotFoundException."""
         from mod_sample.controllers import (SampleNotFoundException,
                                             download_sample)
 
         mock_sample.query.filter.return_value.first.return_value = None
+        mock_g.user = MockUser(id=1, role="None")
 
         with self.assertRaises(SampleNotFoundException):
             download_sample(1)
@@ -102,10 +107,12 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_sample.controllers.serve_file_download')
     @mock.patch('mod_sample.controllers.Sample')
     @mock.patch('mod_sample.controllers.os')
-    def test_download_sample_media_info(self, mock_os, mock_sample, mock_serve_download):
+    @mock.patch('mod_auth.controllers.g')
+    def test_download_sample_media_info(self, mock_g, mock_os, mock_sample, mock_serve_download):
         """Test function download_sample_media_info."""
         from mod_sample.controllers import download_sample_media_info
 
+        mock_g.user = MockUser(id=1, role="None")
         response = download_sample_media_info(1)
 
         self.assertEqual(response, mock_serve_download())
@@ -115,12 +122,14 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_sample.controllers.serve_file_download')
     @mock.patch('mod_sample.controllers.Sample')
     @mock.patch('mod_sample.controllers.os')
-    def test_download_sample_media_info_path_wrong(self, mock_os, mock_sample, mock_serve_download):
+    @mock.patch('mod_auth.controllers.g')
+    def test_download_sample_media_info_path_wrong(self, mock_g, mock_os, mock_sample, mock_serve_download):
         """Test function download_sample_media_info with wrong path for media info."""
         from mod_sample.controllers import (SampleNotFoundException,
                                             download_sample_media_info)
 
         mock_os.path.isfile.return_value = False
+        mock_g.user = MockUser(id=1, role="None")
 
         with self.assertRaises(SampleNotFoundException):
             download_sample_media_info(1)
@@ -131,12 +140,14 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_sample.controllers.serve_file_download')
     @mock.patch('mod_sample.controllers.Sample')
     @mock.patch('mod_sample.controllers.os')
-    def test_download_sample_media_info_sample_not_found(self, mock_os, mock_sample, mock_serve_download):
+    @mock.patch('mod_auth.controllers.g')
+    def test_download_sample_media_info_sample_not_found(self, mock_g, mock_os, mock_sample, mock_serve_download):
         """Test function download_sample_media_info to raise SampleNotFoundException."""
         from mod_sample.controllers import (SampleNotFoundException,
                                             download_sample_media_info)
 
         mock_sample.query.filter.return_value.first.return_value = None
+        mock_g.user = MockUser(id=1, role="None")
 
         with self.assertRaises(SampleNotFoundException):
             download_sample_media_info(1)
@@ -147,9 +158,12 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_sample.controllers.serve_file_download')
     @mock.patch('mod_sample.controllers.Sample')
     @mock.patch('mod_sample.controllers.ExtraFile')
-    def test_download_sample_additional(self, mock_extra, mock_sample, mock_serve_download):
+    @mock.patch('mod_auth.controllers.g')
+    def test_download_sample_additional(self, mock_g, mock_extra, mock_sample, mock_serve_download):
         """Test function download_sample_additional."""
         from mod_sample.controllers import download_sample_additional
+
+        mock_g.user = MockUser(id=1, role="None")
 
         response = download_sample_additional(1, 1)
 
@@ -160,12 +174,14 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_sample.controllers.serve_file_download')
     @mock.patch('mod_sample.controllers.Sample')
     @mock.patch('mod_sample.controllers.ExtraFile')
-    def test_download_sample_additional_sample_not_found(self, mock_extra, mock_sample, mock_serve_download):
+    @mock.patch('mod_auth.controllers.g')
+    def test_download_sample_additional_sample_not_found(self, mock_g, mock_extra, mock_sample, mock_serve_download):
         """Test function download_sample_additional to raise SampleNotFoundException."""
         from mod_sample.controllers import (SampleNotFoundException,
                                             download_sample_additional)
 
         mock_sample.query.filter.return_value.first.return_value = None
+        mock_g.user = MockUser(id=1, role="None")
 
         with self.assertRaises(SampleNotFoundException):
             download_sample_additional(1, 1)
@@ -176,12 +192,14 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_sample.controllers.serve_file_download')
     @mock.patch('mod_sample.controllers.Sample')
     @mock.patch('mod_sample.controllers.ExtraFile')
-    def test_download_sample_additional_extrafile_not_found(self, mock_extra, mock_sample, mock_serve_download):
+    @mock.patch('mod_auth.controllers.g')
+    def test_download_sample_additional_extrafile_not_found(self, mock_g, mock_extra, mock_sample, mock_serve_download):
         """Test function download_sample_additional to raise SampleNotFoundException when extra file not found."""
         from mod_sample.controllers import (SampleNotFoundException,
                                             download_sample_additional)
 
         mock_extra.query.filter.return_value.first.return_value = None
+        mock_g.user = MockUser(id=1, role="None")
 
         with self.assertRaises(SampleNotFoundException):
             download_sample_additional(1, 1)

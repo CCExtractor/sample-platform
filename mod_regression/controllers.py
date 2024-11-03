@@ -203,6 +203,7 @@ def toggle_active_status(regression_id):
 
 
 @mod_regression.route('/test/<regression_test_output_id>/download', methods=['GET'])
+@login_required
 def test_result_file(regression_test_output_id):
     """View the output files of the regression test."""
     rto = RegressionTestOutput.query.filter(RegressionTestOutput.id == regression_test_output_id).first()
@@ -213,6 +214,7 @@ def test_result_file(regression_test_output_id):
 
 
 @mod_regression.route('/test/<regression_test_output_id>/download/variant', methods=['GET'])
+@login_required
 def multiple_test_result_file(regression_test_output_id):
     """View the output files of the regression test (variants)."""
     rtof = RegressionTestOutputFiles.query.filter(RegressionTestOutputFiles.id == regression_test_output_id).first()

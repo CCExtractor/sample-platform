@@ -173,6 +173,7 @@ def sample_by_hash(sample_hash):
 
 
 @mod_sample.route('/download/<sample_id>')
+@login_required
 def download_sample(sample_id):
     """
     Download sample file.
@@ -190,6 +191,7 @@ def download_sample(sample_id):
 
 
 @mod_sample.route('/download/<sample_id>/media-info')
+@login_required
 def download_sample_media_info(sample_id):
     """
     Download sample file's media information as XML.
@@ -216,6 +218,7 @@ def download_sample_media_info(sample_id):
 
 
 @mod_sample.route('/download/<sample_id>/additional/<additional_id>')
+@login_required
 def download_sample_additional(sample_id, additional_id):
     """
     Download sample file's additional files and information.

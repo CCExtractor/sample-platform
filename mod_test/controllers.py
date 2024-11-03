@@ -371,6 +371,7 @@ def generate_diff(test_id: int, regression_test_id: int, output_id: int, to_view
 
 
 @mod_test.route('/log-files/<test_id>')
+@login_required
 def download_build_log_file(test_id):
     """
     Serve download of build log.

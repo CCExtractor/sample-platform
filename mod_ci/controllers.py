@@ -102,15 +102,15 @@ def start_platforms(repository, delay=None, platform=None) -> None:
         log.critical('GCP project name is empty!')
         return
 
-    compute = get_compute_service_object()
-    delete_expired_instances(compute, vm_max_runtime, project, zone)
-
     with app.app_context():
         from flask import current_app
         app = current_app._get_current_object()
 
         # Create a database session
         db = create_session(config.get('DATABASE_URI', ''))
+
+        compute = get_compute_service_object()
+        delete_expired_instances(compute, vm_max_runtime, project, zone)
 
         if platform is None or platform == TestPlatform.linux:
             log.info('Define process to run Linux GCP instances')

@@ -110,7 +110,7 @@ def start_platforms(repository, delay=None, platform=None) -> None:
         db = create_session(config.get('DATABASE_URI', ''))
 
         compute = get_compute_service_object()
-        delete_expired_instances(compute, vm_max_runtime, project, zone)
+        delete_expired_instances(compute, vm_max_runtime, project, zone, db, repository)
 
         if platform is None or platform == TestPlatform.linux:
             log.info('Define process to run Linux GCP instances')
@@ -155,7 +155,7 @@ def is_instance_testing(vm_name) -> bool:
     return False
 
 
-def delete_expired_instances(compute, max_runtime, project, zone) -> None:
+def delete_expired_instances(compute, max_runtime, project, zone, db, repository) -> None:
     """
     Get all running instances and delete instances whose maximum runtime limit is reached.
 
@@ -182,8 +182,6 @@ def delete_expired_instances(compute, max_runtime, project, zone) -> None:
                 g.db.add(progress)
                 g.db.commit()
 
-                gh = Github(g.github['bot_token'])
-                repository = gh.get_repo(f"{g.github['repository_owner']}/{g.github['repository']}")
                 gh_commit = repository.get_commit(test.commit)
                 if gh_commit is not None:
                     update_status_on_github(gh_commit, Status.ERROR, message, f"CI - {platform_name}")

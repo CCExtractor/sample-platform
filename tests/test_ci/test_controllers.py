@@ -441,7 +441,7 @@ class TestControllers(BaseTestCase):
             {'status': "PENDING"}
         ]
         compute.zoneOperations.return_value.get.return_value.execute = pendingOperations.pop
-        delete_expired_instances(compute, 120, 'a', 'a')
+        delete_expired_instances(compute, 120, 'a', 'a', None, MagicMock())
         mock_get_running_instances.assert_called_once()
         mock_update_github_status.assert_called_once()
 

@@ -179,8 +179,8 @@ def delete_expired_instances(compute, max_runtime, project, zone, db, repository
                 test = Test.query.filter(Test.id == test_id).first()
                 message = "Could not complete test, time limit exceeded"
                 progress = TestProgress(test_id, TestStatus.canceled, message)
-                g.db.add(progress)
-                g.db.commit()
+                db.add(progress)
+                db.commit()
 
                 gh_commit = repository.get_commit(test.commit)
                 if gh_commit is not None:

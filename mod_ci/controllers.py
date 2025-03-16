@@ -1348,8 +1348,14 @@ def progress_type_request(log, test, test_id, request) -> bool:
 
             for p in times:
                 parts = p.time.split(',')
-                start = datetime.datetime.strptime(parts[0], '%Y-%m-%d %H:%M:%S')
-                end = datetime.datetime.strptime(parts[-1], '%Y-%m-%d %H:%M:%S')
+                try:
+                    # Try parsing with microsecond precision first
+                    start = datetime.datetime.strptime(parts[0], '%Y-%m-%d %H:%M:%S.%f')
+                    end = datetime.datetime.strptime(parts[-1], '%Y-%m-%d %H:%M:%S.%f')
+                except ValueError:
+                    # Fall back to format without microseconds
+                    start = datetime.datetime.strptime(parts[0], '%Y-%m-%d %H:%M:%S')
+                    end = datetime.datetime.strptime(parts[-1], '%Y-%m-%d %H:%M:%S')
                 total_time += int((end - start).total_seconds())
 
             if len(times) != 0:

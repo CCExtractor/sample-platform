@@ -150,7 +150,8 @@ def get_data_for_test(test, title=None) -> Dict[str, Any]:
         prep_average_key = 'avg_prep_time_' + test.platform.value
         average_prep_time = int(float(GeneralData.query.filter(GeneralData.key == prep_average_key).first().value))
 
-        test_progress_last_entry = g.db.query(func.max(TestProgress.test_id)).first() or 0
+        test_progress_last_entry = g.db.query(func.max(TestProgress.test_id)).first()
+        last_test_id = test_progress_last_entry[0] if test_progress_last_entry is not None else 0
         queued_gcp_instance = g.db.query(GcpInstance.test_id).filter(GcpInstance.test_id < test.id).subquery()
         queued_gcp_instance_entries = g.db.query(Test.id).filter(
             and_(Test.id.in_(queued_gcp_instance), Test.platform == test.platform)
@@ -159,7 +160,7 @@ def get_data_for_test(test, title=None) -> Dict[str, Any]:
             TestProgress.timestamp))).filter(TestProgress.test_id.in_(queued_gcp_instance_entries)).group_by(
             TestProgress.test_id).all()
         number_gcp_instance_test = g.db.query(Test.id).filter(
-            and_(Test.id > test_progress_last_entry[0], Test.id < test.id, Test.platform == test.platform)
+            and_(Test.id > last_test_id, Test.id < test.id, Test.platform == test.platform)
         ).count()
         average_duration = float(GeneralData.query.filter(GeneralData.key == var_average).first().value)
         queued_tests = number_gcp_instance_test

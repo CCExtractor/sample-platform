@@ -36,7 +36,7 @@ Now, create a service account with sufficient permissions (at least "Google Batc
 
 If you are not the owner of the GCP project you are working on, make sure you have sufficient permissions for creating and managing service accounts; if not, request the project owner for the same.
 
-- Create a service account [here](https://cloud.google.com/storage/docs/creating-buckets)
+- Create a service account [here](https://cloud.google.com/iam/docs/service-accounts-create)
 - Choose the service account name as per your choice, but at least provide the role of "Google Batch Service Agent" to the account. 
 
 You might also want to understand roles in GCP, you can find the official documentation [here](https://cloud.google.com/iam/docs/understanding-roles).

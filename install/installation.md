@@ -5,7 +5,7 @@
 * Nginx (Other possible when modifying the sample download section)
 * Python 3 (Flask and other dependencies)
 * MySQL
-* Pure-FTPD with mysql
+* Pure-FTPD with mysql (optional, only needed for FTP file uploads)
 
 ## Configuring Google Cloud Platform
 
@@ -40,9 +40,9 @@ For deployment of the platform on a Google Cloud VM instance, one would require 
 Windows Server 2019 Datacenter
                 - Boot type disk: Balanced persistent disk
                 - Size: 50GB
-        - Choose the service account as the service account you just created for the platform.
-        - Select the "Allow HTTP traffic" and "Allow HTTPS traffic" checkboxes.
-        - Navigate to Advanced options -> Networking -> Network Interfaces -> External IPv4 address, and click on Create IP Address and reserve a new static external IP address for the platform.
+        - Navigate to Security and choose the service account as the service account you just created for the platform.
+        - Navigate to Network and select the "Allow HTTP traffic" and "Allow HTTPS traffic" checkboxes.
+        - Under Network Interfaces -> default, reserve a new static external IPv4 address for the platform.
 
 2. Setting up firewall settings
     
@@ -67,26 +67,27 @@ Windows Server 2019 Datacenter
 Clone the latest sample-platform repository from 
 https://github.com/CCExtractor/sample-platform.
 Note that root (or sudo) is required for both installation and running the program.
-The `sample-repository` directory needs to be accessible by `www-data`. The
+The `sample-platform` directory needs to be accessible by `www-data`, the
 recommended directory is thus `/var/www/`.
 
 ```
 cd /var/www/
 sudo git clone https://github.com/CCExtractor/sample-platform.git
 ```
+Place the service account key file that you generated earlier at the root of the sample-platform folder.
 
-### Mounting the bucket
+#### Mounting the bucket
 
 Mounting on Linux OS can be done using [Google Cloud Storage FUSE](https://cloud.google.com/storage/docs/gcs-fuse).
 
 Steps:
-- Install gcsfuse using [official documentation](https://github.com/GoogleCloudPlatform/gcsfuse/blob/master/docs/installing.md) or using the following script 
+- Install gcsfuse using [official documentation](https://cloud.google.com/storage/docs/cloud-storage-fuse/install) or using the following script
     ```
     curl -L -O https://github.com/GoogleCloudPlatform/gcsfuse/releases/download/v0.39.2/gcsfuse_0.39.2_amd64.deb
     sudo dpkg --install gcsfuse_0.39.2_amd64.deb
     rm gcsfuse_0.39.2_amd64.deb
     ```
-- Now, there are multiple ways to mount the bucket, official documentation [here](https://github.com/GoogleCloudPlatform/gcsfuse/blob/master/docs/mounting.md). 
+- Now, there are multiple ways to mount the bucket, official documentation [here](https://cloud.google.com/storage/docs/cloud-storage-fuse/mount-bucket).
 
     For Ubuntu and derivatives, assuming `/repository` to be the location of samples to be configured, an entry can be added to `/etc/fstab` file, replace _GCS_BUCKET_NAME_ with the name of the bucket created for the platform:
     ```
@@ -99,32 +100,33 @@ Steps:
     sudo mount /repository
     ```
 
-You may check if the mount was successful and if the bucket is accessible by running `ls /repository` command.
+Note that **this directory needs to be accessible by the `www-data` user**, you can verify if the mount was successful by running `sudo -u www-data ls /repository`
 
 #### Troubleshooting: Mounting of Bucket
 
 In case you get "permission denied" for `/repository`, you can check for the following reasons:
 1. Check if the service account created has access to the GCS bucket.
 2. Check the output of `sudo mount /repository` command.
+3. Check the directory permissions for `/repository`
 
-Place the service account key file at the root of the sample-platform folder. 
 
 #### MySQL installation
 The platform has been tested for MySQL v8.0 and Python 3.7 to 3.9. 
 
 It is recommended to install python and MySQL beforehand to avoid any inconvenience. Here is the [installation link](https://www.digitalocean.com/community/tutorials/how-to-install-mysql-on-ubuntu-22-04) of MySQL on Ubuntu 22.04.
 
-Next, navigate to the `install` folder and run `install.sh` with root 
+#### Installing The Platform
+Next, navigate to the `install` folder and run `install.sh` with root
 permissions.
 
 ```
 cd sample-platform/install/
 sudo ./install.sh
-```    
+```
 
 The `install.sh` will begin downloading and updating all the necessary dependencies. Once done, it'll ask to enter some details in order to set up the sample-platform. After filling in these details, the platform should be ready for use.
 
-Please read the below troubleshooting notes in case of any error or doubt.
+When the domain is asked during installation, enter the domain name that will run the platform. E.g., if the platform will run locally, enter `localhost` as the server name.
 
 ### Windows
 
@@ -156,9 +158,6 @@ or platform configuration.**
 it's **recommended** to use a valid certificate. 
 [Let's Encrypt](https://letsencrypt.org/) offers free certificates. For local
 testing, a self-signed certificate can be enough.
-* When the server name is asked during installation, enter the domain name 
-that will run the platform. E.g., if the platform will run locally, enter 
-`localhost` as the server name.
 * In case of a `502 Bad Gateway` response, the platform didn't start 
 correctly. Manually running `bootstrap_gunicorn.py` (as root!) can help to 
 determine what goes wrong. The snippet below shows how this can be done:
@@ -189,7 +188,34 @@ After the completion of the automated installation of the platform, the followin
 - `TestResults/` - Direction containing regression test results
 - `vm_data/` - Directory containing test-specific subfolders, each folder containing files required for testing to be passed to the VM instance, test files and CCExtractor build artefact.
 
-Now for tests to run, we need to download the [CCExtractor testsuite](https://github.com/CCExtractor/ccx_testsuite) release file, extract and put it in `TestData/ci-linux` and `TestData/ci-windows` folders.
+Now for tests to run, we need to download the [CCExtractor testsuite](https://github.com/CCExtractor/ccx_testsuite) release file, extract and put it in the `TestData/ci-linux` and `TestData/ci-windows` folders.
+
+You also need to create a shell script named `ccextractortester` and place it in both `ci-linux` and `ci-windows`. This script is meant to launch the testsuite binary, here is what it should look like for Linux:
+```sh
+#!/bin/bash
+exec mono CCExtractorTester.exe "$@"
+```
+
+## Setting up GitHub webhooks
+
+Now that the server is running, you can queue new tests either manually (via `/custom/`) or automatically through GitHub Actions.
+
+To queue a test whenever a new commit/PR is made, you need to create a GitHub [webhook](https://docs.github.com/en/webhooks/about-webhooks) on the ccextractor repository (or fork of it):
+- Set the payload URL to `https://<your_domain>/start-ci`
+- Set the content type to JSON.
+- Enter the same secret that you used during installation (`GITHUB_CI_KEY`)
+- Select the Push, PR and Issue events as triggers.
+
+## Setting up cron job to run tests
+
+To run the new tests that are being queued up, a cron job is required.
+The file `mod_ci/cron.py` is to be run in periodic intervals. To setup a cron job follow the steps below:
+1. Open your terminal and enter the command `sudo crontab -e`.
+2. To setup a cron job that runs this file every 10 minutes, append this at the bottom of the file
+    ```
+    */10 * * * * python /var/www/sample-platform/mod_ci/cron.py > /var/www/sample-platform/logs/cron.log 2>&1
+    ```
+    Change the `/var/www/sample-plaform` directory, if you have installed the platform in a different directory.
 
 ## GCS configuration to serve file downloads using Signed URLs
 
@@ -198,17 +224,6 @@ To serve file downloads directly from the private GCS bucket, Signed download UR
 The `serve_file_download` function in the `utility.py` file implements the generation of a signed URL for the file to be downloaded that would expire after a configured time limit (maximum limit: 7 days) and redirects the client to the URL.
 
 For more information about Signed URLs, you can refer to the [official documentation](https://cloud.google.com/storage/docs/access-control/signed-urls).
-
-## Setting up cron job to run tests
-
-Now the server being running, new tests would be queued and therefore a cron job is to be setup to run those tests.
-The file `mod_ci/cron.py` is to be run in periodic intervals. To setup a cron job follow the steps below:
-1. Open your terminal and enter the command `sudo crontab -e`.
-2. To setup a cron job that runs this file every 10 minutes, append this at the bottom of the file
-    ```
-    */10 * * * * python /var/www/sample-platform/mod_ci/cron.py > /var/www/sample-platform/logs/cron.log 2>&1
-    ```
-    Change the `/var/www/sample-plaform` directory, if you have installed the platform in a different directory.
 
 ## File upload size for HTTP
 

@@ -19,7 +19,6 @@ def run():
     from mod_test.models import Test
     from mod_upload.models import Upload
 
-
     db = create_session(sys.argv[1])
 
     entries = []

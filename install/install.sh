@@ -157,7 +157,7 @@ userInput gcp_instance_machine_type "Machine type for GCP Instances:" "n1-standa
 userInput windows_instance_project_name "Windows GCP instance project name:" "windows-cloud" "" 1
 userInput windows_instance_family_name "Windows GCP instance family name:" "windows-2019" "" 1
 userInput linux_instance_project_name "Linux GCP instance project name:" "ubuntu-os-cloud" "" 1
-userInput linux_instance_family_name "Linux GCP instance family name: " "ubuntu-minimal-2204-lts" "" 1
+userInput linux_instance_family_name "Linux GCP instance family name: " "ubuntu-minimal-2404-lts-amd64" "" 1
 userInput gcp_instance_max_runtime "GCP Instance Max Runtime (In minutes):" "120" "" 1
 userInput gcs_bucket_name "Google Cloud Storage bucket name:" "" "" 1
 userInput gcs_bucket_location "Google Cloud Storage bucket location:" "us-central1" "" 1

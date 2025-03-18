@@ -1348,8 +1348,8 @@ def progress_type_request(log, test, test_id, request) -> bool:
 
             for p in times:
                 parts = p.time.split(',')
-                start = datetime.datetime.strptime(parts[0], '%Y-%m-%d %H:%M:%S.%f')
-                end = datetime.datetime.strptime(parts[-1], '%Y-%m-%d %H:%M:%S.%f')
+                start = datetime.datetime.strptime(parts[0], '%Y-%m-%d %H:%M:%S')
+                end = datetime.datetime.strptime(parts[-1], '%Y-%m-%d %H:%M:%S')
                 total_time += int((end - start).total_seconds())
 
             if len(times) != 0:
@@ -1377,7 +1377,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
 
             last_running_test = end_time - start_time
             updated_average = updated_average + last_running_test.total_seconds()
-            current_average.value = updated_average // number_test
+            current_average.value = 0 if number_test == 0 else updated_average // number_test
             g.db.commit()
             log.info(f'average time updated to {str(current_average.value)}')
 

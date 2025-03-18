@@ -150,7 +150,7 @@ def get_data_for_test(test, title=None) -> Dict[str, Any]:
         prep_average_key = 'avg_prep_time_' + test.platform.value
         average_prep_time = int(float(GeneralData.query.filter(GeneralData.key == prep_average_key).first().value))
 
-        test_progress_last_entry = g.db.query(func.max(TestProgress.test_id)).first()
+        test_progress_last_entry = g.db.query(func.max(TestProgress.test_id)).first() or 0
         queued_gcp_instance = g.db.query(GcpInstance.test_id).filter(GcpInstance.test_id < test.id).subquery()
         queued_gcp_instance_entries = g.db.query(Test.id).filter(
             and_(Test.id.in_(queued_gcp_instance), Test.platform == test.platform)

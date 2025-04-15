@@ -224,9 +224,9 @@ def gcp_instance(app, db, platform, repository, delay) -> None:
 
     finished_tests = db.query(TestProgress.test_id).filter(
         TestProgress.status.in_([TestStatus.canceled, TestStatus.completed])
-    ).subquery()
+    )
 
-    running_tests = db.query(GcpInstance.test_id).subquery()
+    running_tests = db.query(GcpInstance.test_id)
 
     pending_tests = Test.query.filter(
         Test.id.notin_(finished_tests), Test.id.notin_(running_tests), Test.platform == platform

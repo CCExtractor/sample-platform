@@ -163,6 +163,8 @@ class DeclEnum(object, metaclass=EnumMeta):
 class DeclEnumType(SchemaType, TypeDecorator):
     """Declarative enumeration type."""
 
+    cache_ok = True
+
     def __init__(self, enum: Any) -> None:
         self.enum = enum
         self.impl = Enum(

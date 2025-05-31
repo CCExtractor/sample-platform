@@ -7,6 +7,7 @@ curl.exe https://downloads.rclone.org/v1.59.0/rclone-v1.59.0-windows-amd64.zip -
 Expand-Archive -Path rclone.zip -DestinationPath .\
 New-Item -Path '.\repository' -ItemType Directory
 Copy-Item -Path .\rclone-v1.59.0-windows-amd64\rclone.exe -Destination .\repository\
+Add-MpPreference -ExclusionProcess 'C:\Windows\Temp\repository\rclone.exe'
 
 cd repository
 New-Item -Path '.\reports' -ItemType Directory
@@ -29,13 +30,10 @@ Start-Sleep -Seconds 5
 start powershell {.\rclone.exe mount $env:mount_path\TestData\ci-windows .\temp --config=".\rclone.conf" --no-console --read-only}
 Start-Sleep -Seconds 5
 
-start powershell {.\rclone.exe mount $env:mount_path\TestResults .\TestResultsRemote --config=".\rclone.conf" --no-console --read-only}
-Start-Sleep -Seconds 5
-
 start powershell {.\rclone.exe mount $env:mount_path\vm_data\$env:vm_name .\vm_data --config=".\rclone.conf" --no-console --read-only}
 Start-Sleep -Seconds 5
 
 Copy-Item -Path "temp\*" -Destination "."
-Copy-Item -Path "TestResultsRemote" -Destination "TestResults" -Force -Recurse
+.\rclone.exe copy $env:mount_path\TestResults .\TestResults --config=".\rclone.conf"
 
 powershell -command "Start-Process runCI.bat -Verb runas"

@@ -23,7 +23,7 @@ if EXIST "%dstDir%\ccextractorwinfull.exe" (
     copy "%dstDir%\*" .
     call :postStatus "testing" "Running tests"
     call :executeCommand cd %suiteDstDir%
-    call :executeCommand "%tester%" --debug True --entries "%testFile%" --executable "ccextractorwinfull.exe" --tempfolder "%tempFolder%" --timeout 3000 --reportfolder "%reportFolder%" --resultfolder "%resultFolder%" --samplefolder "%sampleFolder%" --method Server --url "%reportURL%"
+    call :executeCommand "%tester%" --debug True --entries "%testFile%" --executable "ccextractorwinfull.exe" --tempfolder "%tempFolder%" --timeout 600 --reportfolder "%reportFolder%" --resultfolder "%resultFolder%" --samplefolder "%sampleFolder%" --method Server --url "%reportURL%"
 
     curl -s -A "%userAgent%" --form "type=logupload" --form "file=@%logFile%" -w "\n" "%reportURL%" >> "%logFile%"
     timeout 10

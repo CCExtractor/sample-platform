@@ -1,4 +1,5 @@
-<b>CCExtractor CI platform</b> finished running the test files on <b>{{platform}}</b>. Below is a summary of the test results{% if comment_info.last_test_master %}, when compared to <a href="{{ url_for('test.by_id', test_id=comment_info.last_test_master.id, _external=True) }}">test for commit  {{ comment_info.last_test_master.commit[:7] }}...</a>{% endif %}:
+<details>
+<summary><b>CCExtractor CI platform</b> finished running the test files on <b>{{platform}}</b>. Below is a summary of the test results{% if comment_info.last_test_master %}, when compared to <a href="{{ url_for('test.by_id', test_id=comment_info.last_test_master.id, _external=True) }}">test for commit  {{ comment_info.last_test_master.commit[:7] }}...</a>{% endif %}:</summary>
 <table>
 <thead>
 <td> Report Name </td>
@@ -18,16 +19,12 @@
 {% endfor %}
 </table>
 {% if comment_info.extra_failed_tests | length %}
-It seems that not all tests were passed completely. This is an indication that the output of some files is not as expected (but might be according to you). 
-
 Your PR breaks these cases:
 <ul>
 {% for test in comment_info.extra_failed_tests %}
 <li> ccextractor {{ test.command }} <a href="{{ url_for('sample.sample_by_id', sample_id=test.sample.id, _external=True) }}">{{ test.sample.sha[:10] }}...</a></li>
 {% endfor %}
 </ul>
-{% else %}
-All tests passing on the master branch were passed completely.
 {% endif %}
 {% if comment_info.common_failed_tests | length %}
 NOTE: The following tests have been failing on the master branch as well as the PR:
@@ -46,4 +43,12 @@ Congratulations: Merging this PR would fix the following tests:
 </ul>
 {% endif %}
 <br>
+</details>
+
+{% if comment_info.extra_failed_tests | length %}
+It seems that not all tests were passed completely. This is an indication that the output of some files is not as expected (but might be according to you). 
+{% else %}
+All tests passing on the master branch were passed completely.
+{% endif %}
+
 Check the <a href="{{ url_for('test.by_id', test_id=test_id, _external=True) }}">result</a> page for more info.

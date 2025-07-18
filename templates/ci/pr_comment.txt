@@ -30,7 +30,14 @@ Your PR breaks these cases:
 NOTE: The following tests have been failing on the master branch as well as the PR:
 <ul>
 {% for test in comment_info.common_failed_tests %}
-<li> ccextractor {{ test.command }} <a href="{{ url_for('sample.sample_by_id', sample_id=test.sample.id, _external=True) }}">{{ test.sample.sha[:10] }}...</a>, Last passed: {% if test.last_passed_on %}<a href="{{ url_for('test.by_id', test_id=test.last_passed_on, _external=True) }}">Test {{ test.last_passed_on }}</a>{% else %}<span>Never</span>{% endif %}</li>
+<li> ccextractor {{ test.command }} <a href="{{ url_for('sample.sample_by_id', sample_id=test.sample.id, _external=True) }}">{{ test.sample.sha[:10] }}...</a>, Last passed: 
+{% set last_passed_id = test.last_passed_on_windows if platform.lower() == 'windows' else test.last_passed_on_linux %}
+{% if last_passed_id %}
+	<a href="{{ url_for('test.by_id', test_id=last_passed_id, _external=True) }}">Test {{ last_passed_id }}</a>
+{% else %}
+	<span>Never</span>
+{% endif %}
+</li>
 {% endfor %}
 </ul>
 {% endif %}

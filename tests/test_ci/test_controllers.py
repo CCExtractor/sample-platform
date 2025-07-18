@@ -30,7 +30,7 @@ class MockPlatform:
 
     def __init__(self, platform):
         self.platform = platform
-        self.value = 'platform'
+        self.value = 'linux'
 
 
 class MockFork:

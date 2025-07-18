@@ -1140,8 +1140,9 @@ def update_build_badge(status, test) -> None:
         for category_results in test_results:
             test_ids_to_update.extend([test['test'].id for test in category_results['tests'] if not test['error']])
 
-        g.db.query(RegressionTest).filter(RegressionTest.id.in_(test_ids_to_update)
-                                          ).update({"last_passed_on": test.id}, synchronize_session=False)
+        g.db.query(RegressionTest).filter(RegressionTest.id.in_(test_ids_to_update)).update(
+            {f"last_passed_on_{test.platform.value}": test.id}, synchronize_session=False
+        )
         g.db.commit()
 
 
@@ -1576,6 +1577,7 @@ def get_info_for_pr_comment(test: Test) -> PrCommentInfo:
     category_stats = []
 
     test_results = get_test_results(test)
+    platform_column = f"last_passed_on_{test.platform.value}"
     for category_results in test_results:
         category_name = category_results['category'].name
 
@@ -1583,10 +1585,10 @@ def get_info_for_pr_comment(test: Test) -> PrCommentInfo:
         for test in category_results['tests']:
             if not test['error']:
                 category_test_pass_count += 1
-                if test['test'].last_passed_on != last_test_master.id:
+                if getattr(test['test'], platform_column) != last_test_master.id:
                     fixed_tests.append(test['test'])
             else:
-                if test['test'].last_passed_on != last_test_master.id:
+                if getattr(test['test'], platform_column) != last_test_master.id:
                     common_failed_tests.append(test['test'])
                 else:
                     extra_failed_tests.append(test['test'])

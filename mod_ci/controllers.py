@@ -1585,10 +1585,10 @@ def get_info_for_pr_comment(test: Test) -> PrCommentInfo:
         for test in category_results['tests']:
             if not test['error']:
                 category_test_pass_count += 1
-                if getattr(test['test'], platform_column) != last_test_master.id:
+                if last_test_master and getattr(test['test'], platform_column) != last_test_master.id:
                     fixed_tests.append(test['test'])
             else:
-                if getattr(test['test'], platform_column) != last_test_master.id:
+                if last_test_master and getattr(test['test'], platform_column) != last_test_master.id:
                     common_failed_tests.append(test['test'])
                 else:
                     extra_failed_tests.append(test['test'])

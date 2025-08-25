@@ -1,8 +1,8 @@
 #!/bin/bash 
 
-curl -L -O https://github.com/GoogleCloudPlatform/gcsfuse/releases/download/v0.39.2/gcsfuse_0.39.2_amd64.deb
-dpkg --install gcsfuse_0.39.2_amd64.deb
-rm gcsfuse_0.39.2_amd64.deb
+curl -L -O https://github.com/GoogleCloudPlatform/gcsfuse/releases/download/v3.2.0/gcsfuse_3.2.0_amd64.deb
+dpkg --install gcsfuse_3.2.0_amd64.deb
+rm gcsfuse_3.2.0_amd64.deb
 
 apt install gnupg ca-certificates
 gpg --homedir /tmp --no-default-keyring --keyring /usr/share/keyrings/mono-official-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF
@@ -23,7 +23,7 @@ vm_name=(${vm_name//./ })
 
 echo "${gcs_bucket} /repository/temp       gcsfuse rw,noatime,async,_netdev,noexec,user,implicit_dirs,allow_other,only_dir=TestData/ci-linux  0 0" | sudo tee -a /etc/fstab
 echo "${gcs_bucket}   /repository/vm_data         gcsfuse rw,noatime,async,_netdev,noexec,user,implicit_dirs,allow_other,only_dir=vm_data/${vm_name}  0 0" | sudo tee -a /etc/fstab
-echo "${gcs_bucket}   /repository/TestFiles     gcsfuse rw,noatime,async,_netdev,noexec,user,implicit_dirs,allow_other,only_dir=TestFiles  0 0" | sudo tee -a /etc/fstab
+echo "${gcs_bucket}   /repository/TestFiles     gcsfuse rw,noatime,async,_netdev,noexec,user,implicit_dirs,allow_other,only_dir=TestFiles,cache_dir=/tmp,file_cache_max_size_mb=3000,file_cache_cache_file_for_range_read=true,metadata_cache_ttl_secs=-1  0 0" | sudo tee -a /etc/fstab
 echo "${gcs_bucket}   /repository/TestResults     gcsfuse rw,noatime,async,_netdev,noexec,user,implicit_dirs,allow_other,only_dir=TestResults  0 0" | sudo tee -a /etc/fstab
 
 mount temp

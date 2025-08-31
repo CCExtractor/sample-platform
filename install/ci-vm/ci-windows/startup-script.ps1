@@ -24,7 +24,7 @@ curl.exe http://metadata/computeMetadata/v1/instance/attributes/rclone_conf -H "
 curl.exe http://metadata/computeMetadata/v1/instance/attributes/service_account -H "Metadata-Flavor: Google" > service-account.json
 (Get-Content -path .\service-account.json) | Set-Content -Encoding ASCII -Path .\service-account.json
 
-start powershell {.\rclone.exe mount $env:mount_path\TestFiles .\TestFiles --config=".\rclone.conf" -o FileInfoTimeout=-1  --vfs-read-wait 0 --no-console --read-only}
+start powershell {.\rclone.exe mount $env:mount_path\TestFiles .\TestFiles --config=".\rclone.conf" --vfs-cache-mode full --vfs-cache-max-size 5G --no-modtime -o FileInfoTimeout=-1  --vfs-read-wait 0 --no-console --read-only}
 Start-Sleep -Seconds 5
 
 start powershell {.\rclone.exe mount $env:mount_path\TestData\ci-windows .\temp --config=".\rclone.conf" --no-console --read-only}

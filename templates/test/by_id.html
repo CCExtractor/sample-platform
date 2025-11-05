@@ -52,6 +52,15 @@
                     {%- endfor %}
                 </ol>
                 <br class="clear" />
+
+                <!-- LIVE testing progress UI-->
+                <div id="testing-progress-container" style="display:none; margin-top:12px;">
+                <div style="margin-bottom:6px;">
+                    <strong id="testing-progress-label">Testing: 0/0 (0%)</strong>
+                </div>
+                <progress id="testing-progress-bar" value="0" max="100" style="width:100%; height:16px;"></progress>
+                </div>
+
                 {% if test.progress|length > 0 %}
                     <input type="button" id="progress_button" class="button" value="Show test progress" />
                     {% if test.finished %}
@@ -178,6 +187,25 @@
                                     window.location.reload();
                                 }
                                 val = data.progress_array;
+
+                                  if (typeof data.progress_percent !== 'undefined') {
+            try {
+                var pct = parseInt(data.progress_percent,10);
+                var total = parseInt(data.total_tests || 0,10);
+                var done = parseInt(data.completed_tests || 0, 10);
+              
+                if(total>0 || pct>0){
+                    $('#testing-progress-container').show();
+                    $('#testing-progress-bar').attr('value', pct);
+                    $('#testing-progress-label').text('Testing: ' + done + '/' + total + ' (' + pct + '%)');
+                } else{
+                    $('#testing-progress-container').hide();
+                }
+            } 
+            catch(e){
+                console.log('progress update error',e);
+            }
+        }
                                 if (testprogress === 0 && val.length !== 0) {
                                     window.location.reload();
                                 }

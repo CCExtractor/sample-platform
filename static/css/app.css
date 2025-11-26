@@ -40,9 +40,10 @@ html[dark=''] {
 }
 
 .menu .active > a {
-    color: #fefefe;
-    background: #2199e8;
+    color: #ffffff;      /* white */
+    background: #0A3C7D; /* navy-ish dark blue */
 }
+
 
 /* Fixes to foundation framework */
 #application-menu {
@@ -100,9 +101,9 @@ html[dark=''] {
 }
 
 .to-light {
-    color: rgb(145, 255, 0);
-    background-color: white;
-}
+    color: #2B5B00;
+    background-color: #ffffff;
+  }
 
 .hidden {
     display: none;
@@ -246,7 +247,7 @@ ol.progtrckr li::before {
 }
 ol.progtrckr li.progtrckr-done::before {
     content: "\2713";
-    color: white;
+    color: #1B1B1B;
     background-color: yellowgreen;
     height: 1.2em;
     width: 1.2em;
@@ -256,7 +257,7 @@ ol.progtrckr li.progtrckr-done::before {
 }
 ol.progtrckr li.progtrckr-todo::before {
     content: "\039F";
-    color: silver;
+    color: #4A4A4A;
     background-color: #FEFEFE;
     font-size: 1.5em;
     bottom: -1.6em;

@@ -1521,6 +1521,17 @@ def finish_type_request(log, test_id, test, request):
     g.db.add(result)
     try:
         g.db.commit()
+        
+        # Update progress message with test count
+        if len(test.progress) > 0 and test.progress[-1].status == TestStatus.testing:
+            completed_tests = TestResult.query.filter(TestResult.test_id == test.id).count()
+            total_tests = len(test.get_customized_regressiontests())
+            
+            # Update the testing progress message
+            progress_message = f"Running tests ({completed_tests}/{total_tests})"
+            test.progress[-1].message = progress_message
+            g.db.commit()
+            log.debug(f"Updated progress for test {test_id}: {progress_message}")
     except IntegrityError as e:
         log.error(f"Could not save the results: {e}")
 

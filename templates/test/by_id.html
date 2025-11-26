@@ -48,9 +48,25 @@
                         {% if progress.progress.state == 'error' and progress.progress.step == loop.index0 -%}
                             {% set status = status ~ ' error' %}
                         {%- endif %}
-                        <li class="progtrckr-{{ status }}" id="trckr-{{ stage.description }}">{{ stage.description }}</li>
+                        <li class="progtrckr-{{ status }}" id="trckr-{{ stage.description }}">
+                            {{ stage.description }}
+                            {% if stage.value == 'testing' -%}
+                                <span id="testing-progress" style="font-size: 0.85em;">
+                                    {% if test.progress|length > 0 and test.progress[-1].status.value == 'testing' -%}
+                                        {% set completed = test.results|length %}
+                                        {% set total = test.get_customized_regressiontests()|length %}
+                                        {% if total > 0 -%}
+                                            ({{ completed }}/{{ total }})
+                                        {%- endif %}
+                                    {%- endif %}
+                                </span>
+                            {%- endif %}
+                        </li>
                     {%- endfor %}
                 </ol>
+                <div id="testing-progress-bar-container" class="testing-progress-bar" style="display: none;">
+                    <div id="testing-progress-bar-fill" class="testing-progress-fill" style="width: 0%;"></div>
+                </div>
                 <br class="clear" />
                 {% if test.progress|length > 0 %}
                     <input type="button" id="progress_button" class="button" value="Show test progress" />
@@ -163,6 +179,17 @@
         {% set progress = test.progress_data() %}
         var testprogress = {{ 1 if test.progress|length > 0 else 0 }};
         $(document).ready(function(){
+            // Show progress bar on initial load if testing
+            {% if test.progress|length > 0 and test.progress[-1].status.value == 'testing' -%}
+                {% set completed = test.results|length %}
+                {% set total = test.get_customized_regressiontests()|length %}
+                {% if total > 0 -%}
+                    var initialPercentage = {{ (completed / total * 100)|int }};
+                    $('#testing-progress-bar-container').show();
+                    $('#testing-progress-bar-fill').css('width', initialPercentage + '%');
+                {%- endif %}
+            {%- endif %}
+            
             {% if not test.finished %}
             var timer = setInterval(
                 function () {
@@ -208,6 +235,19 @@
                                     row += '</tr>'
                                 }
                                 $('#progress_table').html(row);
+                                
+                                // Update testing progress if available
+                                if (data.test_progress && data.test_progress.total > 0) {
+                                    var progressText = ' (' + data.test_progress.completed + '/' + data.test_progress.total + ')';
+                                    $('#testing-progress').text(progressText);
+                                    
+                                    // Show and update progress bar
+                                    $('#testing-progress-bar-container').show();
+                                    $('#testing-progress-bar-fill').css('width', data.test_progress.percentage + '%');
+                                } else {
+                                    $('#testing-progress').text('');
+                                    $('#testing-progress-bar-container').hide();
+                                }
                             } else{
                                 console.log(data.error);
                                 clearTimeout(timer);

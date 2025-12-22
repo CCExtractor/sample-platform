@@ -34,7 +34,7 @@ from mod_test.controllers import mod_test
 from mod_upload.controllers import mod_upload
 
 app = Flask(__name__)
-app.wsgi_app = ProxyFix(app.wsgi_app)
+app.wsgi_app = ProxyFix(app.wsgi_app)  # type: ignore[method-assign]
 # Load config
 try:
     config = parse_config('config')
@@ -254,7 +254,7 @@ def get_github_config(config: Dict[str, str]) -> Dict[str, str]:
     }
 
 
-@app.teardown_appcontext
+@app.teardown_appcontext  # type: ignore[type-var]
 def teardown(exception: Optional[Exception]):
     """Free database connection at app closing."""
     db = g.get('db', None)

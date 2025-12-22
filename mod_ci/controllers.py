@@ -111,7 +111,7 @@ def start_platforms(repository, delay=None, platform=None) -> None:
 
     with app.app_context():
         from flask import current_app
-        app = current_app._get_current_object()
+        app = current_app._get_current_object()  # type: ignore[attr-defined]
 
         # Create a database session
         db = create_session(config.get('DATABASE_URI', ''))
@@ -751,7 +751,7 @@ def schedule_test(gh_commit: Commit.Commit) -> None:
 
 
 def update_status_on_github(gh_commit: Commit.Commit, state, description, context,
-                            target_url=GithubObject.NotSet):  # type: ignore
+                            target_url=GithubObject.NotSet):
     """
     Update status on GitHub.
 

@@ -1900,8 +1900,6 @@ class TestControllers(BaseTestCase):
                                           mock_mark_failed):
         """Test start_test handles artifact download timeout."""
         import requests
-        import zipfile
-
         from github.Artifact import Artifact
 
         from mod_ci.controllers import Artifact_names, start_test
@@ -1948,8 +1946,6 @@ class TestControllers(BaseTestCase):
                                              mock_mark_failed):
         """Test start_test handles artifact download HTTP errors."""
         import requests
-        import zipfile
-
         from github.Artifact import Artifact
 
         from mod_ci.controllers import Artifact_names, start_test

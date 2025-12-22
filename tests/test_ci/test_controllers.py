@@ -251,6 +251,14 @@ class TestControllers(BaseTestCase):
         g.db.add(customized_test)
         g.db.commit()
 
+        # Configure mock_g.db.query to return a proper MagicMock chain (not AsyncMock)
+        mock_query = MagicMock()
+        mock_g.db.query.return_value = mock_query
+        mock_query.filter.return_value = mock_query
+        mock_query.subquery.return_value = mock_query
+        mock_query.c.got = MagicMock()
+        mock_query.all.return_value = []
+
         # Test when gcp create instance fails
         mock_wait_for_operation.return_value = 'error occurred'
         start_test(mock.ANY, self.app, mock_g.db, repository, test, mock.ANY)
@@ -293,6 +301,11 @@ class TestControllers(BaseTestCase):
         test_4 = Test(TestPlatform.linux, TestType.commit, 1, "master", pr_head_sha)
         g.db.add(test_4)
         g.db.commit()
+
+        # Configure mock_g.db.query to return a proper MagicMock chain (not AsyncMock)
+        mock_query = MagicMock()
+        mock_g.db.query.return_value = mock_query
+        mock_query.filter.return_value = mock_query
 
         gcp_instance(self.app, mock_g.db, TestPlatform.linux, repo, None)
 
@@ -1660,6 +1673,12 @@ class TestControllers(BaseTestCase):
             'exitCode': 0
         }
 
+        # Configure mock_rt.query chain to return a proper MagicMock (not AsyncMock)
+        mock_regression_test = MagicMock()
+        mock_regression_test.id = 1
+        mock_regression_test.expected_rc = 0
+        mock_rt.query.filter.return_value.first.return_value = mock_regression_test
+
         finish_type_request(mock_log, 1, MagicMock(), mock_request)
 
         mock_log.debug.assert_called_once()
@@ -1684,7 +1703,14 @@ class TestControllers(BaseTestCase):
             'runTime': 1,
             'exitCode': 0
         }
-        mock_g.db.commit.side_effect = IntegrityError
+
+        # Configure mock_rt.query chain to return a proper MagicMock (not AsyncMock)
+        mock_regression_test = MagicMock()
+        mock_regression_test.id = 1
+        mock_regression_test.expected_rc = 0
+        mock_rt.query.filter.return_value.first.return_value = mock_regression_test
+
+        mock_g.db.commit.side_effect = IntegrityError("test error", "test")
 
         finish_type_request(mock_log, 1, MagicMock(), mock_request)
 

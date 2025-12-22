@@ -1816,7 +1816,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.g')
     @mock.patch('run.log')
     def test_gcp_instance_unexpected_exception(self, mock_log, mock_g, mock_get_compute,
-                                                mock_start_test, mock_repo):
+                                               mock_start_test, mock_repo):
         """Test gcp_instance handles unexpected exceptions gracefully."""
         from mod_ci.controllers import gcp_instance
 
@@ -1842,8 +1842,8 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.GcpInstance')
     @mock.patch('run.log')
     def test_start_test_duplicate_instance_check(self, mock_log, mock_gcp_instance, mock_test_progress,
-                                                  mock_g, mock_open_file, mock_create_instance,
-                                                  mock_wait_for_operation):
+                                                 mock_g, mock_open_file, mock_create_instance,
+                                                 mock_wait_for_operation):
         """Test start_test skips if GCP instance already exists for test."""
         from mod_ci.controllers import start_test
 
@@ -1867,8 +1867,8 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.GcpInstance')
     @mock.patch('run.log')
     def test_start_test_duplicate_progress_check(self, mock_log, mock_gcp_instance, mock_test_progress,
-                                                  mock_g, mock_open_file, mock_create_instance,
-                                                  mock_wait_for_operation):
+                                                 mock_g, mock_open_file, mock_create_instance,
+                                                 mock_wait_for_operation):
         """Test start_test skips if test already has progress entries."""
         from mod_ci.controllers import start_test
 
@@ -1895,9 +1895,9 @@ class TestControllers(BaseTestCase):
     @mock.patch('run.log')
     @mock.patch('requests.get')
     def test_start_test_artifact_timeout(self, mock_requests_get, mock_log, mock_gcp_instance,
-                                          mock_test_progress, mock_g, mock_open_file,
-                                          mock_create_instance, mock_wait_for_operation,
-                                          mock_mark_failed):
+                                         mock_test_progress, mock_g, mock_open_file,
+                                         mock_create_instance, mock_wait_for_operation,
+                                         mock_mark_failed):
         """Test start_test handles artifact download timeout."""
         import requests
         from github.Artifact import Artifact
@@ -1941,9 +1941,9 @@ class TestControllers(BaseTestCase):
     @mock.patch('run.log')
     @mock.patch('requests.get')
     def test_start_test_artifact_http_error(self, mock_requests_get, mock_log, mock_gcp_instance,
-                                             mock_test_progress, mock_g, mock_open_file,
-                                             mock_create_instance, mock_wait_for_operation,
-                                             mock_mark_failed):
+                                            mock_test_progress, mock_g, mock_open_file,
+                                            mock_create_instance, mock_wait_for_operation,
+                                            mock_mark_failed):
         """Test start_test handles artifact download HTTP errors."""
         import requests
         from github.Artifact import Artifact

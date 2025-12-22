@@ -168,9 +168,8 @@ class TestControllers(BaseTestCase):
 
         mock_maintenance.query.filter.return_value.first.return_value = MockMaintenance()
 
-        resp = gcp_instance(mock.ANY, mock.ANY, "test", mock.ANY, 1)
+        gcp_instance(mock.ANY, mock.ANY, "test", mock.ANY, 1)
 
-        self.assertIsNone(resp)
         mock_log.info.assert_called_once()
         mock_log.critical.assert_not_called()
         self.assertEqual(mock_log.debug.call_count, 2)

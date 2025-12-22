@@ -227,11 +227,17 @@ class TestControllers(BaseTestCase):
             self.assertEqual(response.status_code, 200)
             self.assertIn("Wrong Commit Hash", str(response.data))
 
-    def test_customize_test_page_without_github_token(self, mock_user, mock_repo):
-        """Test customize test page loads when GitHub token is not configured."""
+    @mock.patch('mod_auth.controllers.github_token_validity')
+    def test_customize_test_page_without_github_token(self, mock_token_validity, mock_user, mock_repo):
+        """Test customize test page loads when GitHub bot token is not configured."""
         import mod_customized.controllers
         reload(mod_customized.controllers)
-        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.tester)
+        # Create user WITH github_token so fetch_username_from_token returns a username
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.tester,
+            github_token='user_github_token')
+        # Mock token validity to return a valid username
+        mock_token_validity.return_value = 'testuser'
 
         with empty_github_token():
             with self.app.test_client() as c:

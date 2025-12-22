@@ -249,7 +249,12 @@ def process_id(upload_id):
 
                 if db_committed:
                     if form.report.data == 'y':
-                        gh = Github(auth=Auth.Token(config['GITHUB_TOKEN']))
+                        github_token = config['GITHUB_TOKEN']
+                        if not github_token:
+                            log.error("GitHub token not configured, cannot create issue")
+                            flash('Could not create GitHub issue - token not configured', 'error')
+                            return redirect(url_for('.index'))
+                        gh = Github(auth=Auth.Token(github_token))
                         repository = gh.get_repo(f"{config['GITHUB_OWNER']}/{config['GITHUB_REPOSITORY']}")
                         response = repository.get_contents(".github/ISSUE_TEMPLATE.md")
                         encoded_data = response['content']

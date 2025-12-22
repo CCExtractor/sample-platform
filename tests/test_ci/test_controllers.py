@@ -1830,7 +1830,7 @@ class TestControllers(BaseTestCase):
         g.db.add(test)
         g.db.commit()
 
-        gcp_instance(self.app, mock_g.db, TestPlatform.linux, repo, None)
+        gcp_instance(self.app, g.db, TestPlatform.linux, repo, None)
 
         # Should log error and continue
         mock_log.error.assert_called()
@@ -1854,7 +1854,7 @@ class TestControllers(BaseTestCase):
         g.db.add(test)
         g.db.commit()
 
-        gcp_instance(self.app, mock_g.db, TestPlatform.linux, repo, None)
+        gcp_instance(self.app, g.db, TestPlatform.linux, repo, None)
 
         # Should log error and continue
         mock_log.error.assert_called()
@@ -1949,7 +1949,7 @@ class TestControllers(BaseTestCase):
         g.db.add(customized_test)
         g.db.commit()
 
-        start_test(mock.ANY, self.app, mock_g.db, repository, test, mock.ANY)
+        start_test(mock.ANY, self.app, g.db, repository, test, mock.ANY)
 
         # Should log critical and mark test failed
         mock_log.critical.assert_called()
@@ -1997,7 +1997,7 @@ class TestControllers(BaseTestCase):
         g.db.add(customized_test)
         g.db.commit()
 
-        start_test(mock.ANY, self.app, mock_g.db, repository, test, mock.ANY)
+        start_test(mock.ANY, self.app, g.db, repository, test, mock.ANY)
 
         # Should log critical and mark test failed
         mock_log.critical.assert_called()

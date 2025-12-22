@@ -107,7 +107,9 @@ class EnumMeta(type):
         self._reg: Dict
         self._reg = reg = self._reg.copy()
         for k, v in dict_.items():
-            if isinstance(v, tuple):
+            # Skip dunder attributes (Python 3.13+ adds __static_attributes__ tuple)
+            # and validate tuple has exactly 2 elements (value, description)
+            if isinstance(v, tuple) and not k.startswith('_') and len(v) == 2:
                 sym = reg[v[0]] = EnumSymbol(self, k, *v)
                 setattr(self, k, sym)
         return type.__init__(self, classname, bases, dict_)

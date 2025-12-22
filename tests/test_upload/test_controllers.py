@@ -213,7 +213,6 @@ class TestControllers(BaseTestCase):
         self.assertIsInstance(resp, str)
 
     @mock.patch('os.rename')
-    @mock.patch('mod_upload.controllers.config', {'GITHUB_TOKEN': ''})
     def test_process_without_github_token(self, mock_rename):
         """Test sample processing when GitHub token is not configured."""
         self.create_user_with_role(
@@ -227,11 +226,13 @@ class TestControllers(BaseTestCase):
             c.post('/account/login', data=self.create_login_form_data(
                 self.user.email, self.user.password))
 
-            response = c.post(
-                url_for('upload.process_id', upload_id=queued_sample.id),
-                data=dict(notes='test', parameters='test', platform='linux',
-                          version=1, report='y', IssueTitle='Title',
-                          IssueBody='Body', submit=True),
-                follow_redirects=True)
-            self.assertEqual(response.status_code, 200)
-            self.assertIn('token not configured', str(response.data))
+            from run import config
+            with mock.patch.dict(config, {'GITHUB_TOKEN': ''}):
+                response = c.post(
+                    url_for('upload.process_id', upload_id=queued_sample.id),
+                    data=dict(notes='test', parameters='test', platform='linux',
+                              version=1, report='y', IssueTitle='Title',
+                              IssueBody='Body', submit=True),
+                    follow_redirects=True)
+                self.assertEqual(response.status_code, 200)
+                self.assertIn('token not configured', str(response.data))

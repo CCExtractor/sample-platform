@@ -132,6 +132,16 @@ class TestControllers(BaseTestCase):
 
         mock_test = mock.MagicMock()
 
+        # Configure mock_g.db.query to return a proper MagicMock chain (not AsyncMock)
+        mock_query = mock.MagicMock()
+        mock_g.db.query.return_value = mock_query
+        mock_query.first.return_value = (None,)
+        mock_query.filter.return_value = mock_query
+        mock_query.subquery.return_value = mock_query
+        mock_query.group_by.return_value = mock_query
+        mock_query.all.return_value = []
+        mock_query.count.return_value = 0
+
         result = get_data_for_test(mock_test)
 
         self.assertIsInstance(result, dict)

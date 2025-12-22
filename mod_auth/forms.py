@@ -38,7 +38,7 @@ def valid_password(form: CompleteSignupForm, field: PasswordField) -> None:
     from run import config
     min_pwd_len = int(config['MIN_PWD_LEN'])
     max_pwd_len = int(config['MAX_PWD_LEN'])
-    pass_size = len(field.data)
+    pass_size = len(field.data or "")
     if pass_size == 0:
         raise ValidationError('new password cannot be empty')
     if pass_size < min_pwd_len or pass_size > max_pwd_len:
@@ -58,7 +58,7 @@ def email_not_in_use(has_user_field: bool = False) -> Callable:
     def _email_not_in_use(form, field):
         user_id = -1 if not has_user_field else form.user.id
         user = User.query.filter(User.email == field.data).first()
-        if user is not None and user.id != user_id and len(field.data) > 0:
+        if user is not None and user.id != user_id and len(field.data or "") > 0:
             raise ValidationError('This address is already in use')
 
     return _email_not_in_use
@@ -164,7 +164,7 @@ class AccountForm(FlaskForm):
         :param field: The data value for the 'password' entered by User
         :type field : PasswordField
         """
-        if len(field.data) == 0 and len(form.new_password_repeat.data) == 0:
+        if len(field.data or "") == 0 and len(form.new_password_repeat.data or "") == 0:
             return
 
         valid_password(form, field)
@@ -180,7 +180,7 @@ class AccountForm(FlaskForm):
         :type field : PasswordField
         """
         if form.email is not None:
-            if len(field.data) == 0 and len(form.new_password.data) == 0:
+            if len(field.data or "") == 0 and len(form.new_password.data or "") == 0:
                 return
 
         if field.data != form.new_password.data:

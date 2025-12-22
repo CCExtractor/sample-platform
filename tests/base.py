@@ -106,7 +106,7 @@ def load_config(file):
         'WTF_CSRF_ENABLED': False,
         'SQLALCHEMY_POOL_SIZE': 1,
         'GITHUB_CI_KEY': "test_ci",
-        'GITHUB_TOKEN': "",
+        'GITHUB_TOKEN': "test_token_for_mocking",
         'GITHUB_OWNER': "test_owner",
         'GITHUB_REPOSITORY': "test_repo",
         'HMAC_KEY': "test_key",

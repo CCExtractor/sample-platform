@@ -207,7 +207,10 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.create_instance')
     @mock.patch('builtins.open', new_callable=mock.mock_open())
     @mock.patch('mod_ci.controllers.g')
-    def test_start_test(self, mock_g, mock_open_file, mock_create_instance, mock_wait_for_operation):
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('mod_ci.controllers.GcpInstance')
+    def test_start_test(self, mock_gcp_instance, mock_test_progress, mock_g, mock_open_file,
+                        mock_create_instance, mock_wait_for_operation):
         """Test start_test function."""
         import zipfile
 
@@ -215,6 +218,11 @@ class TestControllers(BaseTestCase):
         from github.Artifact import Artifact
 
         from mod_ci.controllers import Artifact_names, start_test
+
+        # Mock locking checks to return None (no existing instances/progress)
+        mock_gcp_instance.query.filter.return_value.first.return_value = None
+        mock_test_progress.query.filter.return_value.first.return_value = None
+
         test = Test.query.first()
         repository = MagicMock()
 

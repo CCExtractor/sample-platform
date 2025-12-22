@@ -642,7 +642,7 @@ def wait_for_operation(compute, project, zone, operation, max_wait: int = GCP_OP
     from run import log
     log.info(f"Waiting for operation {operation} to finish (max {max_wait}s)")
     start_time = time.time()
-    poll_interval = 1  # Start with 1 second polling
+    poll_interval = 1.0  # Start with 1 second polling
 
     while True:
         elapsed = time.time() - start_time

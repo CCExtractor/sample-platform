@@ -2087,6 +2087,16 @@ class TestControllers(BaseTestCase):
             self.assertTrue(response)
             mock_github.assert_not_called()
 
+    def test_blocked_users_empty_token(self):
+        """Test blocked_users handles empty GitHub token gracefully."""
+        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
+
+        with empty_github_token():
+            with self.app.test_client() as c:
+                c.post("/account/login", data=self.create_login_form_data(self.user.email, self.user.password))
+                c.post("/blocked_users", data=dict(user_id=999, comment="Test user", add=True))
+                self.assertIsNotNone(BlockedUsers.query.filter(BlockedUsers.user_id == 999).first())
+
     @mock.patch('run.get_github_config')
     def test_start_ci_empty_token(self, mock_get_github_config):
         """Test start_ci returns 500 when GitHub token is empty."""

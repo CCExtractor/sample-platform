@@ -14,7 +14,8 @@ from mod_home.models import CCExtractorVersion, GeneralData
 from mod_regression.models import (RegressionTest, RegressionTestOutput,
                                    RegressionTestOutputFiles)
 from mod_test.models import Test, TestPlatform, TestResultFile, TestType
-from tests.base import (BaseTestCase, MockResponse, empty_github_token,
+from tests.base import (BaseTestCase, MockResponse, create_mock_db_query,
+                        create_mock_regression_test, empty_github_token,
                         generate_git_api_header, generate_signature,
                         mock_api_request_github)
 
@@ -203,6 +204,14 @@ class TestControllers(BaseTestCase):
         mock_delete_expired_instances.assert_not_called()
         mock_get_compute_service_object.assert_not_called()
 
+    @mock.patch('mod_ci.cron.config', {'GITHUB_TOKEN': '', 'GITHUB_OWNER': 'test', 'GITHUB_REPOSITORY': 'test'})
+    @mock.patch('mod_ci.cron.log')
+    def test_cron_job_empty_token(self, mock_log):
+        """Test cron returns early when GitHub token is empty."""
+        from mod_ci.cron import cron
+        cron()
+        mock_log.error.assert_called_with('GITHUB_TOKEN not configured, cannot run CI cron')
+
     @mock.patch('mod_ci.controllers.wait_for_operation')
     @mock.patch('mod_ci.controllers.create_instance')
     @mock.patch('builtins.open', new_callable=mock.mock_open())
@@ -252,14 +261,9 @@ class TestControllers(BaseTestCase):
         g.db.add(customized_test)
         g.db.commit()
 
-        # Explicitly set mock_g.db to MagicMock to avoid AsyncMock behavior
-        mock_g.db = MagicMock()
-        mock_query = MagicMock()
-        mock_g.db.query.return_value = mock_query
-        mock_query.filter.return_value = mock_query
-        mock_query.subquery.return_value = mock_query
+        # Set up mock db query chain to avoid AsyncMock behavior in Python 3.13+
+        mock_query = create_mock_db_query(mock_g)
         mock_query.c.got = MagicMock()
-        mock_query.all.return_value = []
 
         # Test when gcp create instance fails
         mock_wait_for_operation.return_value = 'error occurred'
@@ -304,11 +308,8 @@ class TestControllers(BaseTestCase):
         g.db.add(test_4)
         g.db.commit()
 
-        # Explicitly set mock_g.db to MagicMock to avoid AsyncMock behavior
-        mock_g.db = MagicMock()
-        mock_query = MagicMock()
-        mock_g.db.query.return_value = mock_query
-        mock_query.filter.return_value = mock_query
+        # Set up mock db query chain to avoid AsyncMock behavior in Python 3.13+
+        create_mock_db_query(mock_g)
 
         gcp_instance(self.app, mock_g.db, TestPlatform.linux, repo, None)
 
@@ -1676,11 +1677,8 @@ class TestControllers(BaseTestCase):
             'exitCode': 0
         }
 
-        # Configure mock_rt.query chain to return a proper MagicMock (not AsyncMock)
-        mock_regression_test = MagicMock()
-        mock_regression_test.id = 1
-        mock_regression_test.expected_rc = 0
-        mock_rt.query.filter.return_value.first.return_value = mock_regression_test
+        # Configure mock regression test to avoid AsyncMock in Python 3.13+
+        create_mock_regression_test(mock_rt)
 
         finish_type_request(mock_log, 1, MagicMock(), mock_request)
 
@@ -1707,14 +1705,11 @@ class TestControllers(BaseTestCase):
             'exitCode': 0
         }
 
-        # Configure mock_rt.query chain to return a proper MagicMock (not AsyncMock)
-        mock_regression_test = MagicMock()
-        mock_regression_test.id = 1
-        mock_regression_test.expected_rc = 0
-        mock_rt.query.filter.return_value.first.return_value = mock_regression_test
+        # Configure mock regression test to avoid AsyncMock in Python 3.13+
+        create_mock_regression_test(mock_rt)
 
-        # Explicitly set mock_g.db to MagicMock to ensure side_effect works properly
-        mock_g.db = MagicMock()
+        # Set up mock db with IntegrityError on commit
+        create_mock_db_query(mock_g)
         mock_g.db.commit.side_effect = IntegrityError("test error", "test")
 
         finish_type_request(mock_log, 1, MagicMock(), mock_request)
@@ -2101,6 +2096,30 @@ class TestControllers(BaseTestCase):
                 c.post("/account/login", data=self.create_login_form_data(self.user.email, self.user.password))
                 c.post("/blocked_users", data=dict(user_id=999, comment="Test user", add=True))
                 self.assertIsNotNone(BlockedUsers.query.filter(BlockedUsers.user_id == 999).first())
+
+    def test_start_ci_empty_token(self):
+        """Test start_ci returns 500 when GitHub token is empty."""
+        payload = {'ref': 'refs/heads/master', 'after': 'abc123'}
+        headers = self.generate_header(payload, 'push')
+
+        with empty_github_token():
+            with self.app.test_client() as c:
+                response = c.post('/ci/start', headers=headers,
+                                  data=json.dumps(payload),
+                                  content_type='application/json')
+                self.assertEqual(response.status_code, 500)
+                self.assertIn(b'GitHub token not configured', response.data)
+
+    @mock.patch('mod_ci.controllers.g')
+    def test_comment_pr_empty_token(self, mock_g):
+        """Test comment_pr returns FAILURE when GitHub token is empty."""
+        from mod_ci.controllers import Status, comment_pr
+
+        mock_g.github = {'bot_token': '', 'repository_owner': 'test', 'repository': 'test'}
+        test = Test.query.first()
+
+        result = comment_pr(test)
+        self.assertEqual(result, Status.FAILURE)
 
     @staticmethod
     def generate_header(data, event, ci_key=None):

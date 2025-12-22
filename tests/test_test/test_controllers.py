@@ -6,7 +6,7 @@ from mod_auth.models import Role
 from mod_regression.models import RegressionTest
 from mod_test.models import (Test, TestPlatform, TestProgress, TestResult,
                              TestResultFile, TestStatus)
-from tests.base import BaseTestCase
+from tests.base import BaseTestCase, create_mock_db_query
 from tests.test_auth.test_controllers import MockUser
 
 
@@ -132,16 +132,8 @@ class TestControllers(BaseTestCase):
 
         mock_test = mock.MagicMock()
 
-        # Explicitly set mock_g.db to MagicMock to avoid AsyncMock behavior
-        mock_g.db = mock.MagicMock()
-        mock_query = mock.MagicMock()
-        mock_g.db.query.return_value = mock_query
-        mock_query.first.return_value = (0,)  # Return 0, not None, to avoid SQLAlchemy comparison issues
-        mock_query.filter.return_value = mock_query
-        mock_query.subquery.return_value = mock_query
-        mock_query.group_by.return_value = mock_query
-        mock_query.all.return_value = []
-        mock_query.count.return_value = 0
+        # Set up mock db query chain to avoid AsyncMock behavior in Python 3.13+
+        create_mock_db_query(mock_g)
 
         result = get_data_for_test(mock_test)
 

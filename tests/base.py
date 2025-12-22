@@ -46,6 +46,49 @@ def empty_github_token():
         g.github['bot_token'] = original
 
 
+def create_mock_db_query(mock_g, extra_setup=None):
+    """
+    Create a MagicMock for mock_g.db with common query chain setup.
+
+    This helper reduces duplication in tests that need to mock the database
+    query chain to avoid AsyncMock behavior in Python 3.13+.
+
+    :param mock_g: The mocked g object
+    :param extra_setup: Optional callable to add extra setup to mock_query
+    :return: The mock_query object for further customization if needed
+    """
+    from unittest.mock import MagicMock
+    mock_g.db = MagicMock()
+    mock_query = MagicMock()
+    mock_g.db.query.return_value = mock_query
+    mock_query.filter.return_value = mock_query
+    mock_query.subquery.return_value = mock_query
+    mock_query.group_by.return_value = mock_query
+    mock_query.all.return_value = []
+    mock_query.first.return_value = (0,)
+    mock_query.count.return_value = 0
+    if extra_setup:
+        extra_setup(mock_query)
+    return mock_query
+
+
+def create_mock_regression_test(mock_rt, test_id=1, expected_rc=0):
+    """
+    Create a MagicMock regression test with common properties.
+
+    :param mock_rt: The mocked RegressionTest class
+    :param test_id: The test ID to set
+    :param expected_rc: The expected return code
+    :return: The mock regression test object
+    """
+    from unittest.mock import MagicMock
+    mock_regression_test = MagicMock()
+    mock_regression_test.id = test_id
+    mock_regression_test.expected_rc = expected_rc
+    mock_rt.query.filter.return_value.first.return_value = mock_regression_test
+    return mock_regression_test
+
+
 def load_file_lines(filepath):
     """
     Load lines of the file passed.

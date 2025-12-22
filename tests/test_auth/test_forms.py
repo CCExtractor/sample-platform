@@ -53,3 +53,10 @@ class TestForm(BaseTestCase):
         pass_field = Field("".join(['x' * (int(self.app.config['MAX_PWD_LEN']))]))
 
         valid_password(None, pass_field)
+
+    def test_none_password_raises_validation_error(self):
+        """Test validation fail when password field data is None."""
+        pass_field = Field(None)
+
+        with self.assertRaises(ValidationError):
+            valid_password(None, pass_field)

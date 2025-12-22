@@ -2063,6 +2063,59 @@ class TestControllers(BaseTestCase):
         self.assertEqual(result['status'], 'DONE')
         mock_log.info.assert_called()
 
+    @mock.patch('mod_ci.controllers.Github')
+    @mock.patch('mod_ci.controllers.wait_for_operation')
+    @mock.patch('mod_ci.controllers.delete_instance')
+    @mock.patch('mod_ci.controllers.get_compute_service_object')
+    @mock.patch('mod_ci.controllers.update_build_badge')
+    def test_progress_type_request_empty_token(
+            self, mock_update_build_badge, mock_get_compute_service_object,
+            mock_delete_instance, mock_wait_for_operation, mock_github):
+        """Test progress_type_request returns True when GitHub token is empty."""
+        from mod_ci.models import GcpInstance
+        from run import log
+
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.tester)
+        self.create_forktest("own-fork-commit", TestPlatform.linux, regression_tests=[2])
+        request = MagicMock()
+        request.form = {'status': 'completed', 'message': 'Ran all tests'}
+        gcp_instance = GcpInstance(name='test_instance', test_id=3)
+        g.db.add(gcp_instance)
+        g.db.commit()
+
+        test = Test.query.filter(Test.id == 3).first()
+
+        # Store original token and set empty
+        original_token = g.github['bot_token']
+        g.github['bot_token'] = ''
+
+        try:
+            response = progress_type_request(log, test, test.id, request)
+            # Should return True even without token (graceful degradation)
+            self.assertTrue(response)
+            # GitHub should NOT be called when token is empty
+            mock_github.assert_not_called()
+        finally:
+            g.github['bot_token'] = original_token
+
+    def test_blocked_users_empty_token(self):
+        """Test blocked_users handles empty GitHub token gracefully."""
+        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
+
+        # Store original token and set empty
+        original_token = g.github['bot_token']
+        g.github['bot_token'] = ''
+
+        try:
+            with self.app.test_client() as c:
+                c.post("/account/login", data=self.create_login_form_data(self.user.email, self.user.password))
+                response = c.post("/blocked_users", data=dict(user_id=999, comment="Test user", add=True))
+                # Should succeed with flash message even without token
+                self.assertNotEqual(BlockedUsers.query.filter(BlockedUsers.user_id == 999).first(), None)
+        finally:
+            g.github['bot_token'] = original_token
+
     @staticmethod
     def generate_header(data, event, ci_key=None):
         """

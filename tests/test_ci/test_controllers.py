@@ -1746,6 +1746,298 @@ class TestControllers(BaseTestCase):
 
         mock_log.critical.assert_called_with('GCP project name is empty!')
 
+    @mock.patch('run.log')
+    @mock.patch('mod_ci.controllers.update_status_on_github')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('mod_ci.controllers.g')
+    def test_mark_test_failed_success(self, mock_g, mock_test_progress, mock_update_status, mock_log):
+        """Test mark_test_failed function successfully marks a test as failed."""
+        from mod_ci.controllers import mark_test_failed
+
+        test = Test.query.first()
+        repository = MagicMock()
+        mock_commit = MagicMock()
+        repository.get_commit.return_value = mock_commit
+
+        mark_test_failed(mock_g.db, test, repository, "Test error message")
+
+        mock_test_progress.assert_called_once()
+        mock_g.db.add.assert_called_once()
+        mock_g.db.commit.assert_called_once()
+        mock_update_status.assert_called_once()
+        mock_log.info.assert_called()
+
+    @mock.patch('run.log')
+    @mock.patch('mod_ci.controllers.update_status_on_github')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('mod_ci.controllers.g')
+    def test_mark_test_failed_exception(self, mock_g, mock_test_progress, mock_update_status, mock_log):
+        """Test mark_test_failed function handles exceptions gracefully."""
+        from mod_ci.controllers import mark_test_failed
+
+        test = Test.query.first()
+        repository = MagicMock()
+        repository.get_commit.side_effect = Exception("GitHub API error")
+
+        # Should not raise, just log the error
+        mark_test_failed(mock_g.db, test, repository, "Test error message")
+
+        mock_log.error.assert_called()
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('mod_ci.controllers.start_test')
+    @mock.patch('mod_ci.controllers.get_compute_service_object')
+    @mock.patch('mod_ci.controllers.g')
+    @mock.patch('run.log')
+    def test_gcp_instance_github_exception(self, mock_log, mock_g, mock_get_compute,
+                                           mock_start_test, mock_repo):
+        """Test gcp_instance handles GithubException gracefully."""
+        from github import GithubException
+
+        from mod_ci.controllers import gcp_instance
+
+        repo = mock_repo()
+        # Make get_commit raise GithubException
+        repo.get_commit.side_effect = GithubException(404, "Not found", None)
+
+        # Create a PR type test that will trigger the exception
+        test = Test(TestPlatform.linux, TestType.pull_request, 1, "test", "abc123", 1)
+        g.db.add(test)
+        g.db.commit()
+
+        gcp_instance(self.app, mock_g.db, TestPlatform.linux, repo, None)
+
+        # Should log error and continue
+        mock_log.error.assert_called()
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('mod_ci.controllers.start_test')
+    @mock.patch('mod_ci.controllers.get_compute_service_object')
+    @mock.patch('mod_ci.controllers.g')
+    @mock.patch('run.log')
+    def test_gcp_instance_unexpected_exception(self, mock_log, mock_g, mock_get_compute,
+                                                mock_start_test, mock_repo):
+        """Test gcp_instance handles unexpected exceptions gracefully."""
+        from mod_ci.controllers import gcp_instance
+
+        repo = mock_repo()
+        # Make get_commit raise unexpected exception
+        repo.get_commit.side_effect = RuntimeError("Unexpected error")
+
+        # Create a PR type test that will trigger the exception
+        test = Test(TestPlatform.linux, TestType.pull_request, 1, "test", "def456", 2)
+        g.db.add(test)
+        g.db.commit()
+
+        gcp_instance(self.app, mock_g.db, TestPlatform.linux, repo, None)
+
+        # Should log error and continue
+        mock_log.error.assert_called()
+
+    @mock.patch('mod_ci.controllers.wait_for_operation')
+    @mock.patch('mod_ci.controllers.create_instance')
+    @mock.patch('builtins.open', new_callable=mock.mock_open())
+    @mock.patch('mod_ci.controllers.g')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('mod_ci.controllers.GcpInstance')
+    @mock.patch('run.log')
+    def test_start_test_duplicate_instance_check(self, mock_log, mock_gcp_instance, mock_test_progress,
+                                                  mock_g, mock_open_file, mock_create_instance,
+                                                  mock_wait_for_operation):
+        """Test start_test skips if GCP instance already exists for test."""
+        from mod_ci.controllers import start_test
+
+        test = Test.query.first()
+        repository = MagicMock()
+
+        # Mock that an instance already exists
+        mock_gcp_instance.query.filter.return_value.first.return_value = MagicMock()
+
+        start_test(mock.ANY, self.app, mock_g.db, repository, test, mock.ANY)
+
+        # Should log warning and return early
+        mock_log.warning.assert_called()
+        mock_create_instance.assert_not_called()
+
+    @mock.patch('mod_ci.controllers.wait_for_operation')
+    @mock.patch('mod_ci.controllers.create_instance')
+    @mock.patch('builtins.open', new_callable=mock.mock_open())
+    @mock.patch('mod_ci.controllers.g')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('mod_ci.controllers.GcpInstance')
+    @mock.patch('run.log')
+    def test_start_test_duplicate_progress_check(self, mock_log, mock_gcp_instance, mock_test_progress,
+                                                  mock_g, mock_open_file, mock_create_instance,
+                                                  mock_wait_for_operation):
+        """Test start_test skips if test already has progress entries."""
+        from mod_ci.controllers import start_test
+
+        test = Test.query.first()
+        repository = MagicMock()
+
+        # Mock no instance but progress exists
+        mock_gcp_instance.query.filter.return_value.first.return_value = None
+        mock_test_progress.query.filter.return_value.first.return_value = MagicMock()
+
+        start_test(mock.ANY, self.app, mock_g.db, repository, test, mock.ANY)
+
+        # Should log warning and return early
+        mock_log.warning.assert_called()
+        mock_create_instance.assert_not_called()
+
+    @mock.patch('mod_ci.controllers.mark_test_failed')
+    @mock.patch('mod_ci.controllers.wait_for_operation')
+    @mock.patch('mod_ci.controllers.create_instance')
+    @mock.patch('builtins.open', new_callable=mock.mock_open())
+    @mock.patch('mod_ci.controllers.g')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('mod_ci.controllers.GcpInstance')
+    @mock.patch('run.log')
+    @mock.patch('requests.get')
+    def test_start_test_artifact_timeout(self, mock_requests_get, mock_log, mock_gcp_instance,
+                                          mock_test_progress, mock_g, mock_open_file,
+                                          mock_create_instance, mock_wait_for_operation,
+                                          mock_mark_failed):
+        """Test start_test handles artifact download timeout."""
+        import requests
+        import zipfile
+
+        from github.Artifact import Artifact
+
+        from mod_ci.controllers import Artifact_names, start_test
+
+        test = Test.query.first()
+        repository = MagicMock()
+
+        # Mock locking checks
+        mock_gcp_instance.query.filter.return_value.first.return_value = None
+        mock_test_progress.query.filter.return_value.first.return_value = None
+
+        # Mock artifact
+        artifact = MagicMock(Artifact)
+        artifact.name = Artifact_names.linux
+        artifact.workflow_run.head_sha = test.commit
+        repository.get_artifacts.return_value = [artifact]
+
+        # Mock timeout exception
+        mock_requests_get.side_effect = requests.exceptions.Timeout()
+
+        customized_test = CustomizedTest(1, 1)
+        g.db.add(customized_test)
+        g.db.commit()
+
+        start_test(mock.ANY, self.app, mock_g.db, repository, test, mock.ANY)
+
+        # Should log critical and mark test failed
+        mock_log.critical.assert_called()
+        mock_mark_failed.assert_called()
+        mock_create_instance.assert_not_called()
+
+    @mock.patch('mod_ci.controllers.mark_test_failed')
+    @mock.patch('mod_ci.controllers.wait_for_operation')
+    @mock.patch('mod_ci.controllers.create_instance')
+    @mock.patch('builtins.open', new_callable=mock.mock_open())
+    @mock.patch('mod_ci.controllers.g')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('mod_ci.controllers.GcpInstance')
+    @mock.patch('run.log')
+    @mock.patch('requests.get')
+    def test_start_test_artifact_http_error(self, mock_requests_get, mock_log, mock_gcp_instance,
+                                             mock_test_progress, mock_g, mock_open_file,
+                                             mock_create_instance, mock_wait_for_operation,
+                                             mock_mark_failed):
+        """Test start_test handles artifact download HTTP errors."""
+        import requests
+        import zipfile
+
+        from github.Artifact import Artifact
+
+        from mod_ci.controllers import Artifact_names, start_test
+
+        test = Test.query.first()
+        repository = MagicMock()
+
+        # Mock locking checks
+        mock_gcp_instance.query.filter.return_value.first.return_value = None
+        mock_test_progress.query.filter.return_value.first.return_value = None
+
+        # Mock artifact
+        artifact = MagicMock(Artifact)
+        artifact.name = Artifact_names.linux
+        artifact.workflow_run.head_sha = test.commit
+        repository.get_artifacts.return_value = [artifact]
+
+        # Mock HTTP 500 response
+        response = requests.models.Response()
+        response.status_code = 500
+        mock_requests_get.return_value = response
+
+        customized_test = CustomizedTest(1, 1)
+        g.db.add(customized_test)
+        g.db.commit()
+
+        start_test(mock.ANY, self.app, mock_g.db, repository, test, mock.ANY)
+
+        # Should log critical and mark test failed
+        mock_log.critical.assert_called()
+        mock_mark_failed.assert_called()
+        mock_create_instance.assert_not_called()
+
+    @mock.patch('run.log')
+    @mock.patch('time.sleep')
+    @mock.patch('time.time')
+    def test_wait_for_operation_timeout(self, mock_time, mock_sleep, mock_log):
+        """Test wait_for_operation returns timeout error after max wait."""
+        from mod_ci.controllers import wait_for_operation
+
+        compute = MagicMock()
+        # Simulate time passing beyond max_wait
+        mock_time.side_effect = [0, 100]  # Start at 0, then jump to 100 seconds
+
+        result = wait_for_operation(compute, "project", "zone", "operation", max_wait=50)
+
+        self.assertEqual(result['status'], 'TIMEOUT')
+        self.assertIn('error', result)
+        mock_log.error.assert_called()
+
+    @mock.patch('run.log')
+    @mock.patch('time.sleep')
+    @mock.patch('time.time')
+    def test_wait_for_operation_api_error(self, mock_time, mock_sleep, mock_log):
+        """Test wait_for_operation handles API errors gracefully."""
+        from mod_ci.controllers import wait_for_operation
+
+        compute = MagicMock()
+        # Make the API call raise an exception
+        compute.zoneOperations.return_value.get.return_value.execute.side_effect = Exception("API Error")
+        mock_time.return_value = 0
+
+        result = wait_for_operation(compute, "project", "zone", "operation", max_wait=100)
+
+        self.assertEqual(result['status'], 'ERROR')
+        self.assertIn('error', result)
+        mock_log.error.assert_called()
+
+    @mock.patch('run.log')
+    @mock.patch('time.sleep')
+    @mock.patch('time.time')
+    def test_wait_for_operation_success(self, mock_time, mock_sleep, mock_log):
+        """Test wait_for_operation returns successfully when operation completes."""
+        from mod_ci.controllers import wait_for_operation
+
+        compute = MagicMock()
+        # First call returns RUNNING, second returns DONE
+        compute.zoneOperations.return_value.get.return_value.execute.side_effect = [
+            {'status': 'RUNNING'},
+            {'status': 'DONE'}
+        ]
+        mock_time.side_effect = [0, 0, 5, 5]  # Various time readings during the loop
+
+        result = wait_for_operation(compute, "project", "zone", "operation", max_wait=100)
+
+        self.assertEqual(result['status'], 'DONE')
+        mock_log.info.assert_called()
+
     @staticmethod
     def generate_header(data, event, ci_key=None):
         """

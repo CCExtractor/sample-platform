@@ -16,7 +16,8 @@ import googleapiclient.discovery
 import requests
 from flask import (Blueprint, abort, flash, g, jsonify, redirect, request,
                    url_for)
-from github import Auth, Commit, Github, GithubException, GithubObject, Repository
+from github import (Auth, Commit, Github, GithubException, GithubObject,
+                    Repository)
 from google.oauth2 import service_account
 from lxml import etree
 from markdown2 import markdown

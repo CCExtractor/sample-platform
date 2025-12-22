@@ -469,7 +469,7 @@ def manage():
         if user_to_update.email != form.email.data:
             old_email = user_to_update.email
             user_to_update.email = form.email.data
-        if len(form.new_password.data) >= 10:
+        if len(form.new_password.data or "") >= 10:
             password = True
             user_to_update.password = User.generate_hash(form.new_password.data)
         if user_to_update.name != form.name.data:

@@ -1338,7 +1338,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
 
     if not g.github['bot_token']:
         log.error('GitHub token not configured, cannot update status on GitHub')
-        return
+        return True
 
     gh = Github(auth=Auth.Token(g.github['bot_token']))
     repository = gh.get_repo(f"{g.github['repository_owner']}/{g.github['repository']}")

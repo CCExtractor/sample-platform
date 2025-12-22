@@ -211,4 +211,3 @@ class TestControllers(BaseTestCase):
         resp = create_hash_for_sample(f.name)
 
         self.assertIsInstance(resp, str)
-

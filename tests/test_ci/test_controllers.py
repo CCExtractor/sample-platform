@@ -251,7 +251,8 @@ class TestControllers(BaseTestCase):
         g.db.add(customized_test)
         g.db.commit()
 
-        # Configure mock_g.db.query to return a proper MagicMock chain (not AsyncMock)
+        # Explicitly set mock_g.db to MagicMock to avoid AsyncMock behavior
+        mock_g.db = MagicMock()
         mock_query = MagicMock()
         mock_g.db.query.return_value = mock_query
         mock_query.filter.return_value = mock_query
@@ -302,7 +303,8 @@ class TestControllers(BaseTestCase):
         g.db.add(test_4)
         g.db.commit()
 
-        # Configure mock_g.db.query to return a proper MagicMock chain (not AsyncMock)
+        # Explicitly set mock_g.db to MagicMock to avoid AsyncMock behavior
+        mock_g.db = MagicMock()
         mock_query = MagicMock()
         mock_g.db.query.return_value = mock_query
         mock_query.filter.return_value = mock_query

@@ -18,4 +18,4 @@ class TestConfigParser(BaseTestCase):
         with provide_file_at_root('parse.py', file_config, to_delete=False):
             out_config = parse_config('parse')
 
-        self.assertEquals(out_config, expected_config)
+        self.assertEqual(out_config, expected_config)

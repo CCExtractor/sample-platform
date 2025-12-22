@@ -132,7 +132,8 @@ class TestControllers(BaseTestCase):
 
         mock_test = mock.MagicMock()
 
-        # Configure mock_g.db.query to return a proper MagicMock chain (not AsyncMock)
+        # Explicitly set mock_g.db to MagicMock to avoid AsyncMock behavior
+        mock_g.db = mock.MagicMock()
         mock_query = mock.MagicMock()
         mock_g.db.query.return_value = mock_query
         mock_query.first.return_value = (None,)

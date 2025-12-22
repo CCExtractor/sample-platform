@@ -204,6 +204,14 @@ class TestControllers(BaseTestCase):
         mock_delete_expired_instances.assert_not_called()
         mock_get_compute_service_object.assert_not_called()
 
+    @mock.patch.dict('run.config', {'GITHUB_TOKEN': '', 'GITHUB_OWNER': 'test', 'GITHUB_REPOSITORY': 'test'})
+    @mock.patch('run.log')
+    def test_cron_job_empty_token(self, mock_log):
+        """Test cron returns early when GitHub token is empty."""
+        from mod_ci.cron import cron
+        cron()
+        mock_log.error.assert_called_with('GITHUB_TOKEN not configured, cannot run CI cron')
+
     @mock.patch('mod_ci.controllers.wait_for_operation')
     @mock.patch('mod_ci.controllers.create_instance')
     @mock.patch('builtins.open', new_callable=mock.mock_open())
@@ -2088,6 +2096,38 @@ class TestControllers(BaseTestCase):
                 c.post("/account/login", data=self.create_login_form_data(self.user.email, self.user.password))
                 c.post("/blocked_users", data=dict(user_id=999, comment="Test user", add=True))
                 self.assertIsNotNone(BlockedUsers.query.filter(BlockedUsers.user_id == 999).first())
+
+    @mock.patch('run.get_github_config')
+    def test_start_ci_empty_token(self, mock_get_github_config):
+        """Test start_ci returns 500 when GitHub token is empty."""
+        payload = {'ref': 'refs/heads/master', 'after': 'abc123'}
+        headers = self.generate_header(payload, 'push')
+
+        mock_get_github_config.return_value = {
+            'ci_key': g.github['ci_key'],
+            'bot_token': '',
+            'repository_owner': g.github['repository_owner'],
+            'repository': g.github['repository']
+        }
+
+        with self.app.test_client() as c:
+            response = c.post('/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                              headers=headers,
+                              data=json.dumps(payload),
+                              content_type='application/json')
+            self.assertEqual(response.status_code, 500)
+            self.assertIn(b'GitHub token not configured', response.data)
+
+    def test_comment_pr_empty_token(self):
+        """Test comment_pr returns FAILURE when GitHub token is empty."""
+        from mod_ci.controllers import comment_pr
+        from mod_ci.models import Status
+
+        test = Test.query.first()
+
+        with empty_github_token():
+            result = comment_pr(test)
+            self.assertEqual(result, Status.FAILURE)
 
     @staticmethod
     def generate_header(data, event, ci_key=None):

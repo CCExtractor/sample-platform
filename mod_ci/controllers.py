@@ -446,7 +446,11 @@ def start_test(compute, app, db, repository: Repository.Repository, test, bot_to
             artifact_url = artifact.archive_download_url
             try:
                 auth_header = f"token {bot_token}"
-                r = requests.get(artifact_url, headers={"Authorization": auth_header}, timeout=ARTIFACT_DOWNLOAD_TIMEOUT)
+                r = requests.get(
+                    artifact_url,
+                    headers={"Authorization": auth_header},
+                    timeout=ARTIFACT_DOWNLOAD_TIMEOUT
+                )
             except requests.exceptions.Timeout:
                 log.critical(f"Artifact download timed out after {ARTIFACT_DOWNLOAD_TIMEOUT}s")
                 mark_test_failed(db, test, repository, "Artifact download timed out")
@@ -648,7 +652,15 @@ def wait_for_operation(compute, project, zone, operation, max_wait: int = GCP_OP
         elapsed = time.time() - start_time
         if elapsed >= max_wait:
             log.error(f"Operation {operation} timed out after {elapsed:.0f} seconds")
-            return {'status': 'TIMEOUT', 'error': {'errors': [{'code': 'TIMEOUT', 'message': f'Operation timed out after {max_wait} seconds'}]}}
+            return {
+                'status': 'TIMEOUT',
+                'error': {
+                    'errors': [{
+                        'code': 'TIMEOUT',
+                        'message': f'Operation timed out after {max_wait} seconds'
+                    }]
+                }
+            }
 
         try:
             result = compute.zoneOperations().get(

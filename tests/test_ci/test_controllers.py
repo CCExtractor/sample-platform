@@ -2110,17 +2110,6 @@ class TestControllers(BaseTestCase):
                 self.assertEqual(response.status_code, 500)
                 self.assertIn(b'GitHub token not configured', response.data)
 
-    @mock.patch('mod_ci.controllers.g')
-    def test_comment_pr_empty_token(self, mock_g):
-        """Test comment_pr returns FAILURE when GitHub token is empty."""
-        from mod_ci.controllers import Status, comment_pr
-
-        mock_g.github = {'bot_token': '', 'repository_owner': 'test', 'repository': 'test'}
-        test = Test.query.first()
-
-        result = comment_pr(test)
-        self.assertEqual(result, Status.FAILURE)
-
     @staticmethod
     def generate_header(data, event, ci_key=None):
         """

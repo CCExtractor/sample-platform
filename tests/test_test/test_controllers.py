@@ -136,7 +136,7 @@ class TestControllers(BaseTestCase):
         mock_g.db = mock.MagicMock()
         mock_query = mock.MagicMock()
         mock_g.db.query.return_value = mock_query
-        mock_query.first.return_value = (None,)
+        mock_query.first.return_value = (0,)  # Return 0, not None, to avoid SQLAlchemy comparison issues
         mock_query.filter.return_value = mock_query
         mock_query.subquery.return_value = mock_query
         mock_query.group_by.return_value = mock_query

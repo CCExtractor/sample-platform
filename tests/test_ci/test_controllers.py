@@ -1712,6 +1712,8 @@ class TestControllers(BaseTestCase):
         mock_regression_test.expected_rc = 0
         mock_rt.query.filter.return_value.first.return_value = mock_regression_test
 
+        # Explicitly set mock_g.db to MagicMock to ensure side_effect works properly
+        mock_g.db = MagicMock()
         mock_g.db.commit.side_effect = IntegrityError("test error", "test")
 
         finish_type_request(mock_log, 1, MagicMock(), mock_request)

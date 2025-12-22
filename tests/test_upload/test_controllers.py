@@ -212,8 +212,9 @@ class TestControllers(BaseTestCase):
 
         self.assertIsInstance(resp, str)
 
+    @mock.patch('run.log')
     @mock.patch('os.rename')
-    def test_process_empty_github_token(self, mock_rename):
+    def test_process_empty_github_token(self, mock_rename, mock_log):
         """Test process_id handles empty GitHub token when reporting issue."""
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.user)
@@ -241,4 +242,4 @@ class TestControllers(BaseTestCase):
                         submit=True
                     ), follow_redirects=True)
                 self.assertEqual(response.status_code, 200)
-                self.assertIn(b'token not configured', response.data)
+                mock_log.error.assert_called_with("GitHub token not configured, cannot create issue")

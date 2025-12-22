@@ -14,8 +14,9 @@ from mod_home.models import CCExtractorVersion, GeneralData
 from mod_regression.models import (RegressionTest, RegressionTestOutput,
                                    RegressionTestOutputFiles)
 from mod_test.models import Test, TestPlatform, TestResultFile, TestType
-from tests.base import (BaseTestCase, MockResponse, generate_git_api_header,
-                        generate_signature, mock_api_request_github)
+from tests.base import (BaseTestCase, MockResponse, empty_github_token,
+                        generate_git_api_header, generate_signature,
+                        mock_api_request_github)
 
 
 class MockGcpInstance:
@@ -2086,35 +2087,20 @@ class TestControllers(BaseTestCase):
 
         test = Test.query.filter(Test.id == 3).first()
 
-        # Store original token and set empty
-        original_token = g.github['bot_token']
-        g.github['bot_token'] = ''
-
-        try:
+        with empty_github_token():
             response = progress_type_request(log, test, test.id, request)
-            # Should return True even without token (graceful degradation)
             self.assertTrue(response)
-            # GitHub should NOT be called when token is empty
             mock_github.assert_not_called()
-        finally:
-            g.github['bot_token'] = original_token
 
     def test_blocked_users_empty_token(self):
         """Test blocked_users handles empty GitHub token gracefully."""
         self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
 
-        # Store original token and set empty
-        original_token = g.github['bot_token']
-        g.github['bot_token'] = ''
-
-        try:
+        with empty_github_token():
             with self.app.test_client() as c:
                 c.post("/account/login", data=self.create_login_form_data(self.user.email, self.user.password))
-                response = c.post("/blocked_users", data=dict(user_id=999, comment="Test user", add=True))
-                # Should succeed with flash message even without token
-                self.assertNotEqual(BlockedUsers.query.filter(BlockedUsers.user_id == 999).first(), None)
-        finally:
-            g.github['bot_token'] = original_token
+                c.post("/blocked_users", data=dict(user_id=999, comment="Test user", add=True))
+                self.assertIsNotNone(BlockedUsers.query.filter(BlockedUsers.user_id == 999).first())
 
     @staticmethod
     def generate_header(data, event, ci_key=None):

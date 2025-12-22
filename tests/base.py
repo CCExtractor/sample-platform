@@ -35,6 +35,17 @@ def provide_file_at_root(file_name, to_write=None, to_delete=True):
         os.remove(file_name)
 
 
+@contextmanager
+def empty_github_token():
+    """Context manager to temporarily set GitHub bot_token to empty string."""
+    original = g.github['bot_token']
+    g.github['bot_token'] = ''
+    try:
+        yield
+    finally:
+        g.github['bot_token'] = original
+
+
 def load_file_lines(filepath):
     """
     Load lines of the file passed.

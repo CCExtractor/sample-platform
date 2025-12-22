@@ -8,7 +8,7 @@ from flask import g, url_for
 from mod_auth.models import Role
 from mod_sample.models import Issue, Sample
 from mod_upload.models import QueuedSample
-from tests.base import BaseTestCase, MockResponse, empty_github_token
+from tests.base import BaseTestCase, MockResponse
 
 
 class TestControllers(BaseTestCase):
@@ -213,6 +213,8 @@ class TestControllers(BaseTestCase):
         self.assertIsInstance(resp, str)
 
     @mock.patch('os.rename')
+    @mock.patch('mod_upload.controllers.config', {
+        'GITHUB_TOKEN': '', 'GITHUB_OWNER': 'test', 'GITHUB_REPOSITORY': 'test'})
     def test_process_empty_github_token(self, mock_rename):
         """Test process_id handles empty GitHub token when reporting issue."""
         import mod_upload.controllers
@@ -220,7 +222,6 @@ class TestControllers(BaseTestCase):
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.user)
         with self.app.test_client() as c:
-            filename = 'test_sample.ts'
             filehash = 'test_hash_empty_token'
             saved_filename = 'test_hash_empty_token.ts'
             queued_sample = QueuedSample(filehash, '.ts', saved_filename, 2)
@@ -229,18 +230,17 @@ class TestControllers(BaseTestCase):
             c.post('/account/login', data=self.create_login_form_data(
                 self.user.email, self.user.password))
 
-            with empty_github_token():
-                response = c.post(
-                    url_for('upload.process_id', upload_id=queued_sample.id),
-                    data=dict(
-                        notes='test note',
-                        parameters='test parameters',
-                        platform='linux',
-                        version=1,
-                        report='y',
-                        IssueTitle='Issue Title',
-                        IssueBody='Issue Body',
-                        submit=True
-                    ), follow_redirects=True)
-                self.assertEqual(response.status_code, 200)
-                self.assertIn(b'token not configured', response.data)
+            response = c.post(
+                url_for('upload.process_id', upload_id=queued_sample.id),
+                data=dict(
+                    notes='test note',
+                    parameters='test parameters',
+                    platform='linux',
+                    version=1,
+                    report='y',
+                    IssueTitle='Issue Title',
+                    IssueBody='Issue Body',
+                    submit=True
+                ), follow_redirects=True)
+            self.assertEqual(response.status_code, 200)
+            self.assertIn(b'token not configured', response.data)

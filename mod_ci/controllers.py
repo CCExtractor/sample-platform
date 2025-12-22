@@ -16,7 +16,7 @@ import googleapiclient.discovery
 import requests
 from flask import (Blueprint, abort, flash, g, jsonify, redirect, request,
                    url_for)
-from github import Commit, Github, GithubException, GithubObject, Repository
+from github import Auth, Commit, Github, GithubException, GithubObject, Repository
 from google.oauth2 import service_account
 from lxml import etree
 from markdown2 import markdown
@@ -963,7 +963,7 @@ def start_ci():
             g.log.warning(f'CI payload is empty')
             abort(abort_code)
 
-        gh = Github(g.github['bot_token'])
+        gh = Github(auth=Auth.Token(g.github['bot_token']))
         repository = gh.get_repo(f"{g.github['repository_owner']}/{g.github['repository']}")
 
         if event == "push":
@@ -1331,7 +1331,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
     g.db.add(progress)
     g.db.commit()
 
-    gh = Github(g.github['bot_token'])
+    gh = Github(auth=Auth.Token(g.github['bot_token']))
     repository = gh.get_repo(f"{g.github['repository_owner']}/{g.github['repository']}")
     # Store the test commit for testing in case of commit
     if status == TestStatus.completed and is_main_repo(test.fork.github):
@@ -1705,7 +1705,7 @@ def comment_pr(test: Test) -> str:
     message = template.render(comment_info=comment_info, test_id=test_id, platform=platform)
     log.debug(f"GitHub PR Comment Message Created for Test_id: {test_id}")
     try:
-        gh = Github(g.github['bot_token'])
+        gh = Github(auth=Auth.Token(g.github['bot_token']))
         repository = gh.get_repo(f"{g.github['repository_owner']}/{g.github['repository']}")
         # Pull requests are just issues with code, so GitHub considers PR comments in issues
         pull_request = repository.get_pull(number=test.pr_nr)
@@ -1778,7 +1778,7 @@ def blocked_users():
 
         try:
             # Remove any queued pull request from blocked user
-            gh = Github(g.github['bot_token'])
+            gh = Github(auth=Auth.Token(g.github['bot_token']))
             repository = gh.get_repo(f"{g.github['repository_owner']}/{g.github['repository']}")
             # Getting all pull requests by blocked user on the repo
             pulls = repository.get_pulls(state='open')

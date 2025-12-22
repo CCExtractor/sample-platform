@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta
 
 from flask import Blueprint, g, redirect, request, url_for
-from github import Github, GithubException
+from github import Auth, Github, GithubException
 from sqlalchemy import and_
 
 from decorators import template_renderer
@@ -48,7 +48,7 @@ def index():
     username = fetch_username_from_token()
     commit_options = False
     if username is not None:
-        gh = Github(g.github['bot_token'])
+        gh = Github(auth=Auth.Token(g.github['bot_token']))
         repository = gh.get_repo(f"{username}/{g.github['repository']}")
         # Only commits since last month
         last_month = datetime.now() - timedelta(days=30)

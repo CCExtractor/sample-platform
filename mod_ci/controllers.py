@@ -26,12 +26,6 @@ from sqlalchemy.sql import label
 from sqlalchemy.sql.functions import count
 from werkzeug.utils import secure_filename
 
-# Timeout constants (in seconds)
-GITHUB_API_TIMEOUT = 30  # Timeout for GitHub API calls
-GCP_API_TIMEOUT = 60  # Timeout for GCP API calls
-ARTIFACT_DOWNLOAD_TIMEOUT = 300  # 5 minutes for artifact downloads
-GCP_OPERATION_MAX_WAIT = 1800  # 30 minutes max wait for GCP operations
-
 from database import DeclEnum, create_session
 from decorators import get_menu_entries, template_renderer
 from mod_auth.controllers import check_access_rights, login_required
@@ -48,6 +42,12 @@ from mod_test.controllers import get_test_results
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
                              TestResult, TestResultFile, TestStatus, TestType)
 from utility import is_valid_signature, request_from_github
+
+# Timeout constants (in seconds)
+GITHUB_API_TIMEOUT = 30  # Timeout for GitHub API calls
+GCP_API_TIMEOUT = 60  # Timeout for GCP API calls
+ARTIFACT_DOWNLOAD_TIMEOUT = 300  # 5 minutes for artifact downloads
+GCP_OPERATION_MAX_WAIT = 1800  # 30 minutes max wait for GCP operations
 
 mod_ci = Blueprint('ci', __name__)
 

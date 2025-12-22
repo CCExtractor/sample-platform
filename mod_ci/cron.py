@@ -18,7 +18,11 @@ def cron(testing=False):
     from run import config, log
 
     log.info('Run the cron for kicking off CI platform(s).')
-    gh = Github(auth=Auth.Token(config['GITHUB_TOKEN']))
+    github_token = config['GITHUB_TOKEN']
+    if not github_token:
+        log.error('GITHUB_TOKEN not configured, cannot run CI cron')
+        return
+    gh = Github(auth=Auth.Token(github_token))
     repository = gh.get_repo(f"{config['GITHUB_OWNER']}/{config['GITHUB_REPOSITORY']}")
 
     if testing is True:

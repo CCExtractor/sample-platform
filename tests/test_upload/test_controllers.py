@@ -211,3 +211,34 @@ class TestControllers(BaseTestCase):
         resp = create_hash_for_sample(f.name)
 
         self.assertIsInstance(resp, str)
+
+    @mock.patch('os.rename')
+    def test_process_empty_github_token(self, mock_rename):
+        """Test process_id handles empty GitHub token when reporting issue."""
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.user)
+        with self.app.test_client() as c:
+            filehash = 'test_hash_empty_token'
+            saved_filename = 'test_hash_empty_token.ts'
+            queued_sample = QueuedSample(filehash, '.ts', saved_filename, 2)
+            g.db.add(queued_sample)
+            g.db.commit()
+            upload_id = queued_sample.id
+            c.post('/account/login', data=self.create_login_form_data(
+                self.user.email, self.user.password))
+
+            with mock.patch.dict('run.config', {'GITHUB_TOKEN': ''}):
+                response = c.post(
+                    url_for('upload.process_id', upload_id=upload_id),
+                    data=dict(
+                        notes='test note',
+                        parameters='test parameters',
+                        platform='linux',
+                        version=1,
+                        report='y',
+                        IssueTitle='Issue Title',
+                        IssueBody='Issue Body',
+                        submit=True
+                    ), follow_redirects=True)
+                self.assertEqual(response.status_code, 200)
+                self.assertIn(b'token not configured', response.data)

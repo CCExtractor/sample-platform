@@ -54,7 +54,7 @@ class TestRun(BaseTestCase):
         secrets.close()
 
         self.assertEqual(application.config['SECRET_KEY'], b'secret', 'secret key not loaded properly')
-        self.assertEquals(cmd.exception.code, 1, 'function exited with a wrong code')
+        self.assertEqual(cmd.exception.code, 1, 'function exited with a wrong code')
 
     def test_load_secret_keys_csrf_not_present(self):
         """Test csrf session and secret keys loading when secret key is not presented."""
@@ -72,5 +72,5 @@ class TestRun(BaseTestCase):
 
         csrf.close()
 
-        self.assertEquals(cmd.exception.code, 1, 'function exited with a wrong code')
+        self.assertEqual(cmd.exception.code, 1, 'function exited with a wrong code')
         self.assertEqual(application.config['CSRF_SESSION_KEY'], b'csrf', 'csrf session key not loaded properly')

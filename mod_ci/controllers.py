@@ -964,6 +964,10 @@ def start_ci():
             g.log.warning(f'CI payload is empty')
             abort(abort_code)
 
+        if not g.github['bot_token']:
+            g.log.error('GitHub token not configured, cannot process webhook')
+            return json.dumps({'msg': 'GitHub token not configured'}), 500
+
         gh = Github(auth=Auth.Token(g.github['bot_token']))
         repository = gh.get_repo(f"{g.github['repository_owner']}/{g.github['repository']}")
 
@@ -1331,6 +1335,10 @@ def progress_type_request(log, test, test_id, request) -> bool:
     progress = TestProgress(test.id, status, message)
     g.db.add(progress)
     g.db.commit()
+
+    if not g.github['bot_token']:
+        log.error('GitHub token not configured, cannot update status on GitHub')
+        return
 
     gh = Github(auth=Auth.Token(g.github['bot_token']))
     repository = gh.get_repo(f"{g.github['repository_owner']}/{g.github['repository']}")
@@ -1705,6 +1713,9 @@ def comment_pr(test: Test) -> str:
     template = app.jinja_env.get_or_select_template('ci/pr_comment.txt')
     message = template.render(comment_info=comment_info, test_id=test_id, platform=platform)
     log.debug(f"GitHub PR Comment Message Created for Test_id: {test_id}")
+    if not g.github['bot_token']:
+        log.error(f"GitHub token not configured, cannot post PR comment for Test_id: {test_id}")
+        return Status.FAILURE
     try:
         gh = Github(auth=Auth.Token(g.github['bot_token']))
         repository = gh.get_repo(f"{g.github['repository_owner']}/{g.github['repository']}")
@@ -1776,6 +1787,10 @@ def blocked_users():
         g.db.add(blocked_user)
         g.db.commit()
         flash('User blocked successfully.')
+
+        if not g.github['bot_token']:
+            g.log.error('GitHub token not configured, cannot check blocked user PRs')
+            return redirect(url_for('.blocked_users'))
 
         try:
             # Remove any queued pull request from blocked user

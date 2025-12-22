@@ -47,7 +47,7 @@ def index():
     fork_test_form = TestForkForm(request.form)
     username = fetch_username_from_token()
     commit_options = False
-    if username is not None:
+    if username is not None and g.github['bot_token']:
         gh = Github(auth=Auth.Token(g.github['bot_token']))
         repository = gh.get_repo(f"{username}/{g.github['repository']}")
         # Only commits since last month
@@ -78,6 +78,8 @@ def index():
                     fork_test_form.commit_hash.errors.append('Error contacting GitHub')
                 else:
                     fork_test_form.commit_hash.errors.append('Wrong Commit Hash')
+    elif username is not None:
+        g.log.error('GitHub token not configured, cannot fetch commits')
 
     populated_categories = g.db.query(regressionTestLinkTable.c.category_id).subquery()
     categories = Category.query.filter(Category.id.in_(populated_categories)).order_by(Category.name.asc()).all()

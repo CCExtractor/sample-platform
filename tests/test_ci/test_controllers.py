@@ -1472,7 +1472,8 @@ class TestControllers(BaseTestCase):
 
         mock_safe_commit.return_value = False
 
-        add_test_entry(g.db, 'testcommithash', TestType.commit)
+        # Use valid hex commit hash (is_valid_commit_hash validates before db commit)
+        add_test_entry(g.db, 'abcdef1234567890abcdef1234567890abcdef12', TestType.commit)
 
         mock_safe_commit.assert_called_once()
         mock_log.error.assert_called()

@@ -881,8 +881,8 @@ class TestControllers(BaseTestCase):
     @mock.patch('github.Github.get_repo')
     @mock.patch('mod_ci.controllers.queue_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_workflow_run_completed_successful_linux(self, mock_request, mock_queue_test, mock_repo,
-                                                              mock_verify):
+    def test_webhook_workflow_run_completed_successful_linux(self, mock_request, mock_queue_test,
+                                                             mock_repo, mock_verify):
         """Test webhook triggered with workflow run event with action completed and status success on linux."""
         data = {'action': 'completed',
                 'workflow_run': {'event': 'push',
@@ -917,8 +917,8 @@ class TestControllers(BaseTestCase):
     @mock.patch('github.Github.get_repo')
     @mock.patch('mod_ci.controllers.queue_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_workflow_run_completed_successful_windows(self, mock_request, mock_queue_test, mock_repo,
-                                                                mock_verify):
+    def test_webhook_workflow_run_completed_successful_windows(self, mock_request, mock_queue_test,
+                                                               mock_repo, mock_verify):
         """Test webhook triggered with workflow run event with action completed and status success on windows."""
         data = {'action': 'completed',
                 'workflow_run': {'event': 'push',

@@ -9,8 +9,13 @@ from tests.base import BaseTestCase
 class TestHealthEndpoints(BaseTestCase):
     """Test health check endpoints."""
 
-    def test_health_endpoint_returns_200_when_healthy(self):
+    @mock.patch('mod_health.controllers.check_config')
+    @mock.patch('mod_health.controllers.check_database')
+    def test_health_endpoint_returns_200_when_healthy(self, mock_db, mock_config):
         """Test that /health returns 200 when all checks pass."""
+        mock_db.return_value = {'status': 'ok'}
+        mock_config.return_value = {'status': 'ok'}
+
         response = self.app.test_client().get('/health')
         self.assertEqual(response.status_code, 200)
 
@@ -21,27 +26,33 @@ class TestHealthEndpoints(BaseTestCase):
         self.assertEqual(data['checks']['database']['status'], 'ok')
         self.assertEqual(data['checks']['config']['status'], 'ok')
 
-    def test_health_endpoint_returns_503_when_database_fails(self):
+    @mock.patch('mod_health.controllers.check_config')
+    @mock.patch('mod_health.controllers.check_database')
+    def test_health_endpoint_returns_503_when_database_fails(self, mock_db, mock_config):
         """Test that /health returns 503 when database check fails."""
-        with mock.patch('mod_health.controllers.check_database') as mock_db:
-            mock_db.return_value = {'status': 'error', 'message': 'Connection failed'}
-            response = self.app.test_client().get('/health')
-            self.assertEqual(response.status_code, 503)
+        mock_db.return_value = {'status': 'error', 'message': 'Connection failed'}
+        mock_config.return_value = {'status': 'ok'}
 
-            data = json.loads(response.data)
-            self.assertEqual(data['status'], 'unhealthy')
-            self.assertEqual(data['checks']['database']['status'], 'error')
+        response = self.app.test_client().get('/health')
+        self.assertEqual(response.status_code, 503)
 
-    def test_health_endpoint_returns_503_when_config_fails(self):
+        data = json.loads(response.data)
+        self.assertEqual(data['status'], 'unhealthy')
+        self.assertEqual(data['checks']['database']['status'], 'error')
+
+    @mock.patch('mod_health.controllers.check_config')
+    @mock.patch('mod_health.controllers.check_database')
+    def test_health_endpoint_returns_503_when_config_fails(self, mock_db, mock_config):
         """Test that /health returns 503 when config check fails."""
-        with mock.patch('mod_health.controllers.check_config') as mock_config:
-            mock_config.return_value = {'status': 'error', 'message': 'Missing keys'}
-            response = self.app.test_client().get('/health')
-            self.assertEqual(response.status_code, 503)
+        mock_db.return_value = {'status': 'ok'}
+        mock_config.return_value = {'status': 'error', 'message': 'Missing keys'}
 
-            data = json.loads(response.data)
-            self.assertEqual(data['status'], 'unhealthy')
-            self.assertEqual(data['checks']['config']['status'], 'error')
+        response = self.app.test_client().get('/health')
+        self.assertEqual(response.status_code, 503)
+
+        data = json.loads(response.data)
+        self.assertEqual(data['status'], 'unhealthy')
+        self.assertEqual(data['checks']['config']['status'], 'error')
 
     def test_liveness_endpoint_returns_200(self):
         """Test that /health/live always returns 200."""
@@ -52,23 +63,31 @@ class TestHealthEndpoints(BaseTestCase):
         self.assertEqual(data['status'], 'alive')
         self.assertIn('timestamp', data)
 
-    def test_readiness_endpoint_returns_200_when_healthy(self):
+    @mock.patch('mod_health.controllers.check_config')
+    @mock.patch('mod_health.controllers.check_database')
+    def test_readiness_endpoint_returns_200_when_healthy(self, mock_db, mock_config):
         """Test that /health/ready returns 200 when healthy."""
+        mock_db.return_value = {'status': 'ok'}
+        mock_config.return_value = {'status': 'ok'}
+
         response = self.app.test_client().get('/health/ready')
         self.assertEqual(response.status_code, 200)
 
         data = json.loads(response.data)
         self.assertEqual(data['status'], 'healthy')
 
-    def test_readiness_endpoint_returns_503_when_unhealthy(self):
+    @mock.patch('mod_health.controllers.check_config')
+    @mock.patch('mod_health.controllers.check_database')
+    def test_readiness_endpoint_returns_503_when_unhealthy(self, mock_db, mock_config):
         """Test that /health/ready returns 503 when unhealthy."""
-        with mock.patch('mod_health.controllers.check_database') as mock_db:
-            mock_db.return_value = {'status': 'error', 'message': 'Connection failed'}
-            response = self.app.test_client().get('/health/ready')
-            self.assertEqual(response.status_code, 503)
+        mock_db.return_value = {'status': 'error', 'message': 'Connection failed'}
+        mock_config.return_value = {'status': 'ok'}
 
-            data = json.loads(response.data)
-            self.assertEqual(data['status'], 'unhealthy')
+        response = self.app.test_client().get('/health/ready')
+        self.assertEqual(response.status_code, 503)
+
+        data = json.loads(response.data)
+        self.assertEqual(data['status'], 'unhealthy')
 
 
 class TestHealthCheckFunctions(BaseTestCase):
@@ -85,7 +104,8 @@ class TestHealthCheckFunctions(BaseTestCase):
         """Test check_database returns error when database fails."""
         from mod_health.controllers import check_database
         with self.app.app_context():
-            with mock.patch('mod_health.controllers.create_session') as mock_session:
+            # Mock at the source module where it's imported from
+            with mock.patch('database.create_session') as mock_session:
                 mock_session.side_effect = Exception('Connection refused')
                 result = check_database()
                 self.assertEqual(result['status'], 'error')
@@ -95,6 +115,8 @@ class TestHealthCheckFunctions(BaseTestCase):
         """Test check_config returns ok when config is complete."""
         from mod_health.controllers import check_config
         with self.app.app_context():
+            # Set required config values for test
+            self.app.config['GITHUB_TOKEN'] = 'test_token'
             result = check_config()
             self.assertEqual(result['status'], 'ok')
 
@@ -102,11 +124,8 @@ class TestHealthCheckFunctions(BaseTestCase):
         """Test check_config returns error when keys are missing."""
         from mod_health.controllers import check_config
         with self.app.app_context():
-            # Temporarily remove a required key
-            original_value = self.app.config.get('GITHUB_TOKEN')
+            # Ensure GITHUB_TOKEN is empty to trigger error
             self.app.config['GITHUB_TOKEN'] = ''
             result = check_config()
             self.assertEqual(result['status'], 'error')
             self.assertIn('GITHUB_TOKEN', result['message'])
-            # Restore
-            self.app.config['GITHUB_TOKEN'] = original_value

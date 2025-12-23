@@ -64,7 +64,7 @@ def retry_with_backoff(
     max_retries: int = MAX_RETRIES,
     initial_backoff: float = INITIAL_BACKOFF,
     max_backoff: float = MAX_BACKOFF,
-    retryable_exceptions: tuple = (GithubException, requests.RequestException)
+    retryable_exceptions: tuple = (GithubException, requests.RequestException)  # type: ignore[assignment]
 ) -> T:
     """
     Execute a function with exponential backoff retry logic.
@@ -79,7 +79,7 @@ def retry_with_backoff(
     """
     from run import log
 
-    last_exception = None
+    last_exception: Optional[Exception] = None
     backoff = initial_backoff
 
     for attempt in range(max_retries + 1):
@@ -94,7 +94,9 @@ def retry_with_backoff(
             else:
                 log.error(f"All {max_retries + 1} attempts failed. Last error: {e}")
 
-    raise last_exception
+    if last_exception is not None:
+        raise last_exception
+    raise RuntimeError("retry_with_backoff: unexpected state - no exception captured")
 
 
 def safe_db_commit(db, operation_description: str = "database operation") -> bool:

@@ -57,30 +57,28 @@ def health_check() -> Tuple[Any, int]:
     :return: JSON response with health status and HTTP status code
     :rtype: Tuple[Any, int]
     """
-    checks = {
-        'status': 'healthy',
-        'timestamp': datetime.utcnow().isoformat() + 'Z',
-        'checks': {}
-    }
+    check_results: Dict[str, Dict[str, Any]] = {}
     all_healthy = True
 
     # Check 1: Database connectivity
     db_check = check_database()
-    checks['checks']['database'] = db_check
+    check_results['database'] = db_check
     if db_check['status'] != 'ok':
         all_healthy = False
 
     # Check 2: Configuration loaded
     config_check = check_config()
-    checks['checks']['config'] = config_check
+    check_results['config'] = config_check
     if config_check['status'] != 'ok':
         all_healthy = False
 
-    if not all_healthy:
-        checks['status'] = 'unhealthy'
-        return jsonify(checks), 503
+    checks: Dict[str, Any] = {
+        'status': 'healthy' if all_healthy else 'unhealthy',
+        'timestamp': datetime.utcnow().isoformat() + 'Z',
+        'checks': check_results
+    }
 
-    return jsonify(checks), 200
+    return jsonify(checks), 200 if all_healthy else 503
 
 
 @mod_health.route('/health/live')

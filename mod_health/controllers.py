@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, Dict, Tuple
 
-from flask import Blueprint, current_app, jsonify
+from flask import Blueprint, current_app, g, jsonify
 
 mod_health = Blueprint('health', __name__)
 
@@ -19,10 +19,12 @@ def check_database() -> Dict[str, Any]:
         from database import create_session
         db = create_session(current_app.config['DATABASE_URI'])
         db.execute('SELECT 1')
+        # remove() returns the scoped session's connection to the pool
         db.remove()
         return {'status': 'ok'}
     except Exception as e:
-        return {'status': 'error', 'message': str(e)}
+        g.log.exception('Health check database connection failed')
+        return {'status': 'error', 'message': 'Database connection failed'}
 
 
 def check_config() -> Dict[str, Any]:

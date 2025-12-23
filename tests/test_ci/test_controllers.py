@@ -267,14 +267,16 @@ class TestControllers(BaseTestCase):
         mock_query.c.got = MagicMock()
 
         # Test when gcp create instance fails
-        mock_wait_for_operation.return_value = 'error occurred'
+        mock_wait_for_operation.return_value = {'status': 'DONE', 'error': {'errors': [{'code': 'TEST_ERROR'}]}}
         start_test(mock.ANY, self.app, mock_g.db, repository, test, mock.ANY)
-        mock_g.db.commit.assert_not_called()
+        # Commit IS called to record the test failure in the database
+        mock_g.db.commit.assert_called_once()
+        mock_g.db.commit.reset_mock()
         mock_create_instance.reset_mock()
         mock_wait_for_operation.reset_mock()
 
         # Test when gcp create instance is successful
-        mock_wait_for_operation.return_value = 'success'
+        mock_wait_for_operation.return_value = {'status': 'DONE'}
         start_test(mock.ANY, self.app, mock_g.db, repository, test, mock.ANY)
         mock_g.db.commit.assert_called_once()
         mock_create_instance.assert_called_once()

@@ -2208,7 +2208,7 @@ class TestControllers(BaseTestCase):
                     'tag_name': 'v2.2'
                 }
             }
-            response = c.post(
+            c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
                 data=json.dumps(data), headers=self.generate_header(data, 'release'))
 
@@ -2243,7 +2243,7 @@ class TestControllers(BaseTestCase):
                     'tag_name': 'v2.3'
                 }
             }
-            response = c.post(
+            c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
                 data=json.dumps(data), headers=self.generate_header(data, 'release'))
 
@@ -2275,7 +2275,7 @@ class TestControllers(BaseTestCase):
                     'tag_name': 'v2.4'
                 }
             }
-            response = c.post(
+            c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
                 data=json.dumps(data), headers=self.generate_header(data, 'release'))
 
@@ -2310,7 +2310,7 @@ class TestControllers(BaseTestCase):
                     'tag_name': 'v2.6'
                 }
             }
-            response = c.post(
+            c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
                 data=json.dumps(data), headers=self.generate_header(data, 'release'))
 
@@ -2342,7 +2342,7 @@ class TestControllers(BaseTestCase):
                     'tag_name': 'v2.5'
                 }
             }
-            response = c.post(
+            c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
                 data=json.dumps(data), headers=self.generate_header(data, 'release'))
 

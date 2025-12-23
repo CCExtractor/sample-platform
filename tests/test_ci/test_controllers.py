@@ -2364,3 +2364,254 @@ class TestControllers(BaseTestCase):
             'utf-8'), g.github['ci_key'] if ci_key is None else ci_key)
         headers = generate_git_api_header(event, sig)
         return headers
+
+
+class TestFindArtifactForCommit(BaseTestCase):
+    """Test the find_artifact_for_commit function."""
+
+    def test_find_artifact_success(self):
+        """Test finding an artifact successfully."""
+        from mod_ci.controllers import Artifact_names, find_artifact_for_commit
+
+        repository = MagicMock()
+        mock_artifact = MagicMock()
+        mock_artifact.name = Artifact_names.linux
+        mock_artifact.workflow_run.head_sha = "abc123def456"
+
+        # Return the matching artifact
+        repository.get_artifacts.return_value = [mock_artifact]
+
+        log = MagicMock()
+        result = find_artifact_for_commit(repository, "abc123def456", TestPlatform.linux, log)
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result, mock_artifact)
+        log.debug.assert_called()
+
+    def test_find_artifact_not_found(self):
+        """Test when artifact is not found."""
+        from mod_ci.controllers import Artifact_names, find_artifact_for_commit
+
+        repository = MagicMock()
+        mock_artifact = MagicMock()
+        mock_artifact.name = Artifact_names.linux
+        mock_artifact.workflow_run.head_sha = "different_commit"
+
+        repository.get_artifacts.return_value = [mock_artifact]
+
+        log = MagicMock()
+        result = find_artifact_for_commit(repository, "abc123def456", TestPlatform.linux, log)
+
+        self.assertIsNone(result)
+
+    def test_find_artifact_wrong_platform(self):
+        """Test when artifact exists but for wrong platform."""
+        from mod_ci.controllers import Artifact_names, find_artifact_for_commit
+
+        repository = MagicMock()
+        mock_artifact = MagicMock()
+        mock_artifact.name = Artifact_names.windows  # Wrong platform
+        mock_artifact.workflow_run.head_sha = "abc123def456"
+
+        repository.get_artifacts.return_value = [mock_artifact]
+
+        log = MagicMock()
+        result = find_artifact_for_commit(repository, "abc123def456", TestPlatform.linux, log)
+
+        self.assertIsNone(result)
+
+    def test_find_artifact_handles_exception(self):
+        """Test that exceptions are handled gracefully."""
+        from mod_ci.controllers import find_artifact_for_commit
+
+        repository = MagicMock()
+        repository.get_artifacts.side_effect = Exception("API error")
+
+        log = MagicMock()
+        result = find_artifact_for_commit(repository, "abc123def456", TestPlatform.linux, log)
+
+        self.assertIsNone(result)
+        log.error.assert_called()
+
+    def test_find_artifact_respects_max_search_limit(self):
+        """Test that artifact search respects the maximum search limit."""
+        from mod_ci.controllers import (MAX_ARTIFACTS_TO_SEARCH,
+                                        Artifact_names,
+                                        find_artifact_for_commit)
+
+        repository = MagicMock()
+
+        # Create many artifacts that don't match
+        def generate_artifacts():
+            for i in range(MAX_ARTIFACTS_TO_SEARCH + 100):
+                artifact = MagicMock()
+                artifact.name = Artifact_names.linux
+                artifact.workflow_run.head_sha = f"commit_{i}"
+                yield artifact
+
+        repository.get_artifacts.return_value = generate_artifacts()
+
+        log = MagicMock()
+        result = find_artifact_for_commit(repository, "target_commit", TestPlatform.linux, log)
+
+        self.assertIsNone(result)
+        # Verify warning was logged about reaching limit
+        log.warning.assert_called()
+
+
+class TestVerifyArtifactsExist(BaseTestCase):
+    """Test the verify_artifacts_exist function."""
+
+    @mock.patch('mod_ci.controllers.find_artifact_for_commit')
+    def test_verify_both_artifacts_exist(self, mock_find):
+        """Test verification when both artifacts exist."""
+        from mod_ci.controllers import verify_artifacts_exist
+
+        # Both artifacts found
+        mock_find.side_effect = [MagicMock(), MagicMock()]
+
+        repository = MagicMock()
+        log = MagicMock()
+
+        result = verify_artifacts_exist(repository, "abc123", log)
+
+        self.assertTrue(result['linux'])
+        self.assertTrue(result['windows'])
+
+    @mock.patch('mod_ci.controllers.find_artifact_for_commit')
+    def test_verify_only_linux_exists(self, mock_find):
+        """Test verification when only Linux artifact exists."""
+        from mod_ci.controllers import verify_artifacts_exist
+
+        # Only Linux found
+        mock_find.side_effect = [MagicMock(), None]
+
+        repository = MagicMock()
+        log = MagicMock()
+
+        result = verify_artifacts_exist(repository, "abc123", log)
+
+        self.assertTrue(result['linux'])
+        self.assertFalse(result['windows'])
+
+    @mock.patch('mod_ci.controllers.find_artifact_for_commit')
+    def test_verify_neither_exists(self, mock_find):
+        """Test verification when neither artifact exists."""
+        from mod_ci.controllers import verify_artifacts_exist
+
+        # Neither found
+        mock_find.side_effect = [None, None]
+
+        repository = MagicMock()
+        log = MagicMock()
+
+        result = verify_artifacts_exist(repository, "abc123", log)
+
+        self.assertFalse(result['linux'])
+        self.assertFalse(result['windows'])
+        # Warning should be logged for both
+        self.assertEqual(log.warning.call_count, 2)
+
+
+class TestMarkTestFailedImproved(BaseTestCase):
+    """Test the improved mark_test_failed function."""
+
+    @mock.patch('mod_ci.controllers.update_status_on_github')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    def test_mark_test_failed_updates_both_db_and_github(self, mock_progress, mock_update_github):
+        """Test that mark_test_failed updates both database and GitHub."""
+        from mod_ci.controllers import mark_test_failed
+
+        db = MagicMock()
+        test = MagicMock()
+        test.id = 123
+        test.commit = "abc123def456"
+        test.platform.value = "linux"
+
+        repository = MagicMock()
+        gh_commit = MagicMock()
+        repository.get_commit.return_value = gh_commit
+
+        with mock.patch('run.log'):
+            mark_test_failed(db, test, repository, "Test error message")
+
+        # Verify database was updated
+        mock_progress.assert_called_once()
+        db.add.assert_called_once()
+        db.commit.assert_called_once()
+
+        # Verify GitHub was updated
+        mock_update_github.assert_called_once()
+
+    @mock.patch('mod_ci.controllers.update_status_on_github')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    def test_mark_test_failed_github_updated_even_if_db_fails(self, mock_progress, mock_update_github):
+        """Test that GitHub is updated even if database update fails."""
+        from mod_ci.controllers import mark_test_failed
+
+        db = MagicMock()
+        db.commit.side_effect = Exception("DB error")
+
+        test = MagicMock()
+        test.id = 123
+        test.commit = "abc123def456"
+        test.platform.value = "linux"
+
+        repository = MagicMock()
+        gh_commit = MagicMock()
+        repository.get_commit.return_value = gh_commit
+
+        with mock.patch('run.log') as mock_log:
+            mark_test_failed(db, test, repository, "Test error message")
+
+        # GitHub should still be updated even though DB failed
+        mock_update_github.assert_called_once()
+        # Error should be logged for DB failure
+        mock_log.error.assert_called()
+
+    @mock.patch('mod_ci.controllers.update_status_on_github')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    def test_mark_test_failed_logs_critical_when_both_fail(self, mock_progress, mock_update_github):
+        """Test that critical error is logged when both DB and GitHub updates fail."""
+        from mod_ci.controllers import mark_test_failed
+
+        db = MagicMock()
+        db.commit.side_effect = Exception("DB error")
+
+        test = MagicMock()
+        test.id = 123
+        test.commit = "abc123def456"
+        test.platform.value = "linux"
+
+        repository = MagicMock()
+        repository.get_commit.side_effect = Exception("GitHub error")
+
+        with mock.patch('run.log') as mock_log:
+            mark_test_failed(db, test, repository, "Test error message")
+
+        # Critical error should be logged when both fail
+        mock_log.critical.assert_called()
+
+    @mock.patch('mod_ci.controllers.update_status_on_github')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    def test_mark_test_failed_includes_target_url(self, mock_progress, mock_update_github):
+        """Test that mark_test_failed includes target_url in GitHub status."""
+        from mod_ci.controllers import Status, mark_test_failed
+
+        db = MagicMock()
+        test = MagicMock()
+        test.id = 456
+        test.commit = "abc123def456"
+        test.platform.value = "linux"
+
+        repository = MagicMock()
+        gh_commit = MagicMock()
+        repository.get_commit.return_value = gh_commit
+
+        with mock.patch('run.log'):
+            mark_test_failed(db, test, repository, "Test error")
+
+        # Verify target_url was passed to update_status_on_github
+        call_args = mock_update_github.call_args
+        self.assertEqual(len(call_args[0]), 5)  # 5 positional args including target_url
+        self.assertIn("456", call_args[0][4])  # target_url contains test ID

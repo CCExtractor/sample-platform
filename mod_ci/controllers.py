@@ -103,6 +103,95 @@ def is_valid_commit_hash(commit: Optional[str]) -> bool:
         return False
 
 
+# Maximum number of artifacts to search through when looking for a specific commit
+# GitHub keeps artifacts for 90 days by default, so this should be enough
+MAX_ARTIFACTS_TO_SEARCH = 500
+
+
+def find_artifact_for_commit(repository, commit_sha: str, platform: Any, log) -> Optional[Any]:
+    """
+    Find a build artifact for a specific commit and platform.
+
+    This function properly handles GitHub API pagination to search through
+    all available artifacts. This prevents race conditions where tests
+    fail because artifacts are not found due to pagination issues.
+
+    :param repository: GitHub repository object
+    :type repository: Repository.Repository
+    :param commit_sha: The commit SHA to find artifact for
+    :type commit_sha: str
+    :param platform: The platform (linux or windows) - TestPlatform enum value
+    :type platform: TestPlatform
+    :param log: Logger instance
+    :return: The artifact object if found, None otherwise
+    :rtype: Optional[Artifact]
+    """
+    if platform == TestPlatform.linux:
+        artifact_name = Artifact_names.linux
+    else:
+        artifact_name = Artifact_names.windows
+
+    try:
+        artifacts = repository.get_artifacts()
+        artifacts_checked = 0
+
+        for artifact in artifacts:
+            artifacts_checked += 1
+
+            if artifact.name == artifact_name and artifact.workflow_run.head_sha == commit_sha:
+                log.debug(f"Found artifact '{artifact_name}' for commit {commit_sha[:8]} "
+                          f"(checked {artifacts_checked} artifacts)")
+                return artifact
+
+            # Limit search to prevent excessive API calls
+            if artifacts_checked >= MAX_ARTIFACTS_TO_SEARCH:
+                log.warning(f"Reached max artifact search limit ({MAX_ARTIFACTS_TO_SEARCH}) "
+                            f"without finding artifact for commit {commit_sha[:8]}")
+                break
+
+        log.debug(f"No artifact '{artifact_name}' found for commit {commit_sha[:8]} "
+                  f"(checked {artifacts_checked} artifacts)")
+        return None
+
+    except Exception as e:
+        log.error(f"Error searching for artifact: {type(e).__name__}: {e}")
+        return None
+
+
+def verify_artifacts_exist(repository, commit_sha: str, log) -> Dict[str, bool]:
+    """
+    Verify that build artifacts exist for a commit before queuing tests.
+
+    This function should be called before queue_test() to prevent the race
+    condition where tests are queued before artifacts are available.
+
+    :param repository: GitHub repository object
+    :type repository: Repository.Repository
+    :param commit_sha: The commit SHA to verify
+    :type commit_sha: str
+    :param log: Logger instance
+    :return: Dict with 'linux' and 'windows' keys indicating artifact availability
+    :rtype: Dict[str, bool]
+    """
+    result = {'linux': False, 'windows': False}
+
+    linux_artifact = find_artifact_for_commit(repository, commit_sha, TestPlatform.linux, log)
+    if linux_artifact is not None:
+        result['linux'] = True
+        log.info(f"Linux artifact verified for commit {commit_sha[:8]}")
+    else:
+        log.warning(f"Linux artifact NOT found for commit {commit_sha[:8]}")
+
+    windows_artifact = find_artifact_for_commit(repository, commit_sha, TestPlatform.windows, log)
+    if windows_artifact is not None:
+        result['windows'] = True
+        log.info(f"Windows artifact verified for commit {commit_sha[:8]}")
+    else:
+        log.warning(f"Windows artifact NOT found for commit {commit_sha[:8]}")
+
+    return result
+
+
 @mod_ci.before_app_request
 def before_app_request() -> None:
     """Organize menu content such as Platform management before request."""
@@ -318,6 +407,10 @@ def mark_test_failed(db, test, repository, message: str) -> None:
     """
     Mark a test as failed and update GitHub status.
 
+    This function ensures that GitHub is always notified of the failure,
+    even if database operations fail. The GitHub status update is critical
+    to prevent tests from appearing stuck in "pending" state forever.
+
     :param db: Database session
     :type db: sqlalchemy.orm.scoping.scoped_session
     :param test: The test to mark as failed
@@ -329,16 +422,49 @@ def mark_test_failed(db, test, repository, message: str) -> None:
     """
     from run import log
 
+    db_success = False
+    github_success = False
+
+    # Step 1: Try to update the database
     try:
         progress = TestProgress(test.id, TestStatus.canceled, message)
         db.add(progress)
         db.commit()
-
-        gh_commit = repository.get_commit(test.commit)
-        update_status_on_github(gh_commit, Status.ERROR, message, f"CI - {test.platform.value}")
-        log.info(f"Marked test {test.id} as failed: {message}")
+        db_success = True
+        log.info(f"Test {test.id}: Database updated with failure status")
     except Exception as e:
-        log.error(f"Failed to mark test {test.id} as failed: {e}")
+        log.error(f"Test {test.id}: Failed to update database: {e}")
+        # Continue to try GitHub update even if DB fails
+
+    # Step 2: Try to update GitHub status (CRITICAL - must not be skipped)
+    try:
+        gh_commit = repository.get_commit(test.commit)
+        # Include target_url so the status links to the test page
+        from flask import url_for
+        try:
+            target_url = url_for('test.by_id', test_id=test.id, _external=True)
+        except RuntimeError:
+            # Outside of request context
+            target_url = f"https://sampleplatform.ccextractor.org/test/{test.id}"
+        update_status_on_github(gh_commit, Status.ERROR, message, f"CI - {test.platform.value}", target_url)
+        github_success = True
+        log.info(f"Test {test.id}: GitHub status updated to ERROR: {message}")
+    except GithubException as e:
+        log.error(f"Test {test.id}: GitHub API error while updating status: {e.status} - {e.data}")
+    except Exception as e:
+        log.error(f"Test {test.id}: Failed to update GitHub status: {type(e).__name__}: {e}")
+
+    # Log final status
+    if db_success and github_success:
+        log.info(f"Test {test.id}: Successfully marked as failed")
+    elif github_success:
+        log.warning(f"Test {test.id}: GitHub updated but database update failed - test may be retried")
+    elif db_success:
+        log.error(f"Test {test.id}: Database updated but GitHub status NOT updated - "
+                  f"status will appear stuck as 'pending' on GitHub!")
+    else:
+        log.critical(f"Test {test.id}: BOTH database and GitHub updates failed - "
+                     f"test is in inconsistent state!")
 
 
 def start_test(compute, app, db, repository: Repository.Repository, test, bot_token) -> None:
@@ -469,51 +595,51 @@ def start_test(compute, app, db, repository: Repository.Repository, test, bot_to
     save_xml_to_file(multi_test, base_folder, 'TestAll.xml')
 
     # 2) Download the artifact for the current build from GitHub Actions
-    artifact_saved = False
+    # Use the improved artifact search function that handles pagination properly
     base_folder = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', gcp_instance_name, 'unsafe-ccextractor')
     Path(base_folder).mkdir(parents=True, exist_ok=True)
 
-    artifacts = repository.get_artifacts()
-    if test.platform == TestPlatform.linux:
-        artifact_name = Artifact_names.linux
-    else:
-        artifact_name = Artifact_names.windows
-    for index, artifact in enumerate(artifacts):
-        if artifact.name == artifact_name and artifact.workflow_run.head_sha == test.commit:
-            artifact_url = artifact.archive_download_url
-            try:
-                auth_header = f"token {bot_token}"
-                r = requests.get(
-                    artifact_url,
-                    headers={"Authorization": auth_header},
-                    timeout=ARTIFACT_DOWNLOAD_TIMEOUT
-                )
-            except requests.exceptions.Timeout:
-                log.critical(f"Artifact download timed out after {ARTIFACT_DOWNLOAD_TIMEOUT}s")
-                mark_test_failed(db, test, repository, "Artifact download timed out")
-                return
-            except Exception as e:
-                log.critical(f"Could not fetch artifact: {e}")
-                mark_test_failed(db, test, repository, f"Artifact download failed: {e}")
-                return
-            if r.status_code != 200:
-                log.critical(f"Could not fetch artifact, response code: {r.status_code}")
-                mark_test_failed(db, test, repository, f"Artifact download failed: HTTP {r.status_code}")
-                return
+    log.info(f"Test {test.id}: Searching for {test.platform.value} artifact for commit {test.commit[:8]}")
+    artifact = find_artifact_for_commit(repository, test.commit, test.platform, log)
 
-            zip_path = os.path.join(base_folder, 'ccextractor.zip')
-            with open(zip_path, 'wb') as f:
-                f.write(r.content)
-            with zipfile.ZipFile(zip_path, 'r') as artifact_zip:
-                artifact_zip.extractall(base_folder)
-
-            artifact_saved = True
-            break
-
-    if not artifact_saved:
-        log.critical("Could not find an artifact for this commit")
-        mark_test_failed(db, test, repository, "No build artifact found for this commit")
+    if artifact is None:
+        log.critical(f"Test {test.id}: Could not find artifact for commit {test.commit[:8]}")
+        mark_test_failed(db, test, repository,
+                         f"No build artifact found for commit {test.commit[:8]}. "
+                         "The artifact may have expired or the build may have failed.")
         return
+
+    log.info(f"Test {test.id}: Found artifact '{artifact.name}' (ID: {artifact.id})")
+    artifact_url = artifact.archive_download_url
+
+    try:
+        auth_header = f"token {bot_token}"
+        r = requests.get(
+            artifact_url,
+            headers={"Authorization": auth_header},
+            timeout=ARTIFACT_DOWNLOAD_TIMEOUT
+        )
+    except requests.exceptions.Timeout:
+        log.critical(f"Test {test.id}: Artifact download timed out after {ARTIFACT_DOWNLOAD_TIMEOUT}s")
+        mark_test_failed(db, test, repository, "Artifact download timed out")
+        return
+    except Exception as e:
+        log.critical(f"Test {test.id}: Could not fetch artifact: {e}")
+        mark_test_failed(db, test, repository, f"Artifact download failed: {e}")
+        return
+
+    if r.status_code != 200:
+        log.critical(f"Test {test.id}: Could not fetch artifact, response code: {r.status_code}")
+        mark_test_failed(db, test, repository, f"Artifact download failed: HTTP {r.status_code}")
+        return
+
+    zip_path = os.path.join(base_folder, 'ccextractor.zip')
+    with open(zip_path, 'wb') as f:
+        f.write(r.content)
+    with zipfile.ZipFile(zip_path, 'r') as artifact_zip:
+        artifact_zip.extractall(base_folder)
+
+    log.info(f"Test {test.id}: Artifact downloaded and extracted successfully")
 
     zone = config.get('ZONE', '')
     project_id = config.get('PROJECT_NAME', '')
@@ -1235,6 +1361,36 @@ def start_ci():
                         deschedule_test(github_status, commit_hash, test_type, TestPlatform.windows,
                                         message="Cancelling tests as Github Action(s) failed")
                     elif is_complete:
+                        # CRITICAL: Verify artifacts exist before queuing tests
+                        # This prevents the race condition where tests are queued before
+                        # artifacts are available, causing "No build artifact found" errors
+                        # See: https://github.com/CCExtractor/sample-platform/issues/XXX
+                        artifacts_available = verify_artifacts_exist(repository, commit_hash, g.log)
+                        g.log.info(f"Artifact verification for {commit_hash[:8]}: "
+                                   f"Linux={artifacts_available['linux']}, Windows={artifacts_available['windows']}")
+
+                        # Override builds dict if artifacts are not available
+                        # This ensures we don't queue tests for which artifacts don't exist
+                        if builds['linux'] and not artifacts_available['linux']:
+                            g.log.error(f"Linux workflow succeeded but artifact not found for {commit_hash[:8]}! "
+                                        "This may indicate a GitHub API caching issue.")
+                            deschedule_test(github_status, commit_hash,
+                                            TestType.pull_request if payload['workflow_run']['event'] == "pull_request" else TestType.commit,
+                                            TestPlatform.linux,
+                                            message="Build succeeded but artifact not yet available - please retry",
+                                            state=Status.ERROR)
+                            builds['linux'] = False
+
+                        if builds['windows'] and not artifacts_available['windows']:
+                            g.log.error(f"Windows workflow succeeded but artifact not found for {commit_hash[:8]}! "
+                                        "This may indicate a GitHub API caching issue.")
+                            deschedule_test(github_status, commit_hash,
+                                            TestType.pull_request if payload['workflow_run']['event'] == "pull_request" else TestType.commit,
+                                            TestPlatform.windows,
+                                            message="Build succeeded but artifact not yet available - please retry",
+                                            state=Status.ERROR)
+                            builds['windows'] = False
+
                         if payload['workflow_run']['event'] == "pull_request":
                             # In case of pull request run tests only if it is still in an open state
                             # and user is not blacklisted

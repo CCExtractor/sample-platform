@@ -9,8 +9,9 @@ import shutil
 import time
 import zipfile
 from collections import defaultdict
+from functools import wraps
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional, TypeVar
 
 import googleapiclient.discovery
 import requests
@@ -49,6 +50,75 @@ GITHUB_API_TIMEOUT = 30  # Timeout for GitHub API calls
 GCP_API_TIMEOUT = 60  # Timeout for GCP API calls
 ARTIFACT_DOWNLOAD_TIMEOUT = 300  # 5 minutes for artifact downloads
 GCP_OPERATION_MAX_WAIT = 1800  # 30 minutes max wait for GCP operations
+
+# Retry constants
+MAX_RETRIES = 3
+INITIAL_BACKOFF = 1  # seconds
+MAX_BACKOFF = 30  # seconds
+
+T = TypeVar('T')
+
+
+def retry_with_backoff(
+    func: Callable[..., T],
+    max_retries: int = MAX_RETRIES,
+    initial_backoff: float = INITIAL_BACKOFF,
+    max_backoff: float = MAX_BACKOFF,
+    retryable_exceptions: tuple = (GithubException, requests.RequestException)
+) -> T:
+    """
+    Execute a function with exponential backoff retry logic.
+
+    :param func: The function to execute (should be a callable with no arguments, use lambda for args)
+    :param max_retries: Maximum number of retry attempts
+    :param initial_backoff: Initial backoff time in seconds
+    :param max_backoff: Maximum backoff time in seconds
+    :param retryable_exceptions: Tuple of exception types that should trigger a retry
+    :return: The result of the function call
+    :raises: The last exception if all retries fail
+    """
+    from run import log
+
+    last_exception = None
+    backoff = initial_backoff
+
+    for attempt in range(max_retries + 1):
+        try:
+            return func()
+        except retryable_exceptions as e:
+            last_exception = e
+            if attempt < max_retries:
+                log.warning(f"Attempt {attempt + 1}/{max_retries + 1} failed: {e}. Retrying in {backoff}s...")
+                time.sleep(backoff)
+                backoff = min(backoff * 2, max_backoff)
+            else:
+                log.error(f"All {max_retries + 1} attempts failed. Last error: {e}")
+
+    raise last_exception
+
+
+def safe_db_commit(db, operation_description: str = "database operation") -> bool:
+    """
+    Safely commit a database transaction with rollback on failure.
+
+    :param db: The database session
+    :param operation_description: Description of the operation for logging
+    :return: True if commit succeeded, False otherwise
+    """
+    from run import log
+
+    try:
+        db.commit()
+        return True
+    except Exception as e:
+        log.error(f"Database commit failed during {operation_description}: {e}")
+        try:
+            db.rollback()
+            log.info(f"Successfully rolled back transaction for {operation_description}")
+        except Exception as rollback_error:
+            log.error(f"Rollback also failed for {operation_description}: {rollback_error}")
+        return False
+
 
 mod_ci = Blueprint('ci', __name__)
 
@@ -312,7 +382,8 @@ def delete_expired_instances(compute, max_runtime, project, zone, db, repository
                 message = "Could not complete test, time limit exceeded"
                 progress = TestProgress(test_id, TestStatus.canceled, message)
                 db.add(progress)
-                db.commit()
+                if not safe_db_commit(db, f"canceling timed-out test {test_id}"):
+                    continue  # Skip to next instance if commit failed
 
                 gh_commit = repository.get_commit(test.commit)
                 if gh_commit is not None:
@@ -369,21 +440,22 @@ def gcp_instance(app, db, platform, repository, delay) -> None:
     for test in pending_tests:
         if test.test_type == TestType.pull_request:
             try:
-                gh_commit = repository.get_commit(test.commit)
+                gh_commit = retry_with_backoff(lambda t=test: repository.get_commit(t.commit))
                 if test.pr_nr == 0:
                     log.warn(f'[{platform}] Test {test.id} is invalid')
                     deschedule_test(gh_commit, message="Invalid PR number", test=test, db=db)
                     continue
-                test_pr = repository.get_pull(test.pr_nr)
-                if test.commit != test_pr.head.sha:
-                    log.warn(f'[{platform}] Test {test.id} is invalid')
-                    deschedule_test(gh_commit, message="PR closed or updated", test=test, db=db)
-                    continue
+                test_pr = retry_with_backoff(lambda t=test: repository.get_pull(t.pr_nr))
+                # Note: We intentionally do NOT check if test.commit != test_pr.head.sha
+                # If a new commit was pushed to the PR, a new test entry will be created for it.
+                # We should still run the test for the commit that was originally queued.
+                # This prevents the confusing "PR closed or updated" error when users push fixes.
                 if test_pr.state != 'open':
-                    log.debug(f"PR {test.pr_nr} not in open state, skipping test {test.id}")
+                    log.info(f"[{platform}] PR {test.pr_nr} is closed, descheduling test {test.id}")
+                    deschedule_test(gh_commit, message="PR is closed", test=test, db=db)
                     continue
             except GithubException as e:
-                log.error(f"GitHub API error for test {test.id}: {e}")
+                log.error(f"GitHub API error for test {test.id} after retries: {e}")
                 continue  # Skip this test, try next one
             except Exception as e:
                 log.error(f"Unexpected error checking PR status for test {test.id}: {e}")
@@ -403,7 +475,7 @@ def get_compute_service_object() -> googleapiclient.discovery.Resource:
     return googleapiclient.discovery.build('compute', 'v1', credentials=credentials)
 
 
-def mark_test_failed(db, test, repository, message: str) -> None:
+def mark_test_failed(db, test, repository, message: str) -> bool:
     """
     Mark a test as failed and update GitHub status.
 
@@ -419,6 +491,7 @@ def mark_test_failed(db, test, repository, message: str) -> None:
     :type repository: Repository.Repository
     :param message: Error message to display
     :type message: str
+    :return: True if operation succeeded, False otherwise
     """
     from run import log
 
@@ -701,9 +774,11 @@ def start_test(compute, app, db, repository: Repository.Repository, test, bot_to
     result = wait_for_operation(compute, project_id, zone, operation['name'])
     if 'error' not in result:
         db.add(status)
-        db.commit()
+        if not safe_db_commit(db, f"recording GCP instance for test {test.id}"):
+            log.error(f"Failed to record GCP instance for test {test.id}, but VM was created")
     else:
         log.error(f"Error creating test instance for test {test.id}, result: {result}")
+        mark_test_failed(db, test, repository, f"Failed to create VM: {result.get('error', 'Unknown error')}")
 
 
 def create_instance(compute, project, zone, test, reportURL) -> Dict:
@@ -954,7 +1029,8 @@ def add_test_entry(db, commit, test_type, branch="master", pr_nr=0) -> None:
     db.add(linux_test)
     windows_test = Test(TestPlatform.windows, test_type, fork.id, branch, commit, pr_nr)
     db.add(windows_test)
-    db.commit()
+    if not safe_db_commit(db, f"adding test entries for commit {commit[:7]}"):
+        log.error(f"Failed to add test entries for commit {commit}")
 
 
 def schedule_test(gh_commit: Commit.Commit) -> None:
@@ -1050,7 +1126,9 @@ def deschedule_test(gh_commit: Commit.Commit, commit=None, test_type=None, platf
         progress = TestProgress(test.id, TestStatus.canceled, message, datetime.datetime.now())
         db = db or g.db
         db.add(progress)
-        db.commit()
+        if not safe_db_commit(db, f"descheduling test {test.id}"):
+            log.error(f"Failed to deschedule test {test.id}")
+            return
 
         if gh_commit is not None:
             update_status_on_github(gh_commit, state, message, f"CI - {test.platform.value}")
@@ -1201,7 +1279,11 @@ def start_ci():
             if 'after' in payload and payload["ref"] == "refs/heads/master":
                 commit_hash = payload['after']
                 # Update the db to the new last commit
-                ref = repository.get_git_ref("heads/master")
+                try:
+                    ref = retry_with_backoff(lambda: repository.get_git_ref("heads/master"))
+                except GithubException as e:
+                    g.log.error(f"Failed to get git ref after retries: {e}")
+                    return 'ERROR'
                 last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
                 for platform in TestPlatform.values():
                     commit_name = 'fetch_commit_' + platform
@@ -1212,7 +1294,8 @@ def start_ci():
                         g.db.add(prev_commit)
 
                 last_commit.value = ref.object.sha
-                g.db.commit()
+                if not safe_db_commit(g.db, "updating last commit"):
+                    return 'ERROR'
                 add_test_entry(g.db, commit_hash, TestType.commit)
             else:
                 g.log.warning('Unknown push type! Dumping payload for analysis')
@@ -1240,8 +1323,12 @@ def start_ci():
                 if BlockedUsers.query.filter(BlockedUsers.user_id == user_id).first() is not None:
                     g.log.warning("User Blacklisted")
                     return 'ERROR'
-                if repository.get_pull(number=pr_nr).mergeable is not False:
-                    add_test_entry(g.db, commit_hash, TestType.pull_request, pr_nr=pr_nr)
+                try:
+                    pr = retry_with_backoff(lambda: repository.get_pull(number=pr_nr))
+                    if pr.mergeable is not False:
+                        add_test_entry(g.db, commit_hash, TestType.pull_request, pr_nr=pr_nr)
+                except GithubException as e:
+                    g.log.error(f"Failed to get PR {pr_nr} after retries: {e}")
 
             elif is_inactive:
                 pr_action = 'closed' if action == 'closed' else 'converted to draft'
@@ -1255,7 +1342,8 @@ def start_ci():
                         continue
                     progress = TestProgress(test.id, TestStatus.canceled, f"PR {pr_action}", datetime.datetime.now())
                     g.db.add(progress)
-                    g.db.commit()
+                    if not safe_db_commit(g.db, f"canceling test {test.id} for closed PR"):
+                        continue
                     gh_commit = repository.get_commit(test.commit)
                     # If test run status exists, mark them as cancelled
                     for status in gh_commit.get_statuses():
@@ -1281,7 +1369,7 @@ def start_ci():
             if issue is not None:
                 issue.title = issue_title
                 issue.status = issue_data['state']
-                g.db.commit()
+                safe_db_commit(g.db, f"updating issue {issue_id}")
 
         elif event == "release":
             g.log.debug("Release webhook triggered")
@@ -1296,8 +1384,10 @@ def start_ci():
             elif action in ["deleted", "unpublished"]:
                 g.log.debug("Received delete/unpublished action")
                 CCExtractorVersion.query.filter_by(version=release_version).delete()
-                g.db.commit()
-                g.log.info(f"Successfully deleted release {release_version} on {action} action")
+                if not safe_db_commit(g.db, f"deleting release {release_version}"):
+                    g.log.error(f"Failed to delete release {release_version}")
+                else:
+                    g.log.info(f"Successfully deleted release {release_version} on {action} action")
             elif action in ["edited", "published"]:
                 g.log.debug(f"Latest release version is {release_version}")
                 release_date = release_data['published_at']
@@ -1342,7 +1432,9 @@ def start_ci():
                 else:
                     release = CCExtractorVersion(release_version, release_date, release_commit)
                     g.db.add(release)
-                g.db.commit()
+                if not safe_db_commit(g.db, f"updating release {release_version}"):
+                    g.log.error(f"Failed to update release {release_version}")
+                    return json.dumps({'msg': 'ERROR'})
                 g.log.info(f"Release {release_version} updated with commit {release_commit}")
 
                 # Update baseline regression results for this release
@@ -1360,8 +1452,10 @@ def start_ci():
                     g.db.query(RegressionTest.expected_rc).filter(
                         RegressionTest.id == test_result.c.regression_test_id
                     ).values(test_result.c.expected_rc)
-                    g.db.commit()
-                    g.log.info("Successfully updated baseline tests for release!")
+                    if safe_db_commit(g.db, "updating baseline regression results"):
+                        g.log.info("Successfully updated baseline tests for release!")
+                    else:
+                        g.log.error("Failed to update baseline regression results")
                 else:
                     g.log.warning(f"No test found for commit {release_commit} - "
                                   "baseline update skipped")
@@ -1537,7 +1631,8 @@ def update_build_badge(status, test) -> None:
         g.db.query(RegressionTest).filter(RegressionTest.id.in_(test_ids_to_update)).update(
             {f"last_passed_on_{test.platform.value}": test.id}, synchronize_session=False
         )
-        g.db.commit()
+        if not safe_db_commit(g.db, "updating last passed regression tests"):
+            g.log.error("Failed to update last passed regression tests")
 
 
 @mod_ci.route('/progress-reporter/<test_id>/<token>', methods=['POST'])
@@ -1625,14 +1720,15 @@ def progress_type_request(log, test, test_id, request) -> bool:
                 prep_finish_time = datetime.datetime.now()
                 # save preparation finish time
                 gcp_instance_entry.timestamp_prep_finished = prep_finish_time
-                g.db.commit()
+                safe_db_commit(g.db, f"saving prep finish time for test {test_id}")
                 # set time taken in seconds to do preparation
                 time_diff = (prep_finish_time - gcp_instance_entry.timestamp).total_seconds()
                 set_avg_time(test.platform, "prep", time_diff)
 
     progress = TestProgress(test.id, status, message)
     g.db.add(progress)
-    g.db.commit()
+    if not safe_db_commit(g.db, f"adding progress for test {test_id}"):
+        return False
 
     if not g.github['bot_token']:
         log.error('GitHub token not configured, cannot update status on GitHub')
@@ -1650,7 +1746,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
 
         if test.test_type == TestType.commit and test.id > fetch_commit.id:
             commit.value = test.commit
-            g.db.commit()
+            safe_db_commit(g.db, f"updating fetch commit for {test.platform.value}")
 
     # Post status update
     state = Status.PENDING
@@ -1717,7 +1813,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
         if gcp_instance is not None:
             log.debug(f"Removing GCP Instance entry: {gcp_instance}")
             g.db.delete(gcp_instance)
-            g.db.commit()
+            safe_db_commit(g.db, f"removing GCP instance for test {test_id}")
 
         log.debug(f"[Test: {test_id}] Test {status}")
         var_average = 'average_time_' + test.platform.value
@@ -1763,7 +1859,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
             new_avg = GeneralData(var_average, average_time)
             log.info(f'new average time {str(average_time)} set successfully')
             g.db.add(new_avg)
-            g.db.commit()
+            safe_db_commit(g.db, "setting new average time")
 
         else:
             all_results = TestResult.query.count()
@@ -1783,7 +1879,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
             last_running_test = end_time - start_time
             updated_average = updated_average + last_running_test.total_seconds()
             current_average.value = 0 if number_test == 0 else updated_average // number_test
-            g.db.commit()
+            safe_db_commit(g.db, "updating average time")
             log.info(f'average time updated to {str(current_average.value)}')
 
     return True
@@ -1811,7 +1907,7 @@ def equality_type_request(log, test_id, test, request):
     else:
         result_file = TestResultFile(test.id, request.form['test_id'], rto.id, rto.correct)
         g.db.add(result_file)
-        g.db.commit()
+        safe_db_commit(g.db, f"saving result file for test {test_id}")
 
 
 def upload_log_type_request(log, test_id, repo_folder, test, request) -> bool:
@@ -1891,7 +1987,8 @@ def upload_type_request(log, test_id, repo_folder, test, request) -> bool:
             RegressionTestOutput.id == request.form['test_file_id']).first()
         result_file = TestResultFile(test.id, request.form['test_id'], rto.id, rto.correct, file_hash)
         g.db.add(result_file)
-        g.db.commit()
+        if not safe_db_commit(g.db, f"saving test result file for test {test_id}"):
+            return False
         return True
 
     return False
@@ -1917,10 +2014,8 @@ def finish_type_request(log, test_id, test, request):
         request.form['exitCode'], regression_test.expected_rc
     )
     g.db.add(result)
-    try:
-        g.db.commit()
-    except IntegrityError as e:
-        log.error(f"Could not save the results: {e}")
+    if not safe_db_commit(g.db, f"saving test result for test {test_id}"):
+        log.error(f"Could not save the results for test {test_id}")
 
 
 def set_avg_time(platform, process_type: str, time_taken: int) -> None:
@@ -1954,7 +2049,7 @@ def set_avg_time(platform, process_type: str, time_taken: int) -> None:
         current_avg_count.value = str(avg_count + 1)
         current_average.value = str(new_average)
 
-    g.db.commit()
+    safe_db_commit(g.db, f"updating average {process_type} time for {platform.value}")
 
 
 def get_info_for_pr_comment(test: Test) -> PrCommentInfo:
@@ -2083,7 +2178,9 @@ def blocked_users():
 
         blocked_user = BlockedUsers(add_user_form.user_id.data, add_user_form.comment.data)
         g.db.add(blocked_user)
-        g.db.commit()
+        if not safe_db_commit(g.db, "adding blocked user"):
+            flash('Failed to block user.')
+            return redirect(url_for('.blocked_users'))
         flash('User blocked successfully.')
 
         if not g.github['bot_token']:
@@ -2106,7 +2203,8 @@ def blocked_users():
                         continue
                     progress = TestProgress(test.id, TestStatus.canceled, "PR closed", datetime.datetime.now())
                     g.db.add(progress)
-                    g.db.commit()
+                    if not safe_db_commit(g.db, f"canceling test {test.id} for blocked user"):
+                        continue
                     gh_commit = repository.get_commit(test.commit)
                     message = "Tests canceled since user blacklisted"
                     target_url = url_for('test.by_id', test_id=test.id, _external=True)
@@ -2142,7 +2240,9 @@ def blocked_users_remove(blocked_user_id):
     form = DeleteUserForm(request.form)
     if form.validate_on_submit():
         g.db.delete(blocked_user)
-        g.db.commit()
+        if not safe_db_commit(g.db, "removing blocked user"):
+            flash("Failed to remove user.")
+            return redirect(url_for('.blocked_users'))
         flash("User removed successfully.")
         return redirect(url_for('.blocked_users'))
 
@@ -2174,9 +2274,11 @@ def toggle_maintenance(platform, status):
         db_mode = MaintenanceMode.query.filter(MaintenanceMode.platform == platform).first()
         if db_mode is not None:
             db_mode.disabled = disabled
-            g.db.commit()
-            result = 'success'
-            message = f'{platform.description} in maintenance? {"Yes" if disabled else "No"}'
+            if safe_db_commit(g.db, f"updating maintenance mode for {platform}"):
+                result = 'success'
+                message = f'{platform.description} in maintenance? {"Yes" if disabled else "No"}'
+            else:
+                message = 'Failed to update maintenance mode'
     except ValueError:
         pass
 
@@ -2206,7 +2308,7 @@ def in_maintenance_mode(platform):
     if status is None:
         status = MaintenanceMode(platform, False)
         g.db.add(status)
-        g.db.commit()
+        safe_db_commit(g.db, f"creating maintenance mode entry for {platform}")
 
     return str(status.disabled)
 
@@ -2238,4 +2340,4 @@ def add_customized_regression_tests(test_id) -> None:
         g.log.debug(f'Adding RT #{regression_test.id} to test {test_id}')
         customized_test = CustomizedTest(test_id, regression_test.id)
         g.db.add(customized_test)
-    g.db.commit()
+    safe_db_commit(g.db, f"adding customized regression tests for test {test_id}")

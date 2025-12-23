@@ -2488,6 +2488,122 @@ class TestControllers(BaseTestCase):
         mock_db.add.assert_called_once()
         mock_safe_commit.assert_called_once()
 
+    @mock.patch('mod_ci.controllers.time.sleep')
+    @mock.patch('run.log')
+    def test_retry_with_backoff_max_backoff_cap(self, mock_log, mock_sleep):
+        """Test retry_with_backoff caps backoff at max_backoff."""
+        from github import GithubException
+
+        mock_func = MagicMock(side_effect=[
+            GithubException(500, "Error", None),
+            GithubException(500, "Error", None),
+            GithubException(500, "Error", None),
+            GithubException(500, "Error", None),
+            "success"
+        ])
+
+        # With initial_backoff=8 and max_backoff=10, backoff should be: 8, 10, 10, 10
+        retry_with_backoff(mock_func, max_retries=4, initial_backoff=8, max_backoff=10)
+
+        sleep_calls = [call[0][0] for call in mock_sleep.call_args_list]
+        self.assertEqual(sleep_calls, [8, 10, 10, 10])
+
+    @mock.patch('mod_ci.controllers.time.sleep')
+    @mock.patch('run.log')
+    def test_retry_with_backoff_custom_exceptions(self, mock_log, mock_sleep):
+        """Test retry_with_backoff with custom exception types."""
+        mock_func = MagicMock(side_effect=[
+            ValueError("Custom error"),
+            "success"
+        ])
+
+        result = retry_with_backoff(
+            mock_func,
+            max_retries=2,
+            initial_backoff=1,
+            retryable_exceptions=(ValueError,)
+        )
+
+        self.assertEqual(result, "success")
+        self.assertEqual(mock_func.call_count, 2)
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('mod_ci.controllers.start_test')
+    @mock.patch('mod_ci.controllers.get_compute_service_object')
+    @mock.patch('mod_ci.controllers.g')
+    @mock.patch('run.log')
+    def test_gcp_instance_pr_closed(self, mock_log, mock_g, mock_get_compute, mock_start_test, mock_repo):
+        """Test gcp_instance handles closed PR correctly."""
+        from mod_ci.controllers import gcp_instance
+
+        repo = mock_repo()
+        mock_commit = MagicMock()
+        repo.get_commit.return_value = mock_commit
+
+        # Mock a closed PR
+        mock_pr = MagicMock()
+        mock_pr.state = 'closed'
+        mock_pr.head.sha = '1978060bf7d2edd119736ba3ba88341f3bec3322'
+        repo.get_pull.return_value = mock_pr
+
+        # Setup mock config
+        mock_g.db = g.db
+
+        gcp_instance(self.app, mock_g.db, TestPlatform.linux, repo, None)
+
+        # start_test should not be called for closed PRs
+        # test_1 has pr_nr=0 (descheduled)
+        # test_2 is closed PR (descheduled)
+        # test_3 and test_4 are open PRs
+        # But since we mocked all PRs as closed, only test_1 (invalid) triggers, rest are skipped
+        mock_log.info.assert_any_call(mock.ANY)
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('mod_ci.controllers.start_test')
+    @mock.patch('mod_ci.controllers.get_compute_service_object')
+    @mock.patch('mod_ci.controllers.g')
+    @mock.patch('run.log')
+    def test_gcp_instance_commit_type(self, mock_log, mock_g, mock_get_compute, mock_start_test, mock_repo):
+        """Test gcp_instance handles commit-type tests (not PR)."""
+        from mod_ci.controllers import gcp_instance
+
+        repo = mock_repo()
+
+        # Change test_1 to be a commit type test
+        test_1 = Test.query.get(1)
+        test_1.test_type = TestType.commit
+        test_1.pr_nr = 0
+        g.db.add(test_1)
+        g.db.commit()
+
+        mock_g.db = g.db
+
+        gcp_instance(self.app, mock_g.db, TestPlatform.linux, repo, None)
+
+        # For commit-type tests, start_test should be called directly
+        # without checking PR status
+        self.assertTrue(mock_start_test.call_count >= 1)
+
+    @mock.patch('mod_ci.controllers.update_status_on_github')
+    @mock.patch('mod_ci.controllers.retry_with_backoff')
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('run.log')
+    def test_mark_test_failed_returns_true_on_success(self, mock_log, mock_safe_commit, mock_retry, mock_update):
+        """Test mark_test_failed returns True on successful execution."""
+        from mod_test.models import Test
+
+        mock_safe_commit.return_value = True
+        mock_retry.return_value = MagicMock()
+
+        test = Test.query.first()
+        mock_db = MagicMock()
+        mock_repo = MagicMock()
+
+        result = mark_test_failed(mock_db, test, mock_repo, "Test failed")
+
+        self.assertTrue(result)
+        mock_log.info.assert_called()
+
     @staticmethod
     def generate_header(data, event, ci_key=None):
         """

@@ -294,7 +294,8 @@ class TestControllers(BaseTestCase):
         test_1 = Test.query.get(1)
         test_1.pr_nr = 0
 
-        # Making pr of test with id 2 already updated
+        # Test with id 2 has a different commit than PR head, but we still run it
+        # (we no longer cancel tests just because a newer commit was pushed)
         test_2 = Test.query.get(2)
         pr_head_sha = test_2.commit + 'f'
         repo.get_pull.return_value.head.sha = pr_head_sha
@@ -314,7 +315,9 @@ class TestControllers(BaseTestCase):
 
         gcp_instance(self.app, mock_g.db, TestPlatform.linux, repo, None)
 
-        self.assertEqual(mock_start_test.call_count, 2)
+        # test_1 is descheduled (invalid pr_nr=0)
+        # test_2, test_3, test_4 all run (3 total)
+        self.assertEqual(mock_start_test.call_count, 3)
         mock_get_compute_service_object.assert_called_once()
 
     def test_get_compute_service_object(self):

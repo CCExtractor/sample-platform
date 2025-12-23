@@ -919,7 +919,7 @@ def schedule_test(gh_commit: Commit.Commit) -> None:
 
 
 def update_status_on_github(gh_commit: Commit.Commit, state, description, context,
-                            target_url=GithubObject.NotSet):
+                            target_url: Any = GithubObject.NotSet):
     """
     Update status on GitHub.
 

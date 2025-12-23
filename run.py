@@ -27,6 +27,7 @@ from mailer import Mailer
 from mod_auth.controllers import mod_auth
 from mod_ci.controllers import mod_ci
 from mod_customized.controllers import mod_customized
+from mod_health.controllers import mod_health
 from mod_home.controllers import mod_home
 from mod_regression.controllers import mod_regression
 from mod_sample.controllers import mod_sample
@@ -271,3 +272,4 @@ app.register_blueprint(mod_home)
 app.register_blueprint(mod_test, url_prefix="/test")
 app.register_blueprint(mod_ci)
 app.register_blueprint(mod_customized, url_prefix='/custom')
+app.register_blueprint(mod_health)

@@ -67,6 +67,42 @@ class Artifact_names(DeclEnum):
     windows = "CCExtractor Windows Release build"
 
 
+def is_valid_commit_hash(commit: Optional[str]) -> bool:
+    """
+    Validate that a string is a valid Git commit hash.
+
+    A valid commit hash is:
+    - Not None or empty
+    - At least 7 characters (short hash) up to 40 characters (full SHA-1)
+    - Contains only hexadecimal characters (0-9, a-f, A-F)
+    - Not the Git null SHA (all zeros)
+
+    :param commit: The commit hash to validate
+    :type commit: Optional[str]
+    :return: True if valid, False otherwise
+    :rtype: bool
+    """
+    if not commit or not isinstance(commit, str):
+        return False
+
+    commit = commit.strip()
+
+    # Check length (7-40 characters for valid git hashes)
+    if len(commit) < 7 or len(commit) > 40:
+        return False
+
+    # Check for null SHA (all zeros)
+    if commit == '0' * len(commit):
+        return False
+
+    # Check that it's a valid hexadecimal string
+    try:
+        int(commit, 16)
+        return True
+    except ValueError:
+        return False
+
+
 @mod_ci.before_app_request
 def before_app_request() -> None:
     """Organize menu content such as Platform management before request."""
@@ -721,6 +757,12 @@ def add_test_entry(db, commit, test_type, branch="master", pr_nr=0) -> None:
     """
     from run import log
 
+    # Validate commit hash before creating test entries
+    # Based on issue identified by NexionisJake in PR #937
+    if not is_valid_commit_hash(commit):
+        log.error(f"Invalid commit hash '{commit}' - skipping test entry creation")
+        return
+
     fork_url = f"%/{g.github['repository_owner']}/{g.github['repository']}.git"
     fork = Fork.query.filter(Fork.github.like(fork_url)).first()
 
@@ -1075,31 +1117,71 @@ def start_ci():
                 g.log.info(f"Successfully deleted release {release_version} on {action} action")
             elif action in ["edited", "published"]:
                 g.log.debug(f"Latest release version is {release_version}")
-                release_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first().value
                 release_date = release_data['published_at']
+
+                # Get commit hash from the release tag via GitHub API
+                # This is more reliable than using last_commit which may be stale
+                # Based on issue identified by NexionisJake in PR #937
+                release_commit = None
+                tag_name = release_data['tag_name']
+                try:
+                    tag_ref = repository.get_git_ref(f"tags/{tag_name}")
+                    if tag_ref.object.type == "tag":
+                        # Annotated tag - need to get the underlying commit
+                        tag_obj = repository.get_git_tag(tag_ref.object.sha)
+                        release_commit = tag_obj.object.sha
+                    else:
+                        # Lightweight tag - points directly to commit
+                        release_commit = tag_ref.object.sha
+                    g.log.debug(f"Got commit {release_commit} from tag {tag_name}")
+                except GithubException as e:
+                    g.log.warning(f"Failed to get commit from tag {tag_name}: {e}")
+
+                # Fallback to last_commit if tag lookup failed
+                if not is_valid_commit_hash(release_commit):
+                    last_commit_data = GeneralData.query.filter(
+                        GeneralData.key == 'last_commit').first()
+                    if last_commit_data and is_valid_commit_hash(last_commit_data.value):
+                        release_commit = last_commit_data.value
+                        g.log.warning(f"Using fallback last_commit: {release_commit}")
+
+                # Validate we have a valid commit hash
+                if not is_valid_commit_hash(release_commit):
+                    g.log.error(f"Cannot determine valid commit for release {release_version}")
+                    return json.dumps({'msg': 'Invalid commit hash for release'})
+
                 if action == "edited":
-                    release = CCExtractorVersion.query.filter(CCExtractorVersion.version == release_version).one()
-                    release.released = datetime.datetime.strptime(release_date, '%Y-%m-%dT%H:%M:%SZ').date()
+                    release = CCExtractorVersion.query.filter(
+                        CCExtractorVersion.version == release_version).one()
+                    release.released = datetime.datetime.strptime(
+                        release_date, '%Y-%m-%dT%H:%M:%SZ').date()
                     release.commit = release_commit
                 else:
                     release = CCExtractorVersion(release_version, release_date, release_commit)
                     g.db.add(release)
                 g.db.commit()
-                g.log.info(f"Successfully updated release version with webhook action '{action}'")
-                # adding test corresponding to last commit to the baseline regression results
-                # this is not altered when a release is deleted or unpublished since it's based on commit
+                g.log.info(f"Release {release_version} updated with commit {release_commit}")
+
+                # Update baseline regression results for this release
+                # Only proceed if we have a test for this commit
                 test = Test.query.filter(and_(Test.commit == release_commit,
                                          Test.platform == TestPlatform.linux)).first()
-                test_result_file = g.db.query(TestResultFile).filter(TestResultFile.test_id == test.id).subquery()
-                test_result = g.db.query(TestResult).filter(TestResult.test_id == test.id).subquery()
-                g.db.query(RegressionTestOutput.correct).filter(
-                    and_(RegressionTestOutput.regression_id == test_result_file.c.regression_test_id,
-                         test_result_file.c.got is not None)).values(test_result_file.c.got)
-                g.db.query(RegressionTest.expected_rc).filter(
-                    RegressionTest.id == test_result.c.regression_test_id
-                ).values(test_result.c.expected_rc)
-                g.db.commit()
-                g.log.info("Successfully added tests for latest release!")
+                if test is not None:
+                    test_result_file = g.db.query(TestResultFile).filter(
+                        TestResultFile.test_id == test.id).subquery()
+                    test_result = g.db.query(TestResult).filter(
+                        TestResult.test_id == test.id).subquery()
+                    g.db.query(RegressionTestOutput.correct).filter(
+                        and_(RegressionTestOutput.regression_id == test_result_file.c.regression_test_id,
+                             test_result_file.c.got is not None)).values(test_result_file.c.got)
+                    g.db.query(RegressionTest.expected_rc).filter(
+                        RegressionTest.id == test_result.c.regression_test_id
+                    ).values(test_result.c.expected_rc)
+                    g.db.commit()
+                    g.log.info("Successfully updated baseline tests for release!")
+                else:
+                    g.log.warning(f"No test found for commit {release_commit} - "
+                                  "baseline update skipped")
             else:
                 g.log.warning(f"Unsupported release action: {action}")
 

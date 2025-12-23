@@ -7,7 +7,8 @@ from flask import g
 
 from mod_auth.models import Role
 from mod_ci.controllers import (Workflow_builds, get_info_for_pr_comment,
-                                progress_type_request, start_platforms)
+                                is_valid_commit_hash, progress_type_request,
+                                start_platforms)
 from mod_ci.models import BlockedUsers
 from mod_customized.models import CustomizedTest
 from mod_home.models import CCExtractorVersion, GeneralData
@@ -2136,6 +2137,160 @@ class TestControllers(BaseTestCase):
         with empty_github_token():
             result = comment_pr(test)
             self.assertEqual(result, Status.FAILURE)
+
+    def test_is_valid_commit_hash_valid_full(self):
+        """Test is_valid_commit_hash with valid full SHA."""
+        self.assertTrue(is_valid_commit_hash('1978060bf7d2edd119736ba3ba88341f3bec3323'))
+
+    def test_is_valid_commit_hash_valid_short(self):
+        """Test is_valid_commit_hash with valid short SHA."""
+        self.assertTrue(is_valid_commit_hash('1978060'))
+        self.assertTrue(is_valid_commit_hash('abcdef1'))
+
+    def test_is_valid_commit_hash_null_sha(self):
+        """Test is_valid_commit_hash rejects null SHA."""
+        self.assertFalse(is_valid_commit_hash('0000000000000000000000000000000000000000'))
+        self.assertFalse(is_valid_commit_hash('0000000'))
+
+    def test_is_valid_commit_hash_empty(self):
+        """Test is_valid_commit_hash rejects empty/None."""
+        self.assertFalse(is_valid_commit_hash(''))
+        self.assertFalse(is_valid_commit_hash(None))
+        self.assertFalse(is_valid_commit_hash('   '))
+
+    def test_is_valid_commit_hash_too_short(self):
+        """Test is_valid_commit_hash rejects too short hashes."""
+        self.assertFalse(is_valid_commit_hash('abc'))
+        self.assertFalse(is_valid_commit_hash('123456'))
+
+    def test_is_valid_commit_hash_invalid_chars(self):
+        """Test is_valid_commit_hash rejects non-hex characters."""
+        self.assertFalse(is_valid_commit_hash('xyz1234567890'))
+        self.assertFalse(is_valid_commit_hash('ghijklm'))
+
+    @mock.patch('mod_ci.controllers.add_test_entry')
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_release_gets_commit_from_tag(self, mock_request, mock_repo, mock_add_test):
+        """Test that release webhook gets commit from tag, not last_commit."""
+        # Setup mock for tag ref
+        mock_tag_ref = MagicMock()
+        mock_tag_ref.object.type = "commit"  # Lightweight tag
+        mock_tag_ref.object.sha = "abc1234567890def"
+        mock_repo.return_value.get_git_ref.return_value = mock_tag_ref
+
+        with self.app.test_client() as c:
+            data = {
+                'action': 'published',
+                'release': {
+                    'prerelease': False,
+                    'published_at': '2018-05-30T20:18:44Z',
+                    'tag_name': 'v2.2'
+                }
+            }
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'release'))
+
+            # Verify the release was created with the commit from tag
+            release = CCExtractorVersion.query.filter_by(version='2.2').first()
+            self.assertIsNotNone(release)
+            self.assertEqual(release.commit, 'abc1234567890def')
+
+    @mock.patch('mod_ci.controllers.add_test_entry')
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_release_annotated_tag(self, mock_request, mock_repo, mock_add_test):
+        """Test release webhook handles annotated tags correctly."""
+        # Setup mock for annotated tag
+        mock_tag_ref = MagicMock()
+        mock_tag_ref.object.type = "tag"  # Annotated tag
+        mock_tag_ref.object.sha = "tag_sha_123"
+
+        mock_tag_obj = MagicMock()
+        mock_tag_obj.object.sha = "actual_commit_sha_456"
+
+        mock_repo.return_value.get_git_ref.return_value = mock_tag_ref
+        mock_repo.return_value.get_git_tag.return_value = mock_tag_obj
+
+        with self.app.test_client() as c:
+            data = {
+                'action': 'published',
+                'release': {
+                    'prerelease': False,
+                    'published_at': '2018-05-30T20:18:44Z',
+                    'tag_name': 'v2.3'
+                }
+            }
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'release'))
+
+            release = CCExtractorVersion.query.filter_by(version='2.3').first()
+            self.assertIsNotNone(release)
+            self.assertEqual(release.commit, 'actual_commit_sha_456')
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_release_invalid_commit_fallback(self, mock_request, mock_repo):
+        """Test release webhook falls back to last_commit when tag lookup fails."""
+        from github import GithubException
+
+        # Setup: tag lookup fails
+        mock_repo.return_value.get_git_ref.side_effect = GithubException(404, "Not Found", None)
+
+        # Set a valid last_commit as fallback
+        last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
+        last_commit.value = 'fallback_commit_hash_123'
+        g.db.commit()
+
+        with self.app.test_client() as c:
+            data = {
+                'action': 'published',
+                'release': {
+                    'prerelease': False,
+                    'published_at': '2018-05-30T20:18:44Z',
+                    'tag_name': 'v2.4'
+                }
+            }
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'release'))
+
+            release = CCExtractorVersion.query.filter_by(version='2.4').first()
+            self.assertIsNotNone(release)
+            self.assertEqual(release.commit, 'fallback_commit_hash_123')
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_release_no_valid_commit_fails(self, mock_request, mock_repo):
+        """Test release webhook fails gracefully when no valid commit available."""
+        from github import GithubException
+
+        # Setup: tag lookup fails
+        mock_repo.return_value.get_git_ref.side_effect = GithubException(404, "Not Found", None)
+
+        # Set an invalid last_commit (null SHA)
+        last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
+        last_commit.value = '0000000000000000000000000000000000000000'
+        g.db.commit()
+
+        with self.app.test_client() as c:
+            data = {
+                'action': 'published',
+                'release': {
+                    'prerelease': False,
+                    'published_at': '2018-05-30T20:18:44Z',
+                    'tag_name': 'v2.5'
+                }
+            }
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'release'))
+
+            # Release should NOT be created
+            release = CCExtractorVersion.query.filter_by(version='2.5').first()
+            self.assertIsNone(release)
 
     @staticmethod
     def generate_header(data, event, ci_key=None):

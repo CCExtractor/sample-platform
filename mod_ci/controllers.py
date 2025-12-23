@@ -774,13 +774,15 @@ def start_test(compute, app, db, repository: Repository.Repository, test, bot_to
     project_id = config.get('PROJECT_NAME', '')
     operation = create_instance(compute, project_id, zone, test, full_url)
     result = wait_for_operation(compute, project_id, zone, operation['name'])
-    if 'error' not in result:
+    # Check if result indicates success (result is a dict with no 'error' key)
+    if isinstance(result, dict) and 'error' not in result:
         db.add(status)
         if not safe_db_commit(db, f"recording GCP instance for test {test.id}"):
             log.error(f"Failed to record GCP instance for test {test.id}, but VM was created")
     else:
+        error_msg = result.get('error', 'Unknown error') if isinstance(result, dict) else str(result)
         log.error(f"Error creating test instance for test {test.id}, result: {result}")
-        mark_test_failed(db, test, repository, f"Failed to create VM: {result.get('error', 'Unknown error')}")
+        mark_test_failed(db, test, repository, f"Failed to create VM: {error_msg}")
 
 
 def create_instance(compute, project, zone, test, reportURL) -> Dict:

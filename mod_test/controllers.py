@@ -212,11 +212,23 @@ def get_json_data(test_id):
             'message': entry.message
         })
 
+    # Calculate testing progress
+    test_progress = {}
+    if len(test.progress) > 0 and test.progress[-1].status == TestStatus.testing:
+        completed_tests = TestResult.query.filter(TestResult.test_id == test.id).count()
+        total_tests = len(test.get_customized_regressiontests())
+        test_progress = {
+            'completed': completed_tests,
+            'total': total_tests,
+            'percentage': int((completed_tests / total_tests * 100)) if total_tests > 0 else 0
+        }
+
     return jsonify({
         'status': 'success',
         'details': pr_data["progress"],
         'complete': test.finished,
-        'progress_array': progress_array
+        'progress_array': progress_array,
+        'test_progress': test_progress
     })
 
 

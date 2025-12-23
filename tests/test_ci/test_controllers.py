@@ -2714,24 +2714,26 @@ class TestControllers(BaseTestCase):
         # Two error logs: one for commit failure, one for rollback failure
         self.assertEqual(mock_log.error.call_count, 2)
 
-    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('mod_ci.controllers.update_status_on_github')
     @mock.patch('run.log')
     def test_mark_test_failed_with_db_commit_failure(
-            self, mock_log, mock_safe_commit):
-        """Test mark_test_failed returns False on db commit fail."""
+            self, mock_log, mock_update_github):
+        """Test mark_test_failed returns False when DB commit fails but GitHub succeeds."""
         from mod_test.models import Test
-
-        mock_safe_commit.return_value = False
 
         test = Test.query.first()
         mock_db = MagicMock()
+        mock_db.commit.side_effect = Exception("DB commit failed")
         mock_repo = MagicMock()
 
         result = mark_test_failed(mock_db, test, mock_repo, "Test failed")
 
+        # DB failed but GitHub succeeded, so result is False
         self.assertFalse(result)
         mock_db.add.assert_called_once()
-        mock_safe_commit.assert_called_once()
+        mock_db.commit.assert_called_once()
+        # GitHub update should still be attempted
+        mock_update_github.assert_called_once()
 
     @mock.patch('mod_ci.controllers.time.sleep')
     @mock.patch('run.log')

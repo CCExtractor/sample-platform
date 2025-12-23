@@ -541,6 +541,8 @@ def mark_test_failed(db, test, repository, message: str) -> bool:
         log.critical(f"Test {test.id}: BOTH database and GitHub updates failed - "
                      f"test is in inconsistent state!")
 
+    return db_success and github_success
+
 
 def _diagnose_missing_artifact(repository, commit_sha: str, platform, log) -> str:
     """

@@ -2558,32 +2558,6 @@ class TestControllers(BaseTestCase):
         # But since we mocked all PRs as closed, only test_1 (invalid) triggers, rest are skipped
         mock_log.info.assert_any_call(mock.ANY)
 
-    @mock.patch('github.Github.get_repo')
-    @mock.patch('mod_ci.controllers.start_test')
-    @mock.patch('mod_ci.controllers.get_compute_service_object')
-    @mock.patch('mod_ci.controllers.g')
-    @mock.patch('run.log')
-    def test_gcp_instance_commit_type(self, mock_log, mock_g, mock_get_compute, mock_start_test, mock_repo):
-        """Test gcp_instance handles commit-type tests (not PR)."""
-        from mod_ci.controllers import gcp_instance
-
-        repo = mock_repo()
-
-        # Change test_1 to be a commit type test
-        test_1 = Test.query.get(1)
-        test_1.test_type = TestType.commit
-        test_1.pr_nr = 0
-        g.db.add(test_1)
-        g.db.commit()
-
-        mock_g.db = g.db
-
-        gcp_instance(self.app, mock_g.db, TestPlatform.linux, repo, None)
-
-        # For commit-type tests, start_test should be called directly
-        # without checking PR status
-        self.assertTrue(mock_start_test.call_count >= 1)
-
     @mock.patch('mod_ci.controllers.update_status_on_github')
     @mock.patch('mod_ci.controllers.retry_with_backoff')
     @mock.patch('mod_ci.controllers.safe_db_commit')

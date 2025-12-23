@@ -7,8 +7,9 @@ from flask import g
 
 from mod_auth.models import Role
 from mod_ci.controllers import (Workflow_builds, get_info_for_pr_comment,
-                                is_valid_commit_hash, progress_type_request,
-                                start_platforms)
+                                is_valid_commit_hash, mark_test_failed,
+                                progress_type_request, retry_with_backoff,
+                                safe_db_commit, start_platforms)
 from mod_ci.models import BlockedUsers
 from mod_customized.models import CustomizedTest
 from mod_home.models import CCExtractorVersion, GeneralData
@@ -2363,6 +2364,174 @@ class TestControllers(BaseTestCase):
             # Release should NOT be created
             release = CCExtractorVersion.query.filter_by(version='2.5').first()
             self.assertIsNone(release)
+
+    @mock.patch('mod_ci.controllers.time.sleep')
+    @mock.patch('run.log')
+    def test_retry_with_backoff_success_first_try(self, mock_log, mock_sleep):
+        """Test retry_with_backoff succeeds on first attempt."""
+        mock_func = MagicMock(return_value="success")
+
+        result = retry_with_backoff(mock_func, max_retries=3)
+
+        self.assertEqual(result, "success")
+        mock_func.assert_called_once()
+        mock_sleep.assert_not_called()
+
+    @mock.patch('mod_ci.controllers.time.sleep')
+    @mock.patch('run.log')
+    def test_retry_with_backoff_success_after_retry(self, mock_log, mock_sleep):
+        """Test retry_with_backoff succeeds after retries."""
+        from github import GithubException
+
+        mock_func = MagicMock(side_effect=[
+            GithubException(500, "Server Error", None),
+            GithubException(500, "Server Error", None),
+            "success"
+        ])
+
+        result = retry_with_backoff(mock_func, max_retries=3, initial_backoff=1)
+
+        self.assertEqual(result, "success")
+        self.assertEqual(mock_func.call_count, 3)
+        self.assertEqual(mock_sleep.call_count, 2)
+        mock_log.warning.assert_called()
+
+    @mock.patch('mod_ci.controllers.time.sleep')
+    @mock.patch('run.log')
+    def test_retry_with_backoff_all_retries_fail(self, mock_log, mock_sleep):
+        """Test retry_with_backoff raises exception when all retries fail."""
+        from github import GithubException
+
+        mock_func = MagicMock(side_effect=GithubException(500, "Server Error", None))
+
+        with self.assertRaises(GithubException):
+            retry_with_backoff(mock_func, max_retries=2, initial_backoff=1)
+
+        self.assertEqual(mock_func.call_count, 3)  # Initial + 2 retries
+        self.assertEqual(mock_sleep.call_count, 2)
+        mock_log.error.assert_called()
+
+    @mock.patch('mod_ci.controllers.time.sleep')
+    @mock.patch('run.log')
+    def test_retry_with_backoff_exponential_backoff(self, mock_log, mock_sleep):
+        """Test retry_with_backoff uses exponential backoff."""
+        from github import GithubException
+
+        mock_func = MagicMock(side_effect=[
+            GithubException(500, "Error", None),
+            GithubException(500, "Error", None),
+            GithubException(500, "Error", None),
+            "success"
+        ])
+
+        retry_with_backoff(mock_func, max_retries=3, initial_backoff=1, max_backoff=30)
+
+        # Check backoff times: 1s, 2s, 4s
+        sleep_calls = [call[0][0] for call in mock_sleep.call_args_list]
+        self.assertEqual(sleep_calls, [1, 2, 4])
+
+    @mock.patch('run.log')
+    def test_safe_db_commit_success(self, mock_log):
+        """Test safe_db_commit returns True on success."""
+        mock_db = MagicMock()
+
+        result = safe_db_commit(mock_db, "test operation")
+
+        self.assertTrue(result)
+        mock_db.commit.assert_called_once()
+        mock_db.rollback.assert_not_called()
+
+    @mock.patch('run.log')
+    def test_safe_db_commit_failure_with_rollback(self, mock_log):
+        """Test safe_db_commit rolls back and returns False on failure."""
+        mock_db = MagicMock()
+        mock_db.commit.side_effect = Exception("DB Error")
+
+        result = safe_db_commit(mock_db, "test operation")
+
+        self.assertFalse(result)
+        mock_db.commit.assert_called_once()
+        mock_db.rollback.assert_called_once()
+        mock_log.error.assert_called()
+        mock_log.info.assert_called()  # Rollback success message
+
+    @mock.patch('run.log')
+    def test_safe_db_commit_failure_with_rollback_failure(self, mock_log):
+        """Test safe_db_commit handles rollback failure gracefully."""
+        mock_db = MagicMock()
+        mock_db.commit.side_effect = Exception("DB Error")
+        mock_db.rollback.side_effect = Exception("Rollback Error")
+
+        result = safe_db_commit(mock_db, "test operation")
+
+        self.assertFalse(result)
+        mock_db.commit.assert_called_once()
+        mock_db.rollback.assert_called_once()
+        # Two error logs: one for commit failure, one for rollback failure
+        self.assertEqual(mock_log.error.call_count, 2)
+
+    @mock.patch('mod_ci.controllers.update_status_on_github')
+    @mock.patch('mod_ci.controllers.retry_with_backoff')
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('run.log')
+    def test_mark_test_failed_success(self, mock_log, mock_safe_commit, mock_retry, mock_update_status):
+        """Test mark_test_failed successfully marks test as failed."""
+        from mod_test.models import Test
+
+        mock_safe_commit.return_value = True
+        mock_retry.return_value = MagicMock()  # Mock commit object
+
+        test = Test.query.first()
+        mock_db = MagicMock()
+        mock_repo = MagicMock()
+
+        result = mark_test_failed(mock_db, test, mock_repo, "Test failed")
+
+        self.assertTrue(result)
+        mock_db.add.assert_called_once()
+        mock_safe_commit.assert_called_once()
+        mock_retry.assert_called_once()
+        mock_update_status.assert_called_once()
+        mock_log.info.assert_called()
+
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('run.log')
+    def test_mark_test_failed_db_failure(self, mock_log, mock_safe_commit):
+        """Test mark_test_failed returns False when database commit fails."""
+        from mod_test.models import Test
+
+        mock_safe_commit.return_value = False
+
+        test = Test.query.first()
+        mock_db = MagicMock()
+        mock_repo = MagicMock()
+
+        result = mark_test_failed(mock_db, test, mock_repo, "Test failed")
+
+        self.assertFalse(result)
+        mock_db.add.assert_called_once()
+        mock_safe_commit.assert_called_once()
+
+    @mock.patch('mod_ci.controllers.update_status_on_github')
+    @mock.patch('mod_ci.controllers.retry_with_backoff')
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('run.log')
+    def test_mark_test_failed_github_failure(self, mock_log, mock_safe_commit, mock_retry, mock_update_status):
+        """Test mark_test_failed handles GitHub API failure gracefully."""
+        from mod_test.models import Test
+        from github import GithubException
+
+        mock_safe_commit.return_value = True
+        mock_retry.side_effect = GithubException(500, "API Error", None)
+
+        test = Test.query.first()
+        mock_db = MagicMock()
+        mock_repo = MagicMock()
+
+        result = mark_test_failed(mock_db, test, mock_repo, "Test failed")
+
+        self.assertFalse(result)
+        mock_log.error.assert_called()
 
     @staticmethod
     def generate_header(data, event, ci_key=None):

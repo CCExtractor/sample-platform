@@ -1192,13 +1192,13 @@ class TestControllers(BaseTestCase):
     @mock.patch('utility.requests.get')
     def test_start_ci_with_a_get_request(self, mock_requests_get):
         """Test start_ci function with a request method other than post."""
-        # Mock GitHub meta API response with webhook IP ranges
+        # Mock GitHub meta API response with webhook IP ranges using localhost
         mock_response = MagicMock()
-        mock_response.json.return_value = {'hooks': ['192.30.252.0/22']}
+        mock_response.json.return_value = {'hooks': ['127.0.0.0/8']}
         mock_requests_get.return_value = mock_response
 
         with self.app.test_client() as c:
-            response = c.get('/start-ci', environ_overrides=WSGI_ENVIRONMENT, headers=self.generate_header({}, 'test'))
+            response = c.get('/start-ci', environ_overrides={'REMOTE_ADDR': '127.0.0.1'}, headers=self.generate_header({}, 'test'))
             self.assertEqual(response.data, b'OK')
 
     @mock.patch('github.Github')

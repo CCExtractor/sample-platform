@@ -479,9 +479,11 @@ class TestControllers(BaseTestCase):
         import mod_ci.controllers
         reload(mod_ci.controllers)
         from mod_ci.controllers import add_test_entry, queue_test
-        add_test_entry(g.db, 'customizedcommitcheck', TestType.commit)
-        queue_test(None, 'customizedcommitcheck', TestType.commit, TestPlatform.linux)
-        queue_test(None, 'customizedcommitcheck', TestType.commit, TestPlatform.windows)
+        # Use valid hex commit hash (customizedcommitcheck is not valid hex)
+        test_commit = 'abc1234def567890abc1234def567890abcd1234'
+        add_test_entry(g.db, test_commit, TestType.commit)
+        queue_test(None, test_commit, TestType.commit, TestPlatform.linux)
+        queue_test(None, test_commit, TestType.commit, TestPlatform.windows)
         test = Test.query.filter(Test.id == 3).first()
         customized_test = test.get_customized_regressiontests()
         self.assertIn(2, customized_test)
@@ -654,10 +656,12 @@ class TestControllers(BaseTestCase):
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_release(self, mock_request, mock_repo):
         """Check webhook release update CCExtractor Version for release."""
-        last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
-        # abcdefgh is the new commit after previous version defined in base.py
-        last_commit.value = 'abcdefgh'
-        g.db.commit()
+        # Setup mock for tag ref (lightweight tag)
+        mock_tag_ref = MagicMock()
+        mock_tag_ref.object.type = "commit"
+        mock_tag_ref.object.sha = "abcdef12345678901234567890123456789abcde"
+        mock_repo.return_value.get_git_ref.return_value = mock_tag_ref
+
         with self.app.test_client() as c:
             # Full Release with version with 2.1
             data = {'action': 'published',
@@ -673,17 +677,20 @@ class TestControllers(BaseTestCase):
     def test_webhook_release_edited(self, mock_request, mock_repo):
         """Check webhook action "edited" updates the specified version."""
         from datetime import datetime
+
+        # Setup mock for tag ref
+        mock_tag_ref = MagicMock()
+        mock_tag_ref.object.type = "commit"
+        mock_tag_ref.object.sha = "fedcba09876543210fedcba09876543210fedcba"
+        mock_repo.return_value.get_git_ref.return_value = mock_tag_ref
+
         with self.app.test_client() as c:
-            release = CCExtractorVersion('2.1', '2018-05-30T20:18:44Z', 'abcdefgh')
+            release = CCExtractorVersion('2.1', '2018-05-30T20:18:44Z', 'abcdefgh12345678abcdefgh12345678abcdefgh')
             g.db.add(release)
             g.db.commit()
             # Full Release with version with 2.1
             data = {'action': 'edited',
                     'release': {'prerelease': False, 'published_at': '2018-06-30T20:18:44Z', 'tag_name': 'v2.1'}}
-            last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
-            # abcdefgh is the new commit after previous version defined in base.py
-            last_commit.value = 'abcdefgh'
-            g.db.commit()
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
                 data=json.dumps(data), headers=self.generate_header(data, 'release'))
@@ -696,16 +703,13 @@ class TestControllers(BaseTestCase):
     def test_webhook_release_deleted(self, mock_request, mock_repo):
         """Check webhook action "delete" removes the specified version."""
         with self.app.test_client() as c:
-            release = CCExtractorVersion('2.1', '2018-05-30T20:18:44Z', 'abcdefgh')
+            # Use valid commit hash
+            release = CCExtractorVersion('2.1', '2018-05-30T20:18:44Z', '1111111111111111111111111111111111111111')
             g.db.add(release)
             g.db.commit()
             # Delete full release with version with 2.1
             data = {'action': 'deleted',
                     'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': 'v2.1'}}
-            last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
-            # abcdefgh is the new commit after previous version defined in base.py
-            last_commit.value = 'abcdefgh'
-            g.db.commit()
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
                 data=json.dumps(data), headers=self.generate_header(data, 'release'))
@@ -715,15 +719,11 @@ class TestControllers(BaseTestCase):
     def test_webhook_prerelease(self):
         """Check webhook release update CCExtractor Version for prerelease."""
         with self.app.test_client() as c:
-            # Full Release with version with 2.1
+            # Full Release with version with 2.1 (prereleased action is ignored)
             data = {'action': 'prereleased',
                     'release': {'prerelease': True, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': 'v2.1'}}
             sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
             headers = generate_git_api_header('release', sig)
-            last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
-            # abcdefgh is the new commit after previous version defined in base.py
-            last_commit.value = 'abcdefgh'
-            g.db.commit()
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
                 data=json.dumps(data), headers=self.generate_header(data, 'ping'))
@@ -1211,9 +1211,11 @@ class TestControllers(BaseTestCase):
         from mod_ci.controllers import add_test_entry, queue_test
         repository = mock_github(g.github['bot_token']).get_repo(
             f"{g.github['repository_owner']}/{g.github['repository']}")
-        add_test_entry(g.db, 'customizedcommitcheck', TestType.pull_request)
+        # Use valid hex commit hash
+        test_commit = 'def5678abc1234def5678abc1234def567890abc'
+        add_test_entry(g.db, test_commit, TestType.pull_request)
         mock_debug.assert_called_once_with('pull request test type detected')
-        queue_test(repository.get_commit("1"), 'customizedcommitcheck', TestType.pull_request, TestPlatform.linux)
+        queue_test(repository.get_commit("1"), test_commit, TestType.pull_request, TestPlatform.linux)
         mock_debug.assert_called_with('Created tests, waiting for cron...')
 
     @mock.patch('run.log.critical')
@@ -1224,13 +1226,15 @@ class TestControllers(BaseTestCase):
         from github import GithubException
 
         from mod_ci.controllers import add_test_entry, queue_test
-        add_test_entry(g.db, 'customizedcommitcheck', TestType.pull_request)
+        # Use valid hex commit hash
+        test_commit = '1234567890abcdef1234567890abcdef12345678'
+        add_test_entry(g.db, test_commit, TestType.pull_request)
         mock_debug.assert_called_once_with('pull request test type detected')
         mock_commit = mock_repo.get_commit("1")
         response_data = "mock 400 response"
         mock_commit.create_status = mock.MagicMock(
             side_effect=GithubException(status=400, data=response_data, headers={}))
-        queue_test(mock_commit, 'customizedcommitcheck', TestType.pull_request, TestPlatform.linux)
+        queue_test(mock_commit, test_commit, TestType.pull_request, TestPlatform.linux)
         mock_debug.assert_called_with('Created tests, waiting for cron...')
         mock_critical.assert_called_with(f"Could not post to GitHub! Response: {response_data}")
 
@@ -2173,10 +2177,11 @@ class TestControllers(BaseTestCase):
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_release_gets_commit_from_tag(self, mock_request, mock_repo, mock_add_test):
         """Test that release webhook gets commit from tag, not last_commit."""
-        # Setup mock for tag ref
+        # Setup mock for tag ref (lightweight tag)
+        commit_from_tag = "aaaa111122223333444455556666777788889999"
         mock_tag_ref = MagicMock()
-        mock_tag_ref.object.type = "commit"  # Lightweight tag
-        mock_tag_ref.object.sha = "abc1234567890def"
+        mock_tag_ref.object.type = "commit"
+        mock_tag_ref.object.sha = commit_from_tag
         mock_repo.return_value.get_git_ref.return_value = mock_tag_ref
 
         with self.app.test_client() as c:
@@ -2195,7 +2200,7 @@ class TestControllers(BaseTestCase):
             # Verify the release was created with the commit from tag
             release = CCExtractorVersion.query.filter_by(version='2.2').first()
             self.assertIsNotNone(release)
-            self.assertEqual(release.commit, 'abc1234567890def')
+            self.assertEqual(release.commit, commit_from_tag)
 
     @mock.patch('mod_ci.controllers.add_test_entry')
     @mock.patch('github.Github.get_repo')
@@ -2203,12 +2208,13 @@ class TestControllers(BaseTestCase):
     def test_webhook_release_annotated_tag(self, mock_request, mock_repo, mock_add_test):
         """Test release webhook handles annotated tags correctly."""
         # Setup mock for annotated tag
+        actual_commit = "bbbb222233334444555566667777888899990000"
         mock_tag_ref = MagicMock()
         mock_tag_ref.object.type = "tag"  # Annotated tag
-        mock_tag_ref.object.sha = "tag_sha_123"
+        mock_tag_ref.object.sha = "cccc333344445555666677778888999900001111"
 
         mock_tag_obj = MagicMock()
-        mock_tag_obj.object.sha = "actual_commit_sha_456"
+        mock_tag_obj.object.sha = actual_commit
 
         mock_repo.return_value.get_git_ref.return_value = mock_tag_ref
         mock_repo.return_value.get_git_tag.return_value = mock_tag_obj
@@ -2228,7 +2234,7 @@ class TestControllers(BaseTestCase):
 
             release = CCExtractorVersion.query.filter_by(version='2.3').first()
             self.assertIsNotNone(release)
-            self.assertEqual(release.commit, 'actual_commit_sha_456')
+            self.assertEqual(release.commit, actual_commit)
 
     @mock.patch('github.Github.get_repo')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
@@ -2239,9 +2245,10 @@ class TestControllers(BaseTestCase):
         # Setup: tag lookup fails
         mock_repo.return_value.get_git_ref.side_effect = GithubException(404, "Not Found", None)
 
-        # Set a valid last_commit as fallback
+        # Set a valid last_commit as fallback (must be valid hex)
+        fallback_commit = 'dddd444455556666777788889999aaaa0000bbbb'
         last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
-        last_commit.value = 'fallback_commit_hash_123'
+        last_commit.value = fallback_commit
         g.db.commit()
 
         with self.app.test_client() as c:
@@ -2259,7 +2266,7 @@ class TestControllers(BaseTestCase):
 
             release = CCExtractorVersion.query.filter_by(version='2.4').first()
             self.assertIsNotNone(release)
-            self.assertEqual(release.commit, 'fallback_commit_hash_123')
+            self.assertEqual(release.commit, fallback_commit)
 
     @mock.patch('github.Github.get_repo')
     @mock.patch('requests.get', side_effect=mock_api_request_github)

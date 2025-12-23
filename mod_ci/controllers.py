@@ -467,6 +467,60 @@ def mark_test_failed(db, test, repository, message: str) -> None:
                      f"test is in inconsistent state!")
 
 
+def _diagnose_missing_artifact(repository, commit_sha: str, platform, log) -> str:
+    """
+    Diagnose why an artifact was not found for a commit.
+
+    Checks the workflow run status to provide a more helpful error message.
+
+    :param repository: GitHub repository object
+    :param commit_sha: The commit SHA to check
+    :param platform: The platform (TestPlatform.linux or TestPlatform.windows)
+    :param log: Logger instance
+    :return: A descriptive error message
+    """
+    if platform == TestPlatform.linux:
+        expected_workflow = Workflow_builds.LINUX
+    else:
+        expected_workflow = Workflow_builds.WINDOWS
+
+    try:
+        # Build workflow name lookup
+        workflow: Dict[int, Optional[str]] = defaultdict(lambda: None)
+        for active_workflow in repository.get_workflows():
+            workflow[active_workflow.id] = active_workflow.name
+
+        # Check workflow runs for this commit
+        workflow_found = False
+        for workflow_run in repository.get_workflow_runs(head_sha=commit_sha):
+            workflow_run_name = workflow[workflow_run.workflow_id]
+            if workflow_run_name != expected_workflow:
+                continue
+
+            workflow_found = True
+            if workflow_run.status != "completed":
+                return (f"Build still in progress: '{expected_workflow}' is {workflow_run.status}. "
+                        f"Please wait for the build to complete and retry.")
+            elif workflow_run.conclusion != "success":
+                return (f"Build failed: '{expected_workflow}' finished with conclusion '{workflow_run.conclusion}'. "
+                        f"Check the GitHub Actions logs for details.")
+            else:
+                # Build succeeded but artifact not found - may have expired
+                return (f"Artifact not found: '{expected_workflow}' completed successfully, "
+                        f"but no artifact was found. The artifact may have expired (GitHub deletes "
+                        f"artifacts after a retention period) or was not uploaded properly.")
+
+        if not workflow_found:
+            return (f"No workflow run found: '{expected_workflow}' has not run for commit {commit_sha[:7]}. "
+                    f"This may indicate the workflow was not triggered or is queued.")
+
+    except Exception as e:
+        log.warning(f"Failed to diagnose missing artifact: {e}")
+        return f"No build artifact found for this commit (diagnostic check failed: {e})"
+
+    return "No build artifact found for this commit"
+
+
 def start_test(compute, app, db, repository: Repository.Repository, test, bot_token) -> None:
     """
     Start a VM instance and run the tests.
@@ -603,10 +657,10 @@ def start_test(compute, app, db, repository: Repository.Repository, test, bot_to
     artifact = find_artifact_for_commit(repository, test.commit, test.platform, log)
 
     if artifact is None:
-        log.critical(f"Test {test.id}: Could not find artifact for commit {test.commit[:8]}")
-        mark_test_failed(db, test, repository,
-                         f"No build artifact found for commit {test.commit[:8]}. "
-                         "The artifact may have expired or the build may have failed.")
+        # Use diagnostic function to provide detailed error message
+        error_detail = _diagnose_missing_artifact(repository, test.commit, test.platform, log)
+        log.critical(f"Test {test.id}: Could not find artifact for commit {test.commit[:8]}: {error_detail}")
+        mark_test_failed(db, test, repository, error_detail)
         return
 
     log.info(f"Test {test.id}: Found artifact '{artifact.name}' (ID: {artifact.id})")

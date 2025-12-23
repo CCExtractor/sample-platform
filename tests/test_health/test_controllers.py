@@ -109,7 +109,8 @@ class TestHealthCheckFunctions(BaseTestCase):
                 mock_session.side_effect = Exception('Connection refused')
                 result = check_database()
                 self.assertEqual(result['status'], 'error')
-                self.assertIn('Connection refused', result['message'])
+                # Generic message returned (actual exception logged server-side)
+                self.assertEqual(result['message'], 'Database connection failed')
 
     def test_check_config_success(self):
         """Test check_config returns ok when config is complete."""

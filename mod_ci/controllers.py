@@ -1374,11 +1374,15 @@ def start_ci():
 
                         # Override builds dict if artifacts are not available
                         # This ensures we don't queue tests for which artifacts don't exist
+                        # Determine test type for artifact verification failures
+                        artifact_fail_test_type = (TestType.pull_request
+                                                   if payload['workflow_run']['event'] == "pull_request"
+                                                   else TestType.commit)
+
                         if builds['linux'] and not artifacts_available['linux']:
                             g.log.error(f"Linux workflow succeeded but artifact not found for {commit_hash[:8]}! "
                                         "This may indicate a GitHub API caching issue.")
-                            deschedule_test(github_status, commit_hash,
-                                            TestType.pull_request if payload['workflow_run']['event'] == "pull_request" else TestType.commit,
+                            deschedule_test(github_status, commit_hash, artifact_fail_test_type,
                                             TestPlatform.linux,
                                             message="Build succeeded but artifact not yet available - please retry",
                                             state=Status.ERROR)
@@ -1387,8 +1391,7 @@ def start_ci():
                         if builds['windows'] and not artifacts_available['windows']:
                             g.log.error(f"Windows workflow succeeded but artifact not found for {commit_hash[:8]}! "
                                         "This may indicate a GitHub API caching issue.")
-                            deschedule_test(github_status, commit_hash,
-                                            TestType.pull_request if payload['workflow_run']['event'] == "pull_request" else TestType.commit,
+                            deschedule_test(github_status, commit_hash, artifact_fail_test_type,
                                             TestPlatform.windows,
                                             message="Build succeeded but artifact not yet available - please retry",
                                             state=Status.ERROR)

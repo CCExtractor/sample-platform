@@ -64,7 +64,7 @@ def retry_with_backoff(
     max_retries: int = MAX_RETRIES,
     initial_backoff: float = INITIAL_BACKOFF,
     max_backoff: float = MAX_BACKOFF,
-    retryable_exceptions: tuple = (GithubException, requests.RequestException)  # type: ignore[assignment]
+    retryable_exceptions: Any = (GithubException, requests.RequestException)
 ) -> T:
     """
     Execute a function with exponential backoff retry logic.

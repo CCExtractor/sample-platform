@@ -1,0 +1,114 @@
+"""Health check endpoints for deployment verification and monitoring."""
+
+from datetime import datetime
+from typing import Any, Dict, Tuple
+
+from flask import Blueprint, current_app, jsonify
+
+mod_health = Blueprint('health', __name__)
+
+
+def check_database() -> Dict[str, Any]:
+    """
+    Check database connectivity.
+
+    :return: Dictionary with status and optional error message
+    :rtype: Dict[str, Any]
+    """
+    try:
+        from database import create_session
+        db = create_session(current_app.config['DATABASE_URI'])
+        db.execute('SELECT 1')
+        db.remove()
+        return {'status': 'ok'}
+    except Exception as e:
+        return {'status': 'error', 'message': str(e)}
+
+
+def check_config() -> Dict[str, Any]:
+    """
+    Check that required configuration is loaded.
+
+    :return: Dictionary with status and optional error message
+    :rtype: Dict[str, Any]
+    """
+    required_keys = [
+        'DATABASE_URI',
+        'GITHUB_TOKEN',
+        'GITHUB_OWNER',
+        'GITHUB_REPOSITORY',
+    ]
+
+    missing = [key for key in required_keys if not current_app.config.get(key)]
+
+    if missing:
+        return {'status': 'error', 'message': f'Missing config keys: {missing}'}
+    return {'status': 'ok'}
+
+
+@mod_health.route('/health')
+def health_check() -> Tuple[Any, int]:
+    """
+    Health check endpoint for deployment verification.
+
+    Returns 200 if all critical checks pass, 503 if any fail.
+    Used by deployment pipeline to verify successful deployment.
+
+    :return: JSON response with health status and HTTP status code
+    :rtype: Tuple[Any, int]
+    """
+    checks = {
+        'status': 'healthy',
+        'timestamp': datetime.utcnow().isoformat() + 'Z',
+        'checks': {}
+    }
+    all_healthy = True
+
+    # Check 1: Database connectivity
+    db_check = check_database()
+    checks['checks']['database'] = db_check
+    if db_check['status'] != 'ok':
+        all_healthy = False
+
+    # Check 2: Configuration loaded
+    config_check = check_config()
+    checks['checks']['config'] = config_check
+    if config_check['status'] != 'ok':
+        all_healthy = False
+
+    if not all_healthy:
+        checks['status'] = 'unhealthy'
+        return jsonify(checks), 503
+
+    return jsonify(checks), 200
+
+
+@mod_health.route('/health/live')
+def liveness_check() -> Tuple[Any, int]:
+    """
+    Liveness check endpoint.
+
+    Minimal check, just returns 200 if Flask is responding.
+    Useful for load balancers and container orchestration.
+
+    :return: JSON response with alive status
+    :rtype: Tuple[Any, int]
+    """
+    return jsonify({
+        'status': 'alive',
+        'timestamp': datetime.utcnow().isoformat() + 'Z'
+    }), 200
+
+
+@mod_health.route('/health/ready')
+def readiness_check() -> Tuple[Any, int]:
+    """
+    Readiness check endpoint.
+
+    Same as health check but can be extended for more checks.
+    Useful for Kubernetes readiness probes.
+
+    :return: JSON response with readiness status
+    :rtype: Tuple[Any, int]
+    """
+    return health_check()

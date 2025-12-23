@@ -10,7 +10,7 @@ GitPython==3.1.41
 xmltodict==0.13.0
 lxml==5.3.0
 pytz==2024.2
-tzlocal==5.2
+tzlocal==5.3.1
 markdown2==2.5.1
 flask-migrate==4.0.7
 email_validator

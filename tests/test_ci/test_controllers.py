@@ -1289,6 +1289,191 @@ class TestControllers(BaseTestCase):
         mock_log.debug.assert_not_called()
         mock_log.critical.assert_not_called()
 
+    @mock.patch('run.log')
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('github.Github')
+    def test_deschedule_test_db_commit_failure(self, git_mock, mock_safe_commit, mock_log):
+        """Check deschedule_test handles db commit failure gracefully."""
+        from mod_ci.controllers import deschedule_test
+
+        mock_safe_commit.return_value = False
+        repository = git_mock(g.github['bot_token']).get_repo(
+            f"{g.github['repository_owner']}/{g.github['repository']}")
+        commit = Test.query.filter(Test.platform == TestPlatform.linux).first().commit
+        deschedule_test(repository.get_commit(commit), commit, TestType.pull_request, TestPlatform.linux)
+
+        mock_safe_commit.assert_called_once()
+        mock_log.error.assert_called()
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    @mock.patch('mod_ci.controllers.retry_with_backoff')
+    @mock.patch('run.log')
+    def test_webhook_push_github_api_failure(self, mock_log, mock_retry, mock_request, mock_repo):
+        """Test push webhook handles GitHub API retry failure."""
+        from github import GithubException
+
+        mock_retry.side_effect = GithubException(500, "API Error", None)
+
+        data = {'after': 'abcdefgh', 'ref': 'refs/heads/master'}
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'push'))
+
+        self.assertIn(b'ERROR', response.data)
+        mock_log.error.assert_called()
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('mod_ci.controllers.retry_with_backoff')
+    @mock.patch('run.log')
+    def test_webhook_push_db_commit_failure(self, mock_log, mock_retry, mock_safe_commit, mock_request, mock_repo):
+        """Test push webhook handles db commit failure."""
+        mock_ref = MagicMock()
+        mock_ref.object.sha = 'newcommithash'
+        mock_retry.return_value = mock_ref
+        mock_safe_commit.return_value = False
+
+        data = {'after': 'abcdefgh', 'ref': 'refs/heads/master'}
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'push'))
+
+        self.assertIn(b'ERROR', response.data)
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    @mock.patch('mod_ci.controllers.retry_with_backoff')
+    @mock.patch('run.log')
+    def test_webhook_pr_opened_github_api_failure(self, mock_log, mock_retry, mock_request, mock_repo):
+        """Test PR opened webhook handles GitHub API retry failure."""
+        from github import GithubException
+
+        mock_retry.side_effect = GithubException(500, "API Error", None)
+
+        data = {
+            'action': 'opened',
+            'pull_request': {
+                'number': 1234,
+                'head': {'sha': 'abcdef123456'},
+                'user': {'id': 99999}
+            }
+        }
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'pull_request'))
+
+        mock_log.error.assert_called()
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('run.log')
+    def test_webhook_release_delete_db_failure(self, mock_log, mock_safe_commit, mock_request, mock_repo):
+        """Test release delete webhook handles db commit failure."""
+        mock_safe_commit.return_value = False
+
+        # First add a release to delete
+        release = CCExtractorVersion('2.1', '2018-05-30T20:18:44Z', 'abcdefgh')
+        g.db.add(release)
+        g.db.commit()
+
+        data = {
+            'action': 'deleted',
+            'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': 'v2.1'}
+        }
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'release'))
+
+        mock_log.error.assert_called()
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('run.log')
+    def test_webhook_release_published_db_failure(self, mock_log, mock_safe_commit, mock_request, mock_repo):
+        """Test release published webhook handles db commit failure."""
+        mock_safe_commit.return_value = False
+
+        last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
+        last_commit.value = 'abcdefgh'
+        g.db.commit()
+
+        data = {
+            'action': 'published',
+            'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': 'v2.2'}
+        }
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'release'))
+
+        mock_log.error.assert_called()
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    @mock.patch('run.log')
+    def test_webhook_release_unsupported_action(self, mock_log, mock_request, mock_repo):
+        """Test release webhook handles unsupported action."""
+        data = {
+            'action': 'unknown_action',
+            'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': 'v2.1'}
+        }
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'release'))
+
+        mock_log.warning.assert_called()
+
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('run.log')
+    def test_add_test_entry_db_commit_failure(self, mock_log, mock_safe_commit):
+        """Test add_test_entry handles db commit failure."""
+        from mod_ci.controllers import add_test_entry
+
+        mock_safe_commit.return_value = False
+
+        add_test_entry(g.db, 'testcommithash', TestType.commit)
+
+        mock_safe_commit.assert_called_once()
+        mock_log.error.assert_called()
+
+    @mock.patch('mod_ci.controllers.wait_for_operation')
+    @mock.patch('mod_ci.controllers.delete_instance')
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('mod_ci.controllers.is_instance_testing')
+    @mock.patch('run.log')
+    def test_delete_expired_instances_db_commit_failure(self, mock_log, mock_is_testing,
+                                                         mock_safe_commit, mock_delete, mock_wait):
+        """Test delete_expired_instances handles db commit failure."""
+        from mod_ci.controllers import delete_expired_instances
+
+        mock_is_testing.return_value = True
+        mock_safe_commit.return_value = False
+
+        # Create a mock compute service
+        mock_compute = MagicMock()
+        mock_compute.instances().list().execute.return_value = {
+            'items': [{
+                'name': 'linux-1',
+                'creationTimestamp': '2020-01-01T00:00:00.000+00:00'
+            }]
+        }
+
+        mock_repo = MagicMock()
+
+        delete_expired_instances(mock_compute, 60, 'project', 'zone', g.db, mock_repo)
+
+        # Should continue to next instance after commit failure
+        mock_delete.assert_not_called()
+
     @mock.patch('github.Github.get_repo')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     @mock.patch('mod_ci.controllers.inform_mailing_list')

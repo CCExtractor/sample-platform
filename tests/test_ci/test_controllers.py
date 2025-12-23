@@ -1198,7 +1198,9 @@ class TestControllers(BaseTestCase):
         mock_requests_get.return_value = mock_response
 
         with self.app.test_client() as c:
-            response = c.get('/start-ci', environ_overrides={'REMOTE_ADDR': '127.0.0.1'}, headers=self.generate_header({}, 'test'))
+            response = c.get(
+                '/start-ci', environ_overrides={'REMOTE_ADDR': '127.0.0.1'},
+                headers=self.generate_header({}, 'test'))
             self.assertEqual(response.data, b'OK')
 
     @mock.patch('github.Github')

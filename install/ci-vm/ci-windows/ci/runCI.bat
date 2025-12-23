@@ -21,6 +21,10 @@ echo Checking for CCExtractor build artifact
 if EXIST "%dstDir%\ccextractorwinfull.exe" (
     echo Run tests
     copy "%dstDir%\*" .
+    rem Log binary version for verification (commit SHA will be visible in output)
+    echo === CCExtractor Binary Version === >> "%logFile%"
+    ccextractorwinfull.exe --version >> "%logFile%" 2>&1
+    echo === End Version Info === >> "%logFile%"
     call :postStatus "testing" "Running tests"
     call :executeCommand cd %suiteDstDir%
     call :executeCommand "%tester%" --debug True --entries "%testFile%" --executable "ccextractorwinfull.exe" --tempfolder "%tempFolder%" --timeout 600 --reportfolder "%reportFolder%" --resultfolder "%resultFolder%" --samplefolder "%sampleFolder%" --method Server --url "%reportURL%"

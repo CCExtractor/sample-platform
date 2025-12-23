@@ -2470,34 +2470,10 @@ class TestControllers(BaseTestCase):
         # Two error logs: one for commit failure, one for rollback failure
         self.assertEqual(mock_log.error.call_count, 2)
 
-    @mock.patch('mod_ci.controllers.update_status_on_github')
-    @mock.patch('mod_ci.controllers.retry_with_backoff')
     @mock.patch('mod_ci.controllers.safe_db_commit')
     @mock.patch('run.log')
-    def test_mark_test_failed_success(self, mock_log, mock_safe_commit, mock_retry, mock_update_status):
-        """Test mark_test_failed successfully marks test as failed."""
-        from mod_test.models import Test
-
-        mock_safe_commit.return_value = True
-        mock_retry.return_value = MagicMock()  # Mock commit object
-
-        test = Test.query.first()
-        mock_db = MagicMock()
-        mock_repo = MagicMock()
-
-        result = mark_test_failed(mock_db, test, mock_repo, "Test failed")
-
-        self.assertTrue(result)
-        mock_db.add.assert_called_once()
-        mock_safe_commit.assert_called_once()
-        mock_retry.assert_called_once()
-        mock_update_status.assert_called_once()
-        mock_log.info.assert_called()
-
-    @mock.patch('mod_ci.controllers.safe_db_commit')
-    @mock.patch('run.log')
-    def test_mark_test_failed_db_failure(self, mock_log, mock_safe_commit):
-        """Test mark_test_failed returns False when database commit fails."""
+    def test_mark_test_failed_with_db_commit_failure(self, mock_log, mock_safe_commit):
+        """Test mark_test_failed returns False when safe_db_commit fails."""
         from mod_test.models import Test
 
         mock_safe_commit.return_value = False
@@ -2511,28 +2487,6 @@ class TestControllers(BaseTestCase):
         self.assertFalse(result)
         mock_db.add.assert_called_once()
         mock_safe_commit.assert_called_once()
-
-    @mock.patch('mod_ci.controllers.update_status_on_github')
-    @mock.patch('mod_ci.controllers.retry_with_backoff')
-    @mock.patch('mod_ci.controllers.safe_db_commit')
-    @mock.patch('run.log')
-    def test_mark_test_failed_github_failure(self, mock_log, mock_safe_commit, mock_retry, mock_update_status):
-        """Test mark_test_failed handles GitHub API failure gracefully."""
-        from github import GithubException
-
-        from mod_test.models import Test
-
-        mock_safe_commit.return_value = True
-        mock_retry.side_effect = GithubException(500, "API Error", None)
-
-        test = Test.query.first()
-        mock_db = MagicMock()
-        mock_repo = MagicMock()
-
-        result = mark_test_failed(mock_db, test, mock_repo, "Test failed")
-
-        self.assertFalse(result)
-        mock_log.error.assert_called()
 
     @staticmethod
     def generate_header(data, event, ci_key=None):

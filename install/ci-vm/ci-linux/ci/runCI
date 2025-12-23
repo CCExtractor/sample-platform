@@ -61,6 +61,10 @@ if [ -e "${dstDir}/ccextractor" ]; then
         cp $dstDir/* ./
         chmod 700 ccextractor
         chmod +x ${tester}
+        # Log binary version for verification (commit SHA will be visible in output)
+        echo "=== CCExtractor Binary Version ===" >> "${logFile}"
+        ./ccextractor --version >> "${logFile}" 2>&1
+        echo "=== End Version Info ===" >> "${logFile}"
         postStatus "testing" "Running tests"
         executeCommand cd ${suiteDstDir}
         executeCommand ${tester} --debug --entries "${testFile}" --executable "ccextractor" --tempfolder "${tempFolder}" --timeout 600 --reportfolder "${reportFolder}" --resultfolder "${resultFolder}" --samplefolder "${sampleFolder}" --method Server --url "${reportURL}"

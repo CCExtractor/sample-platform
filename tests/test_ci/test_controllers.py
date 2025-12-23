@@ -2174,6 +2174,19 @@ class TestControllers(BaseTestCase):
         self.assertFalse(is_valid_commit_hash('xyz1234567890'))
         self.assertFalse(is_valid_commit_hash('ghijklm'))
 
+    def test_is_valid_commit_hash_with_whitespace(self):
+        """Test is_valid_commit_hash strips whitespace correctly."""
+        # Valid hash with whitespace should be accepted (whitespace stripped)
+        self.assertTrue(is_valid_commit_hash('  1978060bf7d2edd119736ba3ba88341f3bec3323  '))
+        self.assertTrue(is_valid_commit_hash('\t1978060\n'))
+
+    def test_is_valid_commit_hash_too_long(self):
+        """Test is_valid_commit_hash rejects hashes > 40 characters."""
+        # 41 characters - too long
+        self.assertFalse(is_valid_commit_hash('1978060bf7d2edd119736ba3ba88341f3bec33231'))
+        # 50 characters - way too long
+        self.assertFalse(is_valid_commit_hash('1978060bf7d2edd119736ba3ba88341f3bec332312345678'))
+
     @mock.patch('mod_ci.controllers.add_test_entry')
     @mock.patch('github.Github.get_repo')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
@@ -2269,6 +2282,42 @@ class TestControllers(BaseTestCase):
             release = CCExtractorVersion.query.filter_by(version='2.4').first()
             self.assertIsNotNone(release)
             self.assertEqual(release.commit, fallback_commit)
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_release_with_existing_test(self, mock_request, mock_repo):
+        """Test release webhook updates baseline when test entry exists for commit."""
+        # Setup mock for tag ref (lightweight tag)
+        commit_hash = "eeee555566667777888899990000aaaabbbbcccc"
+        mock_tag_ref = MagicMock()
+        mock_tag_ref.object.type = "commit"
+        mock_tag_ref.object.sha = commit_hash
+        mock_repo.return_value.get_git_ref.return_value = mock_tag_ref
+
+        # Create a test entry for this commit
+        from mod_test.models import Fork
+        fork = Fork.query.first()
+        test = Test(TestPlatform.linux, TestType.commit, fork.id, "master", commit_hash, 0)
+        g.db.add(test)
+        g.db.commit()
+
+        with self.app.test_client() as c:
+            data = {
+                'action': 'published',
+                'release': {
+                    'prerelease': False,
+                    'published_at': '2018-05-30T20:18:44Z',
+                    'tag_name': 'v2.6'
+                }
+            }
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'release'))
+
+            # Release should be created with the commit from tag
+            release = CCExtractorVersion.query.filter_by(version='2.6').first()
+            self.assertIsNotNone(release)
+            self.assertEqual(release.commit, commit_hash)
 
     @mock.patch('github.Github.get_repo')
     @mock.patch('requests.get', side_effect=mock_api_request_github)

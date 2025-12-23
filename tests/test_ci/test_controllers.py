@@ -479,6 +479,7 @@ class TestControllers(BaseTestCase):
         import mod_ci.controllers
         reload(mod_ci.controllers)
         from mod_ci.controllers import add_test_entry, queue_test
+
         # Use valid hex commit hash (customizedcommitcheck is not valid hex)
         test_commit = 'abc1234def567890abc1234def567890abcd1234'
         add_test_entry(g.db, test_commit, TestType.commit)
@@ -1226,6 +1227,7 @@ class TestControllers(BaseTestCase):
         from github import GithubException
 
         from mod_ci.controllers import add_test_entry, queue_test
+
         # Use valid hex commit hash
         test_commit = '1234567890abcdef1234567890abcdef12345678'
         add_test_entry(g.db, test_commit, TestType.pull_request)

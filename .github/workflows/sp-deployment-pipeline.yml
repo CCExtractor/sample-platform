@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Pre-deployment checks
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@823bd89e131d8d508129f9443cad5855e9ba96f0  # v1.2.4
         with:
           host: ${{ vars.PLATFORM_DOMAIN }}
           username: ${{ vars.SSH_USER }}
@@ -52,7 +52,7 @@ jobs:
             fi
 
       - name: Deploy application
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@823bd89e131d8d508129f9443cad5855e9ba96f0  # v1.2.4
         with:
           host: ${{ vars.PLATFORM_DOMAIN }}
           username: ${{ vars.SSH_USER }}
@@ -93,7 +93,7 @@ jobs:
 
       - name: Verify deployment
         id: health_check
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@823bd89e131d8d508129f9443cad5855e9ba96f0  # v1.2.4
         with:
           host: ${{ vars.PLATFORM_DOMAIN }}
           username: ${{ vars.SSH_USER }}
@@ -133,7 +133,7 @@ jobs:
 
       - name: Rollback on failure
         if: failure() && steps.health_check.outcome == 'failure'
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@823bd89e131d8d508129f9443cad5855e9ba96f0  # v1.2.4
         with:
           host: ${{ vars.PLATFORM_DOMAIN }}
           username: ${{ vars.SSH_USER }}
@@ -169,7 +169,7 @@ jobs:
 
       - name: Report deployment status
         if: always()
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@823bd89e131d8d508129f9443cad5855e9ba96f0  # v1.2.4
         with:
           host: ${{ vars.PLATFORM_DOMAIN }}
           username: ${{ vars.SSH_USER }}

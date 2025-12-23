@@ -23,6 +23,6 @@ itsdangerous==2.2.0
 google-api-python-client==2.154.0
 google-cloud-storage==2.18.2
 cffi==1.17.1
-PyGithub==2.5.0
+PyGithub==2.8.1
 blinker==1.9.0
 click==8.1.7

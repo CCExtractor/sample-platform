@@ -1292,15 +1292,19 @@ class TestControllers(BaseTestCase):
     @mock.patch('run.log')
     @mock.patch('mod_ci.controllers.safe_db_commit')
     @mock.patch('github.Github')
-    def test_deschedule_test_db_commit_failure(self, git_mock, mock_safe_commit, mock_log):
+    def test_deschedule_test_db_commit_failure(
+            self, git_mock, mock_safe_commit, mock_log):
         """Check deschedule_test handles db commit failure gracefully."""
         from mod_ci.controllers import deschedule_test
 
         mock_safe_commit.return_value = False
         repository = git_mock(g.github['bot_token']).get_repo(
             f"{g.github['repository_owner']}/{g.github['repository']}")
-        commit = Test.query.filter(Test.platform == TestPlatform.linux).first().commit
-        deschedule_test(repository.get_commit(commit), commit, TestType.pull_request, TestPlatform.linux)
+        test = Test.query.filter(Test.platform == TestPlatform.linux).first()
+        commit = test.commit
+        deschedule_test(
+            repository.get_commit(commit), commit,
+            TestType.pull_request, TestPlatform.linux)
 
         mock_safe_commit.assert_called_once()
         mock_log.error.assert_called()
@@ -1309,7 +1313,8 @@ class TestControllers(BaseTestCase):
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     @mock.patch('mod_ci.controllers.retry_with_backoff')
     @mock.patch('run.log')
-    def test_webhook_push_github_api_failure(self, mock_log, mock_retry, mock_request, mock_repo):
+    def test_webhook_push_github_api_failure(
+            self, mock_log, mock_retry, mock_request, mock_repo):
         """Test push webhook handles GitHub API retry failure."""
         from github import GithubException
 
@@ -1319,7 +1324,8 @@ class TestControllers(BaseTestCase):
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
-                data=json.dumps(data), headers=self.generate_header(data, 'push'))
+                data=json.dumps(data),
+                headers=self.generate_header(data, 'push'))
 
         self.assertIn(b'ERROR', response.data)
         mock_log.error.assert_called()
@@ -1329,7 +1335,9 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.safe_db_commit')
     @mock.patch('mod_ci.controllers.retry_with_backoff')
     @mock.patch('run.log')
-    def test_webhook_push_db_commit_failure(self, mock_log, mock_retry, mock_safe_commit, mock_request, mock_repo):
+    def test_webhook_push_db_commit_failure(
+            self, mock_log, mock_retry, mock_safe_commit,
+            mock_request, mock_repo):
         """Test push webhook handles db commit failure."""
         mock_ref = MagicMock()
         mock_ref.object.sha = 'newcommithash'
@@ -1340,7 +1348,8 @@ class TestControllers(BaseTestCase):
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
-                data=json.dumps(data), headers=self.generate_header(data, 'push'))
+                data=json.dumps(data),
+                headers=self.generate_header(data, 'push'))
 
         self.assertIn(b'ERROR', response.data)
 
@@ -1348,7 +1357,8 @@ class TestControllers(BaseTestCase):
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     @mock.patch('mod_ci.controllers.retry_with_backoff')
     @mock.patch('run.log')
-    def test_webhook_pr_opened_github_api_failure(self, mock_log, mock_retry, mock_request, mock_repo):
+    def test_webhook_pr_opened_github_api_failure(
+            self, mock_log, mock_retry, mock_request, mock_repo):
         """Test PR opened webhook handles GitHub API retry failure."""
         from github import GithubException
 
@@ -1365,7 +1375,8 @@ class TestControllers(BaseTestCase):
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
-                data=json.dumps(data), headers=self.generate_header(data, 'pull_request'))
+                data=json.dumps(data),
+                headers=self.generate_header(data, 'pull_request'))
 
         mock_log.error.assert_called()
 
@@ -1373,23 +1384,30 @@ class TestControllers(BaseTestCase):
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     @mock.patch('mod_ci.controllers.safe_db_commit')
     @mock.patch('run.log')
-    def test_webhook_release_delete_db_failure(self, mock_log, mock_safe_commit, mock_request, mock_repo):
+    def test_webhook_release_delete_db_failure(
+            self, mock_log, mock_safe_commit, mock_request, mock_repo):
         """Test release delete webhook handles db commit failure."""
         mock_safe_commit.return_value = False
 
         # First add a release to delete
-        release = CCExtractorVersion('2.1', '2018-05-30T20:18:44Z', 'abcdefgh')
+        release = CCExtractorVersion(
+            '2.1', '2018-05-30T20:18:44Z', 'abcdefgh')
         g.db.add(release)
         g.db.commit()
 
         data = {
             'action': 'deleted',
-            'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': 'v2.1'}
+            'release': {
+                'prerelease': False,
+                'published_at': '2018-05-30T20:18:44Z',
+                'tag_name': 'v2.1'
+            }
         }
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
-                data=json.dumps(data), headers=self.generate_header(data, 'release'))
+                data=json.dumps(data),
+                headers=self.generate_header(data, 'release'))
 
         mock_log.error.assert_called()
 
@@ -1397,44 +1415,58 @@ class TestControllers(BaseTestCase):
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     @mock.patch('mod_ci.controllers.safe_db_commit')
     @mock.patch('run.log')
-    def test_webhook_release_published_db_failure(self, mock_log, mock_safe_commit, mock_request, mock_repo):
+    def test_webhook_release_published_db_failure(
+            self, mock_log, mock_safe_commit, mock_request, mock_repo):
         """Test release published webhook handles db commit failure."""
         mock_safe_commit.return_value = False
 
-        last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
+        last_commit = GeneralData.query.filter(
+            GeneralData.key == 'last_commit').first()
         last_commit.value = 'abcdefgh'
         g.db.commit()
 
         data = {
             'action': 'published',
-            'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': 'v2.2'}
+            'release': {
+                'prerelease': False,
+                'published_at': '2018-05-30T20:18:44Z',
+                'tag_name': 'v2.2'
+            }
         }
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
-                data=json.dumps(data), headers=self.generate_header(data, 'release'))
+                data=json.dumps(data),
+                headers=self.generate_header(data, 'release'))
 
         mock_log.error.assert_called()
 
     @mock.patch('github.Github.get_repo')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     @mock.patch('run.log')
-    def test_webhook_release_unsupported_action(self, mock_log, mock_request, mock_repo):
+    def test_webhook_release_unsupported_action(
+            self, mock_log, mock_request, mock_repo):
         """Test release webhook handles unsupported action."""
         data = {
             'action': 'unknown_action',
-            'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': 'v2.1'}
+            'release': {
+                'prerelease': False,
+                'published_at': '2018-05-30T20:18:44Z',
+                'tag_name': 'v2.1'
+            }
         }
         with self.app.test_client() as c:
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
-                data=json.dumps(data), headers=self.generate_header(data, 'release'))
+                data=json.dumps(data),
+                headers=self.generate_header(data, 'release'))
 
         mock_log.warning.assert_called()
 
     @mock.patch('mod_ci.controllers.safe_db_commit')
     @mock.patch('run.log')
-    def test_add_test_entry_db_commit_failure(self, mock_log, mock_safe_commit):
+    def test_add_test_entry_db_commit_failure(
+            self, mock_log, mock_safe_commit):
         """Test add_test_entry handles db commit failure."""
         from mod_ci.controllers import add_test_entry
 
@@ -1450,8 +1482,9 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.safe_db_commit')
     @mock.patch('mod_ci.controllers.is_instance_testing')
     @mock.patch('run.log')
-    def test_delete_expired_instances_db_commit_failure(self, mock_log, mock_is_testing,
-                                                        mock_safe_commit, mock_delete, mock_wait):
+    def test_delete_expired_instances_db_commit_failure(
+            self, mock_log, mock_is_testing, mock_safe_commit,
+            mock_delete, mock_wait):
         """Test delete_expired_instances handles db commit failure."""
         from mod_ci.controllers import delete_expired_instances
 
@@ -1469,7 +1502,8 @@ class TestControllers(BaseTestCase):
 
         mock_repo = MagicMock()
 
-        delete_expired_instances(mock_compute, 60, 'project', 'zone', g.db, mock_repo)
+        delete_expired_instances(
+            mock_compute, 60, 'project', 'zone', g.db, mock_repo)
 
         # Should continue to next instance after commit failure
         mock_delete.assert_not_called()
@@ -2081,9 +2115,10 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.TestProgress')
     @mock.patch('mod_ci.controllers.GcpInstance')
     @mock.patch('run.log')
-    def test_start_test_duplicate_instance_check(self, mock_log, mock_gcp_instance, mock_test_progress,
-                                                 mock_g, mock_open_file, mock_create_instance,
-                                                 mock_wait_for_operation):
+    def test_start_test_duplicate_instance_check(
+            self, mock_log, mock_gcp_instance, mock_test_progress,
+            mock_g, mock_open_file, mock_create_instance,
+            mock_wait_for_operation):
         """Test start_test skips if GCP instance already exists for test."""
         from mod_ci.controllers import start_test
 
@@ -2091,7 +2126,8 @@ class TestControllers(BaseTestCase):
         repository = MagicMock()
 
         # Mock that an instance already exists
-        mock_gcp_instance.query.filter.return_value.first.return_value = MagicMock()
+        gcp_filter = mock_gcp_instance.query.filter.return_value
+        gcp_filter.first.return_value = MagicMock()
 
         start_test(mock.ANY, self.app, mock_g.db, repository, test, mock.ANY)
 
@@ -2106,9 +2142,10 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.TestProgress')
     @mock.patch('mod_ci.controllers.GcpInstance')
     @mock.patch('run.log')
-    def test_start_test_duplicate_progress_check(self, mock_log, mock_gcp_instance, mock_test_progress,
-                                                 mock_g, mock_open_file, mock_create_instance,
-                                                 mock_wait_for_operation):
+    def test_start_test_duplicate_progress_check(
+            self, mock_log, mock_gcp_instance, mock_test_progress,
+            mock_g, mock_open_file, mock_create_instance,
+            mock_wait_for_operation):
         """Test start_test skips if test already has progress entries."""
         from mod_ci.controllers import start_test
 
@@ -2116,8 +2153,10 @@ class TestControllers(BaseTestCase):
         repository = MagicMock()
 
         # Mock no instance but progress exists
-        mock_gcp_instance.query.filter.return_value.first.return_value = None
-        mock_test_progress.query.filter.return_value.first.return_value = MagicMock()
+        gcp_filter = mock_gcp_instance.query.filter.return_value
+        gcp_filter.first.return_value = None
+        prog_filter = mock_test_progress.query.filter.return_value
+        prog_filter.first.return_value = MagicMock()
 
         start_test(mock.ANY, self.app, mock_g.db, repository, test, mock.ANY)
 
@@ -2134,10 +2173,11 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.GcpInstance')
     @mock.patch('run.log')
     @mock.patch('requests.get')
-    def test_start_test_artifact_timeout(self, mock_requests_get, mock_log, mock_gcp_instance,
-                                         mock_test_progress, mock_g, mock_open_file,
-                                         mock_create_instance, mock_wait_for_operation,
-                                         mock_mark_failed):
+    def test_start_test_artifact_timeout(
+            self, mock_requests_get, mock_log, mock_gcp_instance,
+            mock_test_progress, mock_g, mock_open_file,
+            mock_create_instance, mock_wait_for_operation,
+            mock_mark_failed):
         """Test start_test handles artifact download timeout."""
         import requests
         from github.Artifact import Artifact
@@ -2148,8 +2188,10 @@ class TestControllers(BaseTestCase):
         repository = MagicMock()
 
         # Mock locking checks
-        mock_gcp_instance.query.filter.return_value.first.return_value = None
-        mock_test_progress.query.filter.return_value.first.return_value = None
+        gcp_filter = mock_gcp_instance.query.filter.return_value
+        gcp_filter.first.return_value = None
+        prog_filter = mock_test_progress.query.filter.return_value
+        prog_filter.first.return_value = None
 
         # Mock artifact
         artifact = MagicMock(Artifact)
@@ -2180,10 +2222,11 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.GcpInstance')
     @mock.patch('run.log')
     @mock.patch('requests.get')
-    def test_start_test_artifact_http_error(self, mock_requests_get, mock_log, mock_gcp_instance,
-                                            mock_test_progress, mock_g, mock_open_file,
-                                            mock_create_instance, mock_wait_for_operation,
-                                            mock_mark_failed):
+    def test_start_test_artifact_http_error(
+            self, mock_requests_get, mock_log, mock_gcp_instance,
+            mock_test_progress, mock_g, mock_open_file,
+            mock_create_instance, mock_wait_for_operation,
+            mock_mark_failed):
         """Test start_test handles artifact download HTTP errors."""
         import requests
         from github.Artifact import Artifact
@@ -2194,8 +2237,10 @@ class TestControllers(BaseTestCase):
         repository = MagicMock()
 
         # Mock locking checks
-        mock_gcp_instance.query.filter.return_value.first.return_value = None
-        mock_test_progress.query.filter.return_value.first.return_value = None
+        gcp_filter = mock_gcp_instance.query.filter.return_value
+        gcp_filter.first.return_value = None
+        prog_filter = mock_test_progress.query.filter.return_value
+        prog_filter.first.return_value = None
 
         # Mock artifact
         artifact = MagicMock(Artifact)
@@ -2228,9 +2273,11 @@ class TestControllers(BaseTestCase):
 
         compute = MagicMock()
         # Simulate time passing beyond max_wait
-        mock_time.side_effect = [0, 100]  # Start at 0, then jump to 100 seconds
+        # Start at 0, then jump to 100 seconds
+        mock_time.side_effect = [0, 100]
 
-        result = wait_for_operation(compute, "project", "zone", "operation", max_wait=50)
+        result = wait_for_operation(
+            compute, "project", "zone", "operation", max_wait=50)
 
         self.assertEqual(result['status'], 'TIMEOUT')
         self.assertIn('error', result)
@@ -2239,16 +2286,19 @@ class TestControllers(BaseTestCase):
     @mock.patch('run.log')
     @mock.patch('time.sleep')
     @mock.patch('time.time')
-    def test_wait_for_operation_api_error(self, mock_time, mock_sleep, mock_log):
+    def test_wait_for_operation_api_error(
+            self, mock_time, mock_sleep, mock_log):
         """Test wait_for_operation handles API errors gracefully."""
         from mod_ci.controllers import wait_for_operation
 
         compute = MagicMock()
         # Make the API call raise an exception
-        compute.zoneOperations.return_value.get.return_value.execute.side_effect = Exception("API Error")
+        zone_ops = compute.zoneOperations.return_value.get.return_value
+        zone_ops.execute.side_effect = Exception("API Error")
         mock_time.return_value = 0
 
-        result = wait_for_operation(compute, "project", "zone", "operation", max_wait=100)
+        result = wait_for_operation(
+            compute, "project", "zone", "operation", max_wait=100)
 
         self.assertEqual(result['status'], 'ERROR')
         self.assertIn('error', result)
@@ -2258,18 +2308,21 @@ class TestControllers(BaseTestCase):
     @mock.patch('time.sleep')
     @mock.patch('time.time')
     def test_wait_for_operation_success(self, mock_time, mock_sleep, mock_log):
-        """Test wait_for_operation returns successfully when operation completes."""
+        """Test wait_for_operation returns successfully on completion."""
         from mod_ci.controllers import wait_for_operation
 
         compute = MagicMock()
         # First call returns RUNNING, second returns DONE
-        compute.zoneOperations.return_value.get.return_value.execute.side_effect = [
+        zone_ops = compute.zoneOperations.return_value.get.return_value
+        zone_ops.execute.side_effect = [
             {'status': 'RUNNING'},
             {'status': 'DONE'}
         ]
-        mock_time.side_effect = [0, 0, 5, 5]  # Various time readings during the loop
+        # Various time readings during the loop
+        mock_time.side_effect = [0, 0, 5, 5]
 
-        result = wait_for_operation(compute, "project", "zone", "operation", max_wait=100)
+        result = wait_for_operation(
+            compute, "project", "zone", "operation", max_wait=100)
 
         self.assertEqual(result['status'], 'DONE')
         mock_log.info.assert_called()
@@ -2564,7 +2617,8 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_ci.controllers.time.sleep')
     @mock.patch('run.log')
-    def test_retry_with_backoff_success_after_retry(self, mock_log, mock_sleep):
+    def test_retry_with_backoff_success_after_retry(
+            self, mock_log, mock_sleep):
         """Test retry_with_backoff succeeds after retries."""
         from github import GithubException
 
@@ -2574,7 +2628,8 @@ class TestControllers(BaseTestCase):
             "success"
         ])
 
-        result = retry_with_backoff(mock_func, max_retries=3, initial_backoff=1)
+        result = retry_with_backoff(
+            mock_func, max_retries=3, initial_backoff=1)
 
         self.assertEqual(result, "success")
         self.assertEqual(mock_func.call_count, 3)
@@ -2584,10 +2639,11 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.time.sleep')
     @mock.patch('run.log')
     def test_retry_with_backoff_all_retries_fail(self, mock_log, mock_sleep):
-        """Test retry_with_backoff raises exception when all retries fail."""
+        """Test retry_with_backoff raises exception when retries fail."""
         from github import GithubException
 
-        mock_func = MagicMock(side_effect=GithubException(500, "Server Error", None))
+        exc = GithubException(500, "Server Error", None)
+        mock_func = MagicMock(side_effect=exc)
 
         with self.assertRaises(GithubException):
             retry_with_backoff(mock_func, max_retries=2, initial_backoff=1)
@@ -2598,7 +2654,8 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_ci.controllers.time.sleep')
     @mock.patch('run.log')
-    def test_retry_with_backoff_exponential_backoff(self, mock_log, mock_sleep):
+    def test_retry_with_backoff_exponential_backoff(
+            self, mock_log, mock_sleep):
         """Test retry_with_backoff uses exponential backoff."""
         from github import GithubException
 
@@ -2609,7 +2666,8 @@ class TestControllers(BaseTestCase):
             "success"
         ])
 
-        retry_with_backoff(mock_func, max_retries=3, initial_backoff=1, max_backoff=30)
+        retry_with_backoff(
+            mock_func, max_retries=3, initial_backoff=1, max_backoff=30)
 
         # Check backoff times: 1s, 2s, 4s
         sleep_calls = [call[0][0] for call in mock_sleep.call_args_list]
@@ -2657,8 +2715,9 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_ci.controllers.safe_db_commit')
     @mock.patch('run.log')
-    def test_mark_test_failed_with_db_commit_failure(self, mock_log, mock_safe_commit):
-        """Test mark_test_failed returns False when safe_db_commit fails."""
+    def test_mark_test_failed_with_db_commit_failure(
+            self, mock_log, mock_safe_commit):
+        """Test mark_test_failed returns False on db commit fail."""
         from mod_test.models import Test
 
         mock_safe_commit.return_value = False
@@ -2687,8 +2746,10 @@ class TestControllers(BaseTestCase):
             "success"
         ])
 
-        # With initial_backoff=8 and max_backoff=10, backoff should be: 8, 10, 10, 10
-        retry_with_backoff(mock_func, max_retries=4, initial_backoff=8, max_backoff=10)
+        # With initial_backoff=8 and max_backoff=10,
+        # backoff should be: 8, 10, 10, 10
+        retry_with_backoff(
+            mock_func, max_retries=4, initial_backoff=8, max_backoff=10)
 
         sleep_calls = [call[0][0] for call in mock_sleep.call_args_list]
         self.assertEqual(sleep_calls, [8, 10, 10, 10])

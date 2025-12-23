@@ -877,10 +877,12 @@ class TestControllers(BaseTestCase):
         self.assertEqual(response.data, b'{"msg": "EOL"}')
         mock_schedule_test.assert_called_once()
 
+    @mock.patch('mod_ci.controllers.verify_artifacts_exist', return_value={'linux': True, 'windows': True})
     @mock.patch('github.Github.get_repo')
     @mock.patch('mod_ci.controllers.queue_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_workflow_run_completed_successful_linux(self, mock_request, mock_queue_test, mock_repo):
+    def test_webhook_workflow_run_completed_successful_linux(self, mock_request, mock_queue_test, mock_repo,
+                                                              mock_verify):
         """Test webhook triggered with workflow run event with action completed and status success on linux."""
         data = {'action': 'completed',
                 'workflow_run': {'event': 'push',
@@ -911,10 +913,12 @@ class TestControllers(BaseTestCase):
                 data=json.dumps(data), headers=self.generate_header(data, 'workflow_run'))
             mock_queue_test.assert_called_once()
 
+    @mock.patch('mod_ci.controllers.verify_artifacts_exist', return_value={'linux': True, 'windows': True})
     @mock.patch('github.Github.get_repo')
     @mock.patch('mod_ci.controllers.queue_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_workflow_run_completed_successful_windows(self, mock_request, mock_queue_test, mock_repo):
+    def test_webhook_workflow_run_completed_successful_windows(self, mock_request, mock_queue_test, mock_repo,
+                                                                mock_verify):
         """Test webhook triggered with workflow run event with action completed and status success on windows."""
         data = {'action': 'completed',
                 'workflow_run': {'event': 'push',
@@ -1053,12 +1057,13 @@ class TestControllers(BaseTestCase):
                 data=json.dumps({}), headers=self.generate_header({}, 'workflow_run', "1"))
         mock_warning.assert_called_once()
 
+    @mock.patch('mod_ci.controllers.verify_artifacts_exist', return_value={'linux': True, 'windows': True})
     @mock.patch('github.Github.get_repo')
     @mock.patch('mod_ci.controllers.BlockedUsers')
     @mock.patch('mod_ci.controllers.queue_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_workflow_run_completed_successful_pr_linux(self, mock_request, mock_queue_test,
-                                                                mock_blocked, mock_repo):
+                                                                mock_blocked, mock_repo, mock_verify):
         """Test webhook triggered - workflow run event, action completed, status success for pull request on linux."""
         data = {'action': 'completed',
                 'workflow_run': {'event': 'pull_request',
@@ -1100,12 +1105,14 @@ class TestControllers(BaseTestCase):
             mock_queue_test.assert_not_called()
             self.assertEqual(response.data, b'ERROR')
 
+    @mock.patch('mod_ci.controllers.verify_artifacts_exist', return_value={'linux': True, 'windows': True})
     @mock.patch('github.Github.get_repo')
     @mock.patch('mod_ci.controllers.BlockedUsers')
     @mock.patch('mod_ci.controllers.queue_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_workflow_run_completed_successful_pr_windows(self, mock_request,
-                                                                  mock_queue_test, mock_blocked, mock_repo):
+                                                                  mock_queue_test, mock_blocked, mock_repo,
+                                                                  mock_verify):
         """Test webhook triggered - workflow run event, action completed, status success for pull request on windows."""
         data = {'action': 'completed',
                 'workflow_run': {'event': 'pull_request',
@@ -1148,13 +1155,15 @@ class TestControllers(BaseTestCase):
             mock_queue_test.assert_not_called()
             self.assertEqual(response.data, b'ERROR')
 
+    @mock.patch('mod_ci.controllers.verify_artifacts_exist', return_value={'linux': True, 'windows': True})
     @mock.patch('github.Github.get_repo')
     @mock.patch('mod_ci.controllers.deschedule_test')
     @mock.patch('mod_ci.controllers.BlockedUsers')
     @mock.patch('mod_ci.controllers.queue_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_workflow_run_completed_successful_pr_updated(self, mock_request, mock_queue_test,
-                                                                  mock_blocked, mock_deschedule_test, mock_repo):
+                                                                  mock_blocked, mock_deschedule_test, mock_repo,
+                                                                  mock_verify):
         """Test webhook triggered - workflow run event, action completed, for a pull request whose head was updated."""
         data = {'action': 'completed',
                 'workflow_run': {'event': 'pull_request',

@@ -2518,8 +2518,9 @@ class TestControllers(BaseTestCase):
     @mock.patch('run.log')
     def test_mark_test_failed_github_failure(self, mock_log, mock_safe_commit, mock_retry, mock_update_status):
         """Test mark_test_failed handles GitHub API failure gracefully."""
-        from mod_test.models import Test
         from github import GithubException
+
+        from mod_test.models import Test
 
         mock_safe_commit.return_value = True
         mock_retry.side_effect = GithubException(500, "API Error", None)

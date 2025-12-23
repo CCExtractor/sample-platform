@@ -1451,7 +1451,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.is_instance_testing')
     @mock.patch('run.log')
     def test_delete_expired_instances_db_commit_failure(self, mock_log, mock_is_testing,
-                                                         mock_safe_commit, mock_delete, mock_wait):
+                                                        mock_safe_commit, mock_delete, mock_wait):
         """Test delete_expired_instances handles db commit failure."""
         from mod_ci.controllers import delete_expired_instances
 

@@ -3102,6 +3102,7 @@ class TestParseGcpError(unittest.TestCase):
         """Test that ZONE_RESOURCE_POOL_EXHAUSTED returns user-friendly message."""
         from mod_ci.controllers import parse_gcp_error
 
+        mock_log = MagicMock()
         result = {
             'status': 'DONE',
             'error': {
@@ -3113,7 +3114,7 @@ class TestParseGcpError(unittest.TestCase):
             }
         }
 
-        error_msg = parse_gcp_error(result)
+        error_msg = parse_gcp_error(result, log=mock_log)
         self.assertIn("GCP resources temporarily unavailable", error_msg)
         self.assertIn("retried automatically", error_msg)
         # Should NOT contain raw technical details
@@ -3123,6 +3124,7 @@ class TestParseGcpError(unittest.TestCase):
         """Test that QUOTA_EXCEEDED returns user-friendly message."""
         from mod_ci.controllers import parse_gcp_error
 
+        mock_log = MagicMock()
         result = {
             'error': {
                 'errors': [{
@@ -3132,13 +3134,14 @@ class TestParseGcpError(unittest.TestCase):
             }
         }
 
-        error_msg = parse_gcp_error(result)
+        error_msg = parse_gcp_error(result, log=mock_log)
         self.assertIn("quota limit reached", error_msg)
 
     def test_parse_gcp_error_timeout(self):
         """Test that TIMEOUT returns user-friendly message."""
         from mod_ci.controllers import parse_gcp_error
 
+        mock_log = MagicMock()
         result = {
             'status': 'TIMEOUT',
             'error': {
@@ -3149,14 +3152,15 @@ class TestParseGcpError(unittest.TestCase):
             }
         }
 
-        error_msg = parse_gcp_error(result)
+        error_msg = parse_gcp_error(result, log=mock_log)
         self.assertIn("timed out", error_msg)
         self.assertIn("retried automatically", error_msg)
 
     def test_parse_gcp_error_unknown_code(self):
-        """Test that unknown error codes return the code and message."""
+        """Test that unknown error codes return generic message and log details."""
         from mod_ci.controllers import parse_gcp_error
 
+        mock_log = MagicMock()
         result = {
             'error': {
                 'errors': [{
@@ -3166,59 +3170,81 @@ class TestParseGcpError(unittest.TestCase):
             }
         }
 
-        error_msg = parse_gcp_error(result)
+        error_msg = parse_gcp_error(result, log=mock_log)
+        # Should include error code but not the full message (security)
         self.assertIn("SOME_NEW_ERROR", error_msg)
-        self.assertIn("Something unexpected happened", error_msg)
+        self.assertIn("contact the administrator", error_msg)
+        # Should NOT expose the raw error message
+        self.assertNotIn("Something unexpected happened", error_msg)
+        # Should log the full details server-side
+        mock_log.error.assert_called_once()
+        self.assertIn("SOME_NEW_ERROR", mock_log.error.call_args[0][0])
+        self.assertIn("Something unexpected happened", mock_log.error.call_args[0][0])
 
-    def test_parse_gcp_error_long_message_truncated(self):
-        """Test that very long error messages are truncated."""
+    def test_parse_gcp_error_logs_sensitive_info(self):
+        """Test that sensitive info is logged but not returned to user."""
         from mod_ci.controllers import parse_gcp_error
 
-        long_message = "A" * 300  # 300 characters
+        mock_log = MagicMock()
         result = {
             'error': {
                 'errors': [{
                     'code': 'UNKNOWN_ERROR',
-                    'message': long_message
+                    'message': 'Error in project my-secret-project zone us-central1-a'
                 }]
             }
         }
 
-        error_msg = parse_gcp_error(result)
-        self.assertLess(len(error_msg), 250)  # Should be truncated
-        self.assertIn("...", error_msg)
+        error_msg = parse_gcp_error(result, log=mock_log)
+        # Should NOT expose project/zone names
+        self.assertNotIn("my-secret-project", error_msg)
+        self.assertNotIn("us-central1-a", error_msg)
+        # But should log them server-side
+        mock_log.error.assert_called_once()
+        self.assertIn("my-secret-project", mock_log.error.call_args[0][0])
 
     def test_parse_gcp_error_no_error_key(self):
         """Test handling when 'error' key is missing."""
         from mod_ci.controllers import parse_gcp_error
 
+        mock_log = MagicMock()
         result = {'status': 'DONE'}
 
-        error_msg = parse_gcp_error(result)
-        self.assertIn("Unknown error", error_msg)
+        error_msg = parse_gcp_error(result, log=mock_log)
+        self.assertIn("VM creation failed", error_msg)
+        mock_log.error.assert_called_once()
 
     def test_parse_gcp_error_empty_errors_list(self):
         """Test handling when 'errors' list is empty."""
         from mod_ci.controllers import parse_gcp_error
 
+        mock_log = MagicMock()
         result = {'error': {'errors': []}}
 
-        error_msg = parse_gcp_error(result)
-        self.assertIn("Unknown error", error_msg)
+        error_msg = parse_gcp_error(result, log=mock_log)
+        self.assertIn("VM creation failed", error_msg)
+        mock_log.error.assert_called_once()
 
     def test_parse_gcp_error_not_a_dict(self):
         """Test handling when result is not a dictionary."""
         from mod_ci.controllers import parse_gcp_error
 
-        error_msg = parse_gcp_error("some string error")
-        self.assertIn("Unknown error", error_msg)
-        self.assertIn("some string error", error_msg)
+        mock_log = MagicMock()
+        error_msg = parse_gcp_error("some string error", log=mock_log)
+        self.assertIn("VM creation failed", error_msg)
+        # Should NOT expose the raw input
+        self.assertNotIn("some string error", error_msg)
+        # But should log it
+        mock_log.error.assert_called_once()
+        self.assertIn("some string error", mock_log.error.call_args[0][0])
 
     def test_parse_gcp_error_error_not_a_dict(self):
         """Test handling when 'error' value is not a dictionary."""
         from mod_ci.controllers import parse_gcp_error
 
+        mock_log = MagicMock()
         result = {'error': 'just a string'}
 
-        error_msg = parse_gcp_error(result)
-        self.assertIn("Unknown error", error_msg)
+        error_msg = parse_gcp_error(result, log=mock_log)
+        self.assertIn("VM creation failed", error_msg)
+        mock_log.error.assert_called_once()

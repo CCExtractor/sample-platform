@@ -138,7 +138,7 @@ GCP_ERROR_MESSAGES = {
 }
 
 
-def parse_gcp_error(result: Dict) -> str:
+def parse_gcp_error(result: Dict, log=None) -> str:
     """
     Parse a GCP API error response and return a user-friendly message.
 
@@ -149,22 +149,35 @@ def parse_gcp_error(result: Dict) -> str:
         }
     }
 
+    For known error codes, returns a user-friendly message.
+    For unknown errors, logs the details server-side and returns a generic message
+    to avoid exposing potentially sensitive information.
+
     :param result: The GCP API response dictionary
+    :param log: Optional logger instance. If not provided, uses module logger.
     :return: A user-friendly error message
     """
+    import logging
+    if log is None:
+        log = logging.getLogger('Platform')
+
     if not isinstance(result, dict):
-        return f"Unknown error: {result}"
+        log.error(f"GCP error (non-dict): {result}")
+        return "VM creation failed. Please contact the administrator."
 
     error = result.get('error')
     if error is None:
-        return "Unknown error (no error details provided)"
+        log.error(f"GCP error (no error key): {result}")
+        return "VM creation failed. Please contact the administrator."
 
     if not isinstance(error, dict):
-        return f"Unknown error: {error}"
+        log.error(f"GCP error (error not dict): {error}")
+        return "VM creation failed. Please contact the administrator."
 
     errors = error.get('errors', [])
     if not errors:
-        return f"Unknown error: {error}"
+        log.error(f"GCP error (empty errors list): {error}")
+        return "VM creation failed. Please contact the administrator."
 
     # Get the first error (usually the most relevant)
     first_error = errors[0] if isinstance(errors, list) and len(errors) > 0 else {}
@@ -175,12 +188,10 @@ def parse_gcp_error(result: Dict) -> str:
     if error_code in GCP_ERROR_MESSAGES:
         return GCP_ERROR_MESSAGES[error_code]
 
-    # For unknown errors, return a cleaned-up version of the original message
-    # Truncate very long messages
-    if len(error_message) > 200:
-        error_message = error_message[:200] + "..."
-
-    return f"{error_code}: {error_message}"
+    # For unknown errors, log full details server-side but return generic message
+    # to avoid exposing potentially sensitive information (project names, zones, etc.)
+    log.error(f"GCP error ({error_code}): {error_message}")
+    return f"VM creation failed ({error_code}). Please contact the administrator."
 
 
 mod_ci = Blueprint('ci', __name__)

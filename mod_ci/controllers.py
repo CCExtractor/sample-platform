@@ -1124,7 +1124,7 @@ def save_xml_to_file(xml_node, folder_name, file_name) -> None:
     )
 
 
-def add_test_entry(db, commit, test_type, branch="master", pr_nr=0) -> None:
+def add_test_entry(db, commit, test_type, branch="master", pr_nr=0) -> list:
     """
     Add test details entry into Test model for each platform.
 
@@ -1140,8 +1140,8 @@ def add_test_entry(db, commit, test_type, branch="master", pr_nr=0) -> None:
     :type branch: str
     :param pr_nr: Pull Request number, if applicable.
     :type pr_nr: int
-    :return: Nothing
-    :rtype: None
+    :return: List of created test IDs
+    :rtype: list
     """
     from run import log
 
@@ -1149,7 +1149,7 @@ def add_test_entry(db, commit, test_type, branch="master", pr_nr=0) -> None:
     # Based on issue identified by NexionisJake in PR #937
     if not is_valid_commit_hash(commit):
         log.error(f"Invalid commit hash '{commit}' - skipping test entry creation")
-        return
+        return []
 
     fork_url = f"%/{g.github['repository_owner']}/{g.github['repository']}.git"
     fork = Fork.query.filter(Fork.github.like(fork_url)).first()
@@ -1158,12 +1158,59 @@ def add_test_entry(db, commit, test_type, branch="master", pr_nr=0) -> None:
         log.debug('pull request test type detected')
         branch = "pull_request"
 
+    test_ids = []
     linux_test = Test(TestPlatform.linux, test_type, fork.id, branch, commit, pr_nr)
     db.add(linux_test)
+    db.flush()  # Get ID before commit
+    test_ids.append(linux_test.id)
+
     windows_test = Test(TestPlatform.windows, test_type, fork.id, branch, commit, pr_nr)
     db.add(windows_test)
+    db.flush()  # Get ID before commit
+    test_ids.append(windows_test.id)
+
     if not safe_db_commit(db, f"adding test entries for commit {commit[:7]}"):
         log.error(f"Failed to add test entries for commit {commit}")
+        return []
+
+    return test_ids
+
+
+def trigger_test_tasks(test_ids: list, bot_token: str) -> None:
+    """
+    Optionally trigger Celery tasks for newly created tests.
+
+    Only triggers if USE_CELERY_TASKS is True in config.
+    Falls back to waiting for cron/periodic task otherwise.
+
+    :param test_ids: List of Test IDs to queue
+    :type test_ids: list
+    :param bot_token: GitHub bot token
+    :type bot_token: str
+    """
+    from run import config, log
+
+    if not config.get('USE_CELERY_TASKS', False):
+        log.debug("Celery tasks disabled, tests will be picked up by cron/periodic task")
+        return
+
+    if not test_ids:
+        return
+
+    try:
+        from mod_ci.tasks import start_test_task
+
+        for test_id in test_ids:
+            start_test_task.apply_async(
+                args=[test_id, bot_token],
+                queue='test_execution',
+                countdown=30  # 30 second delay for artifact upload to complete
+            )
+            log.info(f"Queued test {test_id} via Celery")
+    except ImportError:
+        log.warning("Celery tasks module not available, falling back to cron")
+    except Exception as e:
+        log.error(f"Failed to queue Celery tasks: {e}, tests will be picked up by cron")
 
 
 def schedule_test(gh_commit: Commit.Commit) -> None:
@@ -1429,7 +1476,8 @@ def start_ci():
                 last_commit.value = ref.object.sha
                 if not safe_db_commit(g.db, "updating last commit"):
                     return 'ERROR'
-                add_test_entry(g.db, commit_hash, TestType.commit)
+                test_ids = add_test_entry(g.db, commit_hash, TestType.commit)
+                trigger_test_tasks(test_ids, g.github['bot_token'])
             else:
                 g.log.warning('Unknown push type! Dumping payload for analysis')
                 g.log.warning(payload)
@@ -1459,7 +1507,8 @@ def start_ci():
                 try:
                     pr = retry_with_backoff(lambda: repository.get_pull(number=pr_nr))
                     if pr.mergeable is not False:
-                        add_test_entry(g.db, commit_hash, TestType.pull_request, pr_nr=pr_nr)
+                        test_ids = add_test_entry(g.db, commit_hash, TestType.pull_request, pr_nr=pr_nr)
+                        trigger_test_tasks(test_ids, g.github['bot_token'])
                 except GithubException as e:
                     g.log.error(f"Failed to get PR {pr_nr} after retries: {e}")
 

@@ -1,0 +1,23 @@
+[Unit]
+Description=Sample Platform Celery Beat Scheduler
+After=network.target redis.service celery-worker.service
+Requires=redis.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/sample-platform
+Environment="PATH=/var/www/sample-platform/venv/bin"
+ExecStart=/var/www/sample-platform/venv/bin/celery \
+    -A celery_app.celery beat \
+    --pidfile=/var/run/celery/beat.pid \
+    --logfile=/var/www/sample-platform/logs/celery/beat.log \
+    --loglevel=INFO \
+    --schedule=/var/www/sample-platform/celerybeat-schedule
+RuntimeDirectory=celery
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

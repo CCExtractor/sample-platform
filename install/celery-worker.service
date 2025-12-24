@@ -1,0 +1,30 @@
+[Unit]
+Description=Sample Platform Celery Worker
+After=network.target redis.service mysql.service
+Requires=redis.service
+
+[Service]
+Type=forking
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/sample-platform
+Environment="PATH=/var/www/sample-platform/venv/bin"
+ExecStart=/var/www/sample-platform/venv/bin/celery \
+    -A celery_app.celery multi start worker \
+    --pidfile=/var/run/celery/%n.pid \
+    --logfile=/var/www/sample-platform/logs/celery/%n%I.log \
+    --loglevel=INFO \
+    -Q default,test_execution,maintenance \
+    --concurrency=2
+ExecStop=/var/www/sample-platform/venv/bin/celery \
+    -A celery_app.celery multi stopwait worker \
+    --pidfile=/var/run/celery/%n.pid
+ExecReload=/var/www/sample-platform/venv/bin/celery \
+    -A celery_app.celery multi restart worker \
+    --pidfile=/var/run/celery/%n.pid
+RuntimeDirectory=celery
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

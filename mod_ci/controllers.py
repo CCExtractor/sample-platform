@@ -2074,6 +2074,11 @@ def get_info_for_pr_comment(test: Test) -> PrCommentInfo:
     common_failed_tests = []
     fixed_tests = []
     category_stats = []
+    
+    # Track processed RegressionTest IDs to ensure uniqueness
+    extra_failed_ids = set()
+    common_failed_ids = set()
+    fixed_test_ids = set()
 
     test_results = get_test_results(test)
     platform_column = f"last_passed_on_{test.platform.value}"
@@ -2081,16 +2086,25 @@ def get_info_for_pr_comment(test: Test) -> PrCommentInfo:
         category_name = category_results['category'].name
 
         category_test_pass_count = 0
-        for test in category_results['tests']:
-            if not test['error']:
+        for test_item in category_results['tests']:
+            if not test_item['error']:
                 category_test_pass_count += 1
-                if last_test_master and getattr(test['test'], platform_column) != last_test_master.id:
-                    fixed_tests.append(test['test'])
+                if last_test_master and getattr(test_item['test'], platform_column) != last_test_master.id:
+                    # Only add if not already processed
+                    if test_item['test'].id not in fixed_test_ids:
+                        fixed_tests.append(test_item['test'])
+                        fixed_test_ids.add(test_item['test'].id)
             else:
-                if last_test_master and getattr(test['test'], platform_column) != last_test_master.id:
-                    common_failed_tests.append(test['test'])
+                if last_test_master and getattr(test_item['test'], platform_column) != last_test_master.id:
+                    # Only add if not already processed
+                    if test_item['test'].id not in common_failed_ids:
+                        common_failed_tests.append(test_item['test'])
+                        common_failed_ids.add(test_item['test'].id)
                 else:
-                    extra_failed_tests.append(test['test'])
+                    # Only add if not already processed
+                    if test_item['test'].id not in extra_failed_ids:
+                        extra_failed_tests.append(test_item['test'])
+                        extra_failed_ids.add(test_item['test'].id)
 
         category_stats.append(CategoryTestInfo(category_name, len(category_results['tests']), category_test_pass_count))
 
@@ -2108,6 +2122,8 @@ def comment_pr(test: Test) -> str:
 
     test_id = test.id
     platform = test.platform.name
+    # Refresh the test object to ensure all relationships are up-to-date
+    g.db.refresh(test)
     comment_info = get_info_for_pr_comment(test)
     template = app.jinja_env.get_or_select_template('ci/pr_comment.txt')
     message = template.render(comment_info=comment_info, test_id=test_id, platform=platform)

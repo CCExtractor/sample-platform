@@ -8,6 +8,8 @@ from flask import (Blueprint, Response, abort, g, jsonify, redirect, request,
                    url_for)
 from sqlalchemy import and_, func
 from sqlalchemy.sql import label
+from sqlalchemy import func
+
 
 from decorators import template_renderer
 from exceptions import TestNotFoundException
@@ -447,3 +449,44 @@ def stop_test(test_id):
     g.db.commit()
     g.log.info(f"test with id: {test_id} stopped")
     return redirect(url_for('.by_id', test_id=test.id))
+
+
+@mod_regression.route('/progress', methods=['GET'])
+def progress():
+    """
+    Get regression test progress stats
+    Optional: filter by run or sample
+    Default: global progress
+    """
+    run = request.args.get('run')
+    
+    total = RegressionTest.query.filter(RegressionTest.active == True).count()
+    done = 0
+    try:
+        if run:
+            if hasattr(TestResultFile, 'run_uuid'):
+                done = TestResultFile.query.filter(
+                    TestResultFile.run_uuid == run, 
+                    TestResultFile.got.isnot(None)
+                ).count()
+            elif hasattr(TestResultFile, 'run_id'):
+                done = TestResultFile.query.filter(
+                    TestResultFile.run_id == run,
+                    TestResultFile.got.isnot(None)
+                ).count()
+        else:
+            done = TestResultFile.query.filter(
+                TestResultFile.got.isnot(None)
+            ).distinct(TestResultFile.regression_test_id).count()
+            
+    except Exception:
+        done = TestResultFile.query.filter(TestResultFile.got.isnot(None)).count()
+
+    pct = 100 if total == 0 else int((done / total) * 100)
+
+    return jsonify({
+        'status': 'success',
+        'total': total,
+        'completed': done,
+        'percent': pct
+    })

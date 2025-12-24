@@ -122,6 +122,78 @@ def safe_db_commit(db, operation_description: str = "database operation") -> boo
         return False
 
 
+# User-friendly messages for known GCP error codes
+GCP_ERROR_MESSAGES = {
+    'ZONE_RESOURCE_POOL_EXHAUSTED': (
+        "GCP resources temporarily unavailable in the configured zone. "
+        "The test will be retried automatically when resources become available."
+    ),
+    'QUOTA_EXCEEDED': (
+        "GCP quota limit reached. Please wait for other tests to complete "
+        "or contact the administrator."
+    ),
+    'RESOURCE_NOT_FOUND': "Required GCP resource not found. Please contact the administrator.",
+    'RESOURCE_ALREADY_EXISTS': "A VM with this name already exists. Please contact the administrator.",
+    'TIMEOUT': "GCP operation timed out. The test will be retried automatically.",
+}
+
+
+def parse_gcp_error(result: Dict, log=None) -> str:
+    """
+    Parse a GCP API error response and return a user-friendly message.
+
+    GCP errors have the structure:
+    {
+        'error': {
+            'errors': [{'code': 'ERROR_CODE', 'message': '...'}]
+        }
+    }
+
+    For known error codes, returns a user-friendly message.
+    For unknown errors, logs the details server-side and returns a generic message
+    to avoid exposing potentially sensitive information.
+
+    :param result: The GCP API response dictionary
+    :param log: Optional logger instance. If not provided, uses module logger.
+    :return: A user-friendly error message
+    """
+    import logging
+    if log is None:
+        log = logging.getLogger('Platform')
+
+    if not isinstance(result, dict):
+        log.error(f"GCP error (non-dict): {result}")
+        return "VM creation failed. Please contact the administrator."
+
+    error = result.get('error')
+    if error is None:
+        log.error(f"GCP error (no error key): {result}")
+        return "VM creation failed. Please contact the administrator."
+
+    if not isinstance(error, dict):
+        log.error(f"GCP error (error not dict): {error}")
+        return "VM creation failed. Please contact the administrator."
+
+    errors = error.get('errors', [])
+    if not errors:
+        log.error(f"GCP error (empty errors list): {error}")
+        return "VM creation failed. Please contact the administrator."
+
+    # Get the first error (usually the most relevant)
+    first_error = errors[0] if isinstance(errors, list) and len(errors) > 0 else {}
+    error_code = first_error.get('code', 'UNKNOWN')
+    error_message = first_error.get('message', 'No details provided')
+
+    # Check if we have a user-friendly message for this error code
+    if error_code in GCP_ERROR_MESSAGES:
+        return GCP_ERROR_MESSAGES[error_code]
+
+    # For unknown errors, log full details server-side but return generic message
+    # to avoid exposing potentially sensitive information (project names, zones, etc.)
+    log.error(f"GCP error ({error_code}): {error_message}")
+    return f"VM creation failed ({error_code}). Please contact the administrator."
+
+
 mod_ci = Blueprint('ci', __name__)
 
 
@@ -782,9 +854,9 @@ def start_test(compute, app, db, repository: Repository.Repository, test, bot_to
         if not safe_db_commit(db, f"recording GCP instance for test {test.id}"):
             log.error(f"Failed to record GCP instance for test {test.id}, but VM was created")
     else:
-        error_msg = result.get('error', 'Unknown error') if isinstance(result, dict) else str(result)
+        error_msg = parse_gcp_error(result)
         log.error(f"Error creating test instance for test {test.id}, result: {result}")
-        mark_test_failed(db, test, repository, f"Failed to create VM: {error_msg}")
+        mark_test_failed(db, test, repository, error_msg)
 
 
 def create_instance(compute, project, zone, test, reportURL) -> Dict:

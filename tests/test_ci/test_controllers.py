@@ -1,4 +1,5 @@
 import json
+import unittest
 from importlib import reload
 from unittest import mock
 from unittest.mock import MagicMock
@@ -3092,3 +3093,132 @@ class TestMarkTestFailedImproved(BaseTestCase):
         call_args = mock_update_github.call_args
         self.assertEqual(len(call_args[0]), 5)  # 5 positional args including target_url
         self.assertIn("456", call_args[0][4])  # target_url contains test ID
+
+
+class TestParseGcpError(unittest.TestCase):
+    """Tests for the parse_gcp_error helper function."""
+
+    def test_parse_gcp_error_zone_resource_exhausted(self):
+        """Test that ZONE_RESOURCE_POOL_EXHAUSTED returns user-friendly message."""
+        from mod_ci.controllers import parse_gcp_error
+
+        result = {
+            'status': 'DONE',
+            'error': {
+                'errors': [{
+                    'code': 'ZONE_RESOURCE_POOL_EXHAUSTED',
+                    'message': "The zone 'projects/test/zones/us-central1-a' does not "
+                               "have enough resources available to fulfill the request."
+                }]
+            }
+        }
+
+        error_msg = parse_gcp_error(result)
+        self.assertIn("GCP resources temporarily unavailable", error_msg)
+        self.assertIn("retried automatically", error_msg)
+        # Should NOT contain raw technical details
+        self.assertNotIn("us-central1-a", error_msg)
+
+    def test_parse_gcp_error_quota_exceeded(self):
+        """Test that QUOTA_EXCEEDED returns user-friendly message."""
+        from mod_ci.controllers import parse_gcp_error
+
+        result = {
+            'error': {
+                'errors': [{
+                    'code': 'QUOTA_EXCEEDED',
+                    'message': 'Quota exceeded for resource.'
+                }]
+            }
+        }
+
+        error_msg = parse_gcp_error(result)
+        self.assertIn("quota limit reached", error_msg)
+
+    def test_parse_gcp_error_timeout(self):
+        """Test that TIMEOUT returns user-friendly message."""
+        from mod_ci.controllers import parse_gcp_error
+
+        result = {
+            'status': 'TIMEOUT',
+            'error': {
+                'errors': [{
+                    'code': 'TIMEOUT',
+                    'message': 'Operation timed out after 1800 seconds'
+                }]
+            }
+        }
+
+        error_msg = parse_gcp_error(result)
+        self.assertIn("timed out", error_msg)
+        self.assertIn("retried automatically", error_msg)
+
+    def test_parse_gcp_error_unknown_code(self):
+        """Test that unknown error codes return the code and message."""
+        from mod_ci.controllers import parse_gcp_error
+
+        result = {
+            'error': {
+                'errors': [{
+                    'code': 'SOME_NEW_ERROR',
+                    'message': 'Something unexpected happened.'
+                }]
+            }
+        }
+
+        error_msg = parse_gcp_error(result)
+        self.assertIn("SOME_NEW_ERROR", error_msg)
+        self.assertIn("Something unexpected happened", error_msg)
+
+    def test_parse_gcp_error_long_message_truncated(self):
+        """Test that very long error messages are truncated."""
+        from mod_ci.controllers import parse_gcp_error
+
+        long_message = "A" * 300  # 300 characters
+        result = {
+            'error': {
+                'errors': [{
+                    'code': 'UNKNOWN_ERROR',
+                    'message': long_message
+                }]
+            }
+        }
+
+        error_msg = parse_gcp_error(result)
+        self.assertLess(len(error_msg), 250)  # Should be truncated
+        self.assertIn("...", error_msg)
+
+    def test_parse_gcp_error_no_error_key(self):
+        """Test handling when 'error' key is missing."""
+        from mod_ci.controllers import parse_gcp_error
+
+        result = {'status': 'DONE'}
+
+        error_msg = parse_gcp_error(result)
+        self.assertIn("Unknown error", error_msg)
+
+    def test_parse_gcp_error_empty_errors_list(self):
+        """Test handling when 'errors' list is empty."""
+        from mod_ci.controllers import parse_gcp_error
+
+        result = {'error': {'errors': []}}
+
+        error_msg = parse_gcp_error(result)
+        self.assertIn("Unknown error", error_msg)
+
+    def test_parse_gcp_error_not_a_dict(self):
+        """Test handling when result is not a dictionary."""
+        from mod_ci.controllers import parse_gcp_error
+
+        error_msg = parse_gcp_error("some string error")
+        self.assertIn("Unknown error", error_msg)
+        self.assertIn("some string error", error_msg)
+
+    def test_parse_gcp_error_error_not_a_dict(self):
+        """Test handling when 'error' value is not a dictionary."""
+        from mod_ci.controllers import parse_gcp_error
+
+        result = {'error': 'just a string'}
+
+        error_msg = parse_gcp_error(result)
+        self.assertIn("Unknown error", error_msg)

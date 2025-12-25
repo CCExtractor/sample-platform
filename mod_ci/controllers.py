@@ -616,17 +616,21 @@ def mark_test_failed(db, test, repository, message: str) -> bool:
     return db_success and github_success
 
 
-def _diagnose_missing_artifact(repository, commit_sha: str, platform, log) -> str:
+def _diagnose_missing_artifact(repository, commit_sha: str, platform, log) -> tuple:
     """
     Diagnose why an artifact was not found for a commit.
 
-    Checks the workflow run status to provide a more helpful error message.
+    Checks the workflow run status to provide a more helpful error message and
+    indicate whether this is a retryable situation (build still in progress)
+    or a permanent failure (build failed, artifact expired).
 
     :param repository: GitHub repository object
     :param commit_sha: The commit SHA to check
     :param platform: The platform (TestPlatform.linux or TestPlatform.windows)
     :param log: Logger instance
-    :return: A descriptive error message
+    :return: Tuple of (error_message: str, is_retryable: bool)
+             is_retryable=True means the test should NOT be marked as failed
+             and should be left for the next cron cycle to retry
     """
     if platform == TestPlatform.linux:
         expected_workflow = Workflow_builds.LINUX
@@ -648,26 +652,38 @@ def _diagnose_missing_artifact(repository, commit_sha: str, platform, log) -> st
 
             workflow_found = True
             if workflow_run.status != "completed":
-                return (f"Build still in progress: '{expected_workflow}' is {workflow_run.status}. "
-                        f"Please wait for the build to complete and retry.")
+                # Build is still running - this is RETRYABLE
+                # Don't mark as failed, let the next cron cycle retry
+                message = (f"Build still in progress: '{expected_workflow}' is {workflow_run.status}. "
+                           f"Will retry when build completes.")
+                return (message, True)  # Retryable
             elif workflow_run.conclusion != "success":
-                return (f"Build failed: '{expected_workflow}' finished with conclusion '{workflow_run.conclusion}'. "
-                        f"Check the GitHub Actions logs for details.")
+                # Build failed - this is a PERMANENT failure
+                message = (f"Build failed: '{expected_workflow}' finished with conclusion "
+                           f"'{workflow_run.conclusion}'. Check the GitHub Actions logs for details.")
+                return (message, False)  # Not retryable
             else:
                 # Build succeeded but artifact not found - may have expired
-                return (f"Artifact not found: '{expected_workflow}' completed successfully, "
-                        f"but no artifact was found. The artifact may have expired (GitHub deletes "
-                        f"artifacts after a retention period) or was not uploaded properly.")
+                # This is a PERMANENT failure
+                message = (f"Artifact not found: '{expected_workflow}' completed successfully, "
+                           f"but no artifact was found. The artifact may have expired (GitHub deletes "
+                           f"artifacts after a retention period) or was not uploaded properly.")
+                return (message, False)  # Not retryable
 
         if not workflow_found:
-            return (f"No workflow run found: '{expected_workflow}' has not run for commit {commit_sha[:7]}. "
-                    f"This may indicate the workflow was not triggered or is queued.")
+            # No workflow run found - could be queued or not triggered
+            # This is RETRYABLE (workflow might be queued or path filters excluded it)
+            message = (f"No workflow run found: '{expected_workflow}' has not run for commit "
+                       f"{commit_sha[:7]}. The workflow may be queued, or was not triggered "
+                       f"due to path filters. Will retry.")
+            return (message, True)  # Retryable
 
     except Exception as e:
         log.warning(f"Failed to diagnose missing artifact: {e}")
-        return f"No build artifact found for this commit (diagnostic check failed: {e})"
+        # On diagnostic failure, assume retryable to be safe
+        return (f"No build artifact found for this commit (diagnostic check failed: {e})", True)
 
-    return "No build artifact found for this commit"
+    return ("No build artifact found for this commit", True)  # Default to retryable
 
 
 def start_test(compute, app, db, repository: Repository.Repository, test, bot_token) -> None:
@@ -806,8 +822,16 @@ def start_test(compute, app, db, repository: Repository.Repository, test, bot_to
     artifact = find_artifact_for_commit(repository, test.commit, test.platform, log)
 
     if artifact is None:
-        # Use diagnostic function to provide detailed error message
-        error_detail = _diagnose_missing_artifact(repository, test.commit, test.platform, log)
+        # Use diagnostic function to determine if this is retryable
+        error_detail, is_retryable = _diagnose_missing_artifact(repository, test.commit, test.platform, log)
+
+        if is_retryable:
+            # Build is still in progress or workflow is queued - don't mark as failed
+            # Just return and let the next cron cycle retry this test
+            log.info(f"Test {test.id}: {error_detail}")
+            return
+
+        # Permanent failure - mark the test as failed
         log.critical(f"Test {test.id}: Could not find artifact for commit {test.commit[:8]}: {error_detail}")
         mark_test_failed(db, test, repository, error_detail)
         return

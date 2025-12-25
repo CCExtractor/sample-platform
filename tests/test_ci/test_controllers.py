@@ -3248,3 +3248,220 @@ class TestParseGcpError(unittest.TestCase):
         error_msg = parse_gcp_error(result, log=mock_log)
         self.assertIn("VM creation failed", error_msg)
         mock_log.error.assert_called_once()
+
+
+class TestDiagnoseMissingArtifact(BaseTestCase):
+    """Test the _diagnose_missing_artifact function and retry behavior."""
+
+    def test_build_in_progress_is_retryable(self):
+        """Test that build in progress returns retryable=True."""
+        from mod_ci.controllers import _diagnose_missing_artifact
+
+        repository = MagicMock()
+        log = MagicMock()
+
+        # Mock workflow
+        workflow = MagicMock()
+        workflow.id = 1
+        workflow.name = "Build CCExtractor on Linux"
+        repository.get_workflows.return_value = [workflow]
+
+        # Mock workflow run - in progress
+        workflow_run = MagicMock()
+        workflow_run.workflow_id = 1
+        workflow_run.status = "in_progress"
+        repository.get_workflow_runs.return_value = [workflow_run]
+
+        message, is_retryable = _diagnose_missing_artifact(
+            repository, "abc123", TestPlatform.linux, log
+        )
+
+        self.assertTrue(is_retryable)
+        self.assertIn("Build still in progress", message)
+        self.assertIn("Will retry", message)
+
+    def test_build_queued_is_retryable(self):
+        """Test that queued build returns retryable=True."""
+        from mod_ci.controllers import _diagnose_missing_artifact
+
+        repository = MagicMock()
+        log = MagicMock()
+
+        # Mock workflow
+        workflow = MagicMock()
+        workflow.id = 1
+        workflow.name = "Build CCExtractor on Windows"
+        repository.get_workflows.return_value = [workflow]
+
+        # Mock workflow run - queued
+        workflow_run = MagicMock()
+        workflow_run.workflow_id = 1
+        workflow_run.status = "queued"
+        repository.get_workflow_runs.return_value = [workflow_run]
+
+        message, is_retryable = _diagnose_missing_artifact(
+            repository, "abc123", TestPlatform.windows, log
+        )
+
+        self.assertTrue(is_retryable)
+        self.assertIn("Build still in progress", message)
+
+    def test_build_failed_is_not_retryable(self):
+        """Test that failed build returns retryable=False."""
+        from mod_ci.controllers import _diagnose_missing_artifact
+
+        repository = MagicMock()
+        log = MagicMock()
+
+        # Mock workflow
+        workflow = MagicMock()
+        workflow.id = 1
+        workflow.name = "Build CCExtractor on Linux"
+        repository.get_workflows.return_value = [workflow]
+
+        # Mock workflow run - completed but failed
+        workflow_run = MagicMock()
+        workflow_run.workflow_id = 1
+        workflow_run.status = "completed"
+        workflow_run.conclusion = "failure"
+        repository.get_workflow_runs.return_value = [workflow_run]
+
+        message, is_retryable = _diagnose_missing_artifact(
+            repository, "abc123", TestPlatform.linux, log
+        )
+
+        self.assertFalse(is_retryable)
+        self.assertIn("Build failed", message)
+
+    def test_artifact_expired_is_not_retryable(self):
+        """Test that expired artifact returns retryable=False."""
+        from mod_ci.controllers import _diagnose_missing_artifact
+
+        repository = MagicMock()
+        log = MagicMock()
+
+        # Mock workflow
+        workflow = MagicMock()
+        workflow.id = 1
+        workflow.name = "Build CCExtractor on Linux"
+        repository.get_workflows.return_value = [workflow]
+
+        # Mock workflow run - completed successfully but artifact gone
+        workflow_run = MagicMock()
+        workflow_run.workflow_id = 1
+        workflow_run.status = "completed"
+        workflow_run.conclusion = "success"
+        repository.get_workflow_runs.return_value = [workflow_run]
+
+        message, is_retryable = _diagnose_missing_artifact(
+            repository, "abc123", TestPlatform.linux, log
+        )
+
+        self.assertFalse(is_retryable)
+        self.assertIn("Artifact not found", message)
+        self.assertIn("expired", message)
+
+    def test_no_workflow_run_is_retryable(self):
+        """Test that missing workflow run returns retryable=True."""
+        from mod_ci.controllers import _diagnose_missing_artifact
+
+        repository = MagicMock()
+        log = MagicMock()
+
+        # Mock workflow
+        workflow = MagicMock()
+        workflow.id = 1
+        workflow.name = "Build CCExtractor on Linux"
+        repository.get_workflows.return_value = [workflow]
+
+        # No workflow runs for this commit
+        repository.get_workflow_runs.return_value = []
+
+        message, is_retryable = _diagnose_missing_artifact(
+            repository, "abc123", TestPlatform.linux, log
+        )
+
+        self.assertTrue(is_retryable)
+        self.assertIn("No workflow run found", message)
+        self.assertIn("Will retry", message)
+
+    def test_diagnostic_exception_is_retryable(self):
+        """Test that diagnostic failures default to retryable=True."""
+        from mod_ci.controllers import _diagnose_missing_artifact
+
+        repository = MagicMock()
+        log = MagicMock()
+
+        # Make get_workflows throw an exception
+        repository.get_workflows.side_effect = Exception("API error")
+
+        message, is_retryable = _diagnose_missing_artifact(
+            repository, "abc123", TestPlatform.linux, log
+        )
+
+        self.assertTrue(is_retryable)
+        self.assertIn("diagnostic check failed", message)
+
+
+class TestStartTestRetryBehavior(BaseTestCase):
+    """Test that start_test correctly handles retryable vs permanent failures."""
+
+    @mock.patch('mod_ci.controllers.find_artifact_for_commit')
+    @mock.patch('mod_ci.controllers._diagnose_missing_artifact')
+    @mock.patch('mod_ci.controllers.mark_test_failed')
+    @mock.patch('mod_ci.controllers.GcpInstance')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('run.log')
+    def test_retryable_failure_does_not_mark_test_failed(
+            self, mock_log, mock_progress, mock_gcp, mock_mark_failed,
+            mock_diagnose, mock_find_artifact):
+        """Test that retryable failures don't mark the test as failed."""
+        from mod_ci.controllers import start_test
+
+        # Setup: artifact not found, but build is in progress (retryable)
+        mock_find_artifact.return_value = None
+        mock_diagnose.return_value = ("Build still in progress", True)
+
+        # Mock locking checks
+        mock_gcp.query.filter.return_value.first.return_value = None
+        mock_progress.query.filter.return_value.first.return_value = None
+
+        test = Test.query.first()
+        repository = MagicMock()
+
+        start_test(MagicMock(), self.app, g.db, repository, test, "token")
+
+        # Should NOT call mark_test_failed for retryable failure
+        mock_mark_failed.assert_not_called()
+        # Should log info, not critical
+        mock_log.info.assert_called()
+
+    @mock.patch('mod_ci.controllers.find_artifact_for_commit')
+    @mock.patch('mod_ci.controllers._diagnose_missing_artifact')
+    @mock.patch('mod_ci.controllers.mark_test_failed')
+    @mock.patch('mod_ci.controllers.GcpInstance')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('run.log')
+    def test_permanent_failure_marks_test_failed(
+            self, mock_log, mock_progress, mock_gcp, mock_mark_failed,
+            mock_diagnose, mock_find_artifact):
+        """Test that permanent failures mark the test as failed."""
+        from mod_ci.controllers import start_test
+
+        # Setup: artifact not found, build failed (not retryable)
+        mock_find_artifact.return_value = None
+        mock_diagnose.return_value = ("Build failed with conclusion 'failure'", False)
+
+        # Mock locking checks
+        mock_gcp.query.filter.return_value.first.return_value = None
+        mock_progress.query.filter.return_value.first.return_value = None
+
+        test = Test.query.first()
+        repository = MagicMock()
+
+        start_test(MagicMock(), self.app, g.db, repository, test, "token")
+
+        # SHOULD call mark_test_failed for permanent failure
+        mock_mark_failed.assert_called_once()
+        # Should log critical
+        mock_log.critical.assert_called()

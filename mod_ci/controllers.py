@@ -1890,6 +1890,13 @@ def progress_type_request(log, test, test_id, request) -> bool:
             message = 'Tests completed'
         if test.test_type == TestType.pull_request:
             state = comment_pr(test)
+            # Update message to match the state returned by comment_pr()
+            # comment_pr() uses different logic: it returns SUCCESS if there are
+            # no NEW failures compared to master (pre-existing failures are OK)
+            if state == Status.SUCCESS:
+                message = 'All tests passed'
+            else:
+                message = 'Not all tests completed successfully, please check'
         update_build_badge(state, test)
 
     else:

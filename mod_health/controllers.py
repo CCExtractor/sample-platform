@@ -1,7 +1,9 @@
 """Health check endpoints for deployment verification and monitoring."""
 
+import os
+import subprocess
 from datetime import datetime
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from flask import Blueprint, current_app, jsonify
 
@@ -112,3 +114,70 @@ def readiness_check() -> Tuple[Any, int]:
     :rtype: Tuple[Any, int]
     """
     return health_check()
+
+
+def get_git_info() -> Dict[str, Optional[str]]:
+    """
+    Get git repository information for the deployed version.
+
+    :return: Dictionary with git commit hash, short hash, and branch
+    :rtype: Dict[str, Optional[str]]
+    """
+    result: Dict[str, Optional[str]] = {
+        'commit': None,
+        'short': None,
+        'branch': None,
+    }
+
+    try:
+        # Get the installation folder from config, fallback to current directory
+        install_folder = current_app.config.get('INSTALL_FOLDER', os.getcwd())
+
+        # Get full commit hash
+        commit = subprocess.check_output(
+            ['git', 'rev-parse', 'HEAD'],
+            cwd=install_folder,
+            stderr=subprocess.DEVNULL
+        ).decode().strip()
+        result['commit'] = commit
+        result['short'] = commit[:7]
+
+        # Get current branch
+        branch = subprocess.check_output(
+            ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
+            cwd=install_folder,
+            stderr=subprocess.DEVNULL
+        ).decode().strip()
+        result['branch'] = branch
+
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        # Git not available or not a git repository
+        current_app.logger.warning('Could not retrieve git version information')
+
+    return result
+
+
+@mod_health.route('/health/version')
+def version_check() -> Tuple[Any, int]:
+    """
+    Version endpoint to verify deployed commit.
+
+    Returns the current git commit hash, useful for verifying
+    that a deployment has completed successfully.
+
+    :return: JSON response with version information
+    :rtype: Tuple[Any, int]
+    """
+    git_info = get_git_info()
+
+    response = {
+        'timestamp': datetime.utcnow().isoformat() + 'Z',
+        'git': git_info,
+    }
+
+    # Return 200 if we have version info, 503 if we couldn't get it
+    if git_info['commit']:
+        return jsonify(response), 200
+    else:
+        response['error'] = 'Could not retrieve version information'
+        return jsonify(response), 503

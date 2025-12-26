@@ -1,6 +1,5 @@
 """Celery tasks for CI platform operations."""
 
-from celery import shared_task
 from celery.exceptions import SoftTimeLimitExceeded
 from celery.utils.log import get_task_logger
 from github import Auth, Github, GithubException
@@ -31,16 +30,12 @@ def start_test_task(self, test_id: int, bot_token: str):
     :return: Dict with status and message
     """
     # Import inside task to avoid circular imports and ensure fresh Flask context
-    from run import app, config
-
     from database import create_session
-    from mod_ci.controllers import (
-        get_compute_service_object,
-        mark_test_failed,
-        start_test,
-    )
+    from mod_ci.controllers import (get_compute_service_object,
+                                    mark_test_failed, start_test)
     from mod_ci.models import GcpInstance
     from mod_test.models import Test
+    from run import app, config
 
     with app.app_context():
         db = create_session(config['DATABASE_URI'])
@@ -123,11 +118,12 @@ def check_expired_instances_task(self):
 
     :return: Dict with status and message
     """
-    from run import app, config
+    from github import Auth, Github
 
     from database import create_session
-    from github import Auth, Github
-    from mod_ci.controllers import delete_expired_instances, get_compute_service_object
+    from mod_ci.controllers import (delete_expired_instances,
+                                    get_compute_service_object)
+    from run import app, config
 
     with app.app_context():
         db = create_session(config['DATABASE_URI'])
@@ -178,11 +174,10 @@ def process_pending_tests_task(self):
 
     :return: Dict with status and count of queued tests
     """
-    from run import app, config
-
     from database import create_session
     from mod_ci.models import GcpInstance, MaintenanceMode
     from mod_test.models import Test, TestPlatform, TestProgress, TestStatus
+    from run import app, config
 
     with app.app_context():
         db = create_session(config['DATABASE_URI'])

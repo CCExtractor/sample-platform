@@ -25,7 +25,22 @@ if EXIST "%dstDir%\ccextractorwinfull.exe" (
     echo === CCExtractor Binary Version === >> "%logFile%"
     ccextractorwinfull.exe --version >> "%logFile%" 2>&1
     echo === End Version Info === >> "%logFile%"
-    call :postStatus "testing" "Running tests"
+    
+    rem Count total tests from XML file
+    SET totalTests=0
+    if EXIST "%testFile%" (
+        rem Count <test> elements in the XML file using findstr
+        for /F %%C in ('findstr /R "<test>" "%testFile%" ^| find /C "<test>"') do SET totalTests=%%C
+        echo Total tests to run: %totalTests% >> "%logFile%"
+    )
+    
+    rem Post testing status with total count if available
+    if %totalTests% GTR 0 (
+        call :postStatus "testing" "Running tests" "0" "%totalTests%"
+    ) else (
+        call :postStatus "testing" "Running tests"
+    )
+    
     call :executeCommand cd %suiteDstDir%
     call :executeCommand "%tester%" --debug True --entries "%testFile%" --executable "ccextractorwinfull.exe" --tempfolder "%tempFolder%" --timeout 600 --reportfolder "%reportFolder%" --resultfolder "%resultFolder%" --samplefolder "%sampleFolder%" --method Server --url "%reportURL%"
 
@@ -59,7 +74,11 @@ EXIT /B 0
 rem Post status to the server
 :postStatus
 echo "Posting status %~1 (message: %~2) to the server"
-curl -s -A "%userAgent%" --data "type=progress&status=%~1&message=%~2" -w "\n" "%reportURL%" >> "%logFile%"
+if "%~3"=="" (
+    curl -s -A "%userAgent%" --data "type=progress&status=%~1&message=%~2" -w "\n" "%reportURL%" >> "%logFile%"
+) else (
+    curl -s -A "%userAgent%" --data "type=progress&status=%~1&message=%~2&current_test=%~3&total_tests=%~4" -w "\n" "%reportURL%" >> "%logFile%"
+)
 timeout 10
 EXIT /B 0
 

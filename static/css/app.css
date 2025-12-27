@@ -282,6 +282,22 @@ ol.progtrckr li.progtrckr-running.error {
     border-color: red;
 }
 
+ol.progtrckr li .test-count {
+    font-size: 0.85em;
+    font-weight: normal;
+    color: #555;
+    display: inline-block;
+    margin-left: 0.3em;
+}
+
+ol.progtrckr li.progtrckr-running .test-count {
+    color: #000;
+}
+
+ol.progtrckr li.progtrckr-done .test-count {
+    color: #333;
+}
+
 .category-header {
     cursor: pointer;
 }

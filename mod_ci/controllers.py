@@ -1833,6 +1833,23 @@ def progress_type_request(log, test, test_id, request) -> bool:
     status = TestStatus.from_string(request.form['status'])
     current_status = TestStatus.progress_step(status)
     message = request.form['message']
+    
+    # Get optional test count parameters
+    current_test = request.form.get('current_test', None)
+    total_tests = request.form.get('total_tests', None)
+    
+    # Convert to integers if provided
+    if current_test is not None:
+        try:
+            current_test = int(current_test)
+        except (ValueError, TypeError):
+            current_test = None
+    
+    if total_tests is not None:
+        try:
+            total_tests = int(total_tests)
+        except (ValueError, TypeError):
+            total_tests = None
 
     if len(test.progress) != 0:
         last_status = TestStatus.progress_step(test.progress[-1].status)
@@ -1857,8 +1874,19 @@ def progress_type_request(log, test, test_id, request) -> bool:
                 # set time taken in seconds to do preparation
                 time_diff = (prep_finish_time - gcp_instance_entry.timestamp).total_seconds()
                 set_avg_time(test.platform, "prep", time_diff)
+        
+        # Update existing testing progress entry with new test counts
+        elif status == TestStatus.testing and last_status == current_status:
+            # Update the last progress entry instead of creating a new one
+            last_progress = test.progress[-1]
+            last_progress.message = message
+            last_progress.current_test = current_test
+            last_progress.total_tests = total_tests
+            if not safe_db_commit(g.db, f"updating test progress for test {test_id}"):
+                return False
+            return True
 
-    progress = TestProgress(test.id, status, message)
+    progress = TestProgress(test.id, status, message, current_test=current_test, total_tests=total_tests)
     g.db.add(progress)
     if not safe_db_commit(g.db, f"adding progress for test {test_id}"):
         return False
@@ -2216,6 +2244,11 @@ def get_info_for_pr_comment(test: Test) -> PrCommentInfo:
     common_failed_tests = []
     fixed_tests = []
     category_stats = []
+    
+    # Track processed RegressionTest IDs to ensure uniqueness
+    extra_failed_ids = set()
+    common_failed_ids = set()
+    fixed_test_ids = set()
 
     test_results = get_test_results(test)
     platform_column = f"last_passed_on_{test.platform.value}"
@@ -2223,16 +2256,25 @@ def get_info_for_pr_comment(test: Test) -> PrCommentInfo:
         category_name = category_results['category'].name
 
         category_test_pass_count = 0
-        for test in category_results['tests']:
-            if not test['error']:
+        for test_item in category_results['tests']:
+            if not test_item['error']:
                 category_test_pass_count += 1
-                if last_test_master and getattr(test['test'], platform_column) != last_test_master.id:
-                    fixed_tests.append(test['test'])
+                if last_test_master and getattr(test_item['test'], platform_column) != last_test_master.id:
+                    # Only add if not already processed
+                    if test_item['test'].id not in fixed_test_ids:
+                        fixed_tests.append(test_item['test'])
+                        fixed_test_ids.add(test_item['test'].id)
             else:
-                if last_test_master and getattr(test['test'], platform_column) != last_test_master.id:
-                    common_failed_tests.append(test['test'])
+                if last_test_master and getattr(test_item['test'], platform_column) != last_test_master.id:
+                    # Only add if not already processed
+                    if test_item['test'].id not in common_failed_ids:
+                        common_failed_tests.append(test_item['test'])
+                        common_failed_ids.add(test_item['test'].id)
                 else:
-                    extra_failed_tests.append(test['test'])
+                    # Only add if not already processed
+                    if test_item['test'].id not in extra_failed_ids:
+                        extra_failed_tests.append(test_item['test'])
+                        extra_failed_ids.add(test_item['test'].id)
 
         category_stats.append(CategoryTestInfo(category_name, len(category_results['tests']), category_test_pass_count))
 
@@ -2250,6 +2292,8 @@ def comment_pr(test: Test) -> str:
 
     test_id = test.id
     platform = test.platform.name
+    # Refresh the test object to ensure all relationships are up-to-date
+    g.db.refresh(test)
     comment_info = get_info_for_pr_comment(test)
     template = app.jinja_env.get_or_select_template('ci/pr_comment.txt')
     message = template.render(comment_info=comment_info, test_id=test_id, platform=platform)

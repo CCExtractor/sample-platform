@@ -17,7 +17,11 @@ fi
 # Post status to the server
 function postStatus {
     echo "Posting ${1} - ${2} to the server:" >> "${logFile}"
-    curl -s -A "${userAgent}" --data "type=progress&status=$1&message=$2" -w "\n" "${reportURL}" >> "${logFile}"
+    if [ -n "$3" ] && [ -n "$4" ]; then
+        curl -s -A "${userAgent}" --data "type=progress&status=$1&message=$2&current_test=$3&total_tests=$4" -w "\n" "${reportURL}" >> "${logFile}"
+    else
+        curl -s -A "${userAgent}" --data "type=progress&status=$1&message=$2" -w "\n" "${reportURL}" >> "${logFile}"
+    fi
     sleep 5
 }
 
@@ -65,7 +69,22 @@ if [ -e "${dstDir}/ccextractor" ]; then
         echo "=== CCExtractor Binary Version ===" >> "${logFile}"
         ./ccextractor --version >> "${logFile}" 2>&1
         echo "=== End Version Info ===" >> "${logFile}"
-        postStatus "testing" "Running tests"
+        
+        # Count total tests from XML file
+        totalTests=0
+        if [ -f "${testFile}" ]; then
+            # Count <test> elements in the XML file
+            totalTests=$(grep -c "<test>" "${testFile}" 2>/dev/null || echo "0")
+            echo "Total tests to run: ${totalTests}" >> "${logFile}"
+        fi
+        
+        # Post testing status with total count
+        if [ ${totalTests} -gt 0 ]; then
+            postStatus "testing" "Running tests" "0" "${totalTests}"
+        else
+            postStatus "testing" "Running tests"
+        fi
+        
         executeCommand cd ${suiteDstDir}
         executeCommand ${tester} --debug --entries "${testFile}" --executable "ccextractor" --tempfolder "${tempFolder}" --timeout 600 --reportfolder "${reportFolder}" --resultfolder "${resultFolder}" --samplefolder "${sampleFolder}" --method Server --url "${reportURL}"
         sendLogFile

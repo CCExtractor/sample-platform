@@ -3392,8 +3392,9 @@ class TestDiagnoseMissingArtifact(BaseTestCase):
 
     def test_recently_completed_build_is_retryable(self):
         """Test that recently completed build (within grace period) returns retryable=True."""
+        from datetime import datetime, timedelta, timezone
+
         from mod_ci.controllers import _diagnose_missing_artifact
-        from datetime import datetime, timezone, timedelta
 
         repository = MagicMock()
         log = MagicMock()
@@ -3422,8 +3423,9 @@ class TestDiagnoseMissingArtifact(BaseTestCase):
 
     def test_old_completed_build_is_not_retryable(self):
         """Test that build completed more than grace period ago returns retryable=False."""
+        from datetime import datetime, timedelta, timezone
+
         from mod_ci.controllers import _diagnose_missing_artifact
-        from datetime import datetime, timezone, timedelta
 
         repository = MagicMock()
         log = MagicMock()

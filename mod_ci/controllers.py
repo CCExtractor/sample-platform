@@ -1933,8 +1933,16 @@ def progress_type_request(log, test, test_id, request) -> bool:
     else:
         message = progress.message
 
-    gh_commit = repository.get_commit(test.commit)
-    update_status_on_github(gh_commit, state, message, context, target_url=target_url)
+    # Use retry logic for final GitHub status update to prevent stuck "pending" states
+    # This is critical - if this fails, the PR will show "Tests queued" forever
+    try:
+        def update_final_status():
+            gh_commit = repository.get_commit(test.commit)
+            update_status_on_github(gh_commit, state, message, context, target_url=target_url)
+
+        retry_with_backoff(update_final_status, max_retries=3, initial_backoff=2.0)
+    except Exception as e:
+        log.error(f"Test {test_id}: Failed to update final GitHub status after retries: {e}")
 
     if status in [TestStatus.completed, TestStatus.canceled]:
         # Delete the current instance

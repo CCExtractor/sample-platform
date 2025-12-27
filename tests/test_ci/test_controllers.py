@@ -3094,6 +3094,35 @@ class TestMarkTestFailedImproved(BaseTestCase):
         self.assertEqual(len(call_args[0]), 5)  # 5 positional args including target_url
         self.assertIn("456", call_args[0][4])  # target_url contains test ID
 
+    @mock.patch('mod_ci.controllers.update_status_on_github')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('mod_ci.controllers.retry_with_backoff')
+    def test_mark_test_failed_uses_retry_for_github(self, mock_retry, mock_progress, mock_update_github):
+        """Test that mark_test_failed uses retry_with_backoff for GitHub status update."""
+        from mod_ci.controllers import mark_test_failed
+
+        db = MagicMock()
+        test = MagicMock()
+        test.id = 789
+        test.commit = "abc123"
+        test.platform.value = "linux"
+
+        repository = MagicMock()
+        gh_commit = MagicMock()
+        repository.get_commit.return_value = gh_commit
+
+        # Make retry_with_backoff call the function it receives
+        mock_retry.side_effect = lambda func, **kwargs: func()
+
+        with mock.patch('run.log'):
+            mark_test_failed(db, test, repository, "Test error")
+
+        # Verify retry_with_backoff was called with correct parameters
+        mock_retry.assert_called_once()
+        call_kwargs = mock_retry.call_args[1]
+        self.assertEqual(call_kwargs['max_retries'], 3)
+        self.assertEqual(call_kwargs['initial_backoff'], 2.0)
+
 
 class TestParseGcpError(unittest.TestCase):
     """Tests for the parse_gcp_error helper function."""
@@ -3360,6 +3389,65 @@ class TestDiagnoseMissingArtifact(BaseTestCase):
         self.assertFalse(is_retryable)
         self.assertIn("Artifact not found", message)
         self.assertIn("expired", message)
+
+    def test_recently_completed_build_is_retryable(self):
+        """Test that recently completed build (within grace period) returns retryable=True."""
+        from mod_ci.controllers import _diagnose_missing_artifact
+        from datetime import datetime, timezone, timedelta
+
+        repository = MagicMock()
+        log = MagicMock()
+
+        # Mock workflow
+        workflow = MagicMock()
+        workflow.id = 1
+        workflow.name = "Build CCExtractor on Linux"
+        repository.get_workflows.return_value = [workflow]
+
+        # Mock workflow run - completed successfully but very recently (1 minute ago)
+        workflow_run = MagicMock()
+        workflow_run.workflow_id = 1
+        workflow_run.status = "completed"
+        workflow_run.conclusion = "success"
+        workflow_run.updated_at = datetime.now(timezone.utc) - timedelta(seconds=60)
+        repository.get_workflow_runs.return_value = [workflow_run]
+
+        message, is_retryable = _diagnose_missing_artifact(
+            repository, "abc123", TestPlatform.linux, log
+        )
+
+        self.assertTrue(is_retryable)
+        self.assertIn("Build completed recently", message)
+        self.assertIn("Will retry", message)
+
+    def test_old_completed_build_is_not_retryable(self):
+        """Test that build completed more than grace period ago returns retryable=False."""
+        from mod_ci.controllers import _diagnose_missing_artifact
+        from datetime import datetime, timezone, timedelta
+
+        repository = MagicMock()
+        log = MagicMock()
+
+        # Mock workflow
+        workflow = MagicMock()
+        workflow.id = 1
+        workflow.name = "Build CCExtractor on Linux"
+        repository.get_workflows.return_value = [workflow]
+
+        # Mock workflow run - completed 10 minutes ago (beyond grace period)
+        workflow_run = MagicMock()
+        workflow_run.workflow_id = 1
+        workflow_run.status = "completed"
+        workflow_run.conclusion = "success"
+        workflow_run.updated_at = datetime.now(timezone.utc) - timedelta(seconds=600)
+        repository.get_workflow_runs.return_value = [workflow_run]
+
+        message, is_retryable = _diagnose_missing_artifact(
+            repository, "abc123", TestPlatform.linux, log
+        )
+
+        self.assertFalse(is_retryable)
+        self.assertIn("Artifact not found", message)
 
     def test_no_workflow_run_is_retryable(self):
         """Test that missing workflow run returns retryable=True."""

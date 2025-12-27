@@ -48,7 +48,12 @@
                         {% if progress.progress.state == 'error' and progress.progress.step == loop.index0 -%}
                             {% set status = status ~ ' error' %}
                         {%- endif %}
-                        <li class="progtrckr-{{ status }}" id="trckr-{{ stage.description }}">{{ stage.description }}</li>
+                        <li class="progtrckr-{{ status }}" id="trckr-{{ stage.description }}">
+                            {{ stage.description }}
+                            {% if stage == progress.stages[1] and 'current_test' in progress.progress and 'total_tests' in progress.progress -%}
+                                <span class="test-count"> ({{ progress.progress['current_test'] }}/{{ progress.progress['total_tests'] }})</span>
+                            {%- endif %}
+                        </li>
                     {%- endfor %}
                 </ol>
                 <br class="clear" />
@@ -198,6 +203,17 @@
                                 track = $("#trckr-{{ stage.description }}");
                                 track.removeClass("progtrckr-done progtrckr-running progtrckr-error progtrckr-todo");
                                 track.addClass("progtrckr-"+status);
+                                
+                                // Update test count for Testing stage
+                                {% if loop.index0 == 1 %}
+                                if (data.details.current_test && data.details.total_tests) {
+                                    var testCountHtml = ' <span class="test-count">(' + data.details.current_test + '/' + data.details.total_tests + ')</span>';
+                                    track.find('.test-count').remove();
+                                    track.append(testCountHtml);
+                                } else {
+                                    track.find('.test-count').remove();
+                                }
+                                {% endif %}
                             {% endfor %}
                                 row = "";
                                 for (i = 0; i < val.length; i++) {

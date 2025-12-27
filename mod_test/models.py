@@ -231,6 +231,12 @@ class Test(Base):
             else:
                 result['progress']['state'] = 'ok'  # type: ignore
                 result['progress']['step'] = TestStatus.progress_step(last_status.status)   # type: ignore
+            
+            # Add test progress counts if available
+            if last_status.current_test is not None:
+                result['progress']['current_test'] = last_status.current_test  # type: ignore
+            if last_status.total_tests is not None:
+                result['progress']['total_tests'] = last_status.total_tests  # type: ignore
 
         return result
 
@@ -276,8 +282,10 @@ class TestProgress(Base):
     status = Column(TestStatus.db_type(), nullable=False)
     timestamp = Column(DateTime(timezone=True), nullable=False)
     message = Column(Text(), nullable=False)
+    current_test = Column(Integer, nullable=True)
+    total_tests = Column(Integer, nullable=True)
 
-    def __init__(self, test_id, status, message, timestamp=None) -> None:
+    def __init__(self, test_id, status, message, timestamp=None, current_test=None, total_tests=None) -> None:
         """
         Parametrized constructor for the TestProgress model.
 
@@ -289,6 +297,10 @@ class TestProgress(Base):
         :type message: str
         :param timestamp: The value of the 'timestamp' field of TestProgress model (None by default)
         :type timestamp: datetime
+        :param current_test: The current test number being executed (None by default)
+        :type current_test: int
+        :param total_tests: The total number of tests to execute (None by default)
+        :type total_tests: int
         """
         self.test_id = test_id
         self.status = status
@@ -303,6 +315,8 @@ class TestProgress(Base):
 
         self.timestamp = timestamp
         self.message = message
+        self.current_test = current_test
+        self.total_tests = total_tests
 
     def __repr__(self) -> str:
         """

@@ -1802,6 +1802,23 @@ def progress_type_request(log, test, test_id, request) -> bool:
     status = TestStatus.from_string(request.form['status'])
     current_status = TestStatus.progress_step(status)
     message = request.form['message']
+    
+    # Get optional test count parameters
+    current_test = request.form.get('current_test', None)
+    total_tests = request.form.get('total_tests', None)
+    
+    # Convert to integers if provided
+    if current_test is not None:
+        try:
+            current_test = int(current_test)
+        except (ValueError, TypeError):
+            current_test = None
+    
+    if total_tests is not None:
+        try:
+            total_tests = int(total_tests)
+        except (ValueError, TypeError):
+            total_tests = None
 
     if len(test.progress) != 0:
         last_status = TestStatus.progress_step(test.progress[-1].status)
@@ -1826,8 +1843,19 @@ def progress_type_request(log, test, test_id, request) -> bool:
                 # set time taken in seconds to do preparation
                 time_diff = (prep_finish_time - gcp_instance_entry.timestamp).total_seconds()
                 set_avg_time(test.platform, "prep", time_diff)
+        
+        # Update existing testing progress entry with new test counts
+        elif status == TestStatus.testing and last_status == current_status:
+            # Update the last progress entry instead of creating a new one
+            last_progress = test.progress[-1]
+            last_progress.message = message
+            last_progress.current_test = current_test
+            last_progress.total_tests = total_tests
+            if not safe_db_commit(g.db, f"updating test progress for test {test_id}"):
+                return False
+            return True
 
-    progress = TestProgress(test.id, status, message)
+    progress = TestProgress(test.id, status, message, current_test=current_test, total_tests=total_tests)
     g.db.add(progress)
     if not safe_db_commit(g.db, f"adding progress for test {test_id}"):
         return False

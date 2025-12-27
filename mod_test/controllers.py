@@ -206,11 +206,17 @@ def get_json_data(test_id):
     pr_data = test.progress_data()
     progress_array = []
     for entry in test.progress:
-        progress_array.append({
+        entry_data = {
             'timestamp': entry.timestamp.strftime('%Y-%m-%d %H:%M:%S (%Z)'),
             'status': entry.status.description,
             'message': entry.message
-        })
+        }
+        # Add test counts if available
+        if entry.current_test is not None:
+            entry_data['current_test'] = entry.current_test
+        if entry.total_tests is not None:
+            entry_data['total_tests'] = entry.total_tests
+        progress_array.append(entry_data)
 
     return jsonify({
         'status': 'success',

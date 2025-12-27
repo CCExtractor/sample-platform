@@ -584,22 +584,28 @@ def mark_test_failed(db, test, repository, message: str) -> bool:
         # Continue to try GitHub update even if DB fails
 
     # Step 2: Try to update GitHub status (CRITICAL - must not be skipped)
+    # Use retry logic since this is critical to prevent stuck "pending" status
     try:
-        gh_commit = repository.get_commit(test.commit)
-        # Include target_url so the status links to the test page
+        # Build target_url first (doesn't need retry)
         from flask import url_for
         try:
             target_url = url_for('test.by_id', test_id=test.id, _external=True)
         except RuntimeError:
             # Outside of request context
             target_url = f"https://sampleplatform.ccextractor.org/test/{test.id}"
-        update_status_on_github(gh_commit, Status.ERROR, message, f"CI - {test.platform.value}", target_url)
+
+        # Use retry_with_backoff for GitHub API calls
+        def update_github_status():
+            gh_commit = repository.get_commit(test.commit)
+            update_status_on_github(gh_commit, Status.ERROR, message, f"CI - {test.platform.value}", target_url)
+
+        retry_with_backoff(update_github_status, max_retries=3, initial_backoff=2.0)
         github_success = True
         log.info(f"Test {test.id}: GitHub status updated to ERROR: {message}")
     except GithubException as e:
-        log.error(f"Test {test.id}: GitHub API error while updating status: {e.status} - {e.data}")
+        log.error(f"Test {test.id}: GitHub API error while updating status (after retries): {e.status} - {e.data}")
     except Exception as e:
-        log.error(f"Test {test.id}: Failed to update GitHub status: {type(e).__name__}: {e}")
+        log.error(f"Test {test.id}: Failed to update GitHub status (after retries): {type(e).__name__}: {e}")
 
     # Log final status
     if db_success and github_success:
@@ -663,8 +669,33 @@ def _diagnose_missing_artifact(repository, commit_sha: str, platform, log) -> tu
                            f"'{workflow_run.conclusion}'. Check the GitHub Actions logs for details.")
                 return (message, False)  # Not retryable
             else:
-                # Build succeeded but artifact not found - may have expired
-                # This is a PERMANENT failure
+                # Build succeeded but artifact not found
+                # Check if the build completed very recently - if so, this might be
+                # GitHub API propagation delay (artifact exists but not visible yet)
+                # In that case, treat as retryable
+                ARTIFACT_PROPAGATION_GRACE_PERIOD = 300  # 5 minutes in seconds
+                try:
+                    from datetime import datetime, timezone
+                    now = datetime.now(timezone.utc)
+                    # workflow_run.updated_at is when the run completed
+                    if workflow_run.updated_at:
+                        completed_at = workflow_run.updated_at
+                        if completed_at.tzinfo is None:
+                            completed_at = completed_at.replace(tzinfo=timezone.utc)
+                        seconds_since_completion = (now - completed_at).total_seconds()
+                        if seconds_since_completion < ARTIFACT_PROPAGATION_GRACE_PERIOD:
+                            message = (f"Build completed recently ({int(seconds_since_completion)}s ago): "
+                                       f"'{expected_workflow}' succeeded but artifact not yet visible. "
+                                       f"Will retry (GitHub API propagation delay).")
+                            log.info(f"Artifact not found but build completed {int(seconds_since_completion)}s ago - "
+                                     f"treating as retryable (possible API propagation delay)")
+                            return (message, True)  # Retryable - API propagation delay
+                except Exception as e:
+                    log.warning(f"Could not check workflow completion time: {e}")
+                    # Fall through to permanent failure
+
+                # Build completed more than 5 minutes ago - artifact should be visible
+                # This is a PERMANENT failure (artifact expired or not uploaded)
                 message = (f"Artifact not found: '{expected_workflow}' completed successfully, "
                            f"but no artifact was found. The artifact may have expired (GitHub deletes "
                            f"artifacts after a retention period) or was not uploaded properly.")
@@ -1890,13 +1921,28 @@ def progress_type_request(log, test, test_id, request) -> bool:
             message = 'Tests completed'
         if test.test_type == TestType.pull_request:
             state = comment_pr(test)
+            # Update message to match the state returned by comment_pr()
+            # comment_pr() uses different logic: it returns SUCCESS if there are
+            # no NEW failures compared to master (pre-existing failures are OK)
+            if state == Status.SUCCESS:
+                message = 'All tests passed'
+            else:
+                message = 'Not all tests completed successfully, please check'
         update_build_badge(state, test)
 
     else:
         message = progress.message
 
-    gh_commit = repository.get_commit(test.commit)
-    update_status_on_github(gh_commit, state, message, context, target_url=target_url)
+    # Use retry logic for final GitHub status update to prevent stuck "pending" states
+    # This is critical - if this fails, the PR will show "Tests queued" forever
+    try:
+        def update_final_status():
+            gh_commit = repository.get_commit(test.commit)
+            update_status_on_github(gh_commit, state, message, context, target_url=target_url)
+
+        retry_with_backoff(update_final_status, max_retries=3, initial_backoff=2.0)
+    except Exception as e:
+        log.error(f"Test {test_id}: Failed to update final GitHub status after retries: {e}")
 
     if status in [TestStatus.completed, TestStatus.canceled]:
         # Delete the current instance

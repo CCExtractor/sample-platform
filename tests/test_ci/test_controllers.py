@@ -1901,7 +1901,10 @@ class TestControllers(BaseTestCase):
 
         mock_log.debug.assert_called_once()
         mock_filename.assert_called_once()
-        self.assertEqual(2, mock_os.path.join.call_count)
+        # 4 calls: temp_dir, temp_path, results_dir, final_path
+        self.assertEqual(4, mock_os.path.join.call_count)
+        # 2 calls: makedirs for TempFiles and TestResults directories
+        self.assertEqual(2, mock_os.makedirs.call_count)
         mock_upload_file.save.assert_called_once()
         mock_open.assert_called_once_with(mock.ANY, "rb")
         mock_os.path.splitext.assert_called_once_with(mock.ANY)

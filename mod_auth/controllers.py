@@ -59,7 +59,8 @@ def login_required(f: Callable) -> Callable:
     def decorated_function(*args, **kwargs):
         if g.user is None:
             g.log.warning(f'login protected endpoint {request.endpoint} accessed before logging in')
-            return redirect(url_for('auth.login', next=request.endpoint))
+            # Store the full URL path instead of just the endpoint name to preserve URL parameters
+            return redirect(url_for('auth.login', next=request.full_path.rstrip('?')))
 
         return f(*args, **kwargs)
 
@@ -225,11 +226,17 @@ def login() -> Union[Response, Dict[str, Union[str, LoginForm]]]:
     """Route for handling the login page."""
     redirect_location = request.args.get('next', '')
 
+    # Validate redirect location to prevent open redirects
+    # Only allow paths starting with / (relative to this site)
+    if redirect_location and (not redirect_location.startswith('/') or redirect_location.startswith('//')):
+        redirect_location = ''
+
     if session.get('user_id', None) is not None:
         flash('You are already logged in!', 'alert')
         if len(redirect_location) == 0:
             return redirect("/")
-        return redirect(url_for(redirect_location))
+        # Redirect directly to the stored path (now stores full URL path, not endpoint name)
+        return redirect(redirect_location)
 
     form = LoginForm(request.form)
     if form.validate_on_submit():
@@ -238,7 +245,8 @@ def login() -> Union[Response, Dict[str, Union[str, LoginForm]]]:
             session['user_id'] = user_to_login.id
             if len(redirect_location) == 0:
                 return redirect("/")
-            return redirect(url_for(redirect_location))
+            # Redirect directly to the stored path (now stores full URL path, not endpoint name)
+            return redirect(redirect_location)
 
         flash('Wrong username or password', 'error-message')
 

@@ -1495,10 +1495,10 @@ def start_ci():
                     gh_commit = repository.get_commit(test.commit)
                     # If test run status exists, mark them as cancelled
                     for status in gh_commit.get_statuses():
-                        if status["context"] == f"CI - {test.platform.value}":
+                        if status.context == f"CI - {test.platform.value}":
                             target_url = url_for('test.by_id', test_id=test.id, _external=True)
                             update_status_on_github(gh_commit, Status.FAILURE, "Tests canceled",
-                                                    status["context"], target_url=target_url)
+                                                    status.context, target_url=target_url)
 
         elif event == "issues":
             g.log.debug('issues event detected')
@@ -2132,7 +2132,9 @@ def upload_type_request(log, test_id, repo_folder, test, request) -> bool:
         if filename == '':
             log.warning('empty filename provided for uploading')
             return False
-        temp_path = os.path.join(repo_folder, 'TempFiles', filename)
+        temp_dir = os.path.join(repo_folder, 'TempFiles')
+        os.makedirs(temp_dir, exist_ok=True)
+        temp_path = os.path.join(temp_dir, filename)
         # Save to temporary location
         uploaded_file.save(temp_path)
         # Get hash and check if it's already been submitted
@@ -2142,9 +2144,9 @@ def upload_type_request(log, test_id, repo_folder, test, request) -> bool:
                 hash_sha256.update(chunk)
         file_hash = hash_sha256.hexdigest()
         filename, file_extension = os.path.splitext(filename)
-        final_path = os.path.join(
-            repo_folder, 'TestResults', f'{file_hash}{file_extension}'
-        )
+        results_dir = os.path.join(repo_folder, 'TestResults')
+        os.makedirs(results_dir, exist_ok=True)
+        final_path = os.path.join(results_dir, f'{file_hash}{file_extension}')
         os.rename(temp_path, final_path)
         rto = RegressionTestOutput.query.filter(
             RegressionTestOutput.id == request.form['test_file_id']).first()

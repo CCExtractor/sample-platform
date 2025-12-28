@@ -104,7 +104,7 @@ class TestControllers(BaseTestCase):
         """Check that it will move to the login page."""
         response = self.app.test_client().get('/regression/test/9432/delete')
         self.assertEqual(response.status_code, 302)
-        self.assertIn(b'/account/login?next=regression.test_delete', response.data)
+        self.assertIn(b'/account/login?next=/regression/test/9432/delete', response.data)
 
     def test_delete_if_will_throw_404(self):
         """Check if it will throw an error 404."""
@@ -249,7 +249,7 @@ class TestControllers(BaseTestCase):
         """Check if it will move to the login page."""
         response = self.app.test_client().get('/regression/category/9432/delete')
         self.assertEqual(response.status_code, 302)
-        self.assertIn(b'/account/login?next=regression.category_delete', response.data)
+        self.assertIn(b'/account/login?next=/regression/category/9432/delete', response.data)
 
     def test_category_delete_if_will_throw_404(self):
         """Check if it will throw an error 404."""
@@ -441,7 +441,7 @@ class TestControllers(BaseTestCase):
         """Check if during output addition without login it will move to the login page."""
         response = self.app.test_client().get('/regression/test/69420/output/new')
         self.assertEqual(response.status_code, 302)
-        self.assertIn(b'/account/login?next=regression.output_add', response.data)
+        self.assertIn(b'/account/login?next=/regression/test/69420/output/new', response.data)
 
     def test_remove_output(self):
         """Check if, it will remove an output."""
@@ -484,7 +484,7 @@ class TestControllers(BaseTestCase):
         """Check it removes output without login."""
         response = self.app.test_client().get('/regression/test/69420/output/remove')
         self.assertEqual(response.status_code, 302)
-        self.assertIn(b'/account/login?next=regression.output_remove', response.data)
+        self.assertIn(b'/account/login?next=/regression/test/69420/output/remove', response.data)
 
     def test_add_output_empty_got(self):
         """Check if, it will add an output with empty got."""

@@ -1305,6 +1305,14 @@ def queue_test(gh_commit: Commit.Commit, commit, test_type, platform, branch="ma
     add_customized_regression_tests(platform_test.id)
 
     if gh_commit is not None:
+        # Check if test already has progress (started or completed)
+        # If so, don't overwrite the GitHub status with "Tests queued"
+        # This prevents the bug where a completed test gets its status overwritten
+        # when a later webhook triggers queue_test for the same commit
+        if len(platform_test.progress) > 0:
+            log.info(f"Test {platform_test.id} already has progress, not posting 'Tests queued' status")
+            return
+
         target_url = url_for('test.by_id', test_id=platform_test.id, _external=True)
         status_context = f"CI - {platform_test.platform.value}"
         update_status_on_github(gh_commit, Status.PENDING, "Tests queued", status_context, target_url)

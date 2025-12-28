@@ -1302,6 +1302,13 @@ def queue_test(gh_commit: Commit.Commit, commit, test_type, platform, branch="ma
                                            Test.branch == branch,
                                            Test.pr_nr == pr_nr
                                            )).first()
+
+    if platform_test is None:
+        log.error(f"No test record found for commit {commit[:8]}, platform {platform.value}, "
+                  f"test_type {test_type}, pr_nr {pr_nr}. "
+                  "This may indicate the pull_request webhook was not processed.")
+        return
+
     add_customized_regression_tests(platform_test.id)
 
     if gh_commit is not None:

@@ -26,5 +26,3 @@ cffi==2.0.0
 PyGithub==2.8.1
 blinker==1.9.0
 click==8.1.7
-celery[redis]==5.3.6
-redis==5.0.1

@@ -37,21 +37,3 @@ LINUX_INSTANCE_FAMILY_NAME = "ubuntu-minimal-2404-lts-amd64"
 GCP_INSTANCE_MAX_RUNTIME = 120  # In minutes
 GCS_BUCKET_NAME = 'spdev'
 GCS_SIGNED_URL_EXPIRY_LIMIT = 720  # In minutes
-
-
-# CELERY TASK QUEUE CONFIG
-CELERY_BROKER_URL = 'redis://localhost:6379/0'
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TIMEZONE = 'UTC'
-CELERY_ENABLE_UTC = True
-CELERY_TASK_ACKS_LATE = True  # Task acknowledged after completion
-CELERY_WORKER_PREFETCH_MULTIPLIER = 1  # One task at a time per worker
-CELERY_TASK_REJECT_ON_WORKER_LOST = True  # Requeue tasks if worker dies
-CELERY_TASK_SOFT_TIME_LIMIT = 3600  # 1 hour soft limit
-CELERY_TASK_TIME_LIMIT = 3900  # 1 hour 5 minutes hard limit
-
-# Feature flag for gradual migration (set to True to enable Celery, False for cron fallback)
-USE_CELERY_TASKS = False

@@ -1971,7 +1971,8 @@ def progress_type_request(log, test, test_id, request) -> bool:
         project = config.get('PROJECT_NAME', '')
         vm_name = f"{test.platform.value}-{test.id}"
         operation = delete_instance(compute, project, zone, vm_name)
-        log.info(f"[Test: {test_id}] VM deletion initiated for {vm_name} (operation: {operation.get('name', 'unknown')})")
+        op_name = operation.get('name', 'unknown')
+        log.info(f"[Test: {test_id}] VM deletion initiated for {vm_name} (op: {op_name})")
 
     # If status is complete, remove the GCP Instance entry
     if status in [TestStatus.completed, TestStatus.canceled]:

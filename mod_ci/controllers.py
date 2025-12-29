@@ -1960,14 +1960,18 @@ def progress_type_request(log, test, test_id, request) -> bool:
         log.error(f"Test {test_id}: Failed to update final GitHub status after retries: {e}")
 
     if status in [TestStatus.completed, TestStatus.canceled]:
-        # Delete the current instance
+        # Delete the current instance (fire-and-forget)
+        # We intentionally don't wait for the deletion to complete because:
+        # 1. Waiting can take 60+ seconds, exceeding nginx/gunicorn timeouts (502 errors)
+        # 2. The deletion will complete eventually - we don't need confirmation
+        # 3. All important work (test results, GitHub status) is already done
         from run import config
         compute = get_compute_service_object()
         zone = config.get('ZONE', '')
         project = config.get('PROJECT_NAME', '')
         vm_name = f"{test.platform.value}-{test.id}"
         operation = delete_instance(compute, project, zone, vm_name)
-        wait_for_operation(compute, project, zone, operation['name'])
+        log.info(f"[Test: {test_id}] VM deletion initiated for {vm_name} (operation: {operation.get('name', 'unknown')})")
 
     # If status is complete, remove the GCP Instance entry
     if status in [TestStatus.completed, TestStatus.canceled]:

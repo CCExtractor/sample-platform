@@ -3546,3 +3546,255 @@ class TestStartTestRetryBehavior(BaseTestCase):
         mock_mark_failed.assert_called_once()
         # Should log critical
         mock_log.critical.assert_called()
+
+
+class TestPendingDeletionTracking(BaseTestCase):
+    """Tests for VM deletion tracking and verification functionality."""
+
+    @mock.patch('run.log')
+    def test_check_operation_status_success(self, mock_log):
+        """Test check_operation_status returns status correctly."""
+        from mod_ci.controllers import check_operation_status
+
+        compute = MagicMock()
+        zone_ops = compute.zoneOperations.return_value.get.return_value
+        zone_ops.execute.return_value = {'status': 'DONE'}
+
+        result = check_operation_status(compute, "project", "zone", "op-123")
+
+        self.assertEqual(result['status'], 'DONE')
+
+    @mock.patch('run.log')
+    def test_check_operation_status_error(self, mock_log):
+        """Test check_operation_status handles API errors."""
+        from mod_ci.controllers import check_operation_status
+
+        compute = MagicMock()
+        zone_ops = compute.zoneOperations.return_value.get.return_value
+        zone_ops.execute.side_effect = Exception("API Error")
+
+        result = check_operation_status(compute, "project", "zone", "op-123")
+
+        self.assertEqual(result['status'], 'ERROR')
+        self.assertIn('error', result)
+
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('mod_ci.controllers.delete_instance')
+    @mock.patch('run.log')
+    def test_delete_instance_with_tracking_success(
+            self, mock_log, mock_delete, mock_commit):
+        """Test delete_instance_with_tracking records pending deletion."""
+        from mod_ci.controllers import delete_instance_with_tracking
+        from mod_ci.models import PendingDeletion
+
+        mock_delete.return_value = {'name': 'op-123'}
+        mock_commit.return_value = True
+
+        db = MagicMock()
+        result = delete_instance_with_tracking(
+            MagicMock(), "project", "zone", "linux-42", db)
+
+        self.assertEqual(result['name'], 'op-123')
+        # Verify PendingDeletion was added
+        db.add.assert_called_once()
+        added_obj = db.add.call_args[0][0]
+        self.assertIsInstance(added_obj, PendingDeletion)
+        self.assertEqual(added_obj.vm_name, 'linux-42')
+        self.assertEqual(added_obj.operation_name, 'op-123')
+
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('mod_ci.controllers.delete_instance')
+    @mock.patch('run.log')
+    def test_delete_instance_with_tracking_failure(
+            self, mock_log, mock_delete, mock_commit):
+        """Test delete_instance_with_tracking handles failures."""
+        from mod_ci.controllers import delete_instance_with_tracking
+        from mod_ci.models import PendingDeletion
+
+        mock_delete.side_effect = Exception("GCP Error")
+        mock_commit.return_value = True
+
+        db = MagicMock()
+        with self.assertRaises(Exception):
+            delete_instance_with_tracking(
+                MagicMock(), "project", "zone", "linux-42", db)
+
+        # Should still record the failed attempt
+        db.add.assert_called_once()
+        added_obj = db.add.call_args[0][0]
+        self.assertIsInstance(added_obj, PendingDeletion)
+        self.assertTrue(added_obj.operation_name.startswith('failed-'))
+
+    @mock.patch('mod_ci.controllers.PendingDeletion')
+    @mock.patch('mod_ci.controllers.check_operation_status')
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('run.log')
+    def test_verify_pending_deletions_success(
+            self, mock_log, mock_commit, mock_check, mock_pending_class):
+        """Test verify_pending_deletions removes successful deletions."""
+        from mod_ci.controllers import verify_pending_deletions
+
+        # Create mock pending deletion
+        mock_pending = MagicMock()
+        mock_pending.vm_name = 'linux-42'
+        mock_pending.operation_name = 'op-123'
+        mock_pending.retry_count = 0
+        mock_pending_class.query.all.return_value = [mock_pending]
+
+        # Operation completed successfully
+        mock_check.return_value = {'status': 'DONE'}
+        mock_commit.return_value = True
+
+        db = MagicMock()
+        verify_pending_deletions(MagicMock(), "project", "zone", db)
+
+        # Should delete the pending record
+        db.delete.assert_called_once_with(mock_pending)
+        mock_commit.assert_called()
+
+    @mock.patch('mod_ci.controllers.PendingDeletion')
+    @mock.patch('mod_ci.controllers.check_operation_status')
+    @mock.patch('mod_ci.controllers._retry_deletion')
+    @mock.patch('run.log')
+    def test_verify_pending_deletions_retries_on_error(
+            self, mock_log, mock_retry, mock_check, mock_pending_class):
+        """Test verify_pending_deletions retries failed deletions."""
+        from mod_ci.controllers import verify_pending_deletions
+
+        # Create mock pending deletion
+        mock_pending = MagicMock()
+        mock_pending.vm_name = 'linux-42'
+        mock_pending.operation_name = 'op-123'
+        mock_pending.retry_count = 0
+        mock_pending_class.query.all.return_value = [mock_pending]
+
+        # Operation failed
+        mock_check.return_value = {
+            'status': 'DONE',
+            'error': {'errors': [{'message': 'Permission denied'}]}
+        }
+
+        db = MagicMock()
+        verify_pending_deletions(MagicMock(), "project", "zone", db)
+
+        # Should retry
+        mock_retry.assert_called_once()
+
+    @mock.patch('mod_ci.controllers.GcpInstance')
+    @mock.patch('mod_ci.controllers.get_running_instances')
+    @mock.patch('mod_ci.controllers.is_instance_testing')
+    @mock.patch('mod_ci.controllers.delete_instance')
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('run.log')
+    def test_scan_for_orphaned_vms_finds_orphan(
+            self, mock_log, mock_commit, mock_delete, mock_is_testing,
+            mock_get_running, mock_gcp_class):
+        """Test scan_for_orphaned_vms finds and deletes orphaned VMs."""
+        from mod_ci.controllers import scan_for_orphaned_vms
+        from mod_ci.models import PendingDeletion
+
+        # Mock running VM
+        mock_get_running.return_value = [{'name': 'linux-42'}]
+        mock_is_testing.return_value = True
+
+        # No GcpInstance record (orphaned)
+        mock_gcp_class.query.filter.return_value.first.return_value = None
+        # Not tracked in PendingDeletion - use real query
+        with mock.patch.object(PendingDeletion, 'query') as mock_query:
+            mock_query.filter.return_value.first.return_value = None
+
+            mock_delete.return_value = {'name': 'op-orphan-42'}
+            mock_commit.return_value = True
+
+            db = MagicMock()
+            scan_for_orphaned_vms(MagicMock(), "project", "zone", db)
+
+            # Should delete the orphan
+            mock_delete.assert_called_once()
+            # Should track it
+            db.add.assert_called_once()
+            added_obj = db.add.call_args[0][0]
+            self.assertIsInstance(added_obj, PendingDeletion)
+            self.assertEqual(added_obj.vm_name, 'linux-42')
+
+    @mock.patch('mod_ci.controllers.PendingDeletion')
+    @mock.patch('mod_ci.controllers.GcpInstance')
+    @mock.patch('mod_ci.controllers.get_running_instances')
+    @mock.patch('mod_ci.controllers.is_instance_testing')
+    @mock.patch('run.log')
+    def test_scan_for_orphaned_vms_ignores_active(
+            self, mock_log, mock_is_testing, mock_get_running,
+            mock_gcp_class, mock_pending_class):
+        """Test scan_for_orphaned_vms ignores VMs with GcpInstance records."""
+        from mod_ci.controllers import scan_for_orphaned_vms
+
+        # Mock running VM
+        mock_get_running.return_value = [{'name': 'linux-42'}]
+        mock_is_testing.return_value = True
+
+        # Has GcpInstance record (active test)
+        mock_gcp_class.query.filter.return_value.first.return_value = MagicMock()
+
+        db = MagicMock()
+        scan_for_orphaned_vms(MagicMock(), "project", "zone", db)
+
+        # Should NOT track or delete
+        db.add.assert_not_called()
+
+    @mock.patch('mod_ci.controllers.delete_instance')
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('run.log')
+    def test_retry_deletion_success(self, mock_log, mock_commit, mock_delete):
+        """Test _retry_deletion successfully retries."""
+        from mod_ci.controllers import _retry_deletion
+        from mod_ci.models import PendingDeletion
+
+        mock_delete.return_value = {'name': 'op-retry-123'}
+        mock_commit.return_value = True
+
+        pending = PendingDeletion('linux-42', 'op-failed')
+        pending.retry_count = 0
+
+        db = MagicMock()
+        _retry_deletion(MagicMock(), "project", "zone", "linux-42", pending, db, mock_log)
+
+        mock_delete.assert_called_once()
+        self.assertEqual(pending.retry_count, 1)
+        self.assertEqual(pending.operation_name, 'op-retry-123')
+
+    @mock.patch('mod_ci.controllers.delete_instance')
+    @mock.patch('run.log')
+    def test_retry_deletion_max_retries(self, mock_log, mock_delete):
+        """Test _retry_deletion stops after max retries."""
+        from mod_ci.controllers import _retry_deletion
+        from mod_ci.models import PendingDeletion
+
+        pending = PendingDeletion('linux-42', 'op-failed')
+        pending.retry_count = PendingDeletion.MAX_RETRIES
+
+        db = MagicMock()
+        _retry_deletion(MagicMock(), "project", "zone", "linux-42", pending, db, mock_log)
+
+        # Should NOT attempt delete
+        mock_delete.assert_not_called()
+        mock_log.error.assert_called()
+
+    @mock.patch('mod_ci.controllers.delete_instance')
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('run.log')
+    def test_retry_deletion_vm_not_found(self, mock_log, mock_commit, mock_delete):
+        """Test _retry_deletion handles 404 (VM already deleted)."""
+        from mod_ci.controllers import _retry_deletion
+        from mod_ci.models import PendingDeletion
+
+        mock_delete.side_effect = Exception("notFound: VM not found")
+        mock_commit.return_value = True
+
+        pending = PendingDeletion('linux-42', 'op-failed')
+        pending.retry_count = 0
+
+        db = MagicMock()
+        _retry_deletion(MagicMock(), "project", "zone", "linux-42", pending, db, mock_log)
+
+        # Should remove the pending record (VM is gone)
+        db.delete.assert_called_once_with(pending)

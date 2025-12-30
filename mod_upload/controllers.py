@@ -13,7 +13,7 @@ import magic
 import requests
 from flask import (Blueprint, flash, g, make_response, redirect,
                    render_template, request, url_for)
-from github import Github
+from github import Auth, Github
 from werkzeug.utils import secure_filename
 
 from decorators import get_menu_entries, template_renderer
@@ -249,7 +249,12 @@ def process_id(upload_id):
 
                 if db_committed:
                     if form.report.data == 'y':
-                        gh = Github(config['GITHUB_TOKEN'])
+                        github_token = config['GITHUB_TOKEN']
+                        if not github_token:
+                            log.error("GitHub token not configured, cannot create issue")
+                            flash('Could not create GitHub issue - token not configured', 'error')
+                            return redirect(url_for('.index'))
+                        gh = Github(auth=Auth.Token(github_token))
                         repository = gh.get_repo(f"{config['GITHUB_OWNER']}/{config['GITHUB_REPOSITORY']}")
                         response = repository.get_contents(".github/ISSUE_TEMPLATE.md")
                         encoded_data = response['content']

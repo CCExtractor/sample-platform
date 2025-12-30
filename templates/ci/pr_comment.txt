@@ -53,9 +53,11 @@ Congratulations: Merging this PR would fix the following tests:
 </details>
 
 {% if comment_info.extra_failed_tests | length %}
-It seems that not all tests were passed completely. This is an indication that the output of some files is not as expected (but might be according to you). 
+It seems that not all tests were passed completely. This is an indication that the output of some files is not as expected (but might be according to you).
+{% elif comment_info.common_failed_tests | length %}
+This PR does not introduce any new test failures. However, some tests are failing on both master and this PR (see above).
 {% else %}
-All tests passing on the master branch were passed completely.
+All tests passed completely.
 {% endif %}
 
 Check the <a href="{{ url_for('test.by_id', test_id=test_id, _external=True) }}">result</a> page for more info.

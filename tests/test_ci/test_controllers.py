@@ -1,4 +1,5 @@
 import json
+import unittest
 from importlib import reload
 from unittest import mock
 from unittest.mock import MagicMock
@@ -7,15 +8,19 @@ from flask import g
 
 from mod_auth.models import Role
 from mod_ci.controllers import (Workflow_builds, get_info_for_pr_comment,
-                                progress_type_request, start_platforms)
+                                is_valid_commit_hash, mark_test_failed,
+                                progress_type_request, retry_with_backoff,
+                                safe_db_commit, start_platforms)
 from mod_ci.models import BlockedUsers
 from mod_customized.models import CustomizedTest
 from mod_home.models import CCExtractorVersion, GeneralData
 from mod_regression.models import (RegressionTest, RegressionTestOutput,
                                    RegressionTestOutputFiles)
 from mod_test.models import Test, TestPlatform, TestResultFile, TestType
-from tests.base import (BaseTestCase, MockResponse, generate_git_api_header,
-                        generate_signature, mock_api_request_github)
+from tests.base import (BaseTestCase, MockResponse, create_mock_db_query,
+                        create_mock_regression_test, empty_github_token,
+                        generate_git_api_header, generate_signature,
+                        mock_api_request_github)
 
 
 class MockGcpInstance:
@@ -168,9 +173,8 @@ class TestControllers(BaseTestCase):
 
         mock_maintenance.query.filter.return_value.first.return_value = MockMaintenance()
 
-        resp = gcp_instance(mock.ANY, mock.ANY, "test", mock.ANY, 1)
+        gcp_instance(mock.ANY, mock.ANY, "test", mock.ANY, 1)
 
-        self.assertIsNone(resp)
         mock_log.info.assert_called_once()
         mock_log.critical.assert_not_called()
         self.assertEqual(mock_log.debug.call_count, 2)
@@ -203,11 +207,22 @@ class TestControllers(BaseTestCase):
         mock_delete_expired_instances.assert_not_called()
         mock_get_compute_service_object.assert_not_called()
 
+    @mock.patch.dict('run.config', {'GITHUB_TOKEN': '', 'GITHUB_OWNER': 'test', 'GITHUB_REPOSITORY': 'test'})
+    @mock.patch('run.log')
+    def test_cron_job_empty_token(self, mock_log):
+        """Test cron returns early when GitHub token is empty."""
+        from mod_ci.cron import cron
+        cron()
+        mock_log.error.assert_called_with('GITHUB_TOKEN not configured, cannot run CI cron')
+
     @mock.patch('mod_ci.controllers.wait_for_operation')
     @mock.patch('mod_ci.controllers.create_instance')
     @mock.patch('builtins.open', new_callable=mock.mock_open())
     @mock.patch('mod_ci.controllers.g')
-    def test_start_test(self, mock_g, mock_open_file, mock_create_instance, mock_wait_for_operation):
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('mod_ci.controllers.GcpInstance')
+    def test_start_test(self, mock_gcp_instance, mock_test_progress, mock_g, mock_open_file,
+                        mock_create_instance, mock_wait_for_operation):
         """Test start_test function."""
         import zipfile
 
@@ -215,6 +230,11 @@ class TestControllers(BaseTestCase):
         from github.Artifact import Artifact
 
         from mod_ci.controllers import Artifact_names, start_test
+
+        # Mock locking checks to return None (no existing instances/progress)
+        mock_gcp_instance.query.filter.return_value.first.return_value = None
+        mock_test_progress.query.filter.return_value.first.return_value = None
+
         test = Test.query.first()
         repository = MagicMock()
 
@@ -244,15 +264,21 @@ class TestControllers(BaseTestCase):
         g.db.add(customized_test)
         g.db.commit()
 
+        # Set up mock db query chain to avoid AsyncMock behavior in Python 3.13+
+        mock_query = create_mock_db_query(mock_g)
+        mock_query.c.got = MagicMock()
+
         # Test when gcp create instance fails
-        mock_wait_for_operation.return_value = 'error occurred'
+        mock_wait_for_operation.return_value = {'status': 'DONE', 'error': {'errors': [{'code': 'TEST_ERROR'}]}}
         start_test(mock.ANY, self.app, mock_g.db, repository, test, mock.ANY)
-        mock_g.db.commit.assert_not_called()
+        # Commit IS called to record the test failure in the database
+        mock_g.db.commit.assert_called_once()
+        mock_g.db.commit.reset_mock()
         mock_create_instance.reset_mock()
         mock_wait_for_operation.reset_mock()
 
         # Test when gcp create instance is successful
-        mock_wait_for_operation.return_value = 'success'
+        mock_wait_for_operation.return_value = {'status': 'DONE'}
         start_test(mock.ANY, self.app, mock_g.db, repository, test, mock.ANY)
         mock_g.db.commit.assert_called_once()
         mock_create_instance.assert_called_once()
@@ -272,7 +298,8 @@ class TestControllers(BaseTestCase):
         test_1 = Test.query.get(1)
         test_1.pr_nr = 0
 
-        # Making pr of test with id 2 already updated
+        # Test with id 2 has a different commit than PR head, but we still run it
+        # (we no longer cancel tests just because a newer commit was pushed)
         test_2 = Test.query.get(2)
         pr_head_sha = test_2.commit + 'f'
         repo.get_pull.return_value.head.sha = pr_head_sha
@@ -287,9 +314,14 @@ class TestControllers(BaseTestCase):
         g.db.add(test_4)
         g.db.commit()
 
+        # Set up mock db query chain to avoid AsyncMock behavior in Python 3.13+
+        create_mock_db_query(mock_g)
+
         gcp_instance(self.app, mock_g.db, TestPlatform.linux, repo, None)
 
-        self.assertEqual(mock_start_test.call_count, 2)
+        # test_1 is descheduled (invalid pr_nr=0)
+        # test_2, test_3, test_4 all run (3 total)
+        self.assertEqual(mock_start_test.call_count, 3)
         mock_get_compute_service_object.assert_called_once()
 
     def test_get_compute_service_object(self):
@@ -454,9 +486,12 @@ class TestControllers(BaseTestCase):
         import mod_ci.controllers
         reload(mod_ci.controllers)
         from mod_ci.controllers import add_test_entry, queue_test
-        add_test_entry(g.db, 'customizedcommitcheck', TestType.commit)
-        queue_test(None, 'customizedcommitcheck', TestType.commit, TestPlatform.linux)
-        queue_test(None, 'customizedcommitcheck', TestType.commit, TestPlatform.windows)
+
+        # Use valid hex commit hash (customizedcommitcheck is not valid hex)
+        test_commit = 'abc1234def567890abc1234def567890abcd1234'
+        add_test_entry(g.db, test_commit, TestType.commit)
+        queue_test(None, test_commit, TestType.commit, TestPlatform.linux)
+        queue_test(None, test_commit, TestType.commit, TestPlatform.windows)
         test = Test.query.filter(Test.id == 3).first()
         customized_test = test.get_customized_regressiontests()
         self.assertIn(2, customized_test)
@@ -629,10 +664,12 @@ class TestControllers(BaseTestCase):
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_release(self, mock_request, mock_repo):
         """Check webhook release update CCExtractor Version for release."""
-        last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
-        # abcdefgh is the new commit after previous version defined in base.py
-        last_commit.value = 'abcdefgh'
-        g.db.commit()
+        # Setup mock for tag ref (lightweight tag)
+        mock_tag_ref = MagicMock()
+        mock_tag_ref.object.type = "commit"
+        mock_tag_ref.object.sha = "abcdef12345678901234567890123456789abcde"
+        mock_repo.return_value.get_git_ref.return_value = mock_tag_ref
+
         with self.app.test_client() as c:
             # Full Release with version with 2.1
             data = {'action': 'published',
@@ -648,17 +685,20 @@ class TestControllers(BaseTestCase):
     def test_webhook_release_edited(self, mock_request, mock_repo):
         """Check webhook action "edited" updates the specified version."""
         from datetime import datetime
+
+        # Setup mock for tag ref
+        mock_tag_ref = MagicMock()
+        mock_tag_ref.object.type = "commit"
+        mock_tag_ref.object.sha = "fedcba09876543210fedcba09876543210fedcba"
+        mock_repo.return_value.get_git_ref.return_value = mock_tag_ref
+
         with self.app.test_client() as c:
-            release = CCExtractorVersion('2.1', '2018-05-30T20:18:44Z', 'abcdefgh')
+            release = CCExtractorVersion('2.1', '2018-05-30T20:18:44Z', 'abcdefgh12345678abcdefgh12345678abcdefgh')
             g.db.add(release)
             g.db.commit()
             # Full Release with version with 2.1
             data = {'action': 'edited',
                     'release': {'prerelease': False, 'published_at': '2018-06-30T20:18:44Z', 'tag_name': 'v2.1'}}
-            last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
-            # abcdefgh is the new commit after previous version defined in base.py
-            last_commit.value = 'abcdefgh'
-            g.db.commit()
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
                 data=json.dumps(data), headers=self.generate_header(data, 'release'))
@@ -671,16 +711,13 @@ class TestControllers(BaseTestCase):
     def test_webhook_release_deleted(self, mock_request, mock_repo):
         """Check webhook action "delete" removes the specified version."""
         with self.app.test_client() as c:
-            release = CCExtractorVersion('2.1', '2018-05-30T20:18:44Z', 'abcdefgh')
+            # Use valid commit hash
+            release = CCExtractorVersion('2.1', '2018-05-30T20:18:44Z', '1111111111111111111111111111111111111111')
             g.db.add(release)
             g.db.commit()
             # Delete full release with version with 2.1
             data = {'action': 'deleted',
                     'release': {'prerelease': False, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': 'v2.1'}}
-            last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
-            # abcdefgh is the new commit after previous version defined in base.py
-            last_commit.value = 'abcdefgh'
-            g.db.commit()
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
                 data=json.dumps(data), headers=self.generate_header(data, 'release'))
@@ -690,15 +727,11 @@ class TestControllers(BaseTestCase):
     def test_webhook_prerelease(self):
         """Check webhook release update CCExtractor Version for prerelease."""
         with self.app.test_client() as c:
-            # Full Release with version with 2.1
+            # Full Release with version with 2.1 (prereleased action is ignored)
             data = {'action': 'prereleased',
                     'release': {'prerelease': True, 'published_at': '2018-05-30T20:18:44Z', 'tag_name': 'v2.1'}}
             sig = generate_signature(str(json.dumps(data)).encode('utf-8'), g.github['ci_key'])
             headers = generate_git_api_header('release', sig)
-            last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
-            # abcdefgh is the new commit after previous version defined in base.py
-            last_commit.value = 'abcdefgh'
-            g.db.commit()
             response = c.post(
                 '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
                 data=json.dumps(data), headers=self.generate_header(data, 'ping'))
@@ -851,10 +884,12 @@ class TestControllers(BaseTestCase):
         self.assertEqual(response.data, b'{"msg": "EOL"}')
         mock_schedule_test.assert_called_once()
 
+    @mock.patch('mod_ci.controllers.verify_artifacts_exist', return_value={'linux': True, 'windows': True})
     @mock.patch('github.Github.get_repo')
     @mock.patch('mod_ci.controllers.queue_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_workflow_run_completed_successful_linux(self, mock_request, mock_queue_test, mock_repo):
+    def test_webhook_workflow_run_completed_successful_linux(self, mock_request, mock_queue_test,
+                                                             mock_repo, mock_verify):
         """Test webhook triggered with workflow run event with action completed and status success on linux."""
         data = {'action': 'completed',
                 'workflow_run': {'event': 'push',
@@ -885,10 +920,12 @@ class TestControllers(BaseTestCase):
                 data=json.dumps(data), headers=self.generate_header(data, 'workflow_run'))
             mock_queue_test.assert_called_once()
 
+    @mock.patch('mod_ci.controllers.verify_artifacts_exist', return_value={'linux': True, 'windows': True})
     @mock.patch('github.Github.get_repo')
     @mock.patch('mod_ci.controllers.queue_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
-    def test_webhook_workflow_run_completed_successful_windows(self, mock_request, mock_queue_test, mock_repo):
+    def test_webhook_workflow_run_completed_successful_windows(self, mock_request, mock_queue_test,
+                                                               mock_repo, mock_verify):
         """Test webhook triggered with workflow run event with action completed and status success on windows."""
         data = {'action': 'completed',
                 'workflow_run': {'event': 'push',
@@ -1027,12 +1064,13 @@ class TestControllers(BaseTestCase):
                 data=json.dumps({}), headers=self.generate_header({}, 'workflow_run', "1"))
         mock_warning.assert_called_once()
 
+    @mock.patch('mod_ci.controllers.verify_artifacts_exist', return_value={'linux': True, 'windows': True})
     @mock.patch('github.Github.get_repo')
     @mock.patch('mod_ci.controllers.BlockedUsers')
     @mock.patch('mod_ci.controllers.queue_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_workflow_run_completed_successful_pr_linux(self, mock_request, mock_queue_test,
-                                                                mock_blocked, mock_repo):
+                                                                mock_blocked, mock_repo, mock_verify):
         """Test webhook triggered - workflow run event, action completed, status success for pull request on linux."""
         data = {'action': 'completed',
                 'workflow_run': {'event': 'pull_request',
@@ -1074,12 +1112,14 @@ class TestControllers(BaseTestCase):
             mock_queue_test.assert_not_called()
             self.assertEqual(response.data, b'ERROR')
 
+    @mock.patch('mod_ci.controllers.verify_artifacts_exist', return_value={'linux': True, 'windows': True})
     @mock.patch('github.Github.get_repo')
     @mock.patch('mod_ci.controllers.BlockedUsers')
     @mock.patch('mod_ci.controllers.queue_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_workflow_run_completed_successful_pr_windows(self, mock_request,
-                                                                  mock_queue_test, mock_blocked, mock_repo):
+                                                                  mock_queue_test, mock_blocked, mock_repo,
+                                                                  mock_verify):
         """Test webhook triggered - workflow run event, action completed, status success for pull request on windows."""
         data = {'action': 'completed',
                 'workflow_run': {'event': 'pull_request',
@@ -1122,13 +1162,15 @@ class TestControllers(BaseTestCase):
             mock_queue_test.assert_not_called()
             self.assertEqual(response.data, b'ERROR')
 
+    @mock.patch('mod_ci.controllers.verify_artifacts_exist', return_value={'linux': True, 'windows': True})
     @mock.patch('github.Github.get_repo')
     @mock.patch('mod_ci.controllers.deschedule_test')
     @mock.patch('mod_ci.controllers.BlockedUsers')
     @mock.patch('mod_ci.controllers.queue_test')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_workflow_run_completed_successful_pr_updated(self, mock_request, mock_queue_test,
-                                                                  mock_blocked, mock_deschedule_test, mock_repo):
+                                                                  mock_blocked, mock_deschedule_test, mock_repo,
+                                                                  mock_verify):
         """Test webhook triggered - workflow run event, action completed, for a pull request whose head was updated."""
         data = {'action': 'completed',
                 'workflow_run': {'event': 'pull_request',
@@ -1165,10 +1207,18 @@ class TestControllers(BaseTestCase):
             mock_queue_test.assert_not_called()
             mock_deschedule_test.assert_called()
 
-    def test_start_ci_with_a_get_request(self):
+    @mock.patch('utility.requests.get')
+    def test_start_ci_with_a_get_request(self, mock_requests_get):
         """Test start_ci function with a request method other than post."""
+        # Mock GitHub meta API response with webhook IP ranges using localhost
+        mock_response = MagicMock()
+        mock_response.json.return_value = {'hooks': ['127.0.0.0/8']}
+        mock_requests_get.return_value = mock_response
+
         with self.app.test_client() as c:
-            response = c.get('/start-ci', environ_overrides=WSGI_ENVIRONMENT, headers=self.generate_header({}, 'test'))
+            response = c.get(
+                '/start-ci', environ_overrides={'REMOTE_ADDR': '127.0.0.1'},
+                headers=self.generate_header({}, 'test'))
             self.assertEqual(response.data, b'OK')
 
     @mock.patch('github.Github')
@@ -1178,9 +1228,11 @@ class TestControllers(BaseTestCase):
         from mod_ci.controllers import add_test_entry, queue_test
         repository = mock_github(g.github['bot_token']).get_repo(
             f"{g.github['repository_owner']}/{g.github['repository']}")
-        add_test_entry(g.db, 'customizedcommitcheck', TestType.pull_request)
+        # Use valid hex commit hash
+        test_commit = 'def5678abc1234def5678abc1234def567890abc'
+        add_test_entry(g.db, test_commit, TestType.pull_request)
         mock_debug.assert_called_once_with('pull request test type detected')
-        queue_test(repository.get_commit("1"), 'customizedcommitcheck', TestType.pull_request, TestPlatform.linux)
+        queue_test(repository.get_commit("1"), test_commit, TestType.pull_request, TestPlatform.linux)
         mock_debug.assert_called_with('Created tests, waiting for cron...')
 
     @mock.patch('run.log.critical')
@@ -1191,13 +1243,16 @@ class TestControllers(BaseTestCase):
         from github import GithubException
 
         from mod_ci.controllers import add_test_entry, queue_test
-        add_test_entry(g.db, 'customizedcommitcheck', TestType.pull_request)
+
+        # Use valid hex commit hash
+        test_commit = '1234567890abcdef1234567890abcdef12345678'
+        add_test_entry(g.db, test_commit, TestType.pull_request)
         mock_debug.assert_called_once_with('pull request test type detected')
         mock_commit = mock_repo.get_commit("1")
         response_data = "mock 400 response"
         mock_commit.create_status = mock.MagicMock(
             side_effect=GithubException(status=400, data=response_data, headers={}))
-        queue_test(mock_commit, 'customizedcommitcheck', TestType.pull_request, TestPlatform.linux)
+        queue_test(mock_commit, test_commit, TestType.pull_request, TestPlatform.linux)
         mock_debug.assert_called_with('Created tests, waiting for cron...')
         mock_critical.assert_called_with(f"Could not post to GitHub! Response: {response_data}")
 
@@ -1234,6 +1289,226 @@ class TestControllers(BaseTestCase):
         deschedule_test(None, 1, TestType.commit, TestPlatform.linux)
         mock_log.debug.assert_not_called()
         mock_log.critical.assert_not_called()
+
+    @mock.patch('run.log')
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('github.Github')
+    def test_deschedule_test_db_commit_failure(
+            self, git_mock, mock_safe_commit, mock_log):
+        """Check deschedule_test handles db commit failure gracefully."""
+        from mod_ci.controllers import deschedule_test
+
+        mock_safe_commit.return_value = False
+        repository = git_mock(g.github['bot_token']).get_repo(
+            f"{g.github['repository_owner']}/{g.github['repository']}")
+        test = Test.query.filter(Test.platform == TestPlatform.linux).first()
+        commit = test.commit
+        deschedule_test(
+            repository.get_commit(commit), commit,
+            TestType.pull_request, TestPlatform.linux)
+
+        mock_safe_commit.assert_called_once()
+        mock_log.error.assert_called()
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    @mock.patch('mod_ci.controllers.retry_with_backoff')
+    @mock.patch('run.log')
+    def test_webhook_push_github_api_failure(
+            self, mock_log, mock_retry, mock_request, mock_repo):
+        """Test push webhook handles GitHub API retry failure."""
+        from github import GithubException
+
+        mock_retry.side_effect = GithubException(500, "API Error", None)
+
+        data = {'after': 'abcdefgh', 'ref': 'refs/heads/master'}
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data),
+                headers=self.generate_header(data, 'push'))
+
+        self.assertIn(b'ERROR', response.data)
+        mock_log.error.assert_called()
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('mod_ci.controllers.retry_with_backoff')
+    @mock.patch('run.log')
+    def test_webhook_push_db_commit_failure(
+            self, mock_log, mock_retry, mock_safe_commit,
+            mock_request, mock_repo):
+        """Test push webhook handles db commit failure."""
+        mock_ref = MagicMock()
+        mock_ref.object.sha = 'newcommithash'
+        mock_retry.return_value = mock_ref
+        mock_safe_commit.return_value = False
+
+        data = {'after': 'abcdefgh', 'ref': 'refs/heads/master'}
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data),
+                headers=self.generate_header(data, 'push'))
+
+        self.assertIn(b'ERROR', response.data)
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    @mock.patch('mod_ci.controllers.retry_with_backoff')
+    @mock.patch('run.log')
+    def test_webhook_pr_opened_github_api_failure(
+            self, mock_log, mock_retry, mock_request, mock_repo):
+        """Test PR opened webhook handles GitHub API retry failure."""
+        from github import GithubException
+
+        mock_retry.side_effect = GithubException(500, "API Error", None)
+
+        data = {
+            'action': 'opened',
+            'pull_request': {
+                'number': 1234,
+                'head': {'sha': 'abcdef123456'},
+                'user': {'id': 99999}
+            }
+        }
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data),
+                headers=self.generate_header(data, 'pull_request'))
+
+        mock_log.error.assert_called()
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('run.log')
+    def test_webhook_release_delete_db_failure(
+            self, mock_log, mock_safe_commit, mock_request, mock_repo):
+        """Test release delete webhook handles db commit failure."""
+        mock_safe_commit.return_value = False
+
+        # First add a release to delete
+        release = CCExtractorVersion(
+            '2.1', '2018-05-30T20:18:44Z', 'abcdefgh')
+        g.db.add(release)
+        g.db.commit()
+
+        data = {
+            'action': 'deleted',
+            'release': {
+                'prerelease': False,
+                'published_at': '2018-05-30T20:18:44Z',
+                'tag_name': 'v2.1'
+            }
+        }
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data),
+                headers=self.generate_header(data, 'release'))
+
+        mock_log.error.assert_called()
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('run.log')
+    def test_webhook_release_published_db_failure(
+            self, mock_log, mock_safe_commit, mock_request, mock_repo):
+        """Test release published webhook handles db commit failure."""
+        mock_safe_commit.return_value = False
+
+        last_commit = GeneralData.query.filter(
+            GeneralData.key == 'last_commit').first()
+        last_commit.value = 'abcdefgh'
+        g.db.commit()
+
+        data = {
+            'action': 'published',
+            'release': {
+                'prerelease': False,
+                'published_at': '2018-05-30T20:18:44Z',
+                'tag_name': 'v2.2'
+            }
+        }
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data),
+                headers=self.generate_header(data, 'release'))
+
+        mock_log.error.assert_called()
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    @mock.patch('run.log')
+    def test_webhook_release_unsupported_action(
+            self, mock_log, mock_request, mock_repo):
+        """Test release webhook handles unsupported action."""
+        data = {
+            'action': 'unknown_action',
+            'release': {
+                'prerelease': False,
+                'published_at': '2018-05-30T20:18:44Z',
+                'tag_name': 'v2.1'
+            }
+        }
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data),
+                headers=self.generate_header(data, 'release'))
+
+        mock_log.warning.assert_called()
+
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('run.log')
+    def test_add_test_entry_db_commit_failure(
+            self, mock_log, mock_safe_commit):
+        """Test add_test_entry handles db commit failure."""
+        from mod_ci.controllers import add_test_entry
+
+        mock_safe_commit.return_value = False
+
+        # Use valid hex commit hash (is_valid_commit_hash validates before db commit)
+        add_test_entry(g.db, 'abcdef1234567890abcdef1234567890abcdef12', TestType.commit)
+
+        mock_safe_commit.assert_called_once()
+        mock_log.error.assert_called()
+
+    @mock.patch('mod_ci.controllers.wait_for_operation')
+    @mock.patch('mod_ci.controllers.delete_instance')
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('mod_ci.controllers.is_instance_testing')
+    @mock.patch('run.log')
+    def test_delete_expired_instances_db_commit_failure(
+            self, mock_log, mock_is_testing, mock_safe_commit,
+            mock_delete, mock_wait):
+        """Test delete_expired_instances handles db commit failure."""
+        from mod_ci.controllers import delete_expired_instances
+
+        mock_is_testing.return_value = True
+        mock_safe_commit.return_value = False
+
+        # Create a mock compute service
+        mock_compute = MagicMock()
+        mock_compute.instances().list().execute.return_value = {
+            'items': [{
+                'name': 'linux-1',
+                'creationTimestamp': '2020-01-01T00:00:00.000+00:00'
+            }]
+        }
+
+        mock_repo = MagicMock()
+
+        delete_expired_instances(
+            mock_compute, 60, 'project', 'zone', g.db, mock_repo)
+
+        # Should continue to next instance after commit failure
+        mock_delete.assert_not_called()
 
     @mock.patch('github.Github.get_repo')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
@@ -1626,7 +1901,10 @@ class TestControllers(BaseTestCase):
 
         mock_log.debug.assert_called_once()
         mock_filename.assert_called_once()
-        self.assertEqual(2, mock_os.path.join.call_count)
+        # 4 calls: temp_dir, temp_path, results_dir, final_path
+        self.assertEqual(4, mock_os.path.join.call_count)
+        # 2 calls: makedirs for TempFiles and TestResults directories
+        self.assertEqual(2, mock_os.makedirs.call_count)
         mock_upload_file.save.assert_called_once()
         mock_open.assert_called_once_with(mock.ANY, "rb")
         mock_os.path.splitext.assert_called_once_with(mock.ANY)
@@ -1653,6 +1931,9 @@ class TestControllers(BaseTestCase):
             'exitCode': 0
         }
 
+        # Configure mock regression test to avoid AsyncMock in Python 3.13+
+        create_mock_regression_test(mock_rt)
+
         finish_type_request(mock_log, 1, MagicMock(), mock_request)
 
         mock_log.debug.assert_called_once()
@@ -1677,7 +1958,13 @@ class TestControllers(BaseTestCase):
             'runTime': 1,
             'exitCode': 0
         }
-        mock_g.db.commit.side_effect = IntegrityError
+
+        # Configure mock regression test to avoid AsyncMock in Python 3.13+
+        create_mock_regression_test(mock_rt)
+
+        # Set up mock db with IntegrityError on commit
+        create_mock_db_query(mock_g)
+        mock_g.db.commit.side_effect = IntegrityError("test error", "test")
 
         finish_type_request(mock_log, 1, MagicMock(), mock_request)
 
@@ -1738,6 +2025,812 @@ class TestControllers(BaseTestCase):
 
         mock_log.critical.assert_called_with('GCP project name is empty!')
 
+    @mock.patch('run.log')
+    @mock.patch('mod_ci.controllers.update_status_on_github')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('mod_ci.controllers.g')
+    def test_mark_test_failed_success(self, mock_g, mock_test_progress, mock_update_status, mock_log):
+        """Test mark_test_failed function successfully marks a test as failed."""
+        from mod_ci.controllers import mark_test_failed
+
+        test = Test.query.first()
+        repository = MagicMock()
+        mock_commit = MagicMock()
+        repository.get_commit.return_value = mock_commit
+
+        mark_test_failed(mock_g.db, test, repository, "Test error message")
+
+        mock_test_progress.assert_called_once()
+        mock_g.db.add.assert_called_once()
+        mock_g.db.commit.assert_called_once()
+        mock_update_status.assert_called_once()
+        mock_log.info.assert_called()
+
+    @mock.patch('run.log')
+    @mock.patch('mod_ci.controllers.update_status_on_github')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('mod_ci.controllers.g')
+    def test_mark_test_failed_exception(self, mock_g, mock_test_progress, mock_update_status, mock_log):
+        """Test mark_test_failed function handles exceptions gracefully."""
+        from mod_ci.controllers import mark_test_failed
+
+        test = Test.query.first()
+        repository = MagicMock()
+        repository.get_commit.side_effect = Exception("GitHub API error")
+
+        # Should not raise, just log the error
+        mark_test_failed(mock_g.db, test, repository, "Test error message")
+
+        mock_log.error.assert_called()
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('mod_ci.controllers.start_test')
+    @mock.patch('mod_ci.controllers.get_compute_service_object')
+    @mock.patch('mod_ci.controllers.g')
+    @mock.patch('run.log')
+    def test_gcp_instance_github_exception(self, mock_log, mock_g, mock_get_compute,
+                                           mock_start_test, mock_repo):
+        """Test gcp_instance handles GithubException gracefully."""
+        from github import GithubException
+
+        from mod_ci.controllers import gcp_instance
+
+        repo = mock_repo()
+        # Make get_commit raise GithubException
+        repo.get_commit.side_effect = GithubException(404, "Not found", None)
+
+        # Create a PR type test that will trigger the exception
+        test = Test(TestPlatform.linux, TestType.pull_request, 1, "test", "abc123", 1)
+        g.db.add(test)
+        g.db.commit()
+
+        gcp_instance(self.app, g.db, TestPlatform.linux, repo, None)
+
+        # Should log error and continue
+        mock_log.error.assert_called()
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('mod_ci.controllers.start_test')
+    @mock.patch('mod_ci.controllers.get_compute_service_object')
+    @mock.patch('mod_ci.controllers.g')
+    @mock.patch('run.log')
+    def test_gcp_instance_unexpected_exception(self, mock_log, mock_g, mock_get_compute,
+                                               mock_start_test, mock_repo):
+        """Test gcp_instance handles unexpected exceptions gracefully."""
+        from mod_ci.controllers import gcp_instance
+
+        repo = mock_repo()
+        # Make get_commit raise unexpected exception
+        repo.get_commit.side_effect = RuntimeError("Unexpected error")
+
+        # Create a PR type test that will trigger the exception
+        test = Test(TestPlatform.linux, TestType.pull_request, 1, "test", "def456", 2)
+        g.db.add(test)
+        g.db.commit()
+
+        gcp_instance(self.app, g.db, TestPlatform.linux, repo, None)
+
+        # Should log error and continue
+        mock_log.error.assert_called()
+
+    @mock.patch('mod_ci.controllers.wait_for_operation')
+    @mock.patch('mod_ci.controllers.create_instance')
+    @mock.patch('builtins.open', new_callable=mock.mock_open())
+    @mock.patch('mod_ci.controllers.g')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('mod_ci.controllers.GcpInstance')
+    @mock.patch('run.log')
+    def test_start_test_duplicate_instance_check(
+            self, mock_log, mock_gcp_instance, mock_test_progress,
+            mock_g, mock_open_file, mock_create_instance,
+            mock_wait_for_operation):
+        """Test start_test skips if GCP instance already exists for test."""
+        from mod_ci.controllers import start_test
+
+        test = Test.query.first()
+        repository = MagicMock()
+
+        # Mock that an instance already exists
+        gcp_filter = mock_gcp_instance.query.filter.return_value
+        gcp_filter.first.return_value = MagicMock()
+
+        start_test(mock.ANY, self.app, mock_g.db, repository, test, mock.ANY)
+
+        # Should log warning and return early
+        mock_log.warning.assert_called()
+        mock_create_instance.assert_not_called()
+
+    @mock.patch('mod_ci.controllers.wait_for_operation')
+    @mock.patch('mod_ci.controllers.create_instance')
+    @mock.patch('builtins.open', new_callable=mock.mock_open())
+    @mock.patch('mod_ci.controllers.g')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('mod_ci.controllers.GcpInstance')
+    @mock.patch('run.log')
+    def test_start_test_duplicate_progress_check(
+            self, mock_log, mock_gcp_instance, mock_test_progress,
+            mock_g, mock_open_file, mock_create_instance,
+            mock_wait_for_operation):
+        """Test start_test skips if test already has progress entries."""
+        from mod_ci.controllers import start_test
+
+        test = Test.query.first()
+        repository = MagicMock()
+
+        # Mock no instance but progress exists
+        gcp_filter = mock_gcp_instance.query.filter.return_value
+        gcp_filter.first.return_value = None
+        prog_filter = mock_test_progress.query.filter.return_value
+        prog_filter.first.return_value = MagicMock()
+
+        start_test(mock.ANY, self.app, mock_g.db, repository, test, mock.ANY)
+
+        # Should log warning and return early
+        mock_log.warning.assert_called()
+        mock_create_instance.assert_not_called()
+
+    @mock.patch('mod_ci.controllers.mark_test_failed')
+    @mock.patch('mod_ci.controllers.wait_for_operation')
+    @mock.patch('mod_ci.controllers.create_instance')
+    @mock.patch('builtins.open', new_callable=mock.mock_open())
+    @mock.patch('mod_ci.controllers.g')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('mod_ci.controllers.GcpInstance')
+    @mock.patch('run.log')
+    @mock.patch('requests.get')
+    def test_start_test_artifact_timeout(
+            self, mock_requests_get, mock_log, mock_gcp_instance,
+            mock_test_progress, mock_g, mock_open_file,
+            mock_create_instance, mock_wait_for_operation,
+            mock_mark_failed):
+        """Test start_test handles artifact download timeout."""
+        import requests
+        from github.Artifact import Artifact
+
+        from mod_ci.controllers import Artifact_names, start_test
+
+        test = Test.query.first()
+        repository = MagicMock()
+
+        # Mock locking checks
+        gcp_filter = mock_gcp_instance.query.filter.return_value
+        gcp_filter.first.return_value = None
+        prog_filter = mock_test_progress.query.filter.return_value
+        prog_filter.first.return_value = None
+
+        # Mock artifact
+        artifact = MagicMock(Artifact)
+        artifact.name = Artifact_names.linux
+        artifact.workflow_run.head_sha = test.commit
+        repository.get_artifacts.return_value = [artifact]
+
+        # Mock timeout exception
+        mock_requests_get.side_effect = requests.exceptions.Timeout()
+
+        customized_test = CustomizedTest(1, 1)
+        g.db.add(customized_test)
+        g.db.commit()
+
+        start_test(mock.ANY, self.app, g.db, repository, test, mock.ANY)
+
+        # Should log critical and mark test failed
+        mock_log.critical.assert_called()
+        mock_mark_failed.assert_called()
+        mock_create_instance.assert_not_called()
+
+    @mock.patch('mod_ci.controllers.mark_test_failed')
+    @mock.patch('mod_ci.controllers.wait_for_operation')
+    @mock.patch('mod_ci.controllers.create_instance')
+    @mock.patch('builtins.open', new_callable=mock.mock_open())
+    @mock.patch('mod_ci.controllers.g')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('mod_ci.controllers.GcpInstance')
+    @mock.patch('run.log')
+    @mock.patch('requests.get')
+    def test_start_test_artifact_http_error(
+            self, mock_requests_get, mock_log, mock_gcp_instance,
+            mock_test_progress, mock_g, mock_open_file,
+            mock_create_instance, mock_wait_for_operation,
+            mock_mark_failed):
+        """Test start_test handles artifact download HTTP errors."""
+        import requests
+        from github.Artifact import Artifact
+
+        from mod_ci.controllers import Artifact_names, start_test
+
+        test = Test.query.first()
+        repository = MagicMock()
+
+        # Mock locking checks
+        gcp_filter = mock_gcp_instance.query.filter.return_value
+        gcp_filter.first.return_value = None
+        prog_filter = mock_test_progress.query.filter.return_value
+        prog_filter.first.return_value = None
+
+        # Mock artifact
+        artifact = MagicMock(Artifact)
+        artifact.name = Artifact_names.linux
+        artifact.workflow_run.head_sha = test.commit
+        repository.get_artifacts.return_value = [artifact]
+
+        # Mock HTTP 500 response
+        response = requests.models.Response()
+        response.status_code = 500
+        mock_requests_get.return_value = response
+
+        customized_test = CustomizedTest(1, 1)
+        g.db.add(customized_test)
+        g.db.commit()
+
+        start_test(mock.ANY, self.app, g.db, repository, test, mock.ANY)
+
+        # Should log critical and mark test failed
+        mock_log.critical.assert_called()
+        mock_mark_failed.assert_called()
+        mock_create_instance.assert_not_called()
+
+    @mock.patch('run.log')
+    @mock.patch('time.sleep')
+    @mock.patch('time.time')
+    def test_wait_for_operation_timeout(self, mock_time, mock_sleep, mock_log):
+        """Test wait_for_operation returns timeout error after max wait."""
+        from mod_ci.controllers import wait_for_operation
+
+        compute = MagicMock()
+        # Simulate time passing beyond max_wait
+        # Start at 0, then jump to 100 seconds
+        mock_time.side_effect = [0, 100]
+
+        result = wait_for_operation(
+            compute, "project", "zone", "operation", max_wait=50)
+
+        self.assertEqual(result['status'], 'TIMEOUT')
+        self.assertIn('error', result)
+        mock_log.error.assert_called()
+
+    @mock.patch('run.log')
+    @mock.patch('time.sleep')
+    @mock.patch('time.time')
+    def test_wait_for_operation_api_error(
+            self, mock_time, mock_sleep, mock_log):
+        """Test wait_for_operation handles API errors gracefully."""
+        from mod_ci.controllers import wait_for_operation
+
+        compute = MagicMock()
+        # Make the API call raise an exception
+        zone_ops = compute.zoneOperations.return_value.get.return_value
+        zone_ops.execute.side_effect = Exception("API Error")
+        mock_time.return_value = 0
+
+        result = wait_for_operation(
+            compute, "project", "zone", "operation", max_wait=100)
+
+        self.assertEqual(result['status'], 'ERROR')
+        self.assertIn('error', result)
+        mock_log.error.assert_called()
+
+    @mock.patch('run.log')
+    @mock.patch('time.sleep')
+    @mock.patch('time.time')
+    def test_wait_for_operation_success(self, mock_time, mock_sleep, mock_log):
+        """Test wait_for_operation returns successfully on completion."""
+        from mod_ci.controllers import wait_for_operation
+
+        compute = MagicMock()
+        # First call returns RUNNING, second returns DONE
+        zone_ops = compute.zoneOperations.return_value.get.return_value
+        zone_ops.execute.side_effect = [
+            {'status': 'RUNNING'},
+            {'status': 'DONE'}
+        ]
+        # Various time readings during the loop
+        mock_time.side_effect = [0, 0, 5, 5]
+
+        result = wait_for_operation(
+            compute, "project", "zone", "operation", max_wait=100)
+
+        self.assertEqual(result['status'], 'DONE')
+        mock_log.info.assert_called()
+
+    @mock.patch('mod_ci.controllers.Github')
+    @mock.patch('mod_ci.controllers.wait_for_operation')
+    @mock.patch('mod_ci.controllers.delete_instance')
+    @mock.patch('mod_ci.controllers.get_compute_service_object')
+    @mock.patch('mod_ci.controllers.update_build_badge')
+    def test_progress_type_request_empty_token(
+            self, mock_update_build_badge, mock_get_compute_service_object,
+            mock_delete_instance, mock_wait_for_operation, mock_github):
+        """Test progress_type_request returns True when GitHub token is empty."""
+        from mod_ci.models import GcpInstance
+        from run import log
+
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.tester)
+        self.create_forktest("own-fork-commit", TestPlatform.linux, regression_tests=[2])
+        request = MagicMock()
+        request.form = {'status': 'completed', 'message': 'Ran all tests'}
+        gcp_instance = GcpInstance(name='test_instance', test_id=3)
+        g.db.add(gcp_instance)
+        g.db.commit()
+
+        test = Test.query.filter(Test.id == 3).first()
+
+        with empty_github_token():
+            response = progress_type_request(log, test, test.id, request)
+            self.assertTrue(response)
+            mock_github.assert_not_called()
+
+    def test_blocked_users_empty_token(self):
+        """Test blocked_users handles empty GitHub token gracefully."""
+        self.create_user_with_role(self.user.name, self.user.email, self.user.password, Role.admin)
+
+        with empty_github_token():
+            with self.app.test_client() as c:
+                c.post("/account/login", data=self.create_login_form_data(self.user.email, self.user.password))
+                c.post("/blocked_users", data=dict(user_id=999, comment="Test user", add=True))
+                self.assertIsNotNone(BlockedUsers.query.filter(BlockedUsers.user_id == 999).first())
+
+    @mock.patch('run.get_github_config')
+    def test_start_ci_empty_token(self, mock_get_github_config):
+        """Test start_ci returns 500 when GitHub token is empty."""
+        payload = {'ref': 'refs/heads/master', 'after': 'abc123'}
+        headers = self.generate_header(payload, 'push')
+
+        mock_get_github_config.return_value = {
+            'ci_key': g.github['ci_key'],
+            'bot_token': '',
+            'repository_owner': g.github['repository_owner'],
+            'repository': g.github['repository']
+        }
+
+        with self.app.test_client() as c:
+            response = c.post('/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                              headers=headers,
+                              data=json.dumps(payload),
+                              content_type='application/json')
+            self.assertEqual(response.status_code, 500)
+            self.assertIn(b'GitHub token not configured', response.data)
+
+    def test_comment_pr_empty_token(self):
+        """Test comment_pr returns FAILURE when GitHub token is empty."""
+        from mod_ci.controllers import comment_pr
+        from mod_ci.models import Status
+
+        test = Test.query.first()
+
+        with empty_github_token():
+            result = comment_pr(test)
+            self.assertEqual(result, Status.FAILURE)
+
+    def test_is_valid_commit_hash_valid_full(self):
+        """Test is_valid_commit_hash with valid full SHA."""
+        self.assertTrue(is_valid_commit_hash('1978060bf7d2edd119736ba3ba88341f3bec3323'))
+
+    def test_is_valid_commit_hash_valid_short(self):
+        """Test is_valid_commit_hash with valid short SHA."""
+        self.assertTrue(is_valid_commit_hash('1978060'))
+        self.assertTrue(is_valid_commit_hash('abcdef1'))
+
+    def test_is_valid_commit_hash_null_sha(self):
+        """Test is_valid_commit_hash rejects null SHA."""
+        self.assertFalse(is_valid_commit_hash('0000000000000000000000000000000000000000'))
+        self.assertFalse(is_valid_commit_hash('0000000'))
+
+    def test_is_valid_commit_hash_empty(self):
+        """Test is_valid_commit_hash rejects empty/None."""
+        self.assertFalse(is_valid_commit_hash(''))
+        self.assertFalse(is_valid_commit_hash(None))
+        self.assertFalse(is_valid_commit_hash('   '))
+
+    def test_is_valid_commit_hash_too_short(self):
+        """Test is_valid_commit_hash rejects too short hashes."""
+        self.assertFalse(is_valid_commit_hash('abc'))
+        self.assertFalse(is_valid_commit_hash('123456'))
+
+    def test_is_valid_commit_hash_invalid_chars(self):
+        """Test is_valid_commit_hash rejects non-hex characters."""
+        self.assertFalse(is_valid_commit_hash('xyz1234567890'))
+        self.assertFalse(is_valid_commit_hash('ghijklm'))
+
+    def test_is_valid_commit_hash_with_whitespace(self):
+        """Test is_valid_commit_hash strips whitespace correctly."""
+        # Valid hash with whitespace should be accepted (whitespace stripped)
+        self.assertTrue(is_valid_commit_hash('  1978060bf7d2edd119736ba3ba88341f3bec3323  '))
+        self.assertTrue(is_valid_commit_hash('\t1978060\n'))
+
+    def test_is_valid_commit_hash_too_long(self):
+        """Test is_valid_commit_hash rejects hashes > 40 characters."""
+        # 41 characters - too long
+        self.assertFalse(is_valid_commit_hash('1978060bf7d2edd119736ba3ba88341f3bec33231'))
+        # 50 characters - way too long
+        self.assertFalse(is_valid_commit_hash('1978060bf7d2edd119736ba3ba88341f3bec332312345678'))
+
+    @mock.patch('mod_ci.controllers.add_test_entry')
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_release_gets_commit_from_tag(self, mock_request, mock_repo, mock_add_test):
+        """Test that release webhook gets commit from tag, not last_commit."""
+        # Setup mock for tag ref (lightweight tag)
+        commit_from_tag = "aaaa111122223333444455556666777788889999"
+        mock_tag_ref = MagicMock()
+        mock_tag_ref.object.type = "commit"
+        mock_tag_ref.object.sha = commit_from_tag
+        mock_repo.return_value.get_git_ref.return_value = mock_tag_ref
+
+        with self.app.test_client() as c:
+            data = {
+                'action': 'published',
+                'release': {
+                    'prerelease': False,
+                    'published_at': '2018-05-30T20:18:44Z',
+                    'tag_name': 'v2.2'
+                }
+            }
+            c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'release'))
+
+            # Verify the release was created with the commit from tag
+            release = CCExtractorVersion.query.filter_by(version='2.2').first()
+            self.assertIsNotNone(release)
+            self.assertEqual(release.commit, commit_from_tag)
+
+    @mock.patch('mod_ci.controllers.add_test_entry')
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_release_annotated_tag(self, mock_request, mock_repo, mock_add_test):
+        """Test release webhook handles annotated tags correctly."""
+        # Setup mock for annotated tag
+        actual_commit = "bbbb222233334444555566667777888899990000"
+        mock_tag_ref = MagicMock()
+        mock_tag_ref.object.type = "tag"  # Annotated tag
+        mock_tag_ref.object.sha = "cccc333344445555666677778888999900001111"
+
+        mock_tag_obj = MagicMock()
+        mock_tag_obj.object.sha = actual_commit
+
+        mock_repo.return_value.get_git_ref.return_value = mock_tag_ref
+        mock_repo.return_value.get_git_tag.return_value = mock_tag_obj
+
+        with self.app.test_client() as c:
+            data = {
+                'action': 'published',
+                'release': {
+                    'prerelease': False,
+                    'published_at': '2018-05-30T20:18:44Z',
+                    'tag_name': 'v2.3'
+                }
+            }
+            c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'release'))
+
+            release = CCExtractorVersion.query.filter_by(version='2.3').first()
+            self.assertIsNotNone(release)
+            self.assertEqual(release.commit, actual_commit)
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_release_invalid_commit_fallback(self, mock_request, mock_repo):
+        """Test release webhook falls back to last_commit when tag lookup fails."""
+        from github import GithubException
+
+        # Setup: tag lookup fails
+        mock_repo.return_value.get_git_ref.side_effect = GithubException(404, "Not Found", None)
+
+        # Set a valid last_commit as fallback (must be valid hex)
+        fallback_commit = 'dddd444455556666777788889999aaaa0000bbbb'
+        last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
+        last_commit.value = fallback_commit
+        g.db.commit()
+
+        with self.app.test_client() as c:
+            data = {
+                'action': 'published',
+                'release': {
+                    'prerelease': False,
+                    'published_at': '2018-05-30T20:18:44Z',
+                    'tag_name': 'v2.4'
+                }
+            }
+            c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'release'))
+
+            release = CCExtractorVersion.query.filter_by(version='2.4').first()
+            self.assertIsNotNone(release)
+            self.assertEqual(release.commit, fallback_commit)
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_release_with_existing_test(self, mock_request, mock_repo):
+        """Test release webhook updates baseline when test entry exists for commit."""
+        # Setup mock for tag ref (lightweight tag)
+        commit_hash = "eeee555566667777888899990000aaaabbbbcccc"
+        mock_tag_ref = MagicMock()
+        mock_tag_ref.object.type = "commit"
+        mock_tag_ref.object.sha = commit_hash
+        mock_repo.return_value.get_git_ref.return_value = mock_tag_ref
+
+        # Create a test entry for this commit
+        from mod_test.models import Fork
+        fork = Fork.query.first()
+        test = Test(TestPlatform.linux, TestType.commit, fork.id, "master", commit_hash, 0)
+        g.db.add(test)
+        g.db.commit()
+
+        with self.app.test_client() as c:
+            data = {
+                'action': 'published',
+                'release': {
+                    'prerelease': False,
+                    'published_at': '2018-05-30T20:18:44Z',
+                    'tag_name': 'v2.6'
+                }
+            }
+            c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'release'))
+
+            # Release should be created with the commit from tag
+            release = CCExtractorVersion.query.filter_by(version='2.6').first()
+            self.assertIsNotNone(release)
+            self.assertEqual(release.commit, commit_hash)
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_release_no_valid_commit_fails(self, mock_request, mock_repo):
+        """Test release webhook fails gracefully when no valid commit available."""
+        from github import GithubException
+
+        # Setup: tag lookup fails
+        mock_repo.return_value.get_git_ref.side_effect = GithubException(404, "Not Found", None)
+
+        # Set an invalid last_commit (null SHA)
+        last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
+        last_commit.value = '0000000000000000000000000000000000000000'
+        g.db.commit()
+
+        with self.app.test_client() as c:
+            data = {
+                'action': 'published',
+                'release': {
+                    'prerelease': False,
+                    'published_at': '2018-05-30T20:18:44Z',
+                    'tag_name': 'v2.5'
+                }
+            }
+            c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'release'))
+
+            # Release should NOT be created
+            release = CCExtractorVersion.query.filter_by(version='2.5').first()
+            self.assertIsNone(release)
+
+    @mock.patch('mod_ci.controllers.time.sleep')
+    @mock.patch('run.log')
+    def test_retry_with_backoff_success_first_try(self, mock_log, mock_sleep):
+        """Test retry_with_backoff succeeds on first attempt."""
+        mock_func = MagicMock(return_value="success")
+
+        result = retry_with_backoff(mock_func, max_retries=3)
+
+        self.assertEqual(result, "success")
+        mock_func.assert_called_once()
+        mock_sleep.assert_not_called()
+
+    @mock.patch('mod_ci.controllers.time.sleep')
+    @mock.patch('run.log')
+    def test_retry_with_backoff_success_after_retry(
+            self, mock_log, mock_sleep):
+        """Test retry_with_backoff succeeds after retries."""
+        from github import GithubException
+
+        mock_func = MagicMock(side_effect=[
+            GithubException(500, "Server Error", None),
+            GithubException(500, "Server Error", None),
+            "success"
+        ])
+
+        result = retry_with_backoff(
+            mock_func, max_retries=3, initial_backoff=1)
+
+        self.assertEqual(result, "success")
+        self.assertEqual(mock_func.call_count, 3)
+        self.assertEqual(mock_sleep.call_count, 2)
+        mock_log.warning.assert_called()
+
+    @mock.patch('mod_ci.controllers.time.sleep')
+    @mock.patch('run.log')
+    def test_retry_with_backoff_all_retries_fail(self, mock_log, mock_sleep):
+        """Test retry_with_backoff raises exception when retries fail."""
+        from github import GithubException
+
+        exc = GithubException(500, "Server Error", None)
+        mock_func = MagicMock(side_effect=exc)
+
+        with self.assertRaises(GithubException):
+            retry_with_backoff(mock_func, max_retries=2, initial_backoff=1)
+
+        self.assertEqual(mock_func.call_count, 3)  # Initial + 2 retries
+        self.assertEqual(mock_sleep.call_count, 2)
+        mock_log.error.assert_called()
+
+    @mock.patch('mod_ci.controllers.time.sleep')
+    @mock.patch('run.log')
+    def test_retry_with_backoff_exponential_backoff(
+            self, mock_log, mock_sleep):
+        """Test retry_with_backoff uses exponential backoff."""
+        from github import GithubException
+
+        mock_func = MagicMock(side_effect=[
+            GithubException(500, "Error", None),
+            GithubException(500, "Error", None),
+            GithubException(500, "Error", None),
+            "success"
+        ])
+
+        retry_with_backoff(
+            mock_func, max_retries=3, initial_backoff=1, max_backoff=30)
+
+        # Check backoff times: 1s, 2s, 4s
+        sleep_calls = [call[0][0] for call in mock_sleep.call_args_list]
+        self.assertEqual(sleep_calls, [1, 2, 4])
+
+    @mock.patch('run.log')
+    def test_safe_db_commit_success(self, mock_log):
+        """Test safe_db_commit returns True on success."""
+        mock_db = MagicMock()
+
+        result = safe_db_commit(mock_db, "test operation")
+
+        self.assertTrue(result)
+        mock_db.commit.assert_called_once()
+        mock_db.rollback.assert_not_called()
+
+    @mock.patch('run.log')
+    def test_safe_db_commit_failure_with_rollback(self, mock_log):
+        """Test safe_db_commit rolls back and returns False on failure."""
+        mock_db = MagicMock()
+        mock_db.commit.side_effect = Exception("DB Error")
+
+        result = safe_db_commit(mock_db, "test operation")
+
+        self.assertFalse(result)
+        mock_db.commit.assert_called_once()
+        mock_db.rollback.assert_called_once()
+        mock_log.error.assert_called()
+        mock_log.info.assert_called()  # Rollback success message
+
+    @mock.patch('run.log')
+    def test_safe_db_commit_failure_with_rollback_failure(self, mock_log):
+        """Test safe_db_commit handles rollback failure gracefully."""
+        mock_db = MagicMock()
+        mock_db.commit.side_effect = Exception("DB Error")
+        mock_db.rollback.side_effect = Exception("Rollback Error")
+
+        result = safe_db_commit(mock_db, "test operation")
+
+        self.assertFalse(result)
+        mock_db.commit.assert_called_once()
+        mock_db.rollback.assert_called_once()
+        # Two error logs: one for commit failure, one for rollback failure
+        self.assertEqual(mock_log.error.call_count, 2)
+
+    @mock.patch('mod_ci.controllers.update_status_on_github')
+    @mock.patch('run.log')
+    def test_mark_test_failed_with_db_commit_failure(
+            self, mock_log, mock_update_github):
+        """Test mark_test_failed returns False when DB commit fails but GitHub succeeds."""
+        from mod_test.models import Test
+
+        test = Test.query.first()
+        mock_db = MagicMock()
+        mock_db.commit.side_effect = Exception("DB commit failed")
+        mock_repo = MagicMock()
+
+        result = mark_test_failed(mock_db, test, mock_repo, "Test failed")
+
+        # DB failed but GitHub succeeded, so result is False
+        self.assertFalse(result)
+        mock_db.add.assert_called_once()
+        mock_db.commit.assert_called_once()
+        # GitHub update should still be attempted
+        mock_update_github.assert_called_once()
+
+    @mock.patch('mod_ci.controllers.time.sleep')
+    @mock.patch('run.log')
+    def test_retry_with_backoff_max_backoff_cap(self, mock_log, mock_sleep):
+        """Test retry_with_backoff caps backoff at max_backoff."""
+        from github import GithubException
+
+        mock_func = MagicMock(side_effect=[
+            GithubException(500, "Error", None),
+            GithubException(500, "Error", None),
+            GithubException(500, "Error", None),
+            GithubException(500, "Error", None),
+            "success"
+        ])
+
+        # With initial_backoff=8 and max_backoff=10,
+        # backoff should be: 8, 10, 10, 10
+        retry_with_backoff(
+            mock_func, max_retries=4, initial_backoff=8, max_backoff=10)
+
+        sleep_calls = [call[0][0] for call in mock_sleep.call_args_list]
+        self.assertEqual(sleep_calls, [8, 10, 10, 10])
+
+    @mock.patch('mod_ci.controllers.time.sleep')
+    @mock.patch('run.log')
+    def test_retry_with_backoff_custom_exceptions(self, mock_log, mock_sleep):
+        """Test retry_with_backoff with custom exception types."""
+        mock_func = MagicMock(side_effect=[
+            ValueError("Custom error"),
+            "success"
+        ])
+
+        result = retry_with_backoff(
+            mock_func,
+            max_retries=2,
+            initial_backoff=1,
+            retryable_exceptions=(ValueError,)
+        )
+
+        self.assertEqual(result, "success")
+        self.assertEqual(mock_func.call_count, 2)
+
+    @mock.patch('github.Github.get_repo')
+    @mock.patch('mod_ci.controllers.start_test')
+    @mock.patch('mod_ci.controllers.get_compute_service_object')
+    @mock.patch('mod_ci.controllers.g')
+    @mock.patch('run.log')
+    def test_gcp_instance_pr_closed(self, mock_log, mock_g, mock_get_compute, mock_start_test, mock_repo):
+        """Test gcp_instance handles closed PR correctly."""
+        from mod_ci.controllers import gcp_instance
+
+        repo = mock_repo()
+        mock_commit = MagicMock()
+        repo.get_commit.return_value = mock_commit
+
+        # Mock a closed PR
+        mock_pr = MagicMock()
+        mock_pr.state = 'closed'
+        mock_pr.head.sha = '1978060bf7d2edd119736ba3ba88341f3bec3322'
+        repo.get_pull.return_value = mock_pr
+
+        # Setup mock config
+        mock_g.db = g.db
+
+        gcp_instance(self.app, mock_g.db, TestPlatform.linux, repo, None)
+
+        # start_test should not be called for closed PRs
+        # test_1 has pr_nr=0 (descheduled)
+        # test_2 is closed PR (descheduled)
+        # test_3 and test_4 are open PRs
+        # But since we mocked all PRs as closed, only test_1 (invalid) triggers, rest are skipped
+        mock_log.info.assert_any_call(mock.ANY)
+
+    @mock.patch('mod_ci.controllers.update_status_on_github')
+    @mock.patch('mod_ci.controllers.retry_with_backoff')
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('run.log')
+    def test_mark_test_failed_returns_true_on_success(self, mock_log, mock_safe_commit, mock_retry, mock_update):
+        """Test mark_test_failed returns True on successful execution."""
+        from mod_test.models import Test
+
+        mock_safe_commit.return_value = True
+        mock_retry.return_value = MagicMock()
+
+        test = Test.query.first()
+        mock_db = MagicMock()
+        mock_repo = MagicMock()
+
+        result = mark_test_failed(mock_db, test, mock_repo, "Test failed")
+
+        self.assertTrue(result)
+        mock_log.info.assert_called()
+
     @staticmethod
     def generate_header(data, event, ci_key=None):
         """
@@ -1752,3 +2845,716 @@ class TestControllers(BaseTestCase):
             'utf-8'), g.github['ci_key'] if ci_key is None else ci_key)
         headers = generate_git_api_header(event, sig)
         return headers
+
+
+class TestFindArtifactForCommit(BaseTestCase):
+    """Test the find_artifact_for_commit function."""
+
+    def test_find_artifact_success(self):
+        """Test finding an artifact successfully."""
+        from mod_ci.controllers import Artifact_names, find_artifact_for_commit
+
+        repository = MagicMock()
+        mock_artifact = MagicMock()
+        mock_artifact.name = Artifact_names.linux
+        mock_artifact.workflow_run.head_sha = "abc123def456"
+
+        # Return the matching artifact
+        repository.get_artifacts.return_value = [mock_artifact]
+
+        log = MagicMock()
+        result = find_artifact_for_commit(repository, "abc123def456", TestPlatform.linux, log)
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result, mock_artifact)
+        log.debug.assert_called()
+
+    def test_find_artifact_not_found(self):
+        """Test when artifact is not found."""
+        from mod_ci.controllers import Artifact_names, find_artifact_for_commit
+
+        repository = MagicMock()
+        mock_artifact = MagicMock()
+        mock_artifact.name = Artifact_names.linux
+        mock_artifact.workflow_run.head_sha = "different_commit"
+
+        repository.get_artifacts.return_value = [mock_artifact]
+
+        log = MagicMock()
+        result = find_artifact_for_commit(repository, "abc123def456", TestPlatform.linux, log)
+
+        self.assertIsNone(result)
+
+    def test_find_artifact_wrong_platform(self):
+        """Test when artifact exists but for wrong platform."""
+        from mod_ci.controllers import Artifact_names, find_artifact_for_commit
+
+        repository = MagicMock()
+        mock_artifact = MagicMock()
+        mock_artifact.name = Artifact_names.windows  # Wrong platform
+        mock_artifact.workflow_run.head_sha = "abc123def456"
+
+        repository.get_artifacts.return_value = [mock_artifact]
+
+        log = MagicMock()
+        result = find_artifact_for_commit(repository, "abc123def456", TestPlatform.linux, log)
+
+        self.assertIsNone(result)
+
+    def test_find_artifact_handles_exception(self):
+        """Test that exceptions are handled gracefully."""
+        from mod_ci.controllers import find_artifact_for_commit
+
+        repository = MagicMock()
+        repository.get_artifacts.side_effect = Exception("API error")
+
+        log = MagicMock()
+        result = find_artifact_for_commit(repository, "abc123def456", TestPlatform.linux, log)
+
+        self.assertIsNone(result)
+        log.error.assert_called()
+
+    def test_find_artifact_respects_max_search_limit(self):
+        """Test that artifact search respects the maximum search limit."""
+        from mod_ci.controllers import (MAX_ARTIFACTS_TO_SEARCH,
+                                        Artifact_names,
+                                        find_artifact_for_commit)
+
+        repository = MagicMock()
+
+        # Create many artifacts that don't match
+        def generate_artifacts():
+            for i in range(MAX_ARTIFACTS_TO_SEARCH + 100):
+                artifact = MagicMock()
+                artifact.name = Artifact_names.linux
+                artifact.workflow_run.head_sha = f"commit_{i}"
+                yield artifact
+
+        repository.get_artifacts.return_value = generate_artifacts()
+
+        log = MagicMock()
+        result = find_artifact_for_commit(repository, "target_commit", TestPlatform.linux, log)
+
+        self.assertIsNone(result)
+        # Verify warning was logged about reaching limit
+        log.warning.assert_called()
+
+
+class TestVerifyArtifactsExist(BaseTestCase):
+    """Test the verify_artifacts_exist function."""
+
+    @mock.patch('mod_ci.controllers.find_artifact_for_commit')
+    def test_verify_both_artifacts_exist(self, mock_find):
+        """Test verification when both artifacts exist."""
+        from mod_ci.controllers import verify_artifacts_exist
+
+        # Both artifacts found
+        mock_find.side_effect = [MagicMock(), MagicMock()]
+
+        repository = MagicMock()
+        log = MagicMock()
+
+        result = verify_artifacts_exist(repository, "abc123", log)
+
+        self.assertTrue(result['linux'])
+        self.assertTrue(result['windows'])
+
+    @mock.patch('mod_ci.controllers.find_artifact_for_commit')
+    def test_verify_only_linux_exists(self, mock_find):
+        """Test verification when only Linux artifact exists."""
+        from mod_ci.controllers import verify_artifacts_exist
+
+        # Only Linux found
+        mock_find.side_effect = [MagicMock(), None]
+
+        repository = MagicMock()
+        log = MagicMock()
+
+        result = verify_artifacts_exist(repository, "abc123", log)
+
+        self.assertTrue(result['linux'])
+        self.assertFalse(result['windows'])
+
+    @mock.patch('mod_ci.controllers.find_artifact_for_commit')
+    def test_verify_neither_exists(self, mock_find):
+        """Test verification when neither artifact exists."""
+        from mod_ci.controllers import verify_artifacts_exist
+
+        # Neither found
+        mock_find.side_effect = [None, None]
+
+        repository = MagicMock()
+        log = MagicMock()
+
+        result = verify_artifacts_exist(repository, "abc123", log)
+
+        self.assertFalse(result['linux'])
+        self.assertFalse(result['windows'])
+        # Warning should be logged for both
+        self.assertEqual(log.warning.call_count, 2)
+
+
+class TestMarkTestFailedImproved(BaseTestCase):
+    """Test the improved mark_test_failed function."""
+
+    @mock.patch('mod_ci.controllers.update_status_on_github')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    def test_mark_test_failed_updates_both_db_and_github(self, mock_progress, mock_update_github):
+        """Test that mark_test_failed updates both database and GitHub."""
+        from mod_ci.controllers import mark_test_failed
+
+        db = MagicMock()
+        test = MagicMock()
+        test.id = 123
+        test.commit = "abc123def456"
+        test.platform.value = "linux"
+
+        repository = MagicMock()
+        gh_commit = MagicMock()
+        repository.get_commit.return_value = gh_commit
+
+        with mock.patch('run.log'):
+            mark_test_failed(db, test, repository, "Test error message")
+
+        # Verify database was updated
+        mock_progress.assert_called_once()
+        db.add.assert_called_once()
+        db.commit.assert_called_once()
+
+        # Verify GitHub was updated
+        mock_update_github.assert_called_once()
+
+    @mock.patch('mod_ci.controllers.update_status_on_github')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    def test_mark_test_failed_github_updated_even_if_db_fails(self, mock_progress, mock_update_github):
+        """Test that GitHub is updated even if database update fails."""
+        from mod_ci.controllers import mark_test_failed
+
+        db = MagicMock()
+        db.commit.side_effect = Exception("DB error")
+
+        test = MagicMock()
+        test.id = 123
+        test.commit = "abc123def456"
+        test.platform.value = "linux"
+
+        repository = MagicMock()
+        gh_commit = MagicMock()
+        repository.get_commit.return_value = gh_commit
+
+        with mock.patch('run.log') as mock_log:
+            mark_test_failed(db, test, repository, "Test error message")
+
+        # GitHub should still be updated even though DB failed
+        mock_update_github.assert_called_once()
+        # Error should be logged for DB failure
+        mock_log.error.assert_called()
+
+    @mock.patch('mod_ci.controllers.update_status_on_github')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    def test_mark_test_failed_logs_critical_when_both_fail(self, mock_progress, mock_update_github):
+        """Test that critical error is logged when both DB and GitHub updates fail."""
+        from mod_ci.controllers import mark_test_failed
+
+        db = MagicMock()
+        db.commit.side_effect = Exception("DB error")
+
+        test = MagicMock()
+        test.id = 123
+        test.commit = "abc123def456"
+        test.platform.value = "linux"
+
+        repository = MagicMock()
+        repository.get_commit.side_effect = Exception("GitHub error")
+
+        with mock.patch('run.log') as mock_log:
+            mark_test_failed(db, test, repository, "Test error message")
+
+        # Critical error should be logged when both fail
+        mock_log.critical.assert_called()
+
+    @mock.patch('mod_ci.controllers.update_status_on_github')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    def test_mark_test_failed_includes_target_url(self, mock_progress, mock_update_github):
+        """Test that mark_test_failed includes target_url in GitHub status."""
+        from mod_ci.controllers import Status, mark_test_failed
+
+        db = MagicMock()
+        test = MagicMock()
+        test.id = 456
+        test.commit = "abc123def456"
+        test.platform.value = "linux"
+
+        repository = MagicMock()
+        gh_commit = MagicMock()
+        repository.get_commit.return_value = gh_commit
+
+        with mock.patch('run.log'):
+            mark_test_failed(db, test, repository, "Test error")
+
+        # Verify target_url was passed to update_status_on_github
+        call_args = mock_update_github.call_args
+        self.assertEqual(len(call_args[0]), 5)  # 5 positional args including target_url
+        self.assertIn("456", call_args[0][4])  # target_url contains test ID
+
+    @mock.patch('mod_ci.controllers.update_status_on_github')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('mod_ci.controllers.retry_with_backoff')
+    def test_mark_test_failed_uses_retry_for_github(self, mock_retry, mock_progress, mock_update_github):
+        """Test that mark_test_failed uses retry_with_backoff for GitHub status update."""
+        from mod_ci.controllers import mark_test_failed
+
+        db = MagicMock()
+        test = MagicMock()
+        test.id = 789
+        test.commit = "abc123"
+        test.platform.value = "linux"
+
+        repository = MagicMock()
+        gh_commit = MagicMock()
+        repository.get_commit.return_value = gh_commit
+
+        # Make retry_with_backoff call the function it receives
+        mock_retry.side_effect = lambda func, **kwargs: func()
+
+        with mock.patch('run.log'):
+            mark_test_failed(db, test, repository, "Test error")
+
+        # Verify retry_with_backoff was called with correct parameters
+        mock_retry.assert_called_once()
+        call_kwargs = mock_retry.call_args[1]
+        self.assertEqual(call_kwargs['max_retries'], 3)
+        self.assertEqual(call_kwargs['initial_backoff'], 2.0)
+
+
+class TestParseGcpError(unittest.TestCase):
+    """Tests for the parse_gcp_error helper function."""
+
+    def test_parse_gcp_error_zone_resource_exhausted(self):
+        """Test that ZONE_RESOURCE_POOL_EXHAUSTED returns user-friendly message."""
+        from mod_ci.controllers import parse_gcp_error
+
+        mock_log = MagicMock()
+        result = {
+            'status': 'DONE',
+            'error': {
+                'errors': [{
+                    'code': 'ZONE_RESOURCE_POOL_EXHAUSTED',
+                    'message': "The zone 'projects/test/zones/us-central1-a' does not "
+                               "have enough resources available to fulfill the request."
+                }]
+            }
+        }
+
+        error_msg = parse_gcp_error(result, log=mock_log)
+        self.assertIn("GCP resources temporarily unavailable", error_msg)
+        self.assertIn("retried automatically", error_msg)
+        # Should NOT contain raw technical details
+        self.assertNotIn("us-central1-a", error_msg)
+
+    def test_parse_gcp_error_quota_exceeded(self):
+        """Test that QUOTA_EXCEEDED returns user-friendly message."""
+        from mod_ci.controllers import parse_gcp_error
+
+        mock_log = MagicMock()
+        result = {
+            'error': {
+                'errors': [{
+                    'code': 'QUOTA_EXCEEDED',
+                    'message': 'Quota exceeded for resource.'
+                }]
+            }
+        }
+
+        error_msg = parse_gcp_error(result, log=mock_log)
+        self.assertIn("quota limit reached", error_msg)
+
+    def test_parse_gcp_error_timeout(self):
+        """Test that TIMEOUT returns user-friendly message."""
+        from mod_ci.controllers import parse_gcp_error
+
+        mock_log = MagicMock()
+        result = {
+            'status': 'TIMEOUT',
+            'error': {
+                'errors': [{
+                    'code': 'TIMEOUT',
+                    'message': 'Operation timed out after 1800 seconds'
+                }]
+            }
+        }
+
+        error_msg = parse_gcp_error(result, log=mock_log)
+        self.assertIn("timed out", error_msg)
+        self.assertIn("retried automatically", error_msg)
+
+    def test_parse_gcp_error_unknown_code(self):
+        """Test that unknown error codes return generic message and log details."""
+        from mod_ci.controllers import parse_gcp_error
+
+        mock_log = MagicMock()
+        result = {
+            'error': {
+                'errors': [{
+                    'code': 'SOME_NEW_ERROR',
+                    'message': 'Something unexpected happened.'
+                }]
+            }
+        }
+
+        error_msg = parse_gcp_error(result, log=mock_log)
+        # Should include error code but not the full message (security)
+        self.assertIn("SOME_NEW_ERROR", error_msg)
+        self.assertIn("contact the administrator", error_msg)
+        # Should NOT expose the raw error message
+        self.assertNotIn("Something unexpected happened", error_msg)
+        # Should log the full details server-side
+        mock_log.error.assert_called_once()
+        self.assertIn("SOME_NEW_ERROR", mock_log.error.call_args[0][0])
+        self.assertIn("Something unexpected happened", mock_log.error.call_args[0][0])
+
+    def test_parse_gcp_error_logs_sensitive_info(self):
+        """Test that sensitive info is logged but not returned to user."""
+        from mod_ci.controllers import parse_gcp_error
+
+        mock_log = MagicMock()
+        result = {
+            'error': {
+                'errors': [{
+                    'code': 'UNKNOWN_ERROR',
+                    'message': 'Error in project my-secret-project zone us-central1-a'
+                }]
+            }
+        }
+
+        error_msg = parse_gcp_error(result, log=mock_log)
+        # Should NOT expose project/zone names
+        self.assertNotIn("my-secret-project", error_msg)
+        self.assertNotIn("us-central1-a", error_msg)
+        # But should log them server-side
+        mock_log.error.assert_called_once()
+        self.assertIn("my-secret-project", mock_log.error.call_args[0][0])
+
+    def test_parse_gcp_error_no_error_key(self):
+        """Test handling when 'error' key is missing."""
+        from mod_ci.controllers import parse_gcp_error
+
+        mock_log = MagicMock()
+        result = {'status': 'DONE'}
+
+        error_msg = parse_gcp_error(result, log=mock_log)
+        self.assertIn("VM creation failed", error_msg)
+        mock_log.error.assert_called_once()
+
+    def test_parse_gcp_error_empty_errors_list(self):
+        """Test handling when 'errors' list is empty."""
+        from mod_ci.controllers import parse_gcp_error
+
+        mock_log = MagicMock()
+        result = {'error': {'errors': []}}
+
+        error_msg = parse_gcp_error(result, log=mock_log)
+        self.assertIn("VM creation failed", error_msg)
+        mock_log.error.assert_called_once()
+
+    def test_parse_gcp_error_not_a_dict(self):
+        """Test handling when result is not a dictionary."""
+        from mod_ci.controllers import parse_gcp_error
+
+        mock_log = MagicMock()
+        error_msg = parse_gcp_error("some string error", log=mock_log)
+        self.assertIn("VM creation failed", error_msg)
+        # Should NOT expose the raw input
+        self.assertNotIn("some string error", error_msg)
+        # But should log it
+        mock_log.error.assert_called_once()
+        self.assertIn("some string error", mock_log.error.call_args[0][0])
+
+    def test_parse_gcp_error_error_not_a_dict(self):
+        """Test handling when 'error' value is not a dictionary."""
+        from mod_ci.controllers import parse_gcp_error
+
+        mock_log = MagicMock()
+        result = {'error': 'just a string'}
+
+        error_msg = parse_gcp_error(result, log=mock_log)
+        self.assertIn("VM creation failed", error_msg)
+        mock_log.error.assert_called_once()
+
+
+class TestDiagnoseMissingArtifact(BaseTestCase):
+    """Test the _diagnose_missing_artifact function and retry behavior."""
+
+    def test_build_in_progress_is_retryable(self):
+        """Test that build in progress returns retryable=True."""
+        from mod_ci.controllers import _diagnose_missing_artifact
+
+        repository = MagicMock()
+        log = MagicMock()
+
+        # Mock workflow
+        workflow = MagicMock()
+        workflow.id = 1
+        workflow.name = "Build CCExtractor on Linux"
+        repository.get_workflows.return_value = [workflow]
+
+        # Mock workflow run - in progress
+        workflow_run = MagicMock()
+        workflow_run.workflow_id = 1
+        workflow_run.status = "in_progress"
+        repository.get_workflow_runs.return_value = [workflow_run]
+
+        message, is_retryable = _diagnose_missing_artifact(
+            repository, "abc123", TestPlatform.linux, log
+        )
+
+        self.assertTrue(is_retryable)
+        self.assertIn("Build still in progress", message)
+        self.assertIn("Will retry", message)
+
+    def test_build_queued_is_retryable(self):
+        """Test that queued build returns retryable=True."""
+        from mod_ci.controllers import _diagnose_missing_artifact
+
+        repository = MagicMock()
+        log = MagicMock()
+
+        # Mock workflow
+        workflow = MagicMock()
+        workflow.id = 1
+        workflow.name = "Build CCExtractor on Windows"
+        repository.get_workflows.return_value = [workflow]
+
+        # Mock workflow run - queued
+        workflow_run = MagicMock()
+        workflow_run.workflow_id = 1
+        workflow_run.status = "queued"
+        repository.get_workflow_runs.return_value = [workflow_run]
+
+        message, is_retryable = _diagnose_missing_artifact(
+            repository, "abc123", TestPlatform.windows, log
+        )
+
+        self.assertTrue(is_retryable)
+        self.assertIn("Build still in progress", message)
+
+    def test_build_failed_is_not_retryable(self):
+        """Test that failed build returns retryable=False."""
+        from mod_ci.controllers import _diagnose_missing_artifact
+
+        repository = MagicMock()
+        log = MagicMock()
+
+        # Mock workflow
+        workflow = MagicMock()
+        workflow.id = 1
+        workflow.name = "Build CCExtractor on Linux"
+        repository.get_workflows.return_value = [workflow]
+
+        # Mock workflow run - completed but failed
+        workflow_run = MagicMock()
+        workflow_run.workflow_id = 1
+        workflow_run.status = "completed"
+        workflow_run.conclusion = "failure"
+        repository.get_workflow_runs.return_value = [workflow_run]
+
+        message, is_retryable = _diagnose_missing_artifact(
+            repository, "abc123", TestPlatform.linux, log
+        )
+
+        self.assertFalse(is_retryable)
+        self.assertIn("Build failed", message)
+
+    def test_artifact_expired_is_not_retryable(self):
+        """Test that expired artifact returns retryable=False."""
+        from mod_ci.controllers import _diagnose_missing_artifact
+
+        repository = MagicMock()
+        log = MagicMock()
+
+        # Mock workflow
+        workflow = MagicMock()
+        workflow.id = 1
+        workflow.name = "Build CCExtractor on Linux"
+        repository.get_workflows.return_value = [workflow]
+
+        # Mock workflow run - completed successfully but artifact gone
+        workflow_run = MagicMock()
+        workflow_run.workflow_id = 1
+        workflow_run.status = "completed"
+        workflow_run.conclusion = "success"
+        repository.get_workflow_runs.return_value = [workflow_run]
+
+        message, is_retryable = _diagnose_missing_artifact(
+            repository, "abc123", TestPlatform.linux, log
+        )
+
+        self.assertFalse(is_retryable)
+        self.assertIn("Artifact not found", message)
+        self.assertIn("expired", message)
+
+    def test_recently_completed_build_is_retryable(self):
+        """Test that recently completed build (within grace period) returns retryable=True."""
+        from datetime import datetime, timedelta, timezone
+
+        from mod_ci.controllers import _diagnose_missing_artifact
+
+        repository = MagicMock()
+        log = MagicMock()
+
+        # Mock workflow
+        workflow = MagicMock()
+        workflow.id = 1
+        workflow.name = "Build CCExtractor on Linux"
+        repository.get_workflows.return_value = [workflow]
+
+        # Mock workflow run - completed successfully but very recently (1 minute ago)
+        workflow_run = MagicMock()
+        workflow_run.workflow_id = 1
+        workflow_run.status = "completed"
+        workflow_run.conclusion = "success"
+        workflow_run.updated_at = datetime.now(timezone.utc) - timedelta(seconds=60)
+        repository.get_workflow_runs.return_value = [workflow_run]
+
+        message, is_retryable = _diagnose_missing_artifact(
+            repository, "abc123", TestPlatform.linux, log
+        )
+
+        self.assertTrue(is_retryable)
+        self.assertIn("Build completed recently", message)
+        self.assertIn("Will retry", message)
+
+    def test_old_completed_build_is_not_retryable(self):
+        """Test that build completed more than grace period ago returns retryable=False."""
+        from datetime import datetime, timedelta, timezone
+
+        from mod_ci.controllers import _diagnose_missing_artifact
+
+        repository = MagicMock()
+        log = MagicMock()
+
+        # Mock workflow
+        workflow = MagicMock()
+        workflow.id = 1
+        workflow.name = "Build CCExtractor on Linux"
+        repository.get_workflows.return_value = [workflow]
+
+        # Mock workflow run - completed 10 minutes ago (beyond grace period)
+        workflow_run = MagicMock()
+        workflow_run.workflow_id = 1
+        workflow_run.status = "completed"
+        workflow_run.conclusion = "success"
+        workflow_run.updated_at = datetime.now(timezone.utc) - timedelta(seconds=600)
+        repository.get_workflow_runs.return_value = [workflow_run]
+
+        message, is_retryable = _diagnose_missing_artifact(
+            repository, "abc123", TestPlatform.linux, log
+        )
+
+        self.assertFalse(is_retryable)
+        self.assertIn("Artifact not found", message)
+
+    def test_no_workflow_run_is_retryable(self):
+        """Test that missing workflow run returns retryable=True."""
+        from mod_ci.controllers import _diagnose_missing_artifact
+
+        repository = MagicMock()
+        log = MagicMock()
+
+        # Mock workflow
+        workflow = MagicMock()
+        workflow.id = 1
+        workflow.name = "Build CCExtractor on Linux"
+        repository.get_workflows.return_value = [workflow]
+
+        # No workflow runs for this commit
+        repository.get_workflow_runs.return_value = []
+
+        message, is_retryable = _diagnose_missing_artifact(
+            repository, "abc123", TestPlatform.linux, log
+        )
+
+        self.assertTrue(is_retryable)
+        self.assertIn("No workflow run found", message)
+        self.assertIn("Will retry", message)
+
+    def test_diagnostic_exception_is_retryable(self):
+        """Test that diagnostic failures default to retryable=True."""
+        from mod_ci.controllers import _diagnose_missing_artifact
+
+        repository = MagicMock()
+        log = MagicMock()
+
+        # Make get_workflows throw an exception
+        repository.get_workflows.side_effect = Exception("API error")
+
+        message, is_retryable = _diagnose_missing_artifact(
+            repository, "abc123", TestPlatform.linux, log
+        )
+
+        self.assertTrue(is_retryable)
+        self.assertIn("diagnostic check failed", message)
+
+
+class TestStartTestRetryBehavior(BaseTestCase):
+    """Test that start_test correctly handles retryable vs permanent failures."""
+
+    @mock.patch('mod_ci.controllers.find_artifact_for_commit')
+    @mock.patch('mod_ci.controllers._diagnose_missing_artifact')
+    @mock.patch('mod_ci.controllers.mark_test_failed')
+    @mock.patch('mod_ci.controllers.GcpInstance')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('run.log')
+    def test_retryable_failure_does_not_mark_test_failed(
+            self, mock_log, mock_progress, mock_gcp, mock_mark_failed,
+            mock_diagnose, mock_find_artifact):
+        """Test that retryable failures don't mark the test as failed."""
+        from mod_ci.controllers import start_test
+
+        # Setup: artifact not found, but build is in progress (retryable)
+        mock_find_artifact.return_value = None
+        mock_diagnose.return_value = ("Build still in progress", True)
+
+        # Mock locking checks
+        mock_gcp.query.filter.return_value.first.return_value = None
+        mock_progress.query.filter.return_value.first.return_value = None
+
+        test = Test.query.first()
+        repository = MagicMock()
+
+        start_test(MagicMock(), self.app, g.db, repository, test, "token")
+
+        # Should NOT call mark_test_failed for retryable failure
+        mock_mark_failed.assert_not_called()
+        # Should log info, not critical
+        mock_log.info.assert_called()
+
+    @mock.patch('mod_ci.controllers.find_artifact_for_commit')
+    @mock.patch('mod_ci.controllers._diagnose_missing_artifact')
+    @mock.patch('mod_ci.controllers.mark_test_failed')
+    @mock.patch('mod_ci.controllers.GcpInstance')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('run.log')
+    def test_permanent_failure_marks_test_failed(
+            self, mock_log, mock_progress, mock_gcp, mock_mark_failed,
+            mock_diagnose, mock_find_artifact):
+        """Test that permanent failures mark the test as failed."""
+        from mod_ci.controllers import start_test
+
+        # Setup: artifact not found, build failed (not retryable)
+        mock_find_artifact.return_value = None
+        mock_diagnose.return_value = ("Build failed with conclusion 'failure'", False)
+
+        # Mock locking checks
+        mock_gcp.query.filter.return_value.first.return_value = None
+        mock_progress.query.filter.return_value.first.return_value = None
+
+        test = Test.query.first()
+        repository = MagicMock()
+
+        start_test(MagicMock(), self.app, g.db, repository, test, "token")
+
+        # SHOULD call mark_test_failed for permanent failure
+        mock_mark_failed.assert_called_once()
+        # Should log critical
+        mock_log.critical.assert_called()

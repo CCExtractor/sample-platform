@@ -9,14 +9,16 @@ import shutil
 import time
 import zipfile
 from collections import defaultdict
+from functools import wraps
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Callable, Dict, Optional, TypeVar
 
 import googleapiclient.discovery
 import requests
 from flask import (Blueprint, abort, flash, g, jsonify, redirect, request,
                    url_for)
-from github import Commit, Github, GithubException, GithubObject, Repository
+from github import (Auth, Commit, Github, GithubException, GithubObject,
+                    Repository)
 from google.oauth2 import service_account
 from lxml import etree
 from markdown2 import markdown
@@ -43,6 +45,155 @@ from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
                              TestResult, TestResultFile, TestStatus, TestType)
 from utility import is_valid_signature, request_from_github
 
+# Timeout constants (in seconds)
+GITHUB_API_TIMEOUT = 30  # Timeout for GitHub API calls
+GCP_API_TIMEOUT = 60  # Timeout for GCP API calls
+ARTIFACT_DOWNLOAD_TIMEOUT = 300  # 5 minutes for artifact downloads
+GCP_OPERATION_MAX_WAIT = 1800  # 30 minutes max wait for GCP operations
+
+# Retry constants
+MAX_RETRIES = 3
+INITIAL_BACKOFF = 1  # seconds
+MAX_BACKOFF = 30  # seconds
+
+T = TypeVar('T')
+
+
+def retry_with_backoff(
+    func: Callable[..., T],
+    max_retries: int = MAX_RETRIES,
+    initial_backoff: float = INITIAL_BACKOFF,
+    max_backoff: float = MAX_BACKOFF,
+    retryable_exceptions: Any = (GithubException, requests.RequestException)
+) -> T:
+    """
+    Execute a function with exponential backoff retry logic.
+
+    :param func: The function to execute (should be a callable with no arguments, use lambda for args)
+    :param max_retries: Maximum number of retry attempts
+    :param initial_backoff: Initial backoff time in seconds
+    :param max_backoff: Maximum backoff time in seconds
+    :param retryable_exceptions: Tuple of exception types that should trigger a retry
+    :return: The result of the function call
+    :raises: The last exception if all retries fail
+    """
+    from run import log
+
+    last_exception: Optional[Exception] = None
+    backoff = initial_backoff
+
+    for attempt in range(max_retries + 1):
+        try:
+            return func()
+        except retryable_exceptions as e:
+            last_exception = e
+            if attempt < max_retries:
+                log.warning(f"Attempt {attempt + 1}/{max_retries + 1} failed: {e}. Retrying in {backoff}s...")
+                time.sleep(backoff)
+                backoff = min(backoff * 2, max_backoff)
+            else:
+                log.error(f"All {max_retries + 1} attempts failed. Last error: {e}")
+
+    if last_exception is not None:
+        raise last_exception
+    raise RuntimeError("retry_with_backoff: unexpected state - no exception captured")
+
+
+def safe_db_commit(db, operation_description: str = "database operation") -> bool:
+    """
+    Safely commit a database transaction with rollback on failure.
+
+    :param db: The database session
+    :param operation_description: Description of the operation for logging
+    :return: True if commit succeeded, False otherwise
+    """
+    from run import log
+
+    try:
+        db.commit()
+        return True
+    except Exception as e:
+        log.error(f"Database commit failed during {operation_description}: {e}")
+        try:
+            db.rollback()
+            log.info(f"Successfully rolled back transaction for {operation_description}")
+        except Exception as rollback_error:
+            log.error(f"Rollback also failed for {operation_description}: {rollback_error}")
+        return False
+
+
+# User-friendly messages for known GCP error codes
+GCP_ERROR_MESSAGES = {
+    'ZONE_RESOURCE_POOL_EXHAUSTED': (
+        "GCP resources temporarily unavailable in the configured zone. "
+        "The test will be retried automatically when resources become available."
+    ),
+    'QUOTA_EXCEEDED': (
+        "GCP quota limit reached. Please wait for other tests to complete "
+        "or contact the administrator."
+    ),
+    'RESOURCE_NOT_FOUND': "Required GCP resource not found. Please contact the administrator.",
+    'RESOURCE_ALREADY_EXISTS': "A VM with this name already exists. Please contact the administrator.",
+    'TIMEOUT': "GCP operation timed out. The test will be retried automatically.",
+}
+
+
+def parse_gcp_error(result: Dict, log=None) -> str:
+    """
+    Parse a GCP API error response and return a user-friendly message.
+
+    GCP errors have the structure:
+    {
+        'error': {
+            'errors': [{'code': 'ERROR_CODE', 'message': '...'}]
+        }
+    }
+
+    For known error codes, returns a user-friendly message.
+    For unknown errors, logs the details server-side and returns a generic message
+    to avoid exposing potentially sensitive information.
+
+    :param result: The GCP API response dictionary
+    :param log: Optional logger instance. If not provided, uses module logger.
+    :return: A user-friendly error message
+    """
+    import logging
+    if log is None:
+        log = logging.getLogger('Platform')
+
+    if not isinstance(result, dict):
+        log.error(f"GCP error (non-dict): {result}")
+        return "VM creation failed. Please contact the administrator."
+
+    error = result.get('error')
+    if error is None:
+        log.error(f"GCP error (no error key): {result}")
+        return "VM creation failed. Please contact the administrator."
+
+    if not isinstance(error, dict):
+        log.error(f"GCP error (error not dict): {error}")
+        return "VM creation failed. Please contact the administrator."
+
+    errors = error.get('errors', [])
+    if not errors:
+        log.error(f"GCP error (empty errors list): {error}")
+        return "VM creation failed. Please contact the administrator."
+
+    # Get the first error (usually the most relevant)
+    first_error = errors[0] if isinstance(errors, list) and len(errors) > 0 else {}
+    error_code = first_error.get('code', 'UNKNOWN')
+    error_message = first_error.get('message', 'No details provided')
+
+    # Check if we have a user-friendly message for this error code
+    if error_code in GCP_ERROR_MESSAGES:
+        return GCP_ERROR_MESSAGES[error_code]
+
+    # For unknown errors, log full details server-side but return generic message
+    # to avoid exposing potentially sensitive information (project names, zones, etc.)
+    log.error(f"GCP error ({error_code}): {error_message}")
+    return f"VM creation failed ({error_code}). Please contact the administrator."
+
+
 mod_ci = Blueprint('ci', __name__)
 
 
@@ -58,6 +209,131 @@ class Artifact_names(DeclEnum):
 
     linux = "CCExtractor Linux build"
     windows = "CCExtractor Windows Release build"
+
+
+def is_valid_commit_hash(commit: Optional[str]) -> bool:
+    """
+    Validate that a string is a valid Git commit hash.
+
+    A valid commit hash is:
+    - Not None or empty
+    - At least 7 characters (short hash) up to 40 characters (full SHA-1)
+    - Contains only hexadecimal characters (0-9, a-f, A-F)
+    - Not the Git null SHA (all zeros)
+
+    :param commit: The commit hash to validate
+    :type commit: Optional[str]
+    :return: True if valid, False otherwise
+    :rtype: bool
+    """
+    if not commit or not isinstance(commit, str):
+        return False
+
+    commit = commit.strip()
+
+    # Check length (7-40 characters for valid git hashes)
+    if len(commit) < 7 or len(commit) > 40:
+        return False
+
+    # Check for null SHA (all zeros)
+    if commit == '0' * len(commit):
+        return False
+
+    # Check that it's a valid hexadecimal string
+    try:
+        int(commit, 16)
+        return True
+    except ValueError:
+        return False
+
+
+# Maximum number of artifacts to search through when looking for a specific commit
+# GitHub keeps artifacts for 90 days by default, so this should be enough
+MAX_ARTIFACTS_TO_SEARCH = 500
+
+
+def find_artifact_for_commit(repository, commit_sha: str, platform: Any, log) -> Optional[Any]:
+    """
+    Find a build artifact for a specific commit and platform.
+
+    This function properly handles GitHub API pagination to search through
+    all available artifacts. This prevents race conditions where tests
+    fail because artifacts are not found due to pagination issues.
+
+    :param repository: GitHub repository object
+    :type repository: Repository.Repository
+    :param commit_sha: The commit SHA to find artifact for
+    :type commit_sha: str
+    :param platform: The platform (linux or windows) - TestPlatform enum value
+    :type platform: TestPlatform
+    :param log: Logger instance
+    :return: The artifact object if found, None otherwise
+    :rtype: Optional[Artifact]
+    """
+    if platform == TestPlatform.linux:
+        artifact_name = Artifact_names.linux
+    else:
+        artifact_name = Artifact_names.windows
+
+    try:
+        artifacts = repository.get_artifacts()
+        artifacts_checked = 0
+
+        for artifact in artifacts:
+            artifacts_checked += 1
+
+            if artifact.name == artifact_name and artifact.workflow_run.head_sha == commit_sha:
+                log.debug(f"Found artifact '{artifact_name}' for commit {commit_sha[:8]} "
+                          f"(checked {artifacts_checked} artifacts)")
+                return artifact
+
+            # Limit search to prevent excessive API calls
+            if artifacts_checked >= MAX_ARTIFACTS_TO_SEARCH:
+                log.warning(f"Reached max artifact search limit ({MAX_ARTIFACTS_TO_SEARCH}) "
+                            f"without finding artifact for commit {commit_sha[:8]}")
+                break
+
+        log.debug(f"No artifact '{artifact_name}' found for commit {commit_sha[:8]} "
+                  f"(checked {artifacts_checked} artifacts)")
+        return None
+
+    except Exception as e:
+        log.error(f"Error searching for artifact: {type(e).__name__}: {e}")
+        return None
+
+
+def verify_artifacts_exist(repository, commit_sha: str, log) -> Dict[str, bool]:
+    """
+    Verify that build artifacts exist for a commit before queuing tests.
+
+    This function should be called before queue_test() to prevent the race
+    condition where tests are queued before artifacts are available.
+
+    :param repository: GitHub repository object
+    :type repository: Repository.Repository
+    :param commit_sha: The commit SHA to verify
+    :type commit_sha: str
+    :param log: Logger instance
+    :return: Dict with 'linux' and 'windows' keys indicating artifact availability
+    :rtype: Dict[str, bool]
+    """
+    result = {'linux': False, 'windows': False}
+
+    linux_artifact = find_artifact_for_commit(repository, commit_sha, TestPlatform.linux, log)
+    if linux_artifact is not None:
+        result['linux'] = True
+        log.info(f"Linux artifact verified for commit {commit_sha[:8]}")
+    else:
+        log.warning(f"Linux artifact NOT found for commit {commit_sha[:8]}")
+
+    windows_artifact = find_artifact_for_commit(repository, commit_sha, TestPlatform.windows, log)
+    if windows_artifact is not None:
+        result['windows'] = True
+        log.info(f"Windows artifact verified for commit {commit_sha[:8]}")
+    else:
+        log.warning(f"Windows artifact NOT found for commit {commit_sha[:8]}")
+
+    return result
 
 
 @mod_ci.before_app_request
@@ -104,7 +380,7 @@ def start_platforms(repository, delay=None, platform=None) -> None:
 
     with app.app_context():
         from flask import current_app
-        app = current_app._get_current_object()
+        app = current_app._get_current_object()  # type: ignore[attr-defined]
 
         # Create a database session
         db = create_session(config.get('DATABASE_URI', ''))
@@ -180,7 +456,8 @@ def delete_expired_instances(compute, max_runtime, project, zone, db, repository
                 message = "Could not complete test, time limit exceeded"
                 progress = TestProgress(test_id, TestStatus.canceled, message)
                 db.add(progress)
-                db.commit()
+                if not safe_db_commit(db, f"canceling timed-out test {test_id}"):
+                    continue  # Skip to next instance if commit failed
 
                 gh_commit = repository.get_commit(test.commit)
                 if gh_commit is not None:
@@ -236,18 +513,26 @@ def gcp_instance(app, db, platform, repository, delay) -> None:
 
     for test in pending_tests:
         if test.test_type == TestType.pull_request:
-            gh_commit = repository.get_commit(test.commit)
-            if test.pr_nr == 0:
-                log.warn(f'[{platform}] Test {test.id} is invalid')
-                deschedule_test(gh_commit, message="Invalid PR number", test=test, db=db)
-                continue
-            test_pr = repository.get_pull(test.pr_nr)
-            if test.commit != test_pr.head.sha:
-                log.warn(f'[{platform}] Test {test.id} is invalid')
-                deschedule_test(gh_commit, message="PR closed or updated", test=test, db=db)
-                continue
-            if test_pr.state != 'open':
-                log.debug(f"PR {test.pr_nr} not in open state, skipping test {test.id}")
+            try:
+                gh_commit = retry_with_backoff(lambda t=test: repository.get_commit(t.commit))
+                if test.pr_nr == 0:
+                    log.warn(f'[{platform}] Test {test.id} is invalid')
+                    deschedule_test(gh_commit, message="Invalid PR number", test=test, db=db)
+                    continue
+                test_pr = retry_with_backoff(lambda t=test: repository.get_pull(t.pr_nr))
+                # Note: We intentionally do NOT check if test.commit != test_pr.head.sha
+                # If a new commit was pushed to the PR, a new test entry will be created for it.
+                # We should still run the test for the commit that was originally queued.
+                # This prevents the confusing "PR closed or updated" error when users push fixes.
+                if test_pr.state != 'open':
+                    log.info(f"[{platform}] PR {test.pr_nr} is closed, descheduling test {test.id}")
+                    deschedule_test(gh_commit, message="PR is closed", test=test, db=db)
+                    continue
+            except GithubException as e:
+                log.error(f"GitHub API error for test {test.id} after retries: {e}")
+                continue  # Skip this test, try next one
+            except Exception as e:
+                log.error(f"Unexpected error checking PR status for test {test.id}: {e}")
                 continue
         start_test(compute, app, db, repository, test, github_config['bot_token'])
 
@@ -262,6 +547,174 @@ def get_compute_service_object() -> googleapiclient.discovery.Resource:
     credentials = service_account.Credentials.from_service_account_file(sa_file, scopes=scopes)
 
     return googleapiclient.discovery.build('compute', 'v1', credentials=credentials)
+
+
+def mark_test_failed(db, test, repository, message: str) -> bool:
+    """
+    Mark a test as failed and update GitHub status.
+
+    This function ensures that GitHub is always notified of the failure,
+    even if database operations fail. The GitHub status update is critical
+    to prevent tests from appearing stuck in "pending" state forever.
+
+    :param db: Database session
+    :type db: sqlalchemy.orm.scoping.scoped_session
+    :param test: The test to mark as failed
+    :type test: mod_test.models.Test
+    :param repository: GitHub repository object
+    :type repository: Repository.Repository
+    :param message: Error message to display
+    :type message: str
+    :return: True if operation succeeded, False otherwise
+    """
+    from run import log
+
+    db_success = False
+    github_success = False
+
+    # Step 1: Try to update the database
+    try:
+        progress = TestProgress(test.id, TestStatus.canceled, message)
+        db.add(progress)
+        db.commit()
+        db_success = True
+        log.info(f"Test {test.id}: Database updated with failure status")
+    except Exception as e:
+        log.error(f"Test {test.id}: Failed to update database: {e}")
+        # Continue to try GitHub update even if DB fails
+
+    # Step 2: Try to update GitHub status (CRITICAL - must not be skipped)
+    # Use retry logic since this is critical to prevent stuck "pending" status
+    try:
+        # Build target_url first (doesn't need retry)
+        from flask import url_for
+        try:
+            target_url = url_for('test.by_id', test_id=test.id, _external=True)
+        except RuntimeError:
+            # Outside of request context
+            target_url = f"https://sampleplatform.ccextractor.org/test/{test.id}"
+
+        # Use retry_with_backoff for GitHub API calls
+        def update_github_status():
+            gh_commit = repository.get_commit(test.commit)
+            update_status_on_github(gh_commit, Status.ERROR, message, f"CI - {test.platform.value}", target_url)
+
+        retry_with_backoff(update_github_status, max_retries=3, initial_backoff=2.0)
+        github_success = True
+        log.info(f"Test {test.id}: GitHub status updated to ERROR: {message}")
+    except GithubException as e:
+        log.error(f"Test {test.id}: GitHub API error while updating status (after retries): {e.status} - {e.data}")
+    except Exception as e:
+        log.error(f"Test {test.id}: Failed to update GitHub status (after retries): {type(e).__name__}: {e}")
+
+    # Log final status
+    if db_success and github_success:
+        log.info(f"Test {test.id}: Successfully marked as failed")
+    elif github_success:
+        log.warning(f"Test {test.id}: GitHub updated but database update failed - test may be retried")
+    elif db_success:
+        log.error(f"Test {test.id}: Database updated but GitHub status NOT updated - "
+                  f"status will appear stuck as 'pending' on GitHub!")
+    else:
+        log.critical(f"Test {test.id}: BOTH database and GitHub updates failed - "
+                     f"test is in inconsistent state!")
+
+    return db_success and github_success
+
+
+def _diagnose_missing_artifact(repository, commit_sha: str, platform, log) -> tuple:
+    """
+    Diagnose why an artifact was not found for a commit.
+
+    Checks the workflow run status to provide a more helpful error message and
+    indicate whether this is a retryable situation (build still in progress)
+    or a permanent failure (build failed, artifact expired).
+
+    :param repository: GitHub repository object
+    :param commit_sha: The commit SHA to check
+    :param platform: The platform (TestPlatform.linux or TestPlatform.windows)
+    :param log: Logger instance
+    :return: Tuple of (error_message: str, is_retryable: bool)
+             is_retryable=True means the test should NOT be marked as failed
+             and should be left for the next cron cycle to retry
+    """
+    if platform == TestPlatform.linux:
+        expected_workflow = Workflow_builds.LINUX
+    else:
+        expected_workflow = Workflow_builds.WINDOWS
+
+    try:
+        # Build workflow name lookup
+        workflow: Dict[int, Optional[str]] = defaultdict(lambda: None)
+        for active_workflow in repository.get_workflows():
+            workflow[active_workflow.id] = active_workflow.name
+
+        # Check workflow runs for this commit
+        workflow_found = False
+        for workflow_run in repository.get_workflow_runs(head_sha=commit_sha):
+            workflow_run_name = workflow[workflow_run.workflow_id]
+            if workflow_run_name != expected_workflow:
+                continue
+
+            workflow_found = True
+            if workflow_run.status != "completed":
+                # Build is still running - this is RETRYABLE
+                # Don't mark as failed, let the next cron cycle retry
+                message = (f"Build still in progress: '{expected_workflow}' is {workflow_run.status}. "
+                           f"Will retry when build completes.")
+                return (message, True)  # Retryable
+            elif workflow_run.conclusion != "success":
+                # Build failed - this is a PERMANENT failure
+                message = (f"Build failed: '{expected_workflow}' finished with conclusion "
+                           f"'{workflow_run.conclusion}'. Check the GitHub Actions logs for details.")
+                return (message, False)  # Not retryable
+            else:
+                # Build succeeded but artifact not found
+                # Check if the build completed very recently - if so, this might be
+                # GitHub API propagation delay (artifact exists but not visible yet)
+                # In that case, treat as retryable
+                ARTIFACT_PROPAGATION_GRACE_PERIOD = 300  # 5 minutes in seconds
+                try:
+                    from datetime import datetime, timezone
+                    now = datetime.now(timezone.utc)
+                    # workflow_run.updated_at is when the run completed
+                    if workflow_run.updated_at:
+                        completed_at = workflow_run.updated_at
+                        if completed_at.tzinfo is None:
+                            completed_at = completed_at.replace(tzinfo=timezone.utc)
+                        seconds_since_completion = (now - completed_at).total_seconds()
+                        if seconds_since_completion < ARTIFACT_PROPAGATION_GRACE_PERIOD:
+                            message = (f"Build completed recently ({int(seconds_since_completion)}s ago): "
+                                       f"'{expected_workflow}' succeeded but artifact not yet visible. "
+                                       f"Will retry (GitHub API propagation delay).")
+                            log.info(f"Artifact not found but build completed {int(seconds_since_completion)}s ago - "
+                                     f"treating as retryable (possible API propagation delay)")
+                            return (message, True)  # Retryable - API propagation delay
+                except Exception as e:
+                    log.warning(f"Could not check workflow completion time: {e}")
+                    # Fall through to permanent failure
+
+                # Build completed more than 5 minutes ago - artifact should be visible
+                # This is a PERMANENT failure (artifact expired or not uploaded)
+                message = (f"Artifact not found: '{expected_workflow}' completed successfully, "
+                           f"but no artifact was found. The artifact may have expired (GitHub deletes "
+                           f"artifacts after a retention period) or was not uploaded properly.")
+                return (message, False)  # Not retryable
+
+        if not workflow_found:
+            # No workflow run found - could be queued or not triggered
+            # This is RETRYABLE (workflow might be queued or path filters excluded it)
+            message = (f"No workflow run found: '{expected_workflow}' has not run for commit "
+                       f"{commit_sha[:7]}. The workflow may be queued, or was not triggered "
+                       f"due to path filters. Will retry.")
+            return (message, True)  # Retryable
+
+    except Exception as e:
+        log.warning(f"Failed to diagnose missing artifact: {e}")
+        # On diagnostic failure, assume retryable to be safe
+        return (f"No build artifact found for this commit (diagnostic check failed: {e})", True)
+
+    return ("No build artifact found for this commit", True)  # Default to retryable
 
 
 def start_test(compute, app, db, repository: Repository.Repository, test, bot_token) -> None:
@@ -290,6 +743,19 @@ def start_test(compute, app, db, repository: Repository.Repository, test, bot_to
     :rtype: None
     """
     from run import config, log
+
+    # Check if test is already being processed (basic locking)
+    existing_instance = GcpInstance.query.filter(GcpInstance.test_id == test.id).first()
+    if existing_instance is not None:
+        log.warning(f"Test {test.id} already has a GCP instance, skipping duplicate start")
+        return
+
+    # Check if test already has progress (already started or finished)
+    existing_progress = TestProgress.query.filter(TestProgress.test_id == test.id).first()
+    if existing_progress is not None:
+        log.warning(f"Test {test.id} already has progress entries, skipping")
+        return
+
     gcp_instance_name = f"{test.platform.value}-{test.id}"
     log.debug(f'[{gcp_instance_name}] Starting test {test.id}')
 
@@ -379,48 +845,73 @@ def start_test(compute, app, db, repository: Repository.Repository, test, bot_to
     save_xml_to_file(multi_test, base_folder, 'TestAll.xml')
 
     # 2) Download the artifact for the current build from GitHub Actions
-    artifact_saved = False
+    # Use the improved artifact search function that handles pagination properly
     base_folder = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'vm_data', gcp_instance_name, 'unsafe-ccextractor')
     Path(base_folder).mkdir(parents=True, exist_ok=True)
 
-    artifacts = repository.get_artifacts()
-    if test.platform == TestPlatform.linux:
-        artifact_name = Artifact_names.linux
-    else:
-        artifact_name = Artifact_names.windows
-    for index, artifact in enumerate(artifacts):
-        if artifact.name == artifact_name and artifact.workflow_run.head_sha == test.commit:
-            artifact_url = artifact.archive_download_url
-            try:
-                auth_header = f"token {bot_token}"
-                r = requests.get(artifact_url, headers={"Authorization": auth_header})
-            except Exception as e:
-                log.critical("Could not fetch artifact, request timed out")
-                return
-            if r.status_code != 200:
-                log.critical(f"Could not fetch artifact, response code: {r.status_code}")
-                return
+    log.info(f"Test {test.id}: Searching for {test.platform.value} artifact for commit {test.commit[:8]}")
+    artifact = find_artifact_for_commit(repository, test.commit, test.platform, log)
 
-            open(os.path.join(base_folder, 'ccextractor.zip'), 'wb').write(r.content)
-            with zipfile.ZipFile(os.path.join(base_folder, 'ccextractor.zip'), 'r') as artifact_zip:
-                artifact_zip.extractall(base_folder)
+    if artifact is None:
+        # Use diagnostic function to determine if this is retryable
+        error_detail, is_retryable = _diagnose_missing_artifact(repository, test.commit, test.platform, log)
 
-            artifact_saved = True
-            break
+        if is_retryable:
+            # Build is still in progress or workflow is queued - don't mark as failed
+            # Just return and let the next cron cycle retry this test
+            log.info(f"Test {test.id}: {error_detail}")
+            return
 
-    if not artifact_saved:
-        log.critical("Could not find an artifact for this commit")
+        # Permanent failure - mark the test as failed
+        log.critical(f"Test {test.id}: Could not find artifact for commit {test.commit[:8]}: {error_detail}")
+        mark_test_failed(db, test, repository, error_detail)
         return
+
+    log.info(f"Test {test.id}: Found artifact '{artifact.name}' (ID: {artifact.id})")
+    artifact_url = artifact.archive_download_url
+
+    try:
+        auth_header = f"token {bot_token}"
+        r = requests.get(
+            artifact_url,
+            headers={"Authorization": auth_header},
+            timeout=ARTIFACT_DOWNLOAD_TIMEOUT
+        )
+    except requests.exceptions.Timeout:
+        log.critical(f"Test {test.id}: Artifact download timed out after {ARTIFACT_DOWNLOAD_TIMEOUT}s")
+        mark_test_failed(db, test, repository, "Artifact download timed out")
+        return
+    except Exception as e:
+        log.critical(f"Test {test.id}: Could not fetch artifact: {e}")
+        mark_test_failed(db, test, repository, f"Artifact download failed: {e}")
+        return
+
+    if r.status_code != 200:
+        log.critical(f"Test {test.id}: Could not fetch artifact, response code: {r.status_code}")
+        mark_test_failed(db, test, repository, f"Artifact download failed: HTTP {r.status_code}")
+        return
+
+    zip_path = os.path.join(base_folder, 'ccextractor.zip')
+    with open(zip_path, 'wb') as f:
+        f.write(r.content)
+    with zipfile.ZipFile(zip_path, 'r') as artifact_zip:
+        artifact_zip.extractall(base_folder)
+
+    log.info(f"Test {test.id}: Artifact downloaded and extracted successfully")
 
     zone = config.get('ZONE', '')
     project_id = config.get('PROJECT_NAME', '')
     operation = create_instance(compute, project_id, zone, test, full_url)
     result = wait_for_operation(compute, project_id, zone, operation['name'])
-    if 'error' not in result:
+    # Check if result indicates success (result is a dict with no 'error' key)
+    if isinstance(result, dict) and 'error' not in result:
         db.add(status)
-        db.commit()
+        if not safe_db_commit(db, f"recording GCP instance for test {test.id}"):
+            log.error(f"Failed to record GCP instance for test {test.id}, but VM was created")
     else:
+        error_msg = parse_gcp_error(result)
         log.error(f"Error creating test instance for test {test.id}, result: {result}")
+        mark_test_failed(db, test, repository, error_msg)
 
 
 def create_instance(compute, project, zone, test, reportURL) -> Dict:
@@ -560,9 +1051,9 @@ def get_config_for_gcp_instance(vm_name, source_disk_image, metadata_items) -> D
     }
 
 
-def wait_for_operation(compute, project, zone, operation) -> Dict:
+def wait_for_operation(compute, project, zone, operation, max_wait: int = GCP_OPERATION_MAX_WAIT) -> Dict:
     """
-    Wait for an operation to get completed.
+    Wait for an operation to get completed with timeout.
 
     :param compute: The cloud compute engine service object
     :type compute: googleapiclient.discovery.Resource
@@ -572,22 +1063,47 @@ def wait_for_operation(compute, project, zone, operation) -> Dict:
     :type zone: str
     :param operation: Operation name for which server is waiting
     :type operation: str
+    :param max_wait: Maximum time to wait in seconds (default: 30 minutes)
+    :type max_wait: int
     :return: Response received after operation completion
     :rtype: Dict
     """
     from run import log
-    log.info("Waiting for an operation to finish")
+    log.info(f"Waiting for operation {operation} to finish (max {max_wait}s)")
+    start_time = time.time()
+    poll_interval = 1.0  # Start with 1 second polling
+
     while True:
-        result = compute.zoneOperations().get(
-            project=project,
-            zone=zone,
-            operation=operation).execute()
+        elapsed = time.time() - start_time
+        if elapsed >= max_wait:
+            log.error(f"Operation {operation} timed out after {elapsed:.0f} seconds")
+            return {
+                'status': 'TIMEOUT',
+                'error': {
+                    'errors': [{
+                        'code': 'TIMEOUT',
+                        'message': f'Operation timed out after {max_wait} seconds'
+                    }]
+                }
+            }
 
-        if result['status'] == 'DONE':
-            log.info("Operation Completed")
-            return result
+        try:
+            result = compute.zoneOperations().get(
+                project=project,
+                zone=zone,
+                operation=operation).execute()
 
-        time.sleep(1)
+            if result['status'] == 'DONE':
+                log.info(f"Operation {operation} completed in {elapsed:.0f} seconds")
+                return result
+
+        except Exception as e:
+            log.error(f"Error checking operation status: {e}")
+            return {'status': 'ERROR', 'error': {'errors': [{'code': 'API_ERROR', 'message': str(e)}]}}
+
+        # Exponential backoff with cap at 10 seconds
+        time.sleep(min(poll_interval, 10))
+        poll_interval = min(poll_interval * 1.5, 10)
 
 
 def save_xml_to_file(xml_node, folder_name, file_name) -> None:
@@ -629,6 +1145,12 @@ def add_test_entry(db, commit, test_type, branch="master", pr_nr=0) -> None:
     """
     from run import log
 
+    # Validate commit hash before creating test entries
+    # Based on issue identified by NexionisJake in PR #937
+    if not is_valid_commit_hash(commit):
+        log.error(f"Invalid commit hash '{commit}' - skipping test entry creation")
+        return
+
     fork_url = f"%/{g.github['repository_owner']}/{g.github['repository']}.git"
     fork = Fork.query.filter(Fork.github.like(fork_url)).first()
 
@@ -640,7 +1162,8 @@ def add_test_entry(db, commit, test_type, branch="master", pr_nr=0) -> None:
     db.add(linux_test)
     windows_test = Test(TestPlatform.windows, test_type, fork.id, branch, commit, pr_nr)
     db.add(windows_test)
-    db.commit()
+    if not safe_db_commit(db, f"adding test entries for commit {commit[:7]}"):
+        log.error(f"Failed to add test entries for commit {commit}")
 
 
 def schedule_test(gh_commit: Commit.Commit) -> None:
@@ -658,8 +1181,11 @@ def schedule_test(gh_commit: Commit.Commit) -> None:
             update_status_on_github(gh_commit, Status.PENDING, status_description, f"CI - {platform.value}")
 
 
+_GITHUB_NOT_SET: Any = getattr(GithubObject, 'NotSet')
+
+
 def update_status_on_github(gh_commit: Commit.Commit, state, description, context,
-                            target_url=GithubObject.NotSet):  # type: ignore
+                            target_url: Any = _GITHUB_NOT_SET):
     """
     Update status on GitHub.
 
@@ -733,7 +1259,9 @@ def deschedule_test(gh_commit: Commit.Commit, commit=None, test_type=None, platf
         progress = TestProgress(test.id, TestStatus.canceled, message, datetime.datetime.now())
         db = db or g.db
         db.add(progress)
-        db.commit()
+        if not safe_db_commit(db, f"descheduling test {test.id}"):
+            log.error(f"Failed to deschedule test {test.id}")
+            return
 
         if gh_commit is not None:
             update_status_on_github(gh_commit, state, message, f"CI - {test.platform.value}")
@@ -774,9 +1302,24 @@ def queue_test(gh_commit: Commit.Commit, commit, test_type, platform, branch="ma
                                            Test.branch == branch,
                                            Test.pr_nr == pr_nr
                                            )).first()
+
+    if platform_test is None:
+        log.error(f"No test record found for commit {commit[:8]}, platform {platform.value}, "
+                  f"test_type {test_type}, pr_nr {pr_nr}. "
+                  "This may indicate the pull_request webhook was not processed.")
+        return
+
     add_customized_regression_tests(platform_test.id)
 
     if gh_commit is not None:
+        # Check if test already has progress (started or completed)
+        # If so, don't overwrite the GitHub status with "Tests queued"
+        # This prevents the bug where a completed test gets its status overwritten
+        # when a later webhook triggers queue_test for the same commit
+        if len(platform_test.progress) > 0:
+            log.info(f"Test {platform_test.id} already has progress, not posting 'Tests queued' status")
+            return
+
         target_url = url_for('test.by_id', test_id=platform_test.id, _external=True)
         status_context = f"CI - {platform_test.platform.value}"
         update_status_on_github(gh_commit, Status.PENDING, "Tests queued", status_context, target_url)
@@ -872,7 +1415,11 @@ def start_ci():
             g.log.warning(f'CI payload is empty')
             abort(abort_code)
 
-        gh = Github(g.github['bot_token'])
+        if not g.github['bot_token']:
+            g.log.error('GitHub token not configured, cannot process webhook')
+            return json.dumps({'msg': 'GitHub token not configured'}), 500
+
+        gh = Github(auth=Auth.Token(g.github['bot_token']))
         repository = gh.get_repo(f"{g.github['repository_owner']}/{g.github['repository']}")
 
         if event == "push":
@@ -880,7 +1427,11 @@ def start_ci():
             if 'after' in payload and payload["ref"] == "refs/heads/master":
                 commit_hash = payload['after']
                 # Update the db to the new last commit
-                ref = repository.get_git_ref("heads/master")
+                try:
+                    ref = retry_with_backoff(lambda: repository.get_git_ref("heads/master"))
+                except GithubException as e:
+                    g.log.error(f"Failed to get git ref after retries: {e}")
+                    return 'ERROR'
                 last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
                 for platform in TestPlatform.values():
                     commit_name = 'fetch_commit_' + platform
@@ -891,7 +1442,8 @@ def start_ci():
                         g.db.add(prev_commit)
 
                 last_commit.value = ref.object.sha
-                g.db.commit()
+                if not safe_db_commit(g.db, "updating last commit"):
+                    return 'ERROR'
                 add_test_entry(g.db, commit_hash, TestType.commit)
             else:
                 g.log.warning('Unknown push type! Dumping payload for analysis')
@@ -919,8 +1471,12 @@ def start_ci():
                 if BlockedUsers.query.filter(BlockedUsers.user_id == user_id).first() is not None:
                     g.log.warning("User Blacklisted")
                     return 'ERROR'
-                if repository.get_pull(number=pr_nr).mergeable is not False:
-                    add_test_entry(g.db, commit_hash, TestType.pull_request, pr_nr=pr_nr)
+                try:
+                    pr = retry_with_backoff(lambda: repository.get_pull(number=pr_nr))
+                    if pr.mergeable is not False:
+                        add_test_entry(g.db, commit_hash, TestType.pull_request, pr_nr=pr_nr)
+                except GithubException as e:
+                    g.log.error(f"Failed to get PR {pr_nr} after retries: {e}")
 
             elif is_inactive:
                 pr_action = 'closed' if action == 'closed' else 'converted to draft'
@@ -934,14 +1490,15 @@ def start_ci():
                         continue
                     progress = TestProgress(test.id, TestStatus.canceled, f"PR {pr_action}", datetime.datetime.now())
                     g.db.add(progress)
-                    g.db.commit()
+                    if not safe_db_commit(g.db, f"canceling test {test.id} for closed PR"):
+                        continue
                     gh_commit = repository.get_commit(test.commit)
                     # If test run status exists, mark them as cancelled
                     for status in gh_commit.get_statuses():
-                        if status["context"] == f"CI - {test.platform.value}":
+                        if status.context == f"CI - {test.platform.value}":
                             target_url = url_for('test.by_id', test_id=test.id, _external=True)
                             update_status_on_github(gh_commit, Status.FAILURE, "Tests canceled",
-                                                    status["context"], target_url=target_url)
+                                                    status.context, target_url=target_url)
 
         elif event == "issues":
             g.log.debug('issues event detected')
@@ -960,7 +1517,7 @@ def start_ci():
             if issue is not None:
                 issue.title = issue_title
                 issue.status = issue_data['state']
-                g.db.commit()
+                safe_db_commit(g.db, f"updating issue {issue_id}")
 
         elif event == "release":
             g.log.debug("Release webhook triggered")
@@ -975,35 +1532,81 @@ def start_ci():
             elif action in ["deleted", "unpublished"]:
                 g.log.debug("Received delete/unpublished action")
                 CCExtractorVersion.query.filter_by(version=release_version).delete()
-                g.db.commit()
-                g.log.info(f"Successfully deleted release {release_version} on {action} action")
+                if not safe_db_commit(g.db, f"deleting release {release_version}"):
+                    g.log.error(f"Failed to delete release {release_version}")
+                else:
+                    g.log.info(f"Successfully deleted release {release_version} on {action} action")
             elif action in ["edited", "published"]:
                 g.log.debug(f"Latest release version is {release_version}")
-                release_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first().value
                 release_date = release_data['published_at']
+
+                # Get commit hash from the release tag via GitHub API
+                # This is more reliable than using last_commit which may be stale
+                # Based on issue identified by NexionisJake in PR #937
+                release_commit = None
+                tag_name = release_data['tag_name']
+                try:
+                    tag_ref = repository.get_git_ref(f"tags/{tag_name}")
+                    if tag_ref.object.type == "tag":
+                        # Annotated tag - need to get the underlying commit
+                        tag_obj = repository.get_git_tag(tag_ref.object.sha)
+                        release_commit = tag_obj.object.sha
+                    else:
+                        # Lightweight tag - points directly to commit
+                        release_commit = tag_ref.object.sha
+                    g.log.debug(f"Got commit {release_commit} from tag {tag_name}")
+                except GithubException as e:
+                    g.log.warning(f"Failed to get commit from tag {tag_name}: {e}")
+
+                # Fallback to last_commit if tag lookup failed
+                if not is_valid_commit_hash(release_commit):
+                    last_commit_data = GeneralData.query.filter(
+                        GeneralData.key == 'last_commit').first()
+                    if last_commit_data and is_valid_commit_hash(last_commit_data.value):
+                        release_commit = last_commit_data.value
+                        g.log.warning(f"Using fallback last_commit: {release_commit}")
+
+                # Validate we have a valid commit hash
+                if not is_valid_commit_hash(release_commit):
+                    g.log.error(f"Cannot determine valid commit for release {release_version}")
+                    return json.dumps({'msg': 'Invalid commit hash for release'})
+
                 if action == "edited":
-                    release = CCExtractorVersion.query.filter(CCExtractorVersion.version == release_version).one()
-                    release.released = datetime.datetime.strptime(release_date, '%Y-%m-%dT%H:%M:%SZ').date()
+                    release = CCExtractorVersion.query.filter(
+                        CCExtractorVersion.version == release_version).one()
+                    release.released = datetime.datetime.strptime(
+                        release_date, '%Y-%m-%dT%H:%M:%SZ').date()
                     release.commit = release_commit
                 else:
                     release = CCExtractorVersion(release_version, release_date, release_commit)
                     g.db.add(release)
-                g.db.commit()
-                g.log.info(f"Successfully updated release version with webhook action '{action}'")
-                # adding test corresponding to last commit to the baseline regression results
-                # this is not altered when a release is deleted or unpublished since it's based on commit
+                if not safe_db_commit(g.db, f"updating release {release_version}"):
+                    g.log.error(f"Failed to update release {release_version}")
+                    return json.dumps({'msg': 'ERROR'})
+                g.log.info(f"Release {release_version} updated with commit {release_commit}")
+
+                # Update baseline regression results for this release
+                # Only proceed if we have a test for this commit
                 test = Test.query.filter(and_(Test.commit == release_commit,
                                          Test.platform == TestPlatform.linux)).first()
-                test_result_file = g.db.query(TestResultFile).filter(TestResultFile.test_id == test.id).subquery()
-                test_result = g.db.query(TestResult).filter(TestResult.test_id == test.id).subquery()
-                g.db.query(RegressionTestOutput.correct).filter(
-                    and_(RegressionTestOutput.regression_id == test_result_file.c.regression_test_id,
-                         test_result_file.c.got is not None)).values(test_result_file.c.got)
-                g.db.query(RegressionTest.expected_rc).filter(
-                    RegressionTest.id == test_result.c.regression_test_id
-                ).values(test_result.c.expected_rc)
-                g.db.commit()
-                g.log.info("Successfully added tests for latest release!")
+                if test is not None:
+                    test_result_file = g.db.query(TestResultFile).filter(
+                        TestResultFile.test_id == test.id).subquery()
+                    test_result = g.db.query(TestResult).filter(
+                        TestResult.test_id == test.id).subquery()
+                    g.db.query(RegressionTestOutput.correct).filter(
+                        and_(RegressionTestOutput.regression_id == test_result_file.c.regression_test_id,
+                             test_result_file.c.got is not None)).values(test_result_file.c.got)
+                    g.db.query(RegressionTest.expected_rc).filter(
+                        RegressionTest.id == test_result.c.regression_test_id
+                    ).values(test_result.c.expected_rc)
+                    if safe_db_commit(g.db, "updating baseline regression results"):
+                        g.log.info("Successfully updated baseline tests for release!")
+                    else:
+                        g.log.error("Failed to update baseline regression results")
+                else:
+                    g.log.warning(f"No test found for commit {release_commit} - "
+                                  "baseline update skipped")
             else:
                 g.log.warning(f"Unsupported release action: {action}")
 
@@ -1057,6 +1660,39 @@ def start_ci():
                         deschedule_test(github_status, commit_hash, test_type, TestPlatform.windows,
                                         message="Cancelling tests as Github Action(s) failed")
                     elif is_complete:
+                        # CRITICAL: Verify artifacts exist before queuing tests
+                        # This prevents the race condition where tests are queued before
+                        # artifacts are available, causing "No build artifact found" errors
+                        # See: https://github.com/CCExtractor/sample-platform/issues/XXX
+                        artifacts_available = verify_artifacts_exist(repository, commit_hash, g.log)
+                        g.log.info(f"Artifact verification for {commit_hash[:8]}: "
+                                   f"Linux={artifacts_available['linux']}, Windows={artifacts_available['windows']}")
+
+                        # Override builds dict if artifacts are not available
+                        # This ensures we don't queue tests for which artifacts don't exist
+                        # Determine test type for artifact verification failures
+                        artifact_fail_test_type = (TestType.pull_request
+                                                   if payload['workflow_run']['event'] == "pull_request"
+                                                   else TestType.commit)
+
+                        if builds['linux'] and not artifacts_available['linux']:
+                            g.log.error(f"Linux workflow succeeded but artifact not found for {commit_hash[:8]}! "
+                                        "This may indicate a GitHub API caching issue.")
+                            deschedule_test(github_status, commit_hash, artifact_fail_test_type,
+                                            TestPlatform.linux,
+                                            message="Build succeeded but artifact not yet available - please retry",
+                                            state=Status.ERROR)
+                            builds['linux'] = False
+
+                        if builds['windows'] and not artifacts_available['windows']:
+                            g.log.error(f"Windows workflow succeeded but artifact not found for {commit_hash[:8]}! "
+                                        "This may indicate a GitHub API caching issue.")
+                            deschedule_test(github_status, commit_hash, artifact_fail_test_type,
+                                            TestPlatform.windows,
+                                            message="Build succeeded but artifact not yet available - please retry",
+                                            state=Status.ERROR)
+                            builds['windows'] = False
+
                         if payload['workflow_run']['event'] == "pull_request":
                             # In case of pull request run tests only if it is still in an open state
                             # and user is not blacklisted
@@ -1143,7 +1779,8 @@ def update_build_badge(status, test) -> None:
         g.db.query(RegressionTest).filter(RegressionTest.id.in_(test_ids_to_update)).update(
             {f"last_passed_on_{test.platform.value}": test.id}, synchronize_session=False
         )
-        g.db.commit()
+        if not safe_db_commit(g.db, "updating last passed regression tests"):
+            g.log.error("Failed to update last passed regression tests")
 
 
 @mod_ci.route('/progress-reporter/<test_id>/<token>', methods=['POST'])
@@ -1231,16 +1868,21 @@ def progress_type_request(log, test, test_id, request) -> bool:
                 prep_finish_time = datetime.datetime.now()
                 # save preparation finish time
                 gcp_instance_entry.timestamp_prep_finished = prep_finish_time
-                g.db.commit()
+                safe_db_commit(g.db, f"saving prep finish time for test {test_id}")
                 # set time taken in seconds to do preparation
                 time_diff = (prep_finish_time - gcp_instance_entry.timestamp).total_seconds()
                 set_avg_time(test.platform, "prep", time_diff)
 
     progress = TestProgress(test.id, status, message)
     g.db.add(progress)
-    g.db.commit()
+    if not safe_db_commit(g.db, f"adding progress for test {test_id}"):
+        return False
 
-    gh = Github(g.github['bot_token'])
+    if not g.github['bot_token']:
+        log.error('GitHub token not configured, cannot update status on GitHub')
+        return True
+
+    gh = Github(auth=Auth.Token(g.github['bot_token']))
     repository = gh.get_repo(f"{g.github['repository_owner']}/{g.github['repository']}")
     # Store the test commit for testing in case of commit
     if status == TestStatus.completed and is_main_repo(test.fork.github):
@@ -1252,7 +1894,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
 
         if test.test_type == TestType.commit and test.id > fetch_commit.id:
             commit.value = test.commit
-            g.db.commit()
+            safe_db_commit(g.db, f"updating fetch commit for {test.platform.value}")
 
     # Post status update
     state = Status.PENDING
@@ -1294,23 +1936,43 @@ def progress_type_request(log, test, test_id, request) -> bool:
             message = 'Tests completed'
         if test.test_type == TestType.pull_request:
             state = comment_pr(test)
+            # Update message to match the state returned by comment_pr()
+            # comment_pr() uses different logic: it returns SUCCESS if there are
+            # no NEW failures compared to master (pre-existing failures are OK)
+            if state == Status.SUCCESS:
+                message = 'All tests passed'
+            else:
+                message = 'Not all tests completed successfully, please check'
         update_build_badge(state, test)
 
     else:
         message = progress.message
 
-    gh_commit = repository.get_commit(test.commit)
-    update_status_on_github(gh_commit, state, message, context, target_url=target_url)
+    # Use retry logic for final GitHub status update to prevent stuck "pending" states
+    # This is critical - if this fails, the PR will show "Tests queued" forever
+    try:
+        def update_final_status():
+            gh_commit = repository.get_commit(test.commit)
+            update_status_on_github(gh_commit, state, message, context, target_url=target_url)
+
+        retry_with_backoff(update_final_status, max_retries=3, initial_backoff=2.0)
+    except Exception as e:
+        log.error(f"Test {test_id}: Failed to update final GitHub status after retries: {e}")
 
     if status in [TestStatus.completed, TestStatus.canceled]:
-        # Delete the current instance
+        # Delete the current instance (fire-and-forget)
+        # We intentionally don't wait for the deletion to complete because:
+        # 1. Waiting can take 60+ seconds, exceeding nginx/gunicorn timeouts (502 errors)
+        # 2. The deletion will complete eventually - we don't need confirmation
+        # 3. All important work (test results, GitHub status) is already done
         from run import config
         compute = get_compute_service_object()
         zone = config.get('ZONE', '')
         project = config.get('PROJECT_NAME', '')
         vm_name = f"{test.platform.value}-{test.id}"
         operation = delete_instance(compute, project, zone, vm_name)
-        wait_for_operation(compute, project, zone, operation['name'])
+        op_name = operation.get('name', 'unknown')
+        log.info(f"[Test: {test_id}] VM deletion initiated for {vm_name} (op: {op_name})")
 
     # If status is complete, remove the GCP Instance entry
     if status in [TestStatus.completed, TestStatus.canceled]:
@@ -1319,7 +1981,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
         if gcp_instance is not None:
             log.debug(f"Removing GCP Instance entry: {gcp_instance}")
             g.db.delete(gcp_instance)
-            g.db.commit()
+            safe_db_commit(g.db, f"removing GCP instance for test {test_id}")
 
         log.debug(f"[Test: {test_id}] Test {status}")
         var_average = 'average_time_' + test.platform.value
@@ -1365,7 +2027,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
             new_avg = GeneralData(var_average, average_time)
             log.info(f'new average time {str(average_time)} set successfully')
             g.db.add(new_avg)
-            g.db.commit()
+            safe_db_commit(g.db, "setting new average time")
 
         else:
             all_results = TestResult.query.count()
@@ -1385,7 +2047,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
             last_running_test = end_time - start_time
             updated_average = updated_average + last_running_test.total_seconds()
             current_average.value = 0 if number_test == 0 else updated_average // number_test
-            g.db.commit()
+            safe_db_commit(g.db, "updating average time")
             log.info(f'average time updated to {str(current_average.value)}')
 
     return True
@@ -1413,7 +2075,7 @@ def equality_type_request(log, test_id, test, request):
     else:
         result_file = TestResultFile(test.id, request.form['test_id'], rto.id, rto.correct)
         g.db.add(result_file)
-        g.db.commit()
+        safe_db_commit(g.db, f"saving result file for test {test_id}")
 
 
 def upload_log_type_request(log, test_id, repo_folder, test, request) -> bool:
@@ -1475,7 +2137,9 @@ def upload_type_request(log, test_id, repo_folder, test, request) -> bool:
         if filename == '':
             log.warning('empty filename provided for uploading')
             return False
-        temp_path = os.path.join(repo_folder, 'TempFiles', filename)
+        temp_dir = os.path.join(repo_folder, 'TempFiles')
+        os.makedirs(temp_dir, exist_ok=True)
+        temp_path = os.path.join(temp_dir, filename)
         # Save to temporary location
         uploaded_file.save(temp_path)
         # Get hash and check if it's already been submitted
@@ -1485,15 +2149,16 @@ def upload_type_request(log, test_id, repo_folder, test, request) -> bool:
                 hash_sha256.update(chunk)
         file_hash = hash_sha256.hexdigest()
         filename, file_extension = os.path.splitext(filename)
-        final_path = os.path.join(
-            repo_folder, 'TestResults', f'{file_hash}{file_extension}'
-        )
+        results_dir = os.path.join(repo_folder, 'TestResults')
+        os.makedirs(results_dir, exist_ok=True)
+        final_path = os.path.join(results_dir, f'{file_hash}{file_extension}')
         os.rename(temp_path, final_path)
         rto = RegressionTestOutput.query.filter(
             RegressionTestOutput.id == request.form['test_file_id']).first()
         result_file = TestResultFile(test.id, request.form['test_id'], rto.id, rto.correct, file_hash)
         g.db.add(result_file)
-        g.db.commit()
+        if not safe_db_commit(g.db, f"saving test result file for test {test_id}"):
+            return False
         return True
 
     return False
@@ -1534,6 +2199,8 @@ def finish_type_request(log, test_id, test, request):
             log.debug(f"Updated progress for test {test_id}: {progress_message}")
     except IntegrityError as e:
         log.error(f"Could not save the results: {e}")
+    if not safe_db_commit(g.db, f"saving test result for test {test_id}"):
+        log.error(f"Could not save the results for test {test_id}")
 
 
 def set_avg_time(platform, process_type: str, time_taken: int) -> None:
@@ -1567,7 +2234,7 @@ def set_avg_time(platform, process_type: str, time_taken: int) -> None:
         current_avg_count.value = str(avg_count + 1)
         current_average.value = str(new_average)
 
-    g.db.commit()
+    safe_db_commit(g.db, f"updating average {process_type} time for {platform.value}")
 
 
 def get_info_for_pr_comment(test: Test) -> PrCommentInfo:
@@ -1624,8 +2291,11 @@ def comment_pr(test: Test) -> str:
     template = app.jinja_env.get_or_select_template('ci/pr_comment.txt')
     message = template.render(comment_info=comment_info, test_id=test_id, platform=platform)
     log.debug(f"GitHub PR Comment Message Created for Test_id: {test_id}")
+    if not g.github['bot_token']:
+        log.error(f"GitHub token not configured, cannot post PR comment for Test_id: {test_id}")
+        return Status.FAILURE
     try:
-        gh = Github(g.github['bot_token'])
+        gh = Github(auth=Auth.Token(g.github['bot_token']))
         repository = gh.get_repo(f"{g.github['repository_owner']}/{g.github['repository']}")
         # Pull requests are just issues with code, so GitHub considers PR comments in issues
         pull_request = repository.get_pull(number=test.pr_nr)
@@ -1693,12 +2363,18 @@ def blocked_users():
 
         blocked_user = BlockedUsers(add_user_form.user_id.data, add_user_form.comment.data)
         g.db.add(blocked_user)
-        g.db.commit()
+        if not safe_db_commit(g.db, "adding blocked user"):
+            flash('Failed to block user.')
+            return redirect(url_for('.blocked_users'))
         flash('User blocked successfully.')
+
+        if not g.github['bot_token']:
+            g.log.error('GitHub token not configured, cannot check blocked user PRs')
+            return redirect(url_for('.blocked_users'))
 
         try:
             # Remove any queued pull request from blocked user
-            gh = Github(g.github['bot_token'])
+            gh = Github(auth=Auth.Token(g.github['bot_token']))
             repository = gh.get_repo(f"{g.github['repository_owner']}/{g.github['repository']}")
             # Getting all pull requests by blocked user on the repo
             pulls = repository.get_pulls(state='open')
@@ -1712,7 +2388,8 @@ def blocked_users():
                         continue
                     progress = TestProgress(test.id, TestStatus.canceled, "PR closed", datetime.datetime.now())
                     g.db.add(progress)
-                    g.db.commit()
+                    if not safe_db_commit(g.db, f"canceling test {test.id} for blocked user"):
+                        continue
                     gh_commit = repository.get_commit(test.commit)
                     message = "Tests canceled since user blacklisted"
                     target_url = url_for('test.by_id', test_id=test.id, _external=True)
@@ -1748,7 +2425,9 @@ def blocked_users_remove(blocked_user_id):
     form = DeleteUserForm(request.form)
     if form.validate_on_submit():
         g.db.delete(blocked_user)
-        g.db.commit()
+        if not safe_db_commit(g.db, "removing blocked user"):
+            flash("Failed to remove user.")
+            return redirect(url_for('.blocked_users'))
         flash("User removed successfully.")
         return redirect(url_for('.blocked_users'))
 
@@ -1780,9 +2459,11 @@ def toggle_maintenance(platform, status):
         db_mode = MaintenanceMode.query.filter(MaintenanceMode.platform == platform).first()
         if db_mode is not None:
             db_mode.disabled = disabled
-            g.db.commit()
-            result = 'success'
-            message = f'{platform.description} in maintenance? {"Yes" if disabled else "No"}'
+            if safe_db_commit(g.db, f"updating maintenance mode for {platform}"):
+                result = 'success'
+                message = f'{platform.description} in maintenance? {"Yes" if disabled else "No"}'
+            else:
+                message = 'Failed to update maintenance mode'
     except ValueError:
         pass
 
@@ -1812,7 +2493,7 @@ def in_maintenance_mode(platform):
     if status is None:
         status = MaintenanceMode(platform, False)
         g.db.add(status)
-        g.db.commit()
+        safe_db_commit(g.db, f"creating maintenance mode entry for {platform}")
 
     return str(status.disabled)
 
@@ -1844,4 +2525,4 @@ def add_customized_regression_tests(test_id) -> None:
         g.log.debug(f'Adding RT #{regression_test.id} to test {test_id}')
         customized_test = CustomizedTest(test_id, regression_test.id)
         g.db.add(customized_test)
-    g.db.commit()
+    safe_db_commit(g.db, f"adding customized regression tests for test {test_id}")

@@ -6,7 +6,7 @@ from mod_auth.models import Role
 from mod_regression.models import RegressionTest
 from mod_test.models import (Test, TestPlatform, TestProgress, TestResult,
                              TestResultFile, TestStatus)
-from tests.base import BaseTestCase
+from tests.base import BaseTestCase, create_mock_db_query
 from tests.test_auth.test_controllers import MockUser
 
 
@@ -131,6 +131,9 @@ class TestControllers(BaseTestCase):
         from mod_test.controllers import get_data_for_test
 
         mock_test = mock.MagicMock()
+
+        # Set up mock db query chain to avoid AsyncMock behavior in Python 3.13+
+        create_mock_db_query(mock_g)
 
         result = get_data_for_test(mock_test)
 

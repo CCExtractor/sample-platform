@@ -295,7 +295,7 @@ class TestProgress(Base):
         tz = get_localzone()
 
         if timestamp is None:
-            timestamp = tz.localize(datetime.datetime.now())
+            timestamp = datetime.datetime.now(tz)
             timestamp = timestamp.astimezone(pytz.UTC)
 
         if timestamp.tzinfo is None:

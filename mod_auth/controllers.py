@@ -11,6 +11,7 @@ import requests
 from flask import (Blueprint, abort, flash, g, redirect, request, session,
                    url_for)
 from pyisemail import is_email
+from werkzeug.routing import BuildError
 from werkzeug.wrappers.response import Response
 
 from database import EnumSymbol
@@ -229,7 +230,11 @@ def login() -> Union[Response, Dict[str, Union[str, LoginForm]]]:
         flash('You are already logged in!', 'alert')
         if len(redirect_location) == 0:
             return redirect("/")
-        return redirect(url_for(redirect_location))
+        try:
+            return redirect(url_for(redirect_location))
+        except BuildError:
+            # Endpoint requires parameters we don't have, redirect to home
+            return redirect("/")
 
     form = LoginForm(request.form)
     if form.validate_on_submit():
@@ -238,7 +243,11 @@ def login() -> Union[Response, Dict[str, Union[str, LoginForm]]]:
             session['user_id'] = user_to_login.id
             if len(redirect_location) == 0:
                 return redirect("/")
-            return redirect(url_for(redirect_location))
+            try:
+                return redirect(url_for(redirect_location))
+            except BuildError:
+                # Endpoint requires parameters we don't have, redirect to home
+                return redirect("/")
 
         flash('Wrong username or password', 'error-message')
 
@@ -469,7 +478,7 @@ def manage():
         if user_to_update.email != form.email.data:
             old_email = user_to_update.email
             user_to_update.email = form.email.data
-        if len(form.new_password.data) >= 10:
+        if len(form.new_password.data or "") >= 10:
             password = True
             user_to_update.password = User.generate_hash(form.new_password.data)
         if user_to_update.name != form.name.data:

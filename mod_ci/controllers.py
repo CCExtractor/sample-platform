@@ -463,9 +463,12 @@ def delete_expired_instances(compute, max_runtime, project, zone, db, repository
                 if gh_commit is not None:
                     update_status_on_github(gh_commit, Status.ERROR, message, f"CI - {platform_name}")
 
-                # Delete VM instance
+                # Delete VM instance (fire-and-forget to avoid blocking workers)
+                # The deletion will complete eventually - we don't need confirmation
                 operation = delete_instance(compute, project, zone, vm_name)
-                wait_for_operation(compute, project, zone, operation['name'])
+                from run import log
+                op_name = operation.get('name', 'unknown')
+                log.info(f"Expired instance deletion initiated for {vm_name} (op: {op_name})")
 
 
 def gcp_instance(app, db, platform, repository, delay) -> None:
@@ -902,16 +905,25 @@ def start_test(compute, app, db, repository: Repository.Repository, test, bot_to
     zone = config.get('ZONE', '')
     project_id = config.get('PROJECT_NAME', '')
     operation = create_instance(compute, project_id, zone, test, full_url)
-    result = wait_for_operation(compute, project_id, zone, operation['name'])
-    # Check if result indicates success (result is a dict with no 'error' key)
-    if isinstance(result, dict) and 'error' not in result:
-        db.add(status)
-        if not safe_db_commit(db, f"recording GCP instance for test {test.id}"):
-            log.error(f"Failed to record GCP instance for test {test.id}, but VM was created")
-    else:
-        error_msg = parse_gcp_error(result)
-        log.error(f"Error creating test instance for test {test.id}, result: {result}")
+
+    # Check if the create_instance call itself returned an error (synchronous failure)
+    if 'error' in operation:
+        error_msg = parse_gcp_error(operation)
+        log.error(f"Error creating test instance for test {test.id}, result: {operation}")
         mark_test_failed(db, test, repository, error_msg)
+        return
+
+    # VM creation request was accepted - record the instance optimistically
+    # We don't wait for the operation to complete because:
+    # 1. Waiting can take 60+ seconds, blocking gunicorn workers
+    # 2. If VM creation ultimately fails, the test won't report progress
+    #    and will be cleaned up by the expired instances cron job
+    op_name = operation.get('name', 'unknown')
+    log.info(f"Test {test.id}: VM creation initiated (op: {op_name})")
+
+    db.add(status)
+    if not safe_db_commit(db, f"recording GCP instance for test {test.id}"):
+        log.error(f"Failed to record GCP instance for test {test.id}, but VM creation was initiated")
 
 
 def create_instance(compute, project, zone, test, reportURL) -> Dict:

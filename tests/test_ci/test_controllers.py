@@ -215,14 +215,13 @@ class TestControllers(BaseTestCase):
         cron()
         mock_log.error.assert_called_with('GITHUB_TOKEN not configured, cannot run CI cron')
 
-    @mock.patch('mod_ci.controllers.wait_for_operation')
     @mock.patch('mod_ci.controllers.create_instance')
     @mock.patch('builtins.open', new_callable=mock.mock_open())
     @mock.patch('mod_ci.controllers.g')
     @mock.patch('mod_ci.controllers.TestProgress')
     @mock.patch('mod_ci.controllers.GcpInstance')
     def test_start_test(self, mock_gcp_instance, mock_test_progress, mock_g, mock_open_file,
-                        mock_create_instance, mock_wait_for_operation):
+                        mock_create_instance):
         """Test start_test function."""
         import zipfile
 
@@ -268,21 +267,21 @@ class TestControllers(BaseTestCase):
         mock_query = create_mock_db_query(mock_g)
         mock_query.c.got = MagicMock()
 
-        # Test when gcp create instance fails
-        mock_wait_for_operation.return_value = {'status': 'DONE', 'error': {'errors': [{'code': 'TEST_ERROR'}]}}
+        # Test when gcp create instance fails synchronously (error in operation response)
+        mock_create_instance.return_value = {'error': {'errors': [{'code': 'TEST_ERROR'}]}}
         start_test(mock.ANY, self.app, mock_g.db, repository, test, mock.ANY)
         # Commit IS called to record the test failure in the database
         mock_g.db.commit.assert_called_once()
         mock_g.db.commit.reset_mock()
         mock_create_instance.reset_mock()
-        mock_wait_for_operation.reset_mock()
 
-        # Test when gcp create instance is successful
-        mock_wait_for_operation.return_value = {'status': 'DONE'}
+        # Test when gcp create instance is successful (no error in operation response)
+        # Note: We no longer wait for the operation to complete - we record the instance
+        # optimistically and let the expired instances cron handle failures
+        mock_create_instance.return_value = {'name': 'test-operation-123', 'status': 'RUNNING'}
         start_test(mock.ANY, self.app, mock_g.db, repository, test, mock.ANY)
         mock_g.db.commit.assert_called_once()
         mock_create_instance.assert_called_once()
-        mock_wait_for_operation.assert_called_once()
 
     @mock.patch('github.Github.get_repo')
     @mock.patch('mod_ci.controllers.start_test')
@@ -1479,14 +1478,13 @@ class TestControllers(BaseTestCase):
         mock_safe_commit.assert_called_once()
         mock_log.error.assert_called()
 
-    @mock.patch('mod_ci.controllers.wait_for_operation')
     @mock.patch('mod_ci.controllers.delete_instance')
     @mock.patch('mod_ci.controllers.safe_db_commit')
     @mock.patch('mod_ci.controllers.is_instance_testing')
     @mock.patch('run.log')
     def test_delete_expired_instances_db_commit_failure(
             self, mock_log, mock_is_testing, mock_safe_commit,
-            mock_delete, mock_wait):
+            mock_delete):
         """Test delete_expired_instances handles db commit failure."""
         from mod_ci.controllers import delete_expired_instances
 
@@ -1769,13 +1767,12 @@ class TestControllers(BaseTestCase):
         mock_rto.query.filter.assert_called_once_with(mock_rto.id == 1)
         mock_log.info.assert_called_once()
 
-    @mock.patch('mod_ci.controllers.wait_for_operation')
     @mock.patch('mod_ci.controllers.delete_instance')
     @mock.patch('mod_ci.controllers.get_compute_service_object')
     @mock.patch('mod_ci.controllers.update_build_badge')
     @mock.patch('github.Github.get_repo')
     def test_progress_type_request(self, mock_repo, mock_update_build_badge, mock_get_compute_service_object,
-                                   mock_delete_instance, mock_wait_for_operation):
+                                   mock_delete_instance):
         """Test progress_type_request function."""
         from mod_ci.models import GcpInstance
         from run import log
@@ -2113,7 +2110,6 @@ class TestControllers(BaseTestCase):
         # Should log error and continue
         mock_log.error.assert_called()
 
-    @mock.patch('mod_ci.controllers.wait_for_operation')
     @mock.patch('mod_ci.controllers.create_instance')
     @mock.patch('builtins.open', new_callable=mock.mock_open())
     @mock.patch('mod_ci.controllers.g')
@@ -2122,8 +2118,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('run.log')
     def test_start_test_duplicate_instance_check(
             self, mock_log, mock_gcp_instance, mock_test_progress,
-            mock_g, mock_open_file, mock_create_instance,
-            mock_wait_for_operation):
+            mock_g, mock_open_file, mock_create_instance):
         """Test start_test skips if GCP instance already exists for test."""
         from mod_ci.controllers import start_test
 
@@ -2140,7 +2135,6 @@ class TestControllers(BaseTestCase):
         mock_log.warning.assert_called()
         mock_create_instance.assert_not_called()
 
-    @mock.patch('mod_ci.controllers.wait_for_operation')
     @mock.patch('mod_ci.controllers.create_instance')
     @mock.patch('builtins.open', new_callable=mock.mock_open())
     @mock.patch('mod_ci.controllers.g')
@@ -2149,8 +2143,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('run.log')
     def test_start_test_duplicate_progress_check(
             self, mock_log, mock_gcp_instance, mock_test_progress,
-            mock_g, mock_open_file, mock_create_instance,
-            mock_wait_for_operation):
+            mock_g, mock_open_file, mock_create_instance):
         """Test start_test skips if test already has progress entries."""
         from mod_ci.controllers import start_test
 
@@ -2170,7 +2163,6 @@ class TestControllers(BaseTestCase):
         mock_create_instance.assert_not_called()
 
     @mock.patch('mod_ci.controllers.mark_test_failed')
-    @mock.patch('mod_ci.controllers.wait_for_operation')
     @mock.patch('mod_ci.controllers.create_instance')
     @mock.patch('builtins.open', new_callable=mock.mock_open())
     @mock.patch('mod_ci.controllers.g')
@@ -2181,8 +2173,7 @@ class TestControllers(BaseTestCase):
     def test_start_test_artifact_timeout(
             self, mock_requests_get, mock_log, mock_gcp_instance,
             mock_test_progress, mock_g, mock_open_file,
-            mock_create_instance, mock_wait_for_operation,
-            mock_mark_failed):
+            mock_create_instance, mock_mark_failed):
         """Test start_test handles artifact download timeout."""
         import requests
         from github.Artifact import Artifact
@@ -2219,7 +2210,6 @@ class TestControllers(BaseTestCase):
         mock_create_instance.assert_not_called()
 
     @mock.patch('mod_ci.controllers.mark_test_failed')
-    @mock.patch('mod_ci.controllers.wait_for_operation')
     @mock.patch('mod_ci.controllers.create_instance')
     @mock.patch('builtins.open', new_callable=mock.mock_open())
     @mock.patch('mod_ci.controllers.g')
@@ -2230,8 +2220,7 @@ class TestControllers(BaseTestCase):
     def test_start_test_artifact_http_error(
             self, mock_requests_get, mock_log, mock_gcp_instance,
             mock_test_progress, mock_g, mock_open_file,
-            mock_create_instance, mock_wait_for_operation,
-            mock_mark_failed):
+            mock_create_instance, mock_mark_failed):
         """Test start_test handles artifact download HTTP errors."""
         import requests
         from github.Artifact import Artifact
@@ -2333,13 +2322,12 @@ class TestControllers(BaseTestCase):
         mock_log.info.assert_called()
 
     @mock.patch('mod_ci.controllers.Github')
-    @mock.patch('mod_ci.controllers.wait_for_operation')
     @mock.patch('mod_ci.controllers.delete_instance')
     @mock.patch('mod_ci.controllers.get_compute_service_object')
     @mock.patch('mod_ci.controllers.update_build_badge')
     def test_progress_type_request_empty_token(
             self, mock_update_build_badge, mock_get_compute_service_object,
-            mock_delete_instance, mock_wait_for_operation, mock_github):
+            mock_delete_instance, mock_github):
         """Test progress_type_request returns True when GitHub token is empty."""
         from mod_ci.models import GcpInstance
         from run import log

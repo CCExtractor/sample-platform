@@ -1,6 +1,22 @@
 {% extends "base.html" %}
 
 {% block title %}Test progress for {{ title }} {{ super() }}{% endblock %}
+
+{% block styles %}
+    {{ super() }}
+    <style>
+        .sample-progress {
+            margin-top: 5px;
+            font-size: 12px;
+            color: #666;
+        }
+        #sample-progress-text {
+            display: block;
+            text-align: center;
+        }
+    </style>
+{% endblock %}
+
 {% block body %}
     {{ super() }}
     <br />
@@ -48,7 +64,14 @@
                         {% if progress.progress.state == 'error' and progress.progress.step == loop.index0 -%}
                             {% set status = status ~ ' error' %}
                         {%- endif %}
-                        <li class="progtrckr-{{ status }}" id="trckr-{{ stage.description }}">{{ stage.description }}</li>
+                        <li class="progtrckr-{{ status }}" id="trckr-{{ stage.description }}">
+                            {{ stage.description }}
+                            {% if stage.description == 'Testing' and status == 'running' %}
+                            <div class="sample-progress" id="sample-progress">
+                                <small id="sample-progress-text">0 / 0 samples</small>
+                            </div>
+                            {% endif %}
+                        </li>
                     {%- endfor %}
                 </ol>
                 <br class="clear" />
@@ -181,6 +204,17 @@
                                 if (testprogress === 0 && val.length !== 0) {
                                     window.location.reload();
                                 }
+                                
+                                // Update sample progress display
+                                if (data.sample_progress) {
+                                    var progressText = document.getElementById('sample-progress-text');
+                                    if (progressText) {
+                                        progressText.textContent = data.sample_progress.current + ' / ' + 
+                                            data.sample_progress.total + ' samples (' + 
+                                            data.sample_progress.percentage + '%)';
+                                    }
+                                }
+                                
                             {% for stage in progress.stages %}
                                 if (data.details.step >= {{ loop.index0 }}) {
                                     status = 'done';

@@ -27,7 +27,8 @@ def run():
         Category('DVB', 'Samples that contain DVB subtitles'),
         Category('DVD', 'Samples that contain DVD subtitles'),
         Category('MP4', 'Samples that are stored in the MP4 format'),
-        Category('General', 'General regression samples')
+        Category('General', 'General regression samples'),
+        Category('Output Formats', 'Tests for specific output format generation')
     ]
     entries.extend(categories)
 
@@ -43,18 +44,19 @@ def run():
     regression_tests = [
         RegressionTest(1, '-autoprogram -out=ttxt -latin1', InputType.file, OutputType.file, 3, 10),
         RegressionTest(2, '-autoprogram -out=ttxt -latin1 -ucla', InputType.file, OutputType.file, 1, 10),
-        RegressionTest(1, '-out=webvtt', InputType.file, OutputType.file, 5, 0, True,
-                       'Validates WebVTT output format compliance')
+        RegressionTest(1, '-out=webvtt', InputType.file, OutputType.file, 6, 0, True,
+                       'Validates WebVTT header generation on empty-caption input')
     ]
     entries.extend(regression_tests)
 
     gen_data = GeneralData('last_commit', '71dffd6eb30c1f4b5cf800307de845072ce33262')
     entries.append(gen_data)
 
+    WEBVTT_TEST_ID = 3
     regression_test_output = [
         RegressionTestOutput(1, "test1", ".srt", "test1.srt"),
         RegressionTestOutput(2, "test2", ".srt", "test2.srt"),
-        RegressionTestOutput(3, "WEBVTT\n", ".webvtt", "sample1.webvtt")
+        RegressionTestOutput(WEBVTT_TEST_ID, "WEBVTT\r\n\r\n", ".webvtt", "sample1.webvtt")
     ]
     entries.extend(regression_test_output)
 

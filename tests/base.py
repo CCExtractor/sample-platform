@@ -308,16 +308,20 @@ class BaseTestCase(TestCase):
 
         regression_tests = [
             RegressionTest(1, "-autoprogram -out=ttxt -latin1 -2", InputType.file, OutputType.file, 3, 10),
-            RegressionTest(2, "-autoprogram -out=ttxt -latin1 -ucla", InputType.file, OutputType.file, 1, 10)
+            RegressionTest(2, "-autoprogram -out=ttxt -latin1 -ucla", InputType.file, OutputType.file, 1, 10),
+            RegressionTest(1, "-out=webvtt", InputType.file, OutputType.file, 5, 0, True,
+                           "Validates WebVTT output format compliance")
         ]
         g.db.add_all(regression_tests)
         g.db.commit()
 
         categories[0].regression_tests.append(regression_tests[0])
         categories[2].regression_tests.append(regression_tests[1])
+        categories[4].regression_tests.append(regression_tests[2])
         regression_test_outputs = [
             RegressionTestOutput(1, "sample_out1", ".srt", ""),
-            RegressionTestOutput(2, "sample_out2", ".srt", "")
+            RegressionTestOutput(2, "sample_out2", ".srt", ""),
+            RegressionTestOutput(3, "WEBVTT\n", ".webvtt", "sample1.webvtt")
         ]
         g.db.add_all(regression_test_outputs)
         g.db.commit()

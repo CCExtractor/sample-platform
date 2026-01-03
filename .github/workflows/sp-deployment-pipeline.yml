@@ -29,10 +29,10 @@ jobs:
           username: ${{ vars.SSH_USER }}
           key: ${{ secrets.SSH_KEY_PRIVATE }}
           port: 22
-          script_stop: true
           command_timeout: 2m
           envs: INSTALL_FOLDER,SAMPLE_REPOSITORY,DEPLOY_BRANCH
           script: |
+            set -e
             echo "=== Pre-deployment checks ==="
             cd $INSTALL_FOLDER
 
@@ -58,10 +58,10 @@ jobs:
           username: ${{ vars.SSH_USER }}
           key: ${{ secrets.SSH_KEY_PRIVATE }}
           port: 22
-          script_stop: true
           command_timeout: 10m
           envs: INSTALL_FOLDER,SAMPLE_REPOSITORY,DEPLOY_BRANCH
           script: |
+            set -e
             echo "=== Deploying application ==="
             cd $INSTALL_FOLDER
 
@@ -99,7 +99,6 @@ jobs:
           username: ${{ vars.SSH_USER }}
           key: ${{ secrets.SSH_KEY_PRIVATE }}
           port: 22
-          script_stop: false
           command_timeout: 2m
           envs: INSTALL_FOLDER
           script: |
@@ -139,7 +138,6 @@ jobs:
           username: ${{ vars.SSH_USER }}
           key: ${{ secrets.SSH_KEY_PRIVATE }}
           port: 22
-          script_stop: false
           command_timeout: 5m
           envs: INSTALL_FOLDER,SAMPLE_REPOSITORY
           script: |
@@ -175,7 +173,6 @@ jobs:
           username: ${{ vars.SSH_USER }}
           key: ${{ secrets.SSH_KEY_PRIVATE }}
           port: 22
-          script_stop: false
           command_timeout: 30s
           envs: INSTALL_FOLDER
           script: |

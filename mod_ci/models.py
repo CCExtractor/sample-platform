@@ -4,6 +4,7 @@ Maintain all database related virtual machines and their status.
 List of models corresponding to mysql tables:
 [
     'Gcp Instance' => 'gcp_instance',
+    'Pending Deletion' => 'pending_deletion',
     'Maintenance mode' => 'maintenance_mode'
 ]
 """
@@ -77,6 +78,42 @@ class GcpInstance(Base):
         :rtype str(test_id): str
         """
         return f'<GcpInstance test running: {self.test_id}>'
+
+
+class PendingDeletion(Base):
+    """Model to track pending VM deletion operations for verification."""
+
+    __tablename__ = 'pending_deletion'
+    __table_args__ = {'mysql_engine': 'InnoDB'}
+    vm_name = Column(String(64), primary_key=True)
+    operation_name = Column(String(128), nullable=False)
+    created_at = Column(DateTime(), nullable=False)
+    retry_count = Column(Integer, nullable=False, default=0)
+
+    # Max retries before we give up and just try to force delete
+    MAX_RETRIES = 5
+
+    def __init__(self, vm_name, operation_name, created_at=None) -> None:
+        """
+        Parametrized constructor for the PendingDeletion model.
+
+        :param vm_name: The name of the VM being deleted
+        :type vm_name: str
+        :param operation_name: The GCP operation name/ID for tracking
+        :type operation_name: str
+        :param created_at: When the deletion was initiated (None for now)
+        :type created_at: datetime
+        """
+        self.vm_name = vm_name
+        self.operation_name = operation_name
+        if created_at is None:
+            created_at = datetime.datetime.now()
+        self.created_at = created_at
+        self.retry_count = 0
+
+    def __repr__(self) -> str:
+        """Represent a PendingDeletion by its vm_name."""
+        return f'<PendingDeletion vm={self.vm_name} op={self.operation_name} retries={self.retry_count}>'
 
 
 class MaintenanceMode(Base):

@@ -31,8 +31,8 @@ echo "--- Health check ---"
 for i in $(seq 1 $MAX_RETRIES); do
     echo "Attempt $i/$MAX_RETRIES..."
 
-    # Try the /health endpoint first
-    HTTP_CODE=$(curl -s -o /tmp/health_response.json -w "%{http_code}" "$HEALTH_URL" 2>/dev/null || echo "000")
+    # Try the /health endpoint first (use -L to follow HTTP->HTTPS redirects)
+    HTTP_CODE=$(curl -sL -o /tmp/health_response.json -w "%{http_code}" "$HEALTH_URL" 2>/dev/null || echo "000")
 
     if [ "$HTTP_CODE" = "200" ]; then
         echo "✓ Health check passed (HTTP $HTTP_CODE)"
@@ -43,9 +43,9 @@ for i in $(seq 1 $MAX_RETRIES); do
         echo "=== Deployment verified successfully ==="
         exit 0
     elif [ "$HTTP_CODE" = "404" ]; then
-        # Health endpoint doesn't exist, try fallback
+        # Health endpoint doesn't exist, try fallback (use -L to follow redirects)
         echo "Health endpoint not found, trying fallback URL..."
-        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$FALLBACK_URL" 2>/dev/null || echo "000")
+        HTTP_CODE=$(curl -sL -o /dev/null -w "%{http_code}" "$FALLBACK_URL" 2>/dev/null || echo "000")
         if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 400 ]; then
             echo "✓ Fallback check passed (HTTP $HTTP_CODE)"
             echo ""

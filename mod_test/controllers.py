@@ -212,11 +212,23 @@ def get_json_data(test_id):
             'message': entry.message
         })
 
+    # Calculate sample progress from existing TestResult data
+    completed_samples = len(test.results)
+    total_samples = len(test.get_customized_regressiontests())
+    progress_percentage = 0
+    if total_samples > 0:
+        progress_percentage = int((completed_samples / total_samples) * 100)
+
     return jsonify({
         'status': 'success',
         'details': pr_data["progress"],
         'complete': test.finished,
-        'progress_array': progress_array
+        'progress_array': progress_array,
+        'sample_progress': {
+            'current': completed_samples,
+            'total': total_samples,
+            'percentage': progress_percentage
+        }
     })
 
 

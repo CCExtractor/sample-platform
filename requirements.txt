@@ -8,7 +8,7 @@ requests==2.32.5
 pyIsEmail==2.0.1
 GitPython==3.1.45
 xmltodict==1.0.2
-lxml==5.3.0
+lxml==6.0.2
 pytz==2025.2
 tzlocal==5.3.1
 markdown2==2.5.4

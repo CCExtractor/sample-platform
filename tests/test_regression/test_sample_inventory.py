@@ -1,3 +1,4 @@
+import math
 import tempfile
 from pathlib import Path
 from unittest import mock
@@ -24,6 +25,6 @@ def test_probe_sample_basic(mock_run):
         result = probe_sample(f)
 
         assert result["container"] == "mpegts"
-        assert result["duration_sec"] == 10.0
+        assert math.isclose(result["duration_sec"], 10.0, rel_tol=1e-9)
         assert "CEA-608" in result["caption_types_detected"]
         assert result["streams"][0]["codec"] == "h264"

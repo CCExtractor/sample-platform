@@ -11,10 +11,12 @@ def _run(cmd):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            timeout=30
+            timeout=30,
+            check=False
         )
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         return None
+
 
 
 def sha256sum(path: Path) -> str:
@@ -58,7 +60,7 @@ def probe_sample(sample_path: Path) -> dict:
                     "type": s.get("codec_type"),
                     "codec": s.get("codec_name")
                 })
-        except Exception:
+        except (ValueError, KeyError):
             pass
 
     # ---- CCExtractor ----
@@ -68,8 +70,8 @@ def probe_sample(sample_path: Path) -> dict:
         "-stdout"
     ])
 
-    if cce:
-        stderr = cce.stderr.lower()
+    if cce and cce.returncode == 0:
+        stderr = (cce.stderr or "").lower()
         if "608" in stderr:
             result["caption_types_detected"].append("CEA-608")
         if "708" in stderr:

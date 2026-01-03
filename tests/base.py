@@ -321,7 +321,7 @@ class BaseTestCase(TestCase):
         regression_test_outputs = [
             RegressionTestOutput(1, "sample_out1", ".srt", ""),
             RegressionTestOutput(2, "sample_out2", ".srt", ""),
-            RegressionTestOutput(3, "WEBVTT\n", ".webvtt", "sample1.webvtt")
+            RegressionTestOutput(3, "WEBVTT\r\n\r\n", ".webvtt", "sample1.webvtt")
         ]
         g.db.add_all(regression_test_outputs)
         g.db.commit()

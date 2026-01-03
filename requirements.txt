@@ -6,7 +6,7 @@ python-magic==0.4.27
 flask-wtf==1.2.2
 requests==2.32.5
 pyIsEmail==2.0.1
-GitPython==3.1.45
+GitPython==3.1.46
 xmltodict==1.0.2
 lxml==6.0.2
 pytz==2025.2

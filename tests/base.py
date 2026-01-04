@@ -7,6 +7,7 @@ from unittest import mock
 
 from flask import g
 from flask_testing import TestCase
+from sqlalchemy import text
 from werkzeug.datastructures import Headers
 
 from database import create_session
@@ -250,7 +251,7 @@ class BaseTestCase(TestCase):
         g.db = create_session(
             self.app.config['DATABASE_URI'], drop_tables=True)
         # enable Foreign keys for unit tests
-        g.db.execute('pragma foreign_keys=on')
+        g.db.execute(text('pragma foreign_keys=on'))
 
         general_data = [
             GeneralData('last_commit', "1978060bf7d2edd119736ba3ba88341f3bec3323"),

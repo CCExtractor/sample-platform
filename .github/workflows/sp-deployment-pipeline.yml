@@ -10,6 +10,8 @@ on:
 
 env:
   DEPLOY_BRANCH: master
+  INSTALL_FOLDER: /var/www/sample-platform
+  SAMPLE_REPOSITORY: /repository
 
 jobs:
   deploy:
@@ -17,47 +19,168 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     permissions:
       id-token: write
-      contents: read # required for actions/checkout
+      contents: read
+
     steps:
-      - name: Deployment with ssh commands using ssh key
-        uses: appleboy/ssh-action@master
+      - name: Pre-deployment checks
+        uses: appleboy/ssh-action@823bd89e131d8d508129f9443cad5855e9ba96f0  # v1.2.4
         with:
           host: ${{ vars.PLATFORM_DOMAIN }}
           username: ${{ vars.SSH_USER }}
           key: ${{ secrets.SSH_KEY_PRIVATE }}
           port: 22
-          script_stop: true
-          command_timeout: 10m
+          command_timeout: 2m
+          envs: INSTALL_FOLDER,SAMPLE_REPOSITORY,DEPLOY_BRANCH
           script: |
-            echo "defining directories"
-            INSTALL_FOLDER="/var/www/sample-platform"
-            SAMPLE_REPOSITORY="/repository"
-
-            echo "jump to app folder"
+            set -e
+            echo "=== Pre-deployment checks ==="
             cd $INSTALL_FOLDER
 
-            echo "checkout branch"
-            sudo git restore .
-            sudo git checkout ${{env.DEPLOY_BRANCH}}
-            sudo git fetch origin ${{env.DEPLOY_BRANCH}}
+            # Check if deployment scripts exist (for backwards compatibility)
+            if [ -f "install/deploy/pre_deploy.sh" ]; then
+              sudo INSTALL_FOLDER="$INSTALL_FOLDER" \
+                   SAMPLE_REPOSITORY="$SAMPLE_REPOSITORY" \
+                   DEPLOY_BRANCH="$DEPLOY_BRANCH" \
+                   bash install/deploy/pre_deploy.sh
+            else
+              echo "Deployment scripts not found, using legacy validation"
+              # Basic validation
+              test -f config.py || { echo "ERROR: config.py not found"; exit 1; }
+              # Save current commit for potential manual rollback
+              git rev-parse HEAD > /tmp/previous_commit.txt
+              echo "Current commit saved: $(cat /tmp/previous_commit.txt)"
+            fi
 
-            echo "avoid merge conflicts"
-            sudo git reset --hard origin/${{env.DEPLOY_BRANCH}}
-            sudo git clean -f -d
+      - name: Deploy application
+        uses: appleboy/ssh-action@823bd89e131d8d508129f9443cad5855e9ba96f0  # v1.2.4
+        with:
+          host: ${{ vars.PLATFORM_DOMAIN }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.SSH_KEY_PRIVATE }}
+          port: 22
+          command_timeout: 10m
+          envs: INSTALL_FOLDER,SAMPLE_REPOSITORY,DEPLOY_BRANCH
+          script: |
+            set -e
+            echo "=== Deploying application ==="
+            cd $INSTALL_FOLDER
 
-            echo "update app from git"
-            sudo git pull origin ${{env.DEPLOY_BRANCH}}
+            # Check if deployment scripts exist
+            if [ -f "install/deploy/deploy.sh" ]; then
+              sudo INSTALL_FOLDER="$INSTALL_FOLDER" \
+                   SAMPLE_REPOSITORY="$SAMPLE_REPOSITORY" \
+                   DEPLOY_BRANCH="$DEPLOY_BRANCH" \
+                   bash install/deploy/deploy.sh
+            else
+              echo "Using legacy deployment"
+              # Legacy deployment (will be removed after scripts are merged)
+              sudo git restore .
+              sudo git checkout $DEPLOY_BRANCH
+              sudo git fetch origin $DEPLOY_BRANCH
+              sudo git reset --hard origin/$DEPLOY_BRANCH
+              sudo git clean -f -d
+              sudo git pull origin $DEPLOY_BRANCH
 
-            echo "update dependencies"
-            sudo python -m pip install -r requirements.txt
+              sudo python -m pip install -r requirements.txt
+              sudo FLASK_APP=./run.py flask db upgrade
 
-            echo "run migrations"
-            sudo FLASK_APP=./run.py flask db upgrade
+              sudo cp "install/ci-vm/ci-linux/ci/bootstrap" "${SAMPLE_REPOSITORY}/TestData/ci-linux/bootstrap" 2>/dev/null || true
+              sudo cp "install/ci-vm/ci-linux/ci/runCI" "${SAMPLE_REPOSITORY}/TestData/ci-linux/runCI" 2>/dev/null || true
+              sudo cp "install/ci-vm/ci-windows/ci/runCI.bat" "${SAMPLE_REPOSITORY}/TestData/ci-windows/runCI.bat" 2>/dev/null || true
 
-            echo "update runCI script files"
-            sudo cp "install/ci-vm/ci-linux/ci/bootstrap" "${SAMPLE_REPOSITORY}/TestData/ci-linux/bootstrap"
-            sudo cp "install/ci-vm/ci-linux/ci/runCI" "${SAMPLE_REPOSITORY}/TestData/ci-linux/runCI"
-            sudo cp "install/ci-vm/ci-windows/ci/runCI.bat" "${SAMPLE_REPOSITORY}/TestData/ci-windows/runCI.bat"
+              sudo systemctl reload platform
+            fi
 
-            echo "reload server"
-            sudo systemctl reload platform
+      - name: Verify deployment
+        id: health_check
+        uses: appleboy/ssh-action@823bd89e131d8d508129f9443cad5855e9ba96f0  # v1.2.4
+        with:
+          host: ${{ vars.PLATFORM_DOMAIN }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.SSH_KEY_PRIVATE }}
+          port: 22
+          command_timeout: 2m
+          envs: INSTALL_FOLDER
+          script: |
+            echo "=== Verifying deployment ==="
+            cd $INSTALL_FOLDER
+
+            # Check if deployment scripts exist
+            if [ -f "install/deploy/post_deploy.sh" ]; then
+              sudo INSTALL_FOLDER="$INSTALL_FOLDER" bash install/deploy/post_deploy.sh
+            else
+              echo "Using legacy health check"
+              # Legacy health check - just verify service is running
+              sleep 5
+              if systemctl is-active --quiet platform; then
+                echo "Platform service is running"
+                # Try to hit the homepage
+                HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1/ 2>/dev/null || echo "000")
+                if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 400 ]; then
+                  echo "Homepage responding with HTTP $HTTP_CODE"
+                  exit 0
+                else
+                  echo "ERROR: Homepage returned HTTP $HTTP_CODE"
+                  exit 1
+                fi
+              else
+                echo "ERROR: Platform service is not running"
+                systemctl status platform || true
+                exit 1
+              fi
+            fi
+
+      - name: Rollback on failure
+        if: failure() && steps.health_check.outcome == 'failure'
+        uses: appleboy/ssh-action@823bd89e131d8d508129f9443cad5855e9ba96f0  # v1.2.4
+        with:
+          host: ${{ vars.PLATFORM_DOMAIN }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.SSH_KEY_PRIVATE }}
+          port: 22
+          command_timeout: 5m
+          envs: INSTALL_FOLDER,SAMPLE_REPOSITORY
+          script: |
+            echo "=== ROLLBACK INITIATED ==="
+            cd $INSTALL_FOLDER
+
+            # Check if deployment scripts exist
+            if [ -f "install/deploy/rollback.sh" ]; then
+              sudo INSTALL_FOLDER="$INSTALL_FOLDER" \
+                   SAMPLE_REPOSITORY="$SAMPLE_REPOSITORY" \
+                   bash install/deploy/rollback.sh
+            else
+              echo "Using legacy rollback"
+              # Legacy rollback
+              if [ -f "/tmp/previous_commit.txt" ]; then
+                PREV_COMMIT=$(cat /tmp/previous_commit.txt)
+                echo "Rolling back to commit: $PREV_COMMIT"
+                sudo git checkout "$PREV_COMMIT"
+                sudo python -m pip install -r requirements.txt
+                sudo systemctl reload platform
+                echo "Rollback complete"
+              else
+                echo "ERROR: No previous commit saved, cannot rollback"
+                echo "MANUAL INTERVENTION REQUIRED"
+              fi
+            fi
+
+      - name: Report deployment status
+        if: always()
+        uses: appleboy/ssh-action@823bd89e131d8d508129f9443cad5855e9ba96f0  # v1.2.4
+        with:
+          host: ${{ vars.PLATFORM_DOMAIN }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.SSH_KEY_PRIVATE }}
+          port: 22
+          command_timeout: 30s
+          envs: INSTALL_FOLDER
+          script: |
+            echo "=== Deployment Summary ==="
+            cd $INSTALL_FOLDER
+            echo "Current commit: $(git rev-parse HEAD)"
+            echo "Branch: $(git branch --show-current)"
+            echo "Service status: $(systemctl is-active platform 2>/dev/null || echo 'unknown')"
+
+            # Cleanup lock file if it exists
+            rm -f /tmp/sp-deploy.lock

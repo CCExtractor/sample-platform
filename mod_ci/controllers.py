@@ -34,7 +34,8 @@ from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role
 from mod_ci.forms import AddUsersToBlacklist, DeleteUserForm
 from mod_ci.models import (BlockedUsers, CategoryTestInfo, GcpInstance,
-                           MaintenanceMode, PrCommentInfo, Status)
+                           MaintenanceMode, PendingDeletion, PrCommentInfo,
+                           Status)
 from mod_customized.models import CustomizedTest
 from mod_home.models import CCExtractorVersion, GeneralData
 from mod_regression.models import (Category, RegressionTest,
@@ -386,6 +387,14 @@ def start_platforms(repository, delay=None, platform=None) -> None:
         db = create_session(config.get('DATABASE_URI', ''))
 
         compute = get_compute_service_object()
+
+        # Step 1: Verify any pending deletions from previous runs
+        verify_pending_deletions(compute, project, zone, db)
+
+        # Step 2: Scan for orphaned VMs that weren't properly deleted
+        scan_for_orphaned_vms(compute, project, zone, db)
+
+        # Step 3: Delete expired instances (tests that ran too long)
         delete_expired_instances(compute, vm_max_runtime, project, zone, db, repository)
 
         if platform is None or platform == TestPlatform.linux:
@@ -463,9 +472,15 @@ def delete_expired_instances(compute, max_runtime, project, zone, db, repository
                 if gh_commit is not None:
                     update_status_on_github(gh_commit, Status.ERROR, message, f"CI - {platform_name}")
 
-                # Delete VM instance
-                operation = delete_instance(compute, project, zone, vm_name)
-                wait_for_operation(compute, project, zone, operation['name'])
+                # Delete VM instance with tracking for verification
+                from run import log
+                try:
+                    operation = delete_instance_with_tracking(
+                        compute, project, zone, vm_name, db)
+                    op_name = operation.get('name', 'unknown')
+                    log.info(f"Expired instance deletion initiated for {vm_name} (op: {op_name})")
+                except Exception as e:
+                    log.error(f"Failed to delete expired instance {vm_name}: {e}")
 
 
 def gcp_instance(app, db, platform, repository, delay) -> None:
@@ -902,16 +917,25 @@ def start_test(compute, app, db, repository: Repository.Repository, test, bot_to
     zone = config.get('ZONE', '')
     project_id = config.get('PROJECT_NAME', '')
     operation = create_instance(compute, project_id, zone, test, full_url)
-    result = wait_for_operation(compute, project_id, zone, operation['name'])
-    # Check if result indicates success (result is a dict with no 'error' key)
-    if isinstance(result, dict) and 'error' not in result:
-        db.add(status)
-        if not safe_db_commit(db, f"recording GCP instance for test {test.id}"):
-            log.error(f"Failed to record GCP instance for test {test.id}, but VM was created")
-    else:
-        error_msg = parse_gcp_error(result)
-        log.error(f"Error creating test instance for test {test.id}, result: {result}")
+
+    # Check if the create_instance call itself returned an error (synchronous failure)
+    if 'error' in operation:
+        error_msg = parse_gcp_error(operation)
+        log.error(f"Error creating test instance for test {test.id}, result: {operation}")
         mark_test_failed(db, test, repository, error_msg)
+        return
+
+    # VM creation request was accepted - record the instance optimistically
+    # We don't wait for the operation to complete because:
+    # 1. Waiting can take 60+ seconds, blocking gunicorn workers
+    # 2. If VM creation ultimately fails, the test won't report progress
+    #    and will be cleaned up by the expired instances cron job
+    op_name = operation.get('name', 'unknown')
+    log.info(f"Test {test.id}: VM creation initiated (op: {op_name})")
+
+    db.add(status)
+    if not safe_db_commit(db, f"recording GCP instance for test {test.id}"):
+        log.error(f"Failed to record GCP instance for test {test.id}, but VM creation was initiated")
 
 
 def create_instance(compute, project, zone, test, reportURL) -> Dict:
@@ -990,6 +1014,269 @@ def delete_instance(compute, project, zone, vm_name) -> Dict:
         project=project,
         zone=zone,
         instance=vm_name).execute()
+
+
+def delete_instance_with_tracking(compute, project, zone, vm_name, db) -> Dict:
+    """
+    Delete the GCP instance and track the operation for verification.
+
+    This function wraps delete_instance() and records the pending deletion
+    in the database so it can be verified later. If the deletion fails,
+    the verify_pending_deletions() cron job will retry it.
+
+    :param compute: The cloud compute engine service object
+    :type compute: googleapiclient.discovery.Resource
+    :param project: The GCP project name
+    :type project: str
+    :param zone: Zone for the new VM instance
+    :type zone: str
+    :param vm_name: Name of the instance to be deleted
+    :type vm_name: str
+    :param db: Database session for recording the pending deletion
+    :type db: sqlalchemy.orm.scoping.scoped_session
+    :return: Delete operation details after VM deletion
+    :rtype: Dict
+    """
+    from run import log
+
+    try:
+        operation = delete_instance(compute, project, zone, vm_name)
+        op_name = operation.get('name', 'unknown')
+
+        # Record the pending deletion for verification
+        pending = PendingDeletion(vm_name, op_name)
+        db.add(pending)
+        if not safe_db_commit(db, f"recording pending deletion for {vm_name}"):
+            log.warning(f"Failed to record pending deletion for {vm_name}, "
+                        "deletion may not be verified")
+
+        return operation
+
+    except Exception as e:
+        log.error(f"Failed to initiate deletion for {vm_name}: {e}")
+        # Still record it so we can retry later
+        pending = PendingDeletion(vm_name, f"failed-{vm_name}")
+        db.add(pending)
+        safe_db_commit(db, f"recording failed deletion attempt for {vm_name}")
+        raise
+
+
+def check_operation_status(compute, project, zone, operation_name) -> Dict:
+    """
+    Check the status of a GCP operation (non-blocking).
+
+    :param compute: The cloud compute engine service object
+    :type compute: googleapiclient.discovery.Resource
+    :param project: The GCP project name
+    :type project: str
+    :param zone: Zone for the operation
+    :type zone: str
+    :param operation_name: The operation name to check
+    :type operation_name: str
+    :return: Operation status dict with 'status' key (RUNNING, DONE, or ERROR)
+    :rtype: Dict
+    """
+    try:
+        result = compute.zoneOperations().get(
+            project=project,
+            zone=zone,
+            operation=operation_name).execute()
+        return result
+    except Exception as e:
+        return {'status': 'ERROR', 'error': {'message': str(e)}}
+
+
+def verify_pending_deletions(compute, project, zone, db) -> None:
+    """
+    Verify pending VM deletions and retry failed ones.
+
+    This function checks the status of all pending deletion operations.
+    If an operation completed successfully, it removes the tracking entry.
+    If an operation failed, it retries the deletion (up to MAX_RETRIES).
+
+    :param compute: The cloud compute engine service object
+    :type compute: googleapiclient.discovery.Resource
+    :param project: The GCP project name
+    :type project: str
+    :param zone: Zone for the VM instances
+    :type zone: str
+    :param db: Database session
+    :type db: sqlalchemy.orm.scoping.scoped_session
+    """
+    from run import log
+
+    pending_deletions = PendingDeletion.query.all()
+    if not pending_deletions:
+        return
+
+    log.info(f"Verifying {len(pending_deletions)} pending VM deletions")
+
+    for pending in pending_deletions:
+        vm_name = pending.vm_name
+        op_name = pending.operation_name
+
+        # Check if this was a failed initial deletion attempt
+        if op_name.startswith('failed-'):
+            # Retry the deletion
+            log.info(f"Retrying failed deletion for {vm_name}")
+            _retry_deletion(compute, project, zone, vm_name, pending, db, log)
+            continue
+
+        # Check the operation status
+        result = check_operation_status(compute, project, zone, op_name)
+        status = result.get('status', 'UNKNOWN')
+
+        if status == 'DONE':
+            # Check if operation had errors
+            if 'error' in result:
+                error_msg = result['error'].get('errors', [{}])[0].get('message', 'Unknown error')
+                log.warning(f"Deletion operation for {vm_name} completed with error: {error_msg}")
+                _retry_deletion(compute, project, zone, vm_name, pending, db, log)
+            else:
+                # Success! Remove the tracking entry
+                log.info(f"VM {vm_name} deletion confirmed (op: {op_name})")
+                db.delete(pending)
+                safe_db_commit(db, f"removing confirmed deletion for {vm_name}")
+
+        elif status == 'RUNNING':
+            # Still in progress - check how long it's been
+            age_minutes = (datetime.datetime.now() - pending.created_at).total_seconds() / 60
+            if age_minutes > 30:
+                # Operation running too long, might be stuck
+                log.warning(f"Deletion operation for {vm_name} running for {age_minutes:.0f} min, retrying")
+                _retry_deletion(compute, project, zone, vm_name, pending, db, log)
+            else:
+                log.debug(f"Deletion operation for {vm_name} still running ({age_minutes:.0f} min)")
+
+        else:
+            # Unknown status or error checking - retry
+            log.warning(f"Unexpected status '{status}' for {vm_name} deletion, retrying")
+            _retry_deletion(compute, project, zone, vm_name, pending, db, log)
+
+
+def _retry_deletion(compute, project, zone, vm_name, pending, db, log) -> None:
+    """
+    Retry a failed VM deletion.
+
+    :param compute: The cloud compute engine service object
+    :param project: The GCP project name
+    :param zone: Zone for the VM instance
+    :param vm_name: Name of the VM to delete
+    :param pending: The PendingDeletion record
+    :param db: Database session
+    :param log: Logger instance
+    """
+    if pending.retry_count >= PendingDeletion.MAX_RETRIES:
+        log.error(f"Max retries ({PendingDeletion.MAX_RETRIES}) exceeded for {vm_name}, "
+                  "VM may still be running and incurring charges!")
+        # Keep the record so scan_for_orphaned_vms can handle it
+        return
+
+    pending.retry_count += 1
+    log.info(f"Retry {pending.retry_count}/{PendingDeletion.MAX_RETRIES} for {vm_name}")
+
+    try:
+        operation = delete_instance(compute, project, zone, vm_name)
+        pending.operation_name = operation.get('name', f'retry-{vm_name}')
+        pending.created_at = datetime.datetime.now()
+        safe_db_commit(db, f"updating retry for {vm_name}")
+        log.info(f"Retry deletion initiated for {vm_name} (op: {pending.operation_name})")
+    except Exception as e:
+        error_str = str(e)
+        if 'notFound' in error_str or '404' in error_str:
+            # VM doesn't exist anymore - success!
+            log.info(f"VM {vm_name} no longer exists, deletion confirmed")
+            db.delete(pending)
+            safe_db_commit(db, f"removing deletion for non-existent {vm_name}")
+        else:
+            log.error(f"Retry deletion failed for {vm_name}: {e}")
+            safe_db_commit(db, f"recording retry attempt for {vm_name}")
+
+
+def scan_for_orphaned_vms(compute, project, zone, db) -> None:
+    """
+    Scan for orphaned VMs that should have been deleted but weren't.
+
+    This is the final safety net. It finds VMs that:
+    1. Match our naming pattern (platform-testid)
+    2. Don't have a corresponding GcpInstance record (test finished but VM wasn't deleted)
+    3. Have a PendingDeletion record with max retries exceeded
+
+    :param compute: The cloud compute engine service object
+    :type compute: googleapiclient.discovery.Resource
+    :param project: The GCP project name
+    :type project: str
+    :param zone: Zone for the VM instances
+    :type zone: str
+    :param db: Database session
+    :type db: sqlalchemy.orm.scoping.scoped_session
+    """
+    from run import log
+
+    try:
+        running_vms = get_running_instances(compute, project, zone)
+    except Exception as e:
+        log.error(f"Failed to list running instances: {e}")
+        return
+
+    if not running_vms:
+        return
+
+    orphaned_count = 0
+    for vm in running_vms:
+        vm_name = vm['name']
+
+        # Only check VMs that match our naming pattern
+        if not is_instance_testing(vm_name):
+            continue
+
+        # Check if there's a GcpInstance record (meaning test is still running)
+        gcp_instance = GcpInstance.query.filter(GcpInstance.name == vm_name).first()
+        if gcp_instance is not None:
+            # VM is legitimately running
+            continue
+
+        # No GcpInstance record - this VM should have been deleted
+        # Check if we're already tracking it
+        pending = PendingDeletion.query.filter(
+            PendingDeletion.vm_name == vm_name).first()
+
+        if pending is not None:
+            if pending.retry_count >= PendingDeletion.MAX_RETRIES:
+                # Max retries exceeded - force delete
+                log.warning(f"Orphan scan: Force deleting {vm_name} after max retries")
+                try:
+                    operation = delete_instance(compute, project, zone, vm_name)
+                    # Reset retry count and update operation
+                    pending.retry_count = 0
+                    pending.operation_name = operation.get('name', f'force-{vm_name}')
+                    pending.created_at = datetime.datetime.now()
+                    safe_db_commit(db, f"force delete for orphan {vm_name}")
+                    orphaned_count += 1
+                except Exception as e:
+                    if 'notFound' in str(e) or '404' in str(e):
+                        db.delete(pending)
+                        safe_db_commit(db, f"removing stale pending for {vm_name}")
+                    else:
+                        log.error(f"Force delete failed for {vm_name}: {e}")
+            # else: still being handled by verify_pending_deletions
+        else:
+            # Not tracked at all - orphaned VM found
+            log.warning(f"Orphan scan: Found untracked VM {vm_name}, initiating deletion")
+            try:
+                operation = delete_instance(compute, project, zone, vm_name)
+                op_name = operation.get('name', f'orphan-{vm_name}')
+                # Track it for verification
+                new_pending = PendingDeletion(vm_name, op_name)
+                db.add(new_pending)
+                safe_db_commit(db, f"tracking orphan deletion for {vm_name}")
+                orphaned_count += 1
+            except Exception as e:
+                if 'notFound' not in str(e) and '404' not in str(e):
+                    log.error(f"Failed to delete orphan VM {vm_name}: {e}")
+
+    if orphaned_count > 0:
+        log.info(f"Orphan scan: Initiated deletion for {orphaned_count} orphaned VMs")
 
 
 def get_config_for_gcp_instance(vm_name, source_disk_image, metadata_items) -> Dict:
@@ -1302,9 +1589,24 @@ def queue_test(gh_commit: Commit.Commit, commit, test_type, platform, branch="ma
                                            Test.branch == branch,
                                            Test.pr_nr == pr_nr
                                            )).first()
+
+    if platform_test is None:
+        log.error(f"No test record found for commit {commit[:8]}, platform {platform.value}, "
+                  f"test_type {test_type}, pr_nr {pr_nr}. "
+                  "This may indicate the pull_request webhook was not processed.")
+        return
+
     add_customized_regression_tests(platform_test.id)
 
     if gh_commit is not None:
+        # Check if test already has progress (started or completed)
+        # If so, don't overwrite the GitHub status with "Tests queued"
+        # This prevents the bug where a completed test gets its status overwritten
+        # when a later webhook triggers queue_test for the same commit
+        if len(platform_test.progress) > 0:
+            log.info(f"Test {platform_test.id} already has progress, not posting 'Tests queued' status")
+            return
+
         target_url = url_for('test.by_id', test_id=platform_test.id, _external=True)
         status_context = f"CI - {platform_test.platform.value}"
         update_status_on_github(gh_commit, Status.PENDING, "Tests queued", status_context, target_url)
@@ -1480,10 +1782,10 @@ def start_ci():
                     gh_commit = repository.get_commit(test.commit)
                     # If test run status exists, mark them as cancelled
                     for status in gh_commit.get_statuses():
-                        if status["context"] == f"CI - {test.platform.value}":
+                        if status.context == f"CI - {test.platform.value}":
                             target_url = url_for('test.by_id', test_id=test.id, _external=True)
                             update_status_on_github(gh_commit, Status.FAILURE, "Tests canceled",
-                                                    status["context"], target_url=target_url)
+                                                    status.context, target_url=target_url)
 
         elif event == "issues":
             g.log.debug('issues event detected')
@@ -1945,14 +2247,23 @@ def progress_type_request(log, test, test_id, request) -> bool:
         log.error(f"Test {test_id}: Failed to update final GitHub status after retries: {e}")
 
     if status in [TestStatus.completed, TestStatus.canceled]:
-        # Delete the current instance
+        # Delete the current instance with tracking for verification
+        # We don't wait for the deletion to complete because:
+        # 1. Waiting can take 60+ seconds, exceeding nginx/gunicorn timeouts (502 errors)
+        # 2. The verify_pending_deletions() cron job will confirm deletion succeeded
+        # 3. All important work (test results, GitHub status) is already done
         from run import config
         compute = get_compute_service_object()
         zone = config.get('ZONE', '')
         project = config.get('PROJECT_NAME', '')
         vm_name = f"{test.platform.value}-{test.id}"
-        operation = delete_instance(compute, project, zone, vm_name)
-        wait_for_operation(compute, project, zone, operation['name'])
+        try:
+            operation = delete_instance_with_tracking(
+                compute, project, zone, vm_name, g.db)
+            op_name = operation.get('name', 'unknown')
+            log.info(f"[Test: {test_id}] VM deletion initiated for {vm_name} (op: {op_name})")
+        except Exception as e:
+            log.error(f"[Test: {test_id}] Failed to delete VM {vm_name}: {e}")
 
     # If status is complete, remove the GCP Instance entry
     if status in [TestStatus.completed, TestStatus.canceled]:
@@ -2117,7 +2428,9 @@ def upload_type_request(log, test_id, repo_folder, test, request) -> bool:
         if filename == '':
             log.warning('empty filename provided for uploading')
             return False
-        temp_path = os.path.join(repo_folder, 'TempFiles', filename)
+        temp_dir = os.path.join(repo_folder, 'TempFiles')
+        os.makedirs(temp_dir, exist_ok=True)
+        temp_path = os.path.join(temp_dir, filename)
         # Save to temporary location
         uploaded_file.save(temp_path)
         # Get hash and check if it's already been submitted
@@ -2127,9 +2440,9 @@ def upload_type_request(log, test_id, repo_folder, test, request) -> bool:
                 hash_sha256.update(chunk)
         file_hash = hash_sha256.hexdigest()
         filename, file_extension = os.path.splitext(filename)
-        final_path = os.path.join(
-            repo_folder, 'TestResults', f'{file_hash}{file_extension}'
-        )
+        results_dir = os.path.join(repo_folder, 'TestResults')
+        os.makedirs(results_dir, exist_ok=True)
+        final_path = os.path.join(results_dir, f'{file_hash}{file_extension}')
         os.rename(temp_path, final_path)
         rto = RegressionTestOutput.query.filter(
             RegressionTestOutput.id == request.form['test_file_id']).first()

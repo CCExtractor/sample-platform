@@ -68,7 +68,7 @@
                             {{ stage.description }}
                             {% if stage.description == 'Testing' and status == 'running' %}
                             <div class="sample-progress" id="sample-progress">
-                                <small id="sample-progress-text">0 / 0 samples</small>
+                                <small id="sample-progress-text">{{ sample_progress.current }} / {{ sample_progress.total }} samples{% if sample_progress.total > 0 %} ({{ sample_progress.percentage }}%){% endif %}</small>
                             </div>
                             {% endif %}
                         </li>

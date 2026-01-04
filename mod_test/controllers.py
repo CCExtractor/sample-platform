@@ -150,12 +150,24 @@ def get_data_for_test(test, title=None) -> Dict[str, Any]:
 
     results = get_test_results(test)
 
+    # Calculate sample progress for initial page load
+    completed_samples = len(test.results)
+    total_samples = len(test.get_customized_regressiontests())
+    progress_percentage = 0
+    if total_samples > 0:
+        progress_percentage = int((completed_samples / total_samples) * 100)
+
     return {
         'test': test,
         'TestType': TestType,
         'results': results,
         'title': title,
-        'avg_minutes': avg_minutes
+        'avg_minutes': avg_minutes,
+        'sample_progress': {
+            'current': completed_samples,
+            'total': total_samples,
+            'percentage': progress_percentage
+        }
     }
 
 

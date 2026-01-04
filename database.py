@@ -190,13 +190,13 @@ class DeclEnumType(TypeDecorator):
         """Get enumeration type of self."""
         return DeclEnumType(self.enum)
 
-    def process_bind_param(self, value: Optional[Any], dialect: Dialect) -> Optional[str]:
+    def process_bind_param(self, value: Optional[EnumSymbol], dialect: Dialect) -> Optional[str]:
         """Get process bind parameter."""
         if value is None:
             return None
         return value.value
 
-    def process_result_value(self, value: Optional[Any], dialect: Dialect) -> Optional[EnumSymbol]:
+    def process_result_value(self, value: Optional[str], dialect: Dialect) -> Optional[EnumSymbol]:
         """Get process result value."""
         if value is None:
             return None

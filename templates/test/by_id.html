@@ -101,7 +101,7 @@
                         </table>
                     </div>
                 {% else %}
-                      <p>This test is still queued. There are {{ next }} tests queued before this one. Based on the average runtime, this test will be finished in {{ hr }} hours {{ min }} minutes.</p>
+                      <p>Your test VM is being provisioned.{% if avg_minutes > 0 %} Tests on {{ test.platform.description }} typically complete in about {{ avg_minutes }} minutes.{% endif %}</p>
                 {% endif %}
                 {% if test.finished %}
                     {% if test.failed %}

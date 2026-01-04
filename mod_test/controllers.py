@@ -1,19 +1,16 @@
 """Logic to find all tests, their progress and details of individual test."""
 
 import os
-from datetime import datetime
 from typing import Any, Dict, List
 
 from flask import (Blueprint, Response, abort, g, jsonify, redirect, request,
                    url_for)
-from sqlalchemy import and_, func
-from sqlalchemy.sql import label
+from sqlalchemy import and_
 
 from decorators import template_renderer
 from exceptions import TestNotFoundException
 from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role
-from mod_ci.models import GcpInstance
 from mod_customized.models import TestFork
 from mod_home.models import CCExtractorVersion, GeneralData
 from mod_regression.models import (Category, RegressionTestOutput,
@@ -133,47 +130,23 @@ def get_data_for_test(test, title=None) -> Dict[str, Any]:
     if title is None:
         title = f"test {test.id}"
 
-    hours = 0.00
-    minutes = 0.00
-    queued_tests = 0
-
-    """
-    evaluating estimated time if the test is still in queue
-    estimated time = (number of tests already in queue + 1) * (average time of that platform)
-                      - (time already spend by those tests)
-    calculates time in minutes and hours
-    """
+    # Calculate average runtime for this platform (used when test hasn't started yet)
+    avg_minutes = 0
     if len(test.progress) == 0:
-        var_average = 'average_time_' + test.platform.value
+        try:
+            avg_time_key = 'average_time_' + test.platform.value
+            prep_time_key = 'avg_prep_time_' + test.platform.value
 
-        # get average build and prep time.
-        prep_average_key = 'avg_prep_time_' + test.platform.value
-        average_prep_time = int(float(GeneralData.query.filter(GeneralData.key == prep_average_key).first().value))
+            avg_time_record = GeneralData.query.filter(GeneralData.key == avg_time_key).first()
+            prep_time_record = GeneralData.query.filter(GeneralData.key == prep_time_key).first()
 
-        test_progress_last_entry = g.db.query(func.max(TestProgress.test_id)).first()
-        last_test_id = test_progress_last_entry[0] if test_progress_last_entry is not None else 0
-        queued_gcp_instance = g.db.query(GcpInstance.test_id).filter(GcpInstance.test_id < test.id).subquery()
-        queued_gcp_instance_entries = g.db.query(Test.id).filter(
-            and_(Test.id.in_(queued_gcp_instance), Test.platform == test.platform)
-        ).subquery()
-        gcp_instance_test = g.db.query(TestProgress.test_id, label('time', func.group_concat(
-            TestProgress.timestamp))).filter(TestProgress.test_id.in_(queued_gcp_instance_entries)).group_by(
-            TestProgress.test_id).all()
-        number_gcp_instance_test = g.db.query(Test.id).filter(
-            and_(Test.id > last_test_id, Test.id < test.id, Test.platform == test.platform)
-        ).count()
-        average_duration = float(GeneralData.query.filter(GeneralData.key == var_average).first().value)
-        queued_tests = number_gcp_instance_test
-        time_run = 0.00
-        for pr_test in gcp_instance_test:
-            timestamps = pr_test.time.split(',')
-            start = datetime.strptime(timestamps[0], '%Y-%m-%d %H:%M:%S')
-            end = datetime.strptime(timestamps[-1], '%Y-%m-%d %H:%M:%S')
-            time_run += (end - start).total_seconds()
-        # subtracting current running tests
-        total = average_prep_time + average_duration - time_run
-        minutes = (total % 3600) // 60
-        hours = total // 3600
+            avg_duration = float(avg_time_record.value) if avg_time_record else 0
+            avg_prep = float(prep_time_record.value) if prep_time_record else 0
+
+            # Total average time in minutes
+            avg_minutes = int((avg_duration + avg_prep) / 60)
+        except (ValueError, AttributeError):
+            avg_minutes = 0
 
     results = get_test_results(test)
 
@@ -182,9 +155,7 @@ def get_data_for_test(test, title=None) -> Dict[str, Any]:
         'TestType': TestType,
         'results': results,
         'title': title,
-        'next': queued_tests,
-        'min': minutes,
-        'hr': hours
+        'avg_minutes': avg_minutes
     }
 
 

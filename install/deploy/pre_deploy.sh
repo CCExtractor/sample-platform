@@ -101,6 +101,32 @@ if ! git diff --quiet 2>/dev/null; then
     git status --short
 fi
 
+# Check 8: Verify logs directory ownership
+LOGS_DIR="$INSTALL_FOLDER/logs"
+WEB_USER="${WEB_USER:-www-data}"
+if [ -d "$LOGS_DIR" ]; then
+    LOGS_OWNER=$(stat -c '%U' "$LOGS_DIR" 2>/dev/null || echo "unknown")
+    if [ "$LOGS_OWNER" != "$WEB_USER" ]; then
+        echo "WARNING: Logs directory owned by '$LOGS_OWNER', should be '$WEB_USER'"
+        echo "Fixing ownership..."
+        chown -R "$WEB_USER:$WEB_USER" "$LOGS_DIR" 2>/dev/null || {
+            echo "ERROR: Failed to fix logs ownership. Run manually:"
+            echo "  sudo chown -R $WEB_USER:$WEB_USER $LOGS_DIR"
+            exit 1
+        }
+        echo "✓ Logs directory ownership fixed"
+    else
+        echo "✓ Logs directory ownership OK ($WEB_USER)"
+    fi
+else
+    echo "Creating logs directory with correct ownership..."
+    mkdir -p "$LOGS_DIR"
+    chown "$WEB_USER:$WEB_USER" "$LOGS_DIR" 2>/dev/null || {
+        echo "WARNING: Could not set logs ownership (run as root)"
+    }
+    echo "✓ Logs directory created"
+fi
+
 # Export backup directory for other scripts
 echo "$BACKUP_DIR" > /tmp/sp-deploy-backup-dir.txt
 

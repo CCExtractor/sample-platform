@@ -6,7 +6,7 @@ from mod_auth.models import Role
 from mod_regression.models import RegressionTest
 from mod_test.models import (Test, TestPlatform, TestProgress, TestResult,
                              TestResultFile, TestStatus)
-from tests.base import BaseTestCase, create_mock_db_query
+from tests.base import BaseTestCase
 from tests.test_auth.test_controllers import MockUser
 
 
@@ -122,25 +122,30 @@ class TestControllers(BaseTestCase):
         self.assertEqual(response.status_code, 404)
         self.assert_template_used('test/test_not_found.html')
 
-    @mock.patch('mod_test.controllers.g')
     @mock.patch('mod_test.controllers.GeneralData')
     @mock.patch('mod_test.controllers.Category')
-    @mock.patch('mod_test.controllers.TestProgress')
-    def test_data_for_test(self, mock_test_progress, mock_category, mock_gen_data, mock_g):
+    def test_data_for_test(self, mock_category, mock_gen_data):
         """Test get_data_for_test method."""
         from mod_test.controllers import get_data_for_test
 
         mock_test = mock.MagicMock()
+        mock_test.progress = []  # No progress yet, so avg_minutes should be calculated
+        mock_test.platform.value = 'linux'
 
-        # Set up mock db query chain to avoid AsyncMock behavior in Python 3.13+
-        create_mock_db_query(mock_g)
+        # Mock GeneralData query responses for average times
+        mock_avg_time = mock.MagicMock()
+        mock_avg_time.value = '300'  # 5 minutes in seconds
+        mock_prep_time = mock.MagicMock()
+        mock_prep_time.value = '60'  # 1 minute in seconds
+        mock_gen_data.query.filter.return_value.first.side_effect = [mock_avg_time, mock_prep_time]
 
         result = get_data_for_test(mock_test)
 
         self.assertIsInstance(result, dict)
-        self.assertEqual(6, mock_g.db.query.call_count)
+        self.assertIn('avg_minutes', result)
+        self.assertEqual(result['avg_minutes'], 6)  # (300 + 60) / 60 = 6 minutes
         mock_category.query.filter.assert_called_once()
-        mock_gen_data.query.filter.assert_called()
+        self.assertEqual(mock_gen_data.query.filter.call_count, 2)
 
     @mock.patch('mod_test.controllers.Test')
     def test_get_json_data_no_test(self, mock_test):

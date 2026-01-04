@@ -38,6 +38,13 @@ class MockPlatform:
         self.value = 'linux'
 
 
+class MockStatus:
+    """Mock GitHub commit status object."""
+
+    def __init__(self, context):
+        self.context = context
+
+
 class MockFork:
     """Mock fork object."""
 
@@ -781,8 +788,10 @@ class TestControllers(BaseTestCase):
                 self.commit = "test"
 
         mock_test.query.filter.return_value.all.return_value = [MockTest()]
+        # Use MockStatus object instead of dict - code expects .context attribute
+        # Use 'linux' to match MockPlatform.value
         mock_repo.return_value.get_commit.return_value.get_statuses.return_value = [
-            {"context": f"CI - {platform_name}"}]
+            MockStatus("CI - linux")]
 
         data = {'action': 'closed',
                 'pull_request': {'number': 1234, 'draft': False}}

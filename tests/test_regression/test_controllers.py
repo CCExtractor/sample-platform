@@ -243,7 +243,7 @@ class TestControllers(BaseTestCase):
                 category_id=1,
                 submit=True,
             ))
-            self.assertEqual(RegressionTest.query.filter(RegressionTest.id == 3).first(), None)
+            self.assertEqual(RegressionTest.query.filter(RegressionTest.id == 4).first(), None)
 
     def test_category_deletion_without_login(self):
         """Check if it will move to the login page."""

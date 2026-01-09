@@ -1,7 +1,7 @@
 """add_xmltv_regression_test
 
 Revision ID: eb7303e132c0
-Revises: 7793881905c5
+Revises: c8f3a2b1d4e5
 Create Date: 2026-01-06 21:43:46.009899
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'eb7303e132c0'
-down_revision = '7793881905c5'
+down_revision = 'c8f3a2b1d4e5'
 branch_labels = None
 depends_on = None
 
@@ -36,9 +36,10 @@ def upgrade():
         sa.text(
             """
             INSERT INTO regression_test
-                (sample_id, command, input_type, output_type, expected_rc, active)
+                (sample_id, command, input_type, output_type, expected_rc, active, description)
             VALUES
-                (187, '--xmltv=1 --out=null', 'file', 'null', 5, 0)
+                (187, '--xmltv=1 --out=null', 'file', 'null', 10, 1,
+                 'Validates ATSC XMLTV generation from broadcast EPG data (VCT/ETT/EIT)')
             """
         )
     )
@@ -51,14 +52,34 @@ def upgrade():
         )
     ).fetchone()[0]
 
-    # 4. Insert expected XMLTV output (exit-code based validation)
+    # 4. Get existing "General" category
+    cat_row = conn.execute(
+        sa.text("SELECT id FROM category WHERE name = 'General'")
+    ).fetchone()
+
+    # Should exist on production
+    if cat_row is None:
+        raise RuntimeError("Required 'General' category not found")
+
+    category_id = cat_row[0]
+
+    # 5. Link regression test to category
+    conn.execute(
+        sa.text(
+            "INSERT INTO regression_test_category (regression_id, category_id) "
+            "VALUES (:test_id, :category_id)"
+        ),
+        {"test_id": test_id, "category_id": category_id},
+    )
+
+    # 6. Insert expected XMLTV output (exit-code based validation)
     conn.execute(
         sa.text(
             """
             INSERT INTO regression_test_output
-                (regression_id, correct, correct_extension, expected_filename, ignore_parse_errors)
+                (regression_id, correct, correct_extension, expected_filename, ignore)
             VALUES
-                (:test_id, 'ch29FullTS', '.xml', '', 1)
+                (:test_id, '', '.xml', '', 0)
             """
         ),
         {"test_id": test_id},
@@ -90,6 +111,14 @@ def downgrade():
         {"test_id": test_id},
     )
 
+    # Remove category linkage
+    conn.execute(
+        sa.text(
+            "DELETE FROM regression_test_category WHERE regression_id = :test_id"
+        ),
+        {"test_id": test_id},
+    )
+
     # Remove regression test
     conn.execute(
         sa.text(
@@ -97,3 +126,4 @@ def downgrade():
         ),
         {"test_id": test_id},
     )
+

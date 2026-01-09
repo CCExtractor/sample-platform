@@ -227,7 +227,7 @@ class TestControllers(BaseTestCase):
                 expected_rc=25,
                 submit=True,
             ))
-            self.assertNotEqual(RegressionTest.query.filter(RegressionTest.id == 3).first(), None)
+            self.assertNotEqual(RegressionTest.query.filter(RegressionTest.id == 4).first(), None)
 
     def test_add_test_empty_erc(self):
         """Check it will not add a regression test with empty Expected Runtime Code."""

@@ -38,6 +38,13 @@ class MockPlatform:
         self.value = 'linux'
 
 
+class MockStatus:
+    """Mock GitHub commit status object."""
+
+    def __init__(self, context):
+        self.context = context
+
+
 class MockFork:
     """Mock fork object."""
 
@@ -215,14 +222,13 @@ class TestControllers(BaseTestCase):
         cron()
         mock_log.error.assert_called_with('GITHUB_TOKEN not configured, cannot run CI cron')
 
-    @mock.patch('mod_ci.controllers.wait_for_operation')
     @mock.patch('mod_ci.controllers.create_instance')
     @mock.patch('builtins.open', new_callable=mock.mock_open())
     @mock.patch('mod_ci.controllers.g')
     @mock.patch('mod_ci.controllers.TestProgress')
     @mock.patch('mod_ci.controllers.GcpInstance')
     def test_start_test(self, mock_gcp_instance, mock_test_progress, mock_g, mock_open_file,
-                        mock_create_instance, mock_wait_for_operation):
+                        mock_create_instance):
         """Test start_test function."""
         import zipfile
 
@@ -268,21 +274,21 @@ class TestControllers(BaseTestCase):
         mock_query = create_mock_db_query(mock_g)
         mock_query.c.got = MagicMock()
 
-        # Test when gcp create instance fails
-        mock_wait_for_operation.return_value = {'status': 'DONE', 'error': {'errors': [{'code': 'TEST_ERROR'}]}}
+        # Test when gcp create instance fails synchronously (error in operation response)
+        mock_create_instance.return_value = {'error': {'errors': [{'code': 'TEST_ERROR'}]}}
         start_test(mock.ANY, self.app, mock_g.db, repository, test, mock.ANY)
         # Commit IS called to record the test failure in the database
         mock_g.db.commit.assert_called_once()
         mock_g.db.commit.reset_mock()
         mock_create_instance.reset_mock()
-        mock_wait_for_operation.reset_mock()
 
-        # Test when gcp create instance is successful
-        mock_wait_for_operation.return_value = {'status': 'DONE'}
+        # Test when gcp create instance is successful (no error in operation response)
+        # Note: We no longer wait for the operation to complete - we record the instance
+        # optimistically and let the expired instances cron handle failures
+        mock_create_instance.return_value = {'name': 'test-operation-123', 'status': 'RUNNING'}
         start_test(mock.ANY, self.app, mock_g.db, repository, test, mock.ANY)
         mock_g.db.commit.assert_called_once()
         mock_create_instance.assert_called_once()
-        mock_wait_for_operation.assert_called_once()
 
     @mock.patch('github.Github.get_repo')
     @mock.patch('mod_ci.controllers.start_test')
@@ -782,8 +788,10 @@ class TestControllers(BaseTestCase):
                 self.commit = "test"
 
         mock_test.query.filter.return_value.all.return_value = [MockTest()]
+        # Use MockStatus object instead of dict - code expects .context attribute
+        # Use 'linux' to match MockPlatform.value
         mock_repo.return_value.get_commit.return_value.get_statuses.return_value = [
-            {"context": f"CI - {platform_name}"}]
+            MockStatus("CI - linux")]
 
         data = {'action': 'closed',
                 'pull_request': {'number': 1234, 'draft': False}}
@@ -1479,14 +1487,13 @@ class TestControllers(BaseTestCase):
         mock_safe_commit.assert_called_once()
         mock_log.error.assert_called()
 
-    @mock.patch('mod_ci.controllers.wait_for_operation')
     @mock.patch('mod_ci.controllers.delete_instance')
     @mock.patch('mod_ci.controllers.safe_db_commit')
     @mock.patch('mod_ci.controllers.is_instance_testing')
     @mock.patch('run.log')
     def test_delete_expired_instances_db_commit_failure(
             self, mock_log, mock_is_testing, mock_safe_commit,
-            mock_delete, mock_wait):
+            mock_delete):
         """Test delete_expired_instances handles db commit failure."""
         from mod_ci.controllers import delete_expired_instances
 
@@ -1769,13 +1776,12 @@ class TestControllers(BaseTestCase):
         mock_rto.query.filter.assert_called_once_with(mock_rto.id == 1)
         mock_log.info.assert_called_once()
 
-    @mock.patch('mod_ci.controllers.wait_for_operation')
     @mock.patch('mod_ci.controllers.delete_instance')
     @mock.patch('mod_ci.controllers.get_compute_service_object')
     @mock.patch('mod_ci.controllers.update_build_badge')
     @mock.patch('github.Github.get_repo')
     def test_progress_type_request(self, mock_repo, mock_update_build_badge, mock_get_compute_service_object,
-                                   mock_delete_instance, mock_wait_for_operation):
+                                   mock_delete_instance):
         """Test progress_type_request function."""
         from mod_ci.models import GcpInstance
         from run import log
@@ -2113,7 +2119,6 @@ class TestControllers(BaseTestCase):
         # Should log error and continue
         mock_log.error.assert_called()
 
-    @mock.patch('mod_ci.controllers.wait_for_operation')
     @mock.patch('mod_ci.controllers.create_instance')
     @mock.patch('builtins.open', new_callable=mock.mock_open())
     @mock.patch('mod_ci.controllers.g')
@@ -2122,8 +2127,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('run.log')
     def test_start_test_duplicate_instance_check(
             self, mock_log, mock_gcp_instance, mock_test_progress,
-            mock_g, mock_open_file, mock_create_instance,
-            mock_wait_for_operation):
+            mock_g, mock_open_file, mock_create_instance):
         """Test start_test skips if GCP instance already exists for test."""
         from mod_ci.controllers import start_test
 
@@ -2140,7 +2144,6 @@ class TestControllers(BaseTestCase):
         mock_log.warning.assert_called()
         mock_create_instance.assert_not_called()
 
-    @mock.patch('mod_ci.controllers.wait_for_operation')
     @mock.patch('mod_ci.controllers.create_instance')
     @mock.patch('builtins.open', new_callable=mock.mock_open())
     @mock.patch('mod_ci.controllers.g')
@@ -2149,8 +2152,7 @@ class TestControllers(BaseTestCase):
     @mock.patch('run.log')
     def test_start_test_duplicate_progress_check(
             self, mock_log, mock_gcp_instance, mock_test_progress,
-            mock_g, mock_open_file, mock_create_instance,
-            mock_wait_for_operation):
+            mock_g, mock_open_file, mock_create_instance):
         """Test start_test skips if test already has progress entries."""
         from mod_ci.controllers import start_test
 
@@ -2170,7 +2172,6 @@ class TestControllers(BaseTestCase):
         mock_create_instance.assert_not_called()
 
     @mock.patch('mod_ci.controllers.mark_test_failed')
-    @mock.patch('mod_ci.controllers.wait_for_operation')
     @mock.patch('mod_ci.controllers.create_instance')
     @mock.patch('builtins.open', new_callable=mock.mock_open())
     @mock.patch('mod_ci.controllers.g')
@@ -2181,8 +2182,7 @@ class TestControllers(BaseTestCase):
     def test_start_test_artifact_timeout(
             self, mock_requests_get, mock_log, mock_gcp_instance,
             mock_test_progress, mock_g, mock_open_file,
-            mock_create_instance, mock_wait_for_operation,
-            mock_mark_failed):
+            mock_create_instance, mock_mark_failed):
         """Test start_test handles artifact download timeout."""
         import requests
         from github.Artifact import Artifact
@@ -2219,7 +2219,6 @@ class TestControllers(BaseTestCase):
         mock_create_instance.assert_not_called()
 
     @mock.patch('mod_ci.controllers.mark_test_failed')
-    @mock.patch('mod_ci.controllers.wait_for_operation')
     @mock.patch('mod_ci.controllers.create_instance')
     @mock.patch('builtins.open', new_callable=mock.mock_open())
     @mock.patch('mod_ci.controllers.g')
@@ -2230,8 +2229,7 @@ class TestControllers(BaseTestCase):
     def test_start_test_artifact_http_error(
             self, mock_requests_get, mock_log, mock_gcp_instance,
             mock_test_progress, mock_g, mock_open_file,
-            mock_create_instance, mock_wait_for_operation,
-            mock_mark_failed):
+            mock_create_instance, mock_mark_failed):
         """Test start_test handles artifact download HTTP errors."""
         import requests
         from github.Artifact import Artifact
@@ -2333,13 +2331,12 @@ class TestControllers(BaseTestCase):
         mock_log.info.assert_called()
 
     @mock.patch('mod_ci.controllers.Github')
-    @mock.patch('mod_ci.controllers.wait_for_operation')
     @mock.patch('mod_ci.controllers.delete_instance')
     @mock.patch('mod_ci.controllers.get_compute_service_object')
     @mock.patch('mod_ci.controllers.update_build_badge')
     def test_progress_type_request_empty_token(
             self, mock_update_build_badge, mock_get_compute_service_object,
-            mock_delete_instance, mock_wait_for_operation, mock_github):
+            mock_delete_instance, mock_github):
         """Test progress_type_request returns True when GitHub token is empty."""
         from mod_ci.models import GcpInstance
         from run import log
@@ -3558,3 +3555,255 @@ class TestStartTestRetryBehavior(BaseTestCase):
         mock_mark_failed.assert_called_once()
         # Should log critical
         mock_log.critical.assert_called()
+
+
+class TestPendingDeletionTracking(BaseTestCase):
+    """Tests for VM deletion tracking and verification functionality."""
+
+    @mock.patch('run.log')
+    def test_check_operation_status_success(self, mock_log):
+        """Test check_operation_status returns status correctly."""
+        from mod_ci.controllers import check_operation_status
+
+        compute = MagicMock()
+        zone_ops = compute.zoneOperations.return_value.get.return_value
+        zone_ops.execute.return_value = {'status': 'DONE'}
+
+        result = check_operation_status(compute, "project", "zone", "op-123")
+
+        self.assertEqual(result['status'], 'DONE')
+
+    @mock.patch('run.log')
+    def test_check_operation_status_error(self, mock_log):
+        """Test check_operation_status handles API errors."""
+        from mod_ci.controllers import check_operation_status
+
+        compute = MagicMock()
+        zone_ops = compute.zoneOperations.return_value.get.return_value
+        zone_ops.execute.side_effect = Exception("API Error")
+
+        result = check_operation_status(compute, "project", "zone", "op-123")
+
+        self.assertEqual(result['status'], 'ERROR')
+        self.assertIn('error', result)
+
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('mod_ci.controllers.delete_instance')
+    @mock.patch('run.log')
+    def test_delete_instance_with_tracking_success(
+            self, mock_log, mock_delete, mock_commit):
+        """Test delete_instance_with_tracking records pending deletion."""
+        from mod_ci.controllers import delete_instance_with_tracking
+        from mod_ci.models import PendingDeletion
+
+        mock_delete.return_value = {'name': 'op-123'}
+        mock_commit.return_value = True
+
+        db = MagicMock()
+        result = delete_instance_with_tracking(
+            MagicMock(), "project", "zone", "linux-42", db)
+
+        self.assertEqual(result['name'], 'op-123')
+        # Verify PendingDeletion was added
+        db.add.assert_called_once()
+        added_obj = db.add.call_args[0][0]
+        self.assertIsInstance(added_obj, PendingDeletion)
+        self.assertEqual(added_obj.vm_name, 'linux-42')
+        self.assertEqual(added_obj.operation_name, 'op-123')
+
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('mod_ci.controllers.delete_instance')
+    @mock.patch('run.log')
+    def test_delete_instance_with_tracking_failure(
+            self, mock_log, mock_delete, mock_commit):
+        """Test delete_instance_with_tracking handles failures."""
+        from mod_ci.controllers import delete_instance_with_tracking
+        from mod_ci.models import PendingDeletion
+
+        mock_delete.side_effect = Exception("GCP Error")
+        mock_commit.return_value = True
+
+        db = MagicMock()
+        with self.assertRaises(Exception):
+            delete_instance_with_tracking(
+                MagicMock(), "project", "zone", "linux-42", db)
+
+        # Should still record the failed attempt
+        db.add.assert_called_once()
+        added_obj = db.add.call_args[0][0]
+        self.assertIsInstance(added_obj, PendingDeletion)
+        self.assertTrue(added_obj.operation_name.startswith('failed-'))
+
+    @mock.patch('mod_ci.controllers.PendingDeletion')
+    @mock.patch('mod_ci.controllers.check_operation_status')
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('run.log')
+    def test_verify_pending_deletions_success(
+            self, mock_log, mock_commit, mock_check, mock_pending_class):
+        """Test verify_pending_deletions removes successful deletions."""
+        from mod_ci.controllers import verify_pending_deletions
+
+        # Create mock pending deletion
+        mock_pending = MagicMock()
+        mock_pending.vm_name = 'linux-42'
+        mock_pending.operation_name = 'op-123'
+        mock_pending.retry_count = 0
+        mock_pending_class.query.all.return_value = [mock_pending]
+
+        # Operation completed successfully
+        mock_check.return_value = {'status': 'DONE'}
+        mock_commit.return_value = True
+
+        db = MagicMock()
+        verify_pending_deletions(MagicMock(), "project", "zone", db)
+
+        # Should delete the pending record
+        db.delete.assert_called_once_with(mock_pending)
+        mock_commit.assert_called()
+
+    @mock.patch('mod_ci.controllers.PendingDeletion')
+    @mock.patch('mod_ci.controllers.check_operation_status')
+    @mock.patch('mod_ci.controllers._retry_deletion')
+    @mock.patch('run.log')
+    def test_verify_pending_deletions_retries_on_error(
+            self, mock_log, mock_retry, mock_check, mock_pending_class):
+        """Test verify_pending_deletions retries failed deletions."""
+        from mod_ci.controllers import verify_pending_deletions
+
+        # Create mock pending deletion
+        mock_pending = MagicMock()
+        mock_pending.vm_name = 'linux-42'
+        mock_pending.operation_name = 'op-123'
+        mock_pending.retry_count = 0
+        mock_pending_class.query.all.return_value = [mock_pending]
+
+        # Operation failed
+        mock_check.return_value = {
+            'status': 'DONE',
+            'error': {'errors': [{'message': 'Permission denied'}]}
+        }
+
+        db = MagicMock()
+        verify_pending_deletions(MagicMock(), "project", "zone", db)
+
+        # Should retry
+        mock_retry.assert_called_once()
+
+    @mock.patch('mod_ci.controllers.GcpInstance')
+    @mock.patch('mod_ci.controllers.get_running_instances')
+    @mock.patch('mod_ci.controllers.is_instance_testing')
+    @mock.patch('mod_ci.controllers.delete_instance')
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('run.log')
+    def test_scan_for_orphaned_vms_finds_orphan(
+            self, mock_log, mock_commit, mock_delete, mock_is_testing,
+            mock_get_running, mock_gcp_class):
+        """Test scan_for_orphaned_vms finds and deletes orphaned VMs."""
+        from mod_ci.controllers import scan_for_orphaned_vms
+        from mod_ci.models import PendingDeletion
+
+        # Mock running VM
+        mock_get_running.return_value = [{'name': 'linux-42'}]
+        mock_is_testing.return_value = True
+
+        # No GcpInstance record (orphaned)
+        mock_gcp_class.query.filter.return_value.first.return_value = None
+        # Not tracked in PendingDeletion - use real query
+        with mock.patch.object(PendingDeletion, 'query') as mock_query:
+            mock_query.filter.return_value.first.return_value = None
+
+            mock_delete.return_value = {'name': 'op-orphan-42'}
+            mock_commit.return_value = True
+
+            db = MagicMock()
+            scan_for_orphaned_vms(MagicMock(), "project", "zone", db)
+
+            # Should delete the orphan
+            mock_delete.assert_called_once()
+            # Should track it
+            db.add.assert_called_once()
+            added_obj = db.add.call_args[0][0]
+            self.assertIsInstance(added_obj, PendingDeletion)
+            self.assertEqual(added_obj.vm_name, 'linux-42')
+
+    @mock.patch('mod_ci.controllers.PendingDeletion')
+    @mock.patch('mod_ci.controllers.GcpInstance')
+    @mock.patch('mod_ci.controllers.get_running_instances')
+    @mock.patch('mod_ci.controllers.is_instance_testing')
+    @mock.patch('run.log')
+    def test_scan_for_orphaned_vms_ignores_active(
+            self, mock_log, mock_is_testing, mock_get_running,
+            mock_gcp_class, mock_pending_class):
+        """Test scan_for_orphaned_vms ignores VMs with GcpInstance records."""
+        from mod_ci.controllers import scan_for_orphaned_vms
+
+        # Mock running VM
+        mock_get_running.return_value = [{'name': 'linux-42'}]
+        mock_is_testing.return_value = True
+
+        # Has GcpInstance record (active test)
+        mock_gcp_class.query.filter.return_value.first.return_value = MagicMock()
+
+        db = MagicMock()
+        scan_for_orphaned_vms(MagicMock(), "project", "zone", db)
+
+        # Should NOT track or delete
+        db.add.assert_not_called()
+
+    @mock.patch('mod_ci.controllers.delete_instance')
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('run.log')
+    def test_retry_deletion_success(self, mock_log, mock_commit, mock_delete):
+        """Test _retry_deletion successfully retries."""
+        from mod_ci.controllers import _retry_deletion
+        from mod_ci.models import PendingDeletion
+
+        mock_delete.return_value = {'name': 'op-retry-123'}
+        mock_commit.return_value = True
+
+        pending = PendingDeletion('linux-42', 'op-failed')
+        pending.retry_count = 0
+
+        db = MagicMock()
+        _retry_deletion(MagicMock(), "project", "zone", "linux-42", pending, db, mock_log)
+
+        mock_delete.assert_called_once()
+        self.assertEqual(pending.retry_count, 1)
+        self.assertEqual(pending.operation_name, 'op-retry-123')
+
+    @mock.patch('mod_ci.controllers.delete_instance')
+    @mock.patch('run.log')
+    def test_retry_deletion_max_retries(self, mock_log, mock_delete):
+        """Test _retry_deletion stops after max retries."""
+        from mod_ci.controllers import _retry_deletion
+        from mod_ci.models import PendingDeletion
+
+        pending = PendingDeletion('linux-42', 'op-failed')
+        pending.retry_count = PendingDeletion.MAX_RETRIES
+
+        db = MagicMock()
+        _retry_deletion(MagicMock(), "project", "zone", "linux-42", pending, db, mock_log)
+
+        # Should NOT attempt delete
+        mock_delete.assert_not_called()
+        mock_log.error.assert_called()
+
+    @mock.patch('mod_ci.controllers.delete_instance')
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('run.log')
+    def test_retry_deletion_vm_not_found(self, mock_log, mock_commit, mock_delete):
+        """Test _retry_deletion handles 404 (VM already deleted)."""
+        from mod_ci.controllers import _retry_deletion
+        from mod_ci.models import PendingDeletion
+
+        mock_delete.side_effect = Exception("notFound: VM not found")
+        mock_commit.return_value = True
+
+        pending = PendingDeletion('linux-42', 'op-failed')
+        pending.retry_count = 0
+
+        db = MagicMock()
+        _retry_deletion(MagicMock(), "project", "zone", "linux-42", pending, db, mock_log)
+
+        # Should remove the pending record (VM is gone)
+        db.delete.assert_called_once_with(pending)

@@ -471,7 +471,14 @@ def delete_expired_instances(compute, max_runtime, project, zone, db, repository
 
                 gh_commit = repository.get_commit(test.commit)
                 if gh_commit is not None:
-                    update_status_on_github(gh_commit, Status.ERROR, message, f"CI - {platform_name}")
+                    # Build target_url so users can see test results
+                    from flask import url_for
+                    try:
+                        target_url = url_for('test.by_id', test_id=test_id, _external=True)
+                    except RuntimeError:
+                        # Outside of request context
+                        target_url = f"https://sampleplatform.ccextractor.org/test/{test_id}"
+                    update_status_on_github(gh_commit, Status.ERROR, message, f"CI - {platform_name}", target_url)
 
                 # Delete VM instance with tracking for verification
                 from run import log

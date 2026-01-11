@@ -7,7 +7,6 @@ from sqlalchemy.exc import IntegrityError
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
-
 def run():
     from database import create_session
     from mod_auth.models import User
@@ -50,8 +49,8 @@ def run():
     entries.append(gen_data)
 
     regression_test_output = [
-        RegressionTestOutput(1, "test1", "srt", "test1.srt"),
-        RegressionTestOutput(2, "test2", "srt", "test2.srt")
+        RegressionTestOutput(1, "test1", ".srt", "test1.srt"),
+        RegressionTestOutput(2, "test2", ".srt", "test2.srt")
     ]
     entries.extend(regression_test_output)
 
@@ -62,6 +61,5 @@ def run():
         except IntegrityError:
             print("Entry already exists!", entry, flush=True)
             db.rollback()
-
 
 run()

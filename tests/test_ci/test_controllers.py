@@ -3828,7 +3828,7 @@ class TestVMCreationVerification(BaseTestCase):
     """
 
     def _setup_start_test_mocks(self, mock_g, mock_gcp_instance, mock_test_progress,
-                                 mock_find_artifact, mock_requests_get, mock_zipfile):
+                                mock_find_artifact, mock_requests_get, mock_zipfile):
         """Set up common mocks for start_test VM creation verification tests."""
         # Mock locking checks to return None (no existing instances/progress)
         mock_gcp_instance.query.filter.return_value.first.return_value = None
@@ -3874,7 +3874,7 @@ class TestVMCreationVerification(BaseTestCase):
         from mod_ci.controllers import start_test
 
         self._setup_start_test_mocks(mock_g, mock_gcp_instance, mock_test_progress,
-                                      mock_find_artifact, mock_requests_get, mock_zipfile)
+                                     mock_find_artifact, mock_requests_get, mock_zipfile)
 
         # VM creation returns operation ID, but wait_for_operation returns error
         mock_create_instance.return_value = {'name': 'op-123', 'status': 'RUNNING'}
@@ -3908,7 +3908,7 @@ class TestVMCreationVerification(BaseTestCase):
         from mod_ci.controllers import start_test
 
         self._setup_start_test_mocks(mock_g, mock_gcp_instance, mock_test_progress,
-                                      mock_find_artifact, mock_requests_get, mock_zipfile)
+                                     mock_find_artifact, mock_requests_get, mock_zipfile)
 
         mock_create_instance.return_value = {'name': 'op-123', 'status': 'RUNNING'}
         mock_wait_for_operation.return_value = {'status': 'DONE'}
@@ -3937,7 +3937,7 @@ class TestVMCreationVerification(BaseTestCase):
         from mod_ci.controllers import start_test
 
         self._setup_start_test_mocks(mock_g, mock_gcp_instance, mock_test_progress,
-                                      mock_find_artifact, mock_requests_get, mock_zipfile)
+                                     mock_find_artifact, mock_requests_get, mock_zipfile)
 
         mock_create_instance.return_value = {'name': 'op-123', 'status': 'RUNNING'}
         mock_wait_for_operation.return_value = {'status': 'TIMEOUT'}

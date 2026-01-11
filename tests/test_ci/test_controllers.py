@@ -3827,6 +3827,30 @@ class TestVMCreationVerification(BaseTestCase):
     the gcp_instance record. If the operation fails, mark the test as failed.
     """
 
+    def _setup_start_test_mocks(self, mock_g, mock_gcp_instance, mock_test_progress,
+                                 mock_find_artifact, mock_requests_get, mock_zipfile):
+        """Set up common mocks for start_test VM creation verification tests."""
+        # Mock locking checks to return None (no existing instances/progress)
+        mock_gcp_instance.query.filter.return_value.first.return_value = None
+        mock_test_progress.query.filter.return_value.first.return_value = None
+        mock_query = create_mock_db_query(mock_g)
+        mock_query.c.got = MagicMock()
+
+        # Mock successful artifact download
+        mock_artifact = MagicMock()
+        mock_artifact.name = 'CCExtractor Linux build'
+        mock_artifact.archive_download_url = 'https://example.com/artifact.zip'
+        mock_find_artifact.return_value = mock_artifact
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.content = b'fake zip content'
+        mock_requests_get.return_value = mock_response
+
+        mock_zip = MagicMock()
+        mock_zipfile.return_value.__enter__ = MagicMock(return_value=mock_zip)
+        mock_zipfile.return_value.__exit__ = MagicMock(return_value=False)
+
     @mock.patch('run.log')
     @mock.patch('mod_ci.controllers.mark_test_failed')
     @mock.patch('mod_ci.controllers.wait_for_operation')
@@ -3844,67 +3868,25 @@ class TestVMCreationVerification(BaseTestCase):
             mock_create_instance, mock_wait_for_operation, mock_mark_failed, mock_log):
         """Test that QUOTA_EXCEEDED error prevents gcp_instance record creation.
 
-        This is the exact scenario from test #7768:
-        - GCP operation returns successfully (just an operation ID)
-        - But the operation completes with QUOTA_EXCEEDED error
-        - The test should be marked as failed
-        - NO gcp_instance record should be created
+        This is the exact scenario from test #7768: GCP operation returns
+        successfully but completes with QUOTA_EXCEEDED error.
         """
         from mod_ci.controllers import start_test
 
-        # Mock locking checks to return None (no existing instances/progress)
-        mock_gcp_instance.query.filter.return_value.first.return_value = None
-        mock_test_progress.query.filter.return_value.first.return_value = None
+        self._setup_start_test_mocks(mock_g, mock_gcp_instance, mock_test_progress,
+                                      mock_find_artifact, mock_requests_get, mock_zipfile)
 
-        # Set up mock db query chain
-        mock_query = create_mock_db_query(mock_g)
-        mock_query.c.got = MagicMock()
-
-        test = Test.query.first()
-        repository = MagicMock()
-
-        # Mock successful artifact download
-        mock_artifact = MagicMock()
-        mock_artifact.name = 'CCExtractor Linux build'
-        mock_artifact.id = 123
-        mock_artifact.archive_download_url = 'https://example.com/artifact.zip'
-        mock_find_artifact.return_value = mock_artifact
-
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.content = b'fake zip content'
-        mock_requests_get.return_value = mock_response
-
-        mock_zip = MagicMock()
-        mock_zipfile.return_value.__enter__ = MagicMock(return_value=mock_zip)
-        mock_zipfile.return_value.__exit__ = MagicMock(return_value=False)
-
-        # VM creation returns operation ID (appears successful initially)
-        mock_create_instance.return_value = {
-            'name': 'operation-1768087398971-64810ed58f840-79d64e2e-ea386c76',
-            'status': 'RUNNING'
-        }
-
-        # But wait_for_operation returns QUOTA_EXCEEDED error
-        # This is the exact error from test #7768
+        # VM creation returns operation ID, but wait_for_operation returns error
+        mock_create_instance.return_value = {'name': 'op-123', 'status': 'RUNNING'}
         mock_wait_for_operation.return_value = {
             'status': 'DONE',
-            'error': {
-                'errors': [{
-                    'code': 'QUOTA_EXCEEDED',
-                    'message': "Quota 'IN_USE_ADDRESSES' exceeded. Limit: 8.0 in region us-central1."
-                }]
-            },
-            'httpErrorStatusCode': 403,
-            'httpErrorMessage': 'FORBIDDEN'
+            'error': {'errors': [{'code': 'QUOTA_EXCEEDED', 'message': 'Quota exceeded'}]},
+            'httpErrorStatusCode': 403
         }
 
-        start_test(MagicMock(), self.app, mock_g.db, repository, test, "token")
+        start_test(MagicMock(), self.app, mock_g.db, MagicMock(), Test.query.first(), "token")
 
-        # Should call mark_test_failed
         mock_mark_failed.assert_called_once()
-
-        # Should NOT add a gcp_instance record to the database
         mock_g.db.add.assert_not_called()
 
     @mock.patch('run.log')
@@ -3925,38 +3907,15 @@ class TestVMCreationVerification(BaseTestCase):
         """Test that successful VM creation creates gcp_instance record."""
         from mod_ci.controllers import start_test
 
-        # Mock locking checks
-        mock_gcp_instance.query.filter.return_value.first.return_value = None
-        mock_test_progress.query.filter.return_value.first.return_value = None
-        mock_query = create_mock_db_query(mock_g)
-        mock_query.c.got = MagicMock()
+        self._setup_start_test_mocks(mock_g, mock_gcp_instance, mock_test_progress,
+                                      mock_find_artifact, mock_requests_get, mock_zipfile)
 
-        test = Test.query.first()
-        repository = MagicMock()
-
-        # Mock successful artifact download
-        mock_artifact = MagicMock()
-        mock_artifact.name = 'CCExtractor Linux build'
-        mock_artifact.archive_download_url = 'https://example.com/artifact.zip'
-        mock_find_artifact.return_value = mock_artifact
-
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.content = b'fake zip content'
-        mock_requests_get.return_value = mock_response
-
-        mock_zip = MagicMock()
-        mock_zipfile.return_value.__enter__ = MagicMock(return_value=mock_zip)
-        mock_zipfile.return_value.__exit__ = MagicMock(return_value=False)
-
-        # VM creation succeeds
         mock_create_instance.return_value = {'name': 'op-123', 'status': 'RUNNING'}
-        mock_wait_for_operation.return_value = {'status': 'DONE'}  # Success, no error
+        mock_wait_for_operation.return_value = {'status': 'DONE'}
         mock_commit.return_value = True
 
-        start_test(MagicMock(), self.app, mock_g.db, repository, test, "token")
+        start_test(MagicMock(), self.app, mock_g.db, MagicMock(), Test.query.first(), "token")
 
-        # Should add the gcp_instance record
         mock_g.db.add.assert_called_once()
 
     @mock.patch('run.log')
@@ -3977,36 +3936,13 @@ class TestVMCreationVerification(BaseTestCase):
         """Test that operation timeout still creates record (VM may be starting slowly)."""
         from mod_ci.controllers import start_test
 
-        # Mock locking checks
-        mock_gcp_instance.query.filter.return_value.first.return_value = None
-        mock_test_progress.query.filter.return_value.first.return_value = None
-        mock_query = create_mock_db_query(mock_g)
-        mock_query.c.got = MagicMock()
+        self._setup_start_test_mocks(mock_g, mock_gcp_instance, mock_test_progress,
+                                      mock_find_artifact, mock_requests_get, mock_zipfile)
 
-        test = Test.query.first()
-        repository = MagicMock()
-
-        # Mock successful artifact download
-        mock_artifact = MagicMock()
-        mock_artifact.name = 'CCExtractor Linux build'
-        mock_artifact.archive_download_url = 'https://example.com/artifact.zip'
-        mock_find_artifact.return_value = mock_artifact
-
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.content = b'fake zip content'
-        mock_requests_get.return_value = mock_response
-
-        mock_zip = MagicMock()
-        mock_zipfile.return_value.__enter__ = MagicMock(return_value=mock_zip)
-        mock_zipfile.return_value.__exit__ = MagicMock(return_value=False)
-
-        # VM creation started but verification timed out (VM still being created)
         mock_create_instance.return_value = {'name': 'op-123', 'status': 'RUNNING'}
-        mock_wait_for_operation.return_value = {'status': 'TIMEOUT'}  # Timeout, no error
+        mock_wait_for_operation.return_value = {'status': 'TIMEOUT'}
         mock_commit.return_value = True
 
-        start_test(MagicMock(), self.app, mock_g.db, repository, test, "token")
+        start_test(MagicMock(), self.app, mock_g.db, MagicMock(), Test.query.first(), "token")
 
-        # Should still add the gcp_instance record (optimistic for slow VMs)
         mock_g.db.add.assert_called_once()

@@ -1517,6 +1517,45 @@ class TestControllers(BaseTestCase):
         # Should continue to next instance after commit failure
         mock_delete.assert_not_called()
 
+    @mock.patch('mod_ci.controllers.delete_instance_with_tracking')
+    @mock.patch('mod_ci.controllers.update_status_on_github')
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('mod_ci.controllers.is_instance_testing')
+    @mock.patch('run.log')
+    def test_delete_expired_instances_includes_target_url(
+            self, mock_log, mock_is_testing, mock_safe_commit,
+            mock_update_github, mock_delete_tracking):
+        """Test delete_expired_instances includes target_url in GitHub status."""
+        from mod_ci.controllers import delete_expired_instances
+
+        mock_is_testing.return_value = True
+        mock_safe_commit.return_value = True
+        mock_delete_tracking.return_value = {'name': 'op-123'}
+
+        # Create a mock compute service with expired instance
+        mock_compute = MagicMock()
+        mock_compute.instances().list().execute.return_value = {
+            'items': [{
+                'name': 'linux-1',
+                'creationTimestamp': '2020-01-01T00:00:00.000+00:00'
+            }]
+        }
+
+        mock_repo = MagicMock()
+        mock_gh_commit = MagicMock()
+        mock_repo.get_commit.return_value = mock_gh_commit
+
+        delete_expired_instances(
+            mock_compute, 60, 'project', 'zone', g.db, mock_repo)
+
+        # Verify update_status_on_github was called with target_url
+        mock_update_github.assert_called_once()
+        call_args = mock_update_github.call_args
+        # Check that target_url (5th argument) contains the test ID
+        self.assertEqual(len(call_args[0]), 5)  # 5 positional args
+        target_url = call_args[0][4]
+        self.assertIn('/test/1', target_url)
+
     @mock.patch('github.Github.get_repo')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     @mock.patch('mod_ci.controllers.inform_mailing_list')

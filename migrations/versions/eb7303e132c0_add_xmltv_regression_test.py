@@ -1,7 +1,7 @@
 """add_xmltv_regression_test
 
 Revision ID: eb7303e132c0
-Revises: 7793881905c5
+Revises: c8f3a2b1d4e5
 Create Date: 2026-01-06 21:43:46.009899
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'eb7303e132c0'
-down_revision = '7793881905c5'
+down_revision = 'c8f3a2b1d4e5'
 branch_labels = None
 depends_on = None
 

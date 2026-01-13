@@ -49,8 +49,8 @@ def run():
     entries.append(gen_data)
 
     regression_test_output = [
-        RegressionTestOutput(1, "test1", ".srt", "test1.srt"),
-        RegressionTestOutput(2, "test2", ".srt", "test2.srt")
+        RegressionTestOutput(1, "test1", "srt", "test1.srt"),
+        RegressionTestOutput(2, "test2", "srt", "test2.srt")
     ]
     entries.extend(regression_test_output)
 

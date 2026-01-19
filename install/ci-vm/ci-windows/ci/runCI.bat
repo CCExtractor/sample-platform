@@ -29,8 +29,7 @@ if EXIST "%dstDir%\ccextractorwinfull.exe" (
     call :executeCommand cd %suiteDstDir%
     call :executeCommand "%tester%" --debug True --entries "%testFile%" --executable "ccextractorwinfull.exe" --tempfolder "%tempFolder%" --timeout 600 --reportfolder "%reportFolder%" --resultfolder "%resultFolder%" --samplefolder "%sampleFolder%" --method Server --url "%reportURL%"
 
-    curl -s -A "%userAgent%" --form "type=logupload" --form "file=@%logFile%" -w "\n" "%reportURL%" >> "%logFile%"
-    timeout 10
+    call :sendLogFile
 
     echo Done running tests
     call :postStatus "completed" "Ran all tests"
@@ -56,20 +55,92 @@ IF %status% NEQ 0 (
 )
 EXIT /B 0
 
-rem Post status to the server
+rem Post status to the server with retry logic
 :postStatus
-echo "Posting status %~1 (message: %~2) to the server"
-curl -s -A "%userAgent%" --data "type=progress&status=%~1&message=%~2" -w "\n" "%reportURL%" >> "%logFile%"
-timeout 10
-EXIT /B 0
+setlocal EnableDelayedExpansion
+set "ps_status=%~1"
+set "ps_message=%~2"
+set ps_attempt=1
+set ps_max_retries=3
+set ps_retry_delay=5
+
+:postStatusRetry
+echo "Posting status %ps_status% (message: %ps_message%) to the server (attempt !ps_attempt!/%ps_max_retries%)"
+echo Posting status %ps_status% - %ps_message% (attempt !ps_attempt!/%ps_max_retries%) >> "%logFile%"
+
+curl -s -A "%userAgent%" --data "type=progress&status=%ps_status%&message=%ps_message%" -w "%%{http_code}" -o "%TEMP%\curl_response.txt" "%reportURL%" > "%TEMP%\http_code.txt" 2>&1
+set ps_curl_exit=%ERRORLEVEL%
+
+set /p ps_http_code=<"%TEMP%\http_code.txt"
+
+if %ps_curl_exit% EQU 0 (
+    if !ps_http_code! GEQ 200 if !ps_http_code! LSS 300 (
+        echo Status posted successfully (HTTP !ps_http_code!) >> "%logFile%"
+        type "%TEMP%\curl_response.txt" >> "%logFile%" 2>nul
+        echo. >> "%logFile%"
+        timeout 5
+        endlocal
+        EXIT /B 0
+    )
+)
+
+echo Attempt !ps_attempt!/%ps_max_retries% failed (curl exit: %ps_curl_exit%, HTTP: !ps_http_code!) >> "%logFile%"
+set /A ps_attempt+=1
+
+if !ps_attempt! LEQ %ps_max_retries% (
+    echo Retrying in %ps_retry_delay% seconds... >> "%logFile%"
+    timeout %ps_retry_delay%
+    set /A ps_retry_delay*=2
+    goto postStatusRetry
+)
+
+echo ERROR: Failed to post status after %ps_max_retries% attempts >> "%logFile%"
+endlocal
+EXIT /B 1
 
 rem Exit script and post abort status
 :haltAndCatchFire
 echo "Halt and catch fire (reason: %~1)"
 echo Post log
-curl -s -A "%userAgent%" --form "type=logupload" --form "file=@%logFile%" -w "\n" "%reportURL%" >> "%logFile%"
-rem Shut down, but only in 10 seconds, to give the time to finish the post status
-timeout 10
+call :sendLogFile
 call :postStatus "canceled" "%~1"
 shutdown -s -t 0
 EXIT 0
+
+rem Send log file to server with retry logic
+:sendLogFile
+setlocal EnableDelayedExpansion
+set sl_attempt=1
+set sl_max_retries=3
+set sl_retry_delay=5
+
+:sendLogFileRetry
+echo Sending log to server (attempt !sl_attempt!/%sl_max_retries%) >> "%logFile%"
+
+curl -s -A "%userAgent%" --form "type=logupload" --form "file=@%logFile%" -w "%%{http_code}" -o "%TEMP%\curl_log_response.txt" "%reportURL%" > "%TEMP%\log_http_code.txt" 2>&1
+set sl_curl_exit=%ERRORLEVEL%
+
+set /p sl_http_code=<"%TEMP%\log_http_code.txt"
+
+if %sl_curl_exit% EQU 0 (
+    if !sl_http_code! GEQ 200 if !sl_http_code! LSS 300 (
+        echo Log uploaded successfully (HTTP !sl_http_code!) >> "%logFile%"
+        timeout 5
+        endlocal
+        EXIT /B 0
+    )
+)
+
+echo Log upload attempt !sl_attempt!/%sl_max_retries% failed (curl exit: %sl_curl_exit%, HTTP: !sl_http_code!) >> "%logFile%"
+set /A sl_attempt+=1
+
+if !sl_attempt! LEQ %sl_max_retries% (
+    echo Retrying log upload in %sl_retry_delay% seconds... >> "%logFile%"
+    timeout %sl_retry_delay%
+    set /A sl_retry_delay*=2
+    goto sendLogFileRetry
+)
+
+echo ERROR: Failed to upload log after %sl_max_retries% attempts >> "%logFile%"
+endlocal
+EXIT /B 1

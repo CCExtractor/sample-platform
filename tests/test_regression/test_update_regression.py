@@ -39,7 +39,7 @@ class TestUpdateRegression(BaseTestCase):
 
         mock_os.path.isfile.return_value = True
         expected = True
-        num_tests = 2   # store number of mock regression tests we have
+        num_tests = 3   # store number of mock regression tests we have
 
         response = update_expected_results('valid/path')
 

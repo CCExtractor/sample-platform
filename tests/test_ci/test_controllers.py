@@ -3901,14 +3901,14 @@ class TestVMCreationVerification(BaseTestCase):
     @mock.patch('mod_ci.controllers.g')
     @mock.patch('mod_ci.controllers.TestProgress')
     @mock.patch('mod_ci.controllers.GcpInstance')
-    def test_start_test_quota_exceeded_no_db_record(
+    def test_start_test_quota_exceeded_retries_instead_of_failing(
             self, mock_gcp_instance, mock_test_progress, mock_g, mock_open_file,
             mock_zipfile, mock_requests_get, mock_find_artifact,
             mock_create_instance, mock_wait_for_operation, mock_mark_failed, mock_log):
-        """Test that QUOTA_EXCEEDED error prevents gcp_instance record creation.
+        """Test that QUOTA_EXCEEDED error leaves test pending for retry.
 
-        This is the exact scenario from test #7768: GCP operation returns
-        successfully but completes with QUOTA_EXCEEDED error.
+        QUOTA_EXCEEDED is a transient error - the test should remain pending
+        and be retried on the next cron run, not marked as failed.
         """
         from mod_ci.controllers import start_test
 
@@ -3925,7 +3925,49 @@ class TestVMCreationVerification(BaseTestCase):
 
         start_test(MagicMock(), self.app, mock_g.db, MagicMock(), Test.query.first(), "token")
 
+        # QUOTA_EXCEEDED is retryable, so mark_test_failed should NOT be called
+        mock_mark_failed.assert_not_called()
+        # No GcpInstance record should be created
+        mock_g.db.add.assert_not_called()
+
+    @mock.patch('run.log')
+    @mock.patch('mod_ci.controllers.mark_test_failed')
+    @mock.patch('mod_ci.controllers.wait_for_operation')
+    @mock.patch('mod_ci.controllers.create_instance')
+    @mock.patch('mod_ci.controllers.find_artifact_for_commit')
+    @mock.patch('mod_ci.controllers.requests.get')
+    @mock.patch('mod_ci.controllers.zipfile.ZipFile')
+    @mock.patch('builtins.open', new_callable=mock.mock_open())
+    @mock.patch('mod_ci.controllers.g')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('mod_ci.controllers.GcpInstance')
+    def test_start_test_non_retryable_error_marks_failed(
+            self, mock_gcp_instance, mock_test_progress, mock_g, mock_open_file,
+            mock_zipfile, mock_requests_get, mock_find_artifact,
+            mock_create_instance, mock_wait_for_operation, mock_mark_failed, mock_log):
+        """Test that non-retryable errors (like RESOURCE_NOT_FOUND) mark test as failed.
+
+        Only transient errors like QUOTA_EXCEEDED should be retried. Permanent
+        errors like RESOURCE_NOT_FOUND should immediately mark the test as failed.
+        """
+        from mod_ci.controllers import start_test
+
+        self._setup_start_test_mocks(mock_g, mock_gcp_instance, mock_test_progress,
+                                     mock_find_artifact, mock_requests_get, mock_zipfile)
+
+        # VM creation returns operation ID, but wait_for_operation returns non-retryable error
+        mock_create_instance.return_value = {'name': 'op-123', 'status': 'RUNNING'}
+        mock_wait_for_operation.return_value = {
+            'status': 'DONE',
+            'error': {'errors': [{'code': 'RESOURCE_NOT_FOUND', 'message': 'Resource not found'}]},
+            'httpErrorStatusCode': 404
+        }
+
+        start_test(MagicMock(), self.app, mock_g.db, MagicMock(), Test.query.first(), "token")
+
+        # RESOURCE_NOT_FOUND is NOT retryable, so mark_test_failed SHOULD be called
         mock_mark_failed.assert_called_once()
+        # No GcpInstance record should be created
         mock_g.db.add.assert_not_called()
 
     @mock.patch('run.log')

@@ -131,13 +131,50 @@ GCP_ERROR_MESSAGES = {
         "The test will be retried automatically when resources become available."
     ),
     'QUOTA_EXCEEDED': (
-        "GCP quota limit reached. Please wait for other tests to complete "
-        "or contact the administrator."
+        "GCP quota limit reached. "
+        "The test will be retried automatically when resources become available."
     ),
     'RESOURCE_NOT_FOUND': "Required GCP resource not found. Please contact the administrator.",
     'RESOURCE_ALREADY_EXISTS': "A VM with this name already exists. Please contact the administrator.",
     'TIMEOUT': "GCP operation timed out. The test will be retried automatically.",
 }
+
+# GCP error codes that are transient and should be retried automatically.
+# Tests encountering these errors will remain pending and be picked up on the next cron run.
+GCP_RETRYABLE_ERRORS = {
+    'ZONE_RESOURCE_POOL_EXHAUSTED',
+    'QUOTA_EXCEEDED',
+}
+
+
+def get_gcp_error_code(result: Dict) -> Optional[str]:
+    """
+    Extract the error code from a GCP API error response.
+
+    :param result: The GCP API response dictionary
+    :return: The error code string, or None if not found
+    """
+    if not isinstance(result, dict):
+        return None
+    error = result.get('error')
+    if not isinstance(error, dict):
+        return None
+    errors = error.get('errors', [])
+    if not errors or not isinstance(errors, list):
+        return None
+    first_error = errors[0] if len(errors) > 0 else {}
+    return first_error.get('code')
+
+
+def is_retryable_gcp_error(result: Dict) -> bool:
+    """
+    Check if a GCP error is transient and should be retried.
+
+    :param result: The GCP API response dictionary
+    :return: True if the error is retryable, False otherwise
+    """
+    error_code = get_gcp_error_code(result)
+    return error_code in GCP_RETRYABLE_ERRORS
 
 
 def parse_gcp_error(result: Dict, log=None) -> str:
@@ -929,6 +966,10 @@ def start_test(compute, app, db, repository: Repository.Repository, test, bot_to
     # Check if the create_instance call itself returned an error (synchronous failure)
     if 'error' in operation:
         error_msg = parse_gcp_error(operation)
+        if is_retryable_gcp_error(operation):
+            # Transient error - leave test pending for retry on next cron run
+            log.warning(f"Test {test.id}: VM creation hit retryable error, will retry: {error_msg}")
+            return
         log.error(f"Error creating test instance for test {test.id}, result: {operation}")
         mark_test_failed(db, test, repository, error_msg)
         return
@@ -947,6 +988,10 @@ def start_test(compute, app, db, repository: Repository.Repository, test, bot_to
         error_msg = parse_gcp_error(result)
         log.error(f"Test {test.id}: VM creation failed: {error_msg}")
         log.error(f"Test {test.id}: Full GCP response: {result}")
+        if is_retryable_gcp_error(result):
+            # Transient error - leave test pending for retry on next cron run
+            log.info(f"Test {test.id}: Error is retryable, will retry on next cron run")
+            return
         mark_test_failed(db, test, repository, error_msg)
         return
 

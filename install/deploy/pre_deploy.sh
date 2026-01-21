@@ -58,10 +58,10 @@ sys.path.insert(0, '$INSTALL_FOLDER')
 try:
     from config_parser import parse_config
     config = parse_config('config')
-    from sqlalchemy import create_engine
+    from sqlalchemy import create_engine, text
     engine = create_engine(config['DATABASE_URI'])
     conn = engine.connect()
-    conn.execute('SELECT 1')
+    conn.execute(text('SELECT 1'))
     conn.close()
     print('Database connection OK')
 except Exception as e:

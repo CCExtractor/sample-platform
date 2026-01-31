@@ -222,13 +222,14 @@ class TestControllers(BaseTestCase):
         cron()
         mock_log.error.assert_called_with('GITHUB_TOKEN not configured, cannot run CI cron')
 
+    @mock.patch('mod_ci.controllers.wait_for_operation')
     @mock.patch('mod_ci.controllers.create_instance')
     @mock.patch('builtins.open', new_callable=mock.mock_open())
     @mock.patch('mod_ci.controllers.g')
     @mock.patch('mod_ci.controllers.TestProgress')
     @mock.patch('mod_ci.controllers.GcpInstance')
     def test_start_test(self, mock_gcp_instance, mock_test_progress, mock_g, mock_open_file,
-                        mock_create_instance):
+                        mock_create_instance, mock_wait_for_operation):
         """Test start_test function."""
         import zipfile
 
@@ -282,10 +283,9 @@ class TestControllers(BaseTestCase):
         mock_g.db.commit.reset_mock()
         mock_create_instance.reset_mock()
 
-        # Test when gcp create instance is successful (no error in operation response)
-        # Note: We no longer wait for the operation to complete - we record the instance
-        # optimistically and let the expired instances cron handle failures
+        # Test when gcp create instance is successful and verified
         mock_create_instance.return_value = {'name': 'test-operation-123', 'status': 'RUNNING'}
+        mock_wait_for_operation.return_value = {'status': 'DONE'}  # Success
         start_test(mock.ANY, self.app, mock_g.db, repository, test, mock.ANY)
         mock_g.db.commit.assert_called_once()
         mock_create_instance.assert_called_once()
@@ -1516,6 +1516,45 @@ class TestControllers(BaseTestCase):
 
         # Should continue to next instance after commit failure
         mock_delete.assert_not_called()
+
+    @mock.patch('mod_ci.controllers.delete_instance_with_tracking')
+    @mock.patch('mod_ci.controllers.update_status_on_github')
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('mod_ci.controllers.is_instance_testing')
+    @mock.patch('run.log')
+    def test_delete_expired_instances_includes_target_url(
+            self, mock_log, mock_is_testing, mock_safe_commit,
+            mock_update_github, mock_delete_tracking):
+        """Test delete_expired_instances includes target_url in GitHub status."""
+        from mod_ci.controllers import delete_expired_instances
+
+        mock_is_testing.return_value = True
+        mock_safe_commit.return_value = True
+        mock_delete_tracking.return_value = {'name': 'op-123'}
+
+        # Create a mock compute service with expired instance
+        mock_compute = MagicMock()
+        mock_compute.instances().list().execute.return_value = {
+            'items': [{
+                'name': 'linux-1',
+                'creationTimestamp': '2020-01-01T00:00:00.000+00:00'
+            }]
+        }
+
+        mock_repo = MagicMock()
+        mock_gh_commit = MagicMock()
+        mock_repo.get_commit.return_value = mock_gh_commit
+
+        delete_expired_instances(
+            mock_compute, 60, 'project', 'zone', g.db, mock_repo)
+
+        # Verify update_status_on_github was called with target_url
+        mock_update_github.assert_called_once()
+        call_args = mock_update_github.call_args
+        # Check that target_url (5th argument) contains the test ID
+        self.assertEqual(len(call_args[0]), 5)  # 5 positional args
+        target_url = call_args[0][4]
+        self.assertIn('/test/1', target_url)
 
     @mock.patch('github.Github.get_repo')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
@@ -3807,3 +3846,184 @@ class TestPendingDeletionTracking(BaseTestCase):
 
         # Should remove the pending record (VM is gone)
         db.delete.assert_called_once_with(pending)
+
+
+class TestVMCreationVerification(BaseTestCase):
+    """Tests for VM creation verification to prevent stuck tests.
+
+    These tests verify the fix for the issue where tests would get stuck forever
+    when VM creation failed (e.g., QUOTA_EXCEEDED) but a GcpInstance record was
+    still created in the database.
+
+    Root cause investigated: Test #7768 for CCExtractor PR #2014 was stuck in
+    "Preparation" phase for 12+ hours because:
+    1. GCP VM creation failed with QUOTA_EXCEEDED (8 IP addresses limit)
+    2. The platform created a gcp_instance DB record before verifying success
+    3. The cron job saw the record and assumed the test was running
+    4. The test was stuck forever with no way to recover
+
+    The fix: Wait for the GCP operation to complete (or timeout) before creating
+    the gcp_instance record. If the operation fails, mark the test as failed.
+    """
+
+    def _setup_start_test_mocks(self, mock_g, mock_gcp_instance, mock_test_progress,
+                                mock_find_artifact, mock_requests_get, mock_zipfile):
+        """Set up common mocks for start_test VM creation verification tests."""
+        # Mock locking checks to return None (no existing instances/progress)
+        mock_gcp_instance.query.filter.return_value.first.return_value = None
+        mock_test_progress.query.filter.return_value.first.return_value = None
+        mock_query = create_mock_db_query(mock_g)
+        mock_query.c.got = MagicMock()
+
+        # Mock successful artifact download
+        mock_artifact = MagicMock()
+        mock_artifact.name = 'CCExtractor Linux build'
+        mock_artifact.archive_download_url = 'https://example.com/artifact.zip'
+        mock_find_artifact.return_value = mock_artifact
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.content = b'fake zip content'
+        mock_requests_get.return_value = mock_response
+
+        mock_zip = MagicMock()
+        mock_zipfile.return_value.__enter__ = MagicMock(return_value=mock_zip)
+        mock_zipfile.return_value.__exit__ = MagicMock(return_value=False)
+
+    @mock.patch('run.log')
+    @mock.patch('mod_ci.controllers.mark_test_failed')
+    @mock.patch('mod_ci.controllers.wait_for_operation')
+    @mock.patch('mod_ci.controllers.create_instance')
+    @mock.patch('mod_ci.controllers.find_artifact_for_commit')
+    @mock.patch('mod_ci.controllers.requests.get')
+    @mock.patch('mod_ci.controllers.zipfile.ZipFile')
+    @mock.patch('builtins.open', new_callable=mock.mock_open())
+    @mock.patch('mod_ci.controllers.g')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('mod_ci.controllers.GcpInstance')
+    def test_start_test_quota_exceeded_retries_instead_of_failing(
+            self, mock_gcp_instance, mock_test_progress, mock_g, mock_open_file,
+            mock_zipfile, mock_requests_get, mock_find_artifact,
+            mock_create_instance, mock_wait_for_operation, mock_mark_failed, mock_log):
+        """Test that QUOTA_EXCEEDED error leaves test pending for retry.
+
+        QUOTA_EXCEEDED is a transient error - the test should remain pending
+        and be retried on the next cron run, not marked as failed.
+        """
+        from mod_ci.controllers import start_test
+
+        self._setup_start_test_mocks(mock_g, mock_gcp_instance, mock_test_progress,
+                                     mock_find_artifact, mock_requests_get, mock_zipfile)
+
+        # VM creation returns operation ID, but wait_for_operation returns error
+        mock_create_instance.return_value = {'name': 'op-123', 'status': 'RUNNING'}
+        mock_wait_for_operation.return_value = {
+            'status': 'DONE',
+            'error': {'errors': [{'code': 'QUOTA_EXCEEDED', 'message': 'Quota exceeded'}]},
+            'httpErrorStatusCode': 403
+        }
+
+        start_test(MagicMock(), self.app, mock_g.db, MagicMock(), Test.query.first(), "token")
+
+        # QUOTA_EXCEEDED is retryable, so mark_test_failed should NOT be called
+        mock_mark_failed.assert_not_called()
+        # No GcpInstance record should be created
+        mock_g.db.add.assert_not_called()
+
+    @mock.patch('run.log')
+    @mock.patch('mod_ci.controllers.mark_test_failed')
+    @mock.patch('mod_ci.controllers.wait_for_operation')
+    @mock.patch('mod_ci.controllers.create_instance')
+    @mock.patch('mod_ci.controllers.find_artifact_for_commit')
+    @mock.patch('mod_ci.controllers.requests.get')
+    @mock.patch('mod_ci.controllers.zipfile.ZipFile')
+    @mock.patch('builtins.open', new_callable=mock.mock_open())
+    @mock.patch('mod_ci.controllers.g')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('mod_ci.controllers.GcpInstance')
+    def test_start_test_non_retryable_error_marks_failed(
+            self, mock_gcp_instance, mock_test_progress, mock_g, mock_open_file,
+            mock_zipfile, mock_requests_get, mock_find_artifact,
+            mock_create_instance, mock_wait_for_operation, mock_mark_failed, mock_log):
+        """Test that non-retryable errors (like RESOURCE_NOT_FOUND) mark test as failed.
+
+        Only transient errors like QUOTA_EXCEEDED should be retried. Permanent
+        errors like RESOURCE_NOT_FOUND should immediately mark the test as failed.
+        """
+        from mod_ci.controllers import start_test
+
+        self._setup_start_test_mocks(mock_g, mock_gcp_instance, mock_test_progress,
+                                     mock_find_artifact, mock_requests_get, mock_zipfile)
+
+        # VM creation returns operation ID, but wait_for_operation returns non-retryable error
+        mock_create_instance.return_value = {'name': 'op-123', 'status': 'RUNNING'}
+        mock_wait_for_operation.return_value = {
+            'status': 'DONE',
+            'error': {'errors': [{'code': 'RESOURCE_NOT_FOUND', 'message': 'Resource not found'}]},
+            'httpErrorStatusCode': 404
+        }
+
+        start_test(MagicMock(), self.app, mock_g.db, MagicMock(), Test.query.first(), "token")
+
+        # RESOURCE_NOT_FOUND is NOT retryable, so mark_test_failed SHOULD be called
+        mock_mark_failed.assert_called_once()
+        # No GcpInstance record should be created
+        mock_g.db.add.assert_not_called()
+
+    @mock.patch('run.log')
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('mod_ci.controllers.wait_for_operation')
+    @mock.patch('mod_ci.controllers.create_instance')
+    @mock.patch('mod_ci.controllers.find_artifact_for_commit')
+    @mock.patch('mod_ci.controllers.requests.get')
+    @mock.patch('mod_ci.controllers.zipfile.ZipFile')
+    @mock.patch('builtins.open', new_callable=mock.mock_open())
+    @mock.patch('mod_ci.controllers.g')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('mod_ci.controllers.GcpInstance')
+    def test_start_test_vm_verified_creates_db_record(
+            self, mock_gcp_instance, mock_test_progress, mock_g, mock_open_file,
+            mock_zipfile, mock_requests_get, mock_find_artifact,
+            mock_create_instance, mock_wait_for_operation, mock_commit, mock_log):
+        """Test that successful VM creation creates gcp_instance record."""
+        from mod_ci.controllers import start_test
+
+        self._setup_start_test_mocks(mock_g, mock_gcp_instance, mock_test_progress,
+                                     mock_find_artifact, mock_requests_get, mock_zipfile)
+
+        mock_create_instance.return_value = {'name': 'op-123', 'status': 'RUNNING'}
+        mock_wait_for_operation.return_value = {'status': 'DONE'}
+        mock_commit.return_value = True
+
+        start_test(MagicMock(), self.app, mock_g.db, MagicMock(), Test.query.first(), "token")
+
+        mock_g.db.add.assert_called_once()
+
+    @mock.patch('run.log')
+    @mock.patch('mod_ci.controllers.safe_db_commit')
+    @mock.patch('mod_ci.controllers.wait_for_operation')
+    @mock.patch('mod_ci.controllers.create_instance')
+    @mock.patch('mod_ci.controllers.find_artifact_for_commit')
+    @mock.patch('mod_ci.controllers.requests.get')
+    @mock.patch('mod_ci.controllers.zipfile.ZipFile')
+    @mock.patch('builtins.open', new_callable=mock.mock_open())
+    @mock.patch('mod_ci.controllers.g')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('mod_ci.controllers.GcpInstance')
+    def test_start_test_operation_timeout_creates_db_record(
+            self, mock_gcp_instance, mock_test_progress, mock_g, mock_open_file,
+            mock_zipfile, mock_requests_get, mock_find_artifact,
+            mock_create_instance, mock_wait_for_operation, mock_commit, mock_log):
+        """Test that operation timeout still creates record (VM may be starting slowly)."""
+        from mod_ci.controllers import start_test
+
+        self._setup_start_test_mocks(mock_g, mock_gcp_instance, mock_test_progress,
+                                     mock_find_artifact, mock_requests_get, mock_zipfile)
+
+        mock_create_instance.return_value = {'name': 'op-123', 'status': 'RUNNING'}
+        mock_wait_for_operation.return_value = {'status': 'TIMEOUT'}
+        mock_commit.return_value = True
+
+        start_test(MagicMock(), self.app, mock_g.db, MagicMock(), Test.query.first(), "token")
+
+        mock_g.db.add.assert_called_once()

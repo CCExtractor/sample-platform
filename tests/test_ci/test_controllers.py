@@ -3490,8 +3490,10 @@ class TestDiagnoseMissingArtifact(BaseTestCase):
         self.assertFalse(is_retryable)
         self.assertIn("Artifact not found", message)
 
-    def test_no_workflow_run_is_retryable(self):
-        """Test that missing workflow run returns retryable=True."""
+    def test_no_workflow_run_recent_commit_is_retryable(self):
+        """Test that missing workflow run for a recent commit returns retryable=True."""
+        from datetime import datetime, timezone
+
         from mod_ci.controllers import _diagnose_missing_artifact
 
         repository = MagicMock()
@@ -3506,6 +3508,11 @@ class TestDiagnoseMissingArtifact(BaseTestCase):
         # No workflow runs for this commit
         repository.get_workflow_runs.return_value = []
 
+        # Mock a recent commit (1 hour ago)
+        commit_obj = MagicMock()
+        commit_obj.commit.author.date = datetime.now(timezone.utc)
+        repository.get_commit.return_value = commit_obj
+
         message, is_retryable = _diagnose_missing_artifact(
             repository, "abc123", TestPlatform.linux, log
         )
@@ -3513,6 +3520,38 @@ class TestDiagnoseMissingArtifact(BaseTestCase):
         self.assertTrue(is_retryable)
         self.assertIn("No workflow run found", message)
         self.assertIn("Will retry", message)
+
+    def test_no_workflow_run_old_commit_not_retryable(self):
+        """Test that missing workflow run for an old commit returns retryable=False."""
+        from datetime import datetime, timedelta, timezone
+
+        from mod_ci.controllers import _diagnose_missing_artifact
+
+        repository = MagicMock()
+        log = MagicMock()
+
+        # Mock workflow
+        workflow = MagicMock()
+        workflow.id = 1
+        workflow.name = "Build CCExtractor on Linux"
+        repository.get_workflows.return_value = [workflow]
+
+        # No workflow runs for this commit
+        repository.get_workflow_runs.return_value = []
+
+        # Mock an old commit (5 hours ago - beyond the 3 hour limit)
+        commit_obj = MagicMock()
+        commit_obj.commit.author.date = datetime.now(timezone.utc) - timedelta(hours=5)
+        repository.get_commit.return_value = commit_obj
+
+        message, is_retryable = _diagnose_missing_artifact(
+            repository, "abc123", TestPlatform.linux, log
+        )
+
+        self.assertFalse(is_retryable)
+        self.assertIn("No build available", message)
+        self.assertIn("never ran", message)
+        self.assertIn("5.0 hours old", message)
 
     def test_diagnostic_exception_is_retryable(self):
         """Test that diagnostic failures default to retryable=True."""
@@ -3530,6 +3569,118 @@ class TestDiagnoseMissingArtifact(BaseTestCase):
 
         self.assertTrue(is_retryable)
         self.assertIn("diagnostic check failed", message)
+
+    @mock.patch('mod_ci.controllers._will_workflow_run_for_commit')
+    def test_workflow_will_not_run_not_retryable(self, mock_will_run):
+        """Test that when workflow won't run due to path filters, it's not retryable."""
+        from mod_ci.controllers import _diagnose_missing_artifact
+
+        repository = MagicMock()
+        log = MagicMock()
+
+        # Workflow will NOT run due to path filters
+        mock_will_run.return_value = False
+
+        message, is_retryable = _diagnose_missing_artifact(
+            repository, "abc123", TestPlatform.linux, log
+        )
+
+        self.assertFalse(is_retryable)
+        self.assertIn("No build will be created", message)
+        self.assertIn("does not modify any files", message)
+
+
+class TestWorkflowPathFilters(BaseTestCase):
+    """Test the workflow path filter checking functions."""
+
+    @mock.patch('mod_ci.controllers._get_workflow_path_filters')
+    def test_will_workflow_run_matches_c_file(self, mock_get_filters):
+        """Test that changing a .c file triggers the workflow."""
+        from mod_ci.controllers import _will_workflow_run_for_commit
+
+        repository = MagicMock()
+        log = MagicMock()
+
+        # Mock path filters
+        mock_get_filters.return_value = ['**.c', '**.h', 'linux/**']
+
+        # Mock commit with a .c file changed
+        mock_file = MagicMock()
+        mock_file.filename = 'src/ccextractor.c'
+        mock_commit = MagicMock()
+        mock_commit.files = [mock_file]
+        repository.get_commit.return_value = mock_commit
+
+        result = _will_workflow_run_for_commit(
+            repository, "abc123", "Build CCExtractor on Linux", log
+        )
+
+        self.assertTrue(result)
+
+    @mock.patch('mod_ci.controllers._get_workflow_path_filters')
+    def test_will_workflow_run_no_match_docs_only(self, mock_get_filters):
+        """Test that changing only docs doesn't trigger the workflow."""
+        from mod_ci.controllers import _will_workflow_run_for_commit
+
+        repository = MagicMock()
+        log = MagicMock()
+
+        # Mock path filters
+        mock_get_filters.return_value = ['**.c', '**.h', 'linux/**']
+
+        # Mock commit with only README changed
+        mock_file = MagicMock()
+        mock_file.filename = 'README.md'
+        mock_commit = MagicMock()
+        mock_commit.files = [mock_file]
+        repository.get_commit.return_value = mock_commit
+
+        result = _will_workflow_run_for_commit(
+            repository, "abc123", "Build CCExtractor on Linux", log
+        )
+
+        self.assertFalse(result)
+
+    @mock.patch('mod_ci.controllers._get_workflow_path_filters')
+    def test_will_workflow_run_no_filters_returns_none(self, mock_get_filters):
+        """Test that workflows without path filters return None."""
+        from mod_ci.controllers import _will_workflow_run_for_commit
+
+        repository = MagicMock()
+        log = MagicMock()
+
+        # No path filters (workflow runs on everything)
+        mock_get_filters.return_value = None
+
+        result = _will_workflow_run_for_commit(
+            repository, "abc123", "Build CCExtractor on Linux", log
+        )
+
+        self.assertIsNone(result)
+
+    @mock.patch('mod_ci.controllers._get_workflow_path_filters')
+    def test_will_workflow_run_matches_subdirectory(self, mock_get_filters):
+        """Test that ** patterns match subdirectories."""
+        from mod_ci.controllers import _will_workflow_run_for_commit
+
+        repository = MagicMock()
+        log = MagicMock()
+
+        # Mock path filters with ** pattern
+        mock_get_filters.return_value = ['src/rust/**']
+
+        # Mock commit with a file in src/rust subdirectory
+        mock_file = MagicMock()
+        mock_file.filename = 'src/rust/lib_ccxr/src/main.rs'
+        mock_commit = MagicMock()
+        mock_commit.files = [mock_file]
+        repository.get_commit.return_value = mock_commit
+
+        result = _will_workflow_run_for_commit(
+            repository, "abc123", "Build CCExtractor on Linux", log
+        )
+
+        self.assertTrue(result)
 
 
 class TestStartTestRetryBehavior(BaseTestCase):

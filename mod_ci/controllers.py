@@ -1,6 +1,8 @@
 """maintains all functionality related running virtual machines, starting and tracking tests."""
 
+import base64
 import datetime
+import fnmatch
 import hashlib
 import json
 import os
@@ -22,6 +24,7 @@ from github import (Auth, Commit, Github, GithubException, GithubObject,
 from google.oauth2 import service_account
 from lxml import etree
 from markdown2 import markdown
+import yaml
 from pymysql.err import IntegrityError
 from sqlalchemy import and_, func
 from sqlalchemy.sql import label
@@ -682,6 +685,130 @@ def mark_test_failed(db, test, repository, message: str) -> bool:
     return db_success and github_success
 
 
+# Mapping of workflow names to their YAML files in the repository
+WORKFLOW_FILES = {
+    "Build CCExtractor on Linux": ".github/workflows/build_linux.yml",
+    "Build CCExtractor on Windows": ".github/workflows/build_windows.yml",
+}
+
+# Cache for workflow path filters (refreshed periodically)
+_workflow_filters_cache: Dict[str, tuple] = {}  # {workflow_name: (filters, timestamp)}
+WORKFLOW_CACHE_TTL = 3600  # 1 hour cache TTL
+
+
+def _get_workflow_path_filters(repository, workflow_name: str, log) -> Optional[list]:
+    """
+    Fetch and parse the workflow YAML to extract path filters.
+
+    Returns a list of path patterns that trigger the workflow, or None if
+    the workflow has no path filters (runs on all changes).
+
+    :param repository: GitHub repository object
+    :param workflow_name: Name of the workflow (e.g., "Build CCExtractor on Linux")
+    :param log: Logger instance
+    :return: List of path patterns, or None if no filters
+    """
+    import time as time_module
+
+    # Check cache first
+    if workflow_name in _workflow_filters_cache:
+        filters, cached_at = _workflow_filters_cache[workflow_name]
+        if time_module.time() - cached_at < WORKFLOW_CACHE_TTL:
+            return filters
+
+    workflow_file = WORKFLOW_FILES.get(workflow_name)
+    if not workflow_file:
+        log.warning(f"Unknown workflow: {workflow_name}")
+        return None
+
+    try:
+        # Fetch the workflow file content from the repository
+        contents = repository.get_contents(workflow_file)
+        workflow_yaml = base64.b64decode(contents.content).decode('utf-8')
+
+        # Parse the YAML
+        workflow_config = yaml.safe_load(workflow_yaml)
+
+        # Extract path filters from 'on.push.paths' and 'on.pull_request.paths'
+        on_config = workflow_config.get('on', {})
+        path_filters = set()
+
+        # Check push paths
+        push_config = on_config.get('push', {})
+        if isinstance(push_config, dict) and 'paths' in push_config:
+            path_filters.update(push_config['paths'])
+
+        # Check pull_request paths
+        pr_config = on_config.get('pull_request', {})
+        if isinstance(pr_config, dict) and 'paths' in pr_config:
+            path_filters.update(pr_config['paths'])
+
+        filters = list(path_filters) if path_filters else None
+
+        # Cache the result
+        _workflow_filters_cache[workflow_name] = (filters, time_module.time())
+
+        log.debug(f"Workflow '{workflow_name}' path filters: {filters}")
+        return filters
+
+    except Exception as e:
+        log.warning(f"Failed to fetch/parse workflow file {workflow_file}: {e}")
+        return None  # Assume no filters on error (will retry)
+
+
+def _will_workflow_run_for_commit(repository, commit_sha: str, workflow_name: str, log) -> Optional[bool]:
+    """
+    Check if a workflow will run for a given commit based on path filters.
+
+    Returns:
+        True: Workflow will definitely run (files match path filters)
+        False: Workflow will definitely NOT run (no files match)
+        None: Cannot determine (no path filters, or error occurred)
+
+    :param repository: GitHub repository object
+    :param commit_sha: The commit SHA to check
+    :param workflow_name: Name of the workflow
+    :param log: Logger instance
+    :return: True/False/None as described above
+    """
+    # Get the workflow's path filters
+    path_filters = _get_workflow_path_filters(repository, workflow_name, log)
+
+    if path_filters is None:
+        # No path filters means workflow runs on all changes
+        return None
+
+    try:
+        # Get the list of files changed in this commit
+        commit = repository.get_commit(commit_sha)
+        changed_files = [f.filename for f in commit.files]
+
+        log.debug(f"Commit {commit_sha[:7]} changed {len(changed_files)} files")
+
+        # Check if any changed file matches any path filter
+        for changed_file in changed_files:
+            for pattern in path_filters:
+                # Handle ** patterns (match any path depth)
+                if '**' in pattern:
+                    # Convert ** glob to regex-compatible pattern
+                    regex_pattern = pattern.replace('**/', '(.*/)?').replace('**', '.*')
+                    regex_pattern = regex_pattern.replace('*', '[^/]*')
+                    if re.match(regex_pattern, changed_file):
+                        log.debug(f"File '{changed_file}' matches pattern '{pattern}'")
+                        return True
+                elif fnmatch.fnmatch(changed_file, pattern):
+                    log.debug(f"File '{changed_file}' matches pattern '{pattern}'")
+                    return True
+
+        # No files matched any pattern
+        log.info(f"Commit {commit_sha[:7]}: No changed files match workflow '{workflow_name}' path filters")
+        return False
+
+    except Exception as e:
+        log.warning(f"Failed to check commit files against workflow filters: {e}")
+        return None  # Cannot determine
+
+
 def _diagnose_missing_artifact(repository, commit_sha: str, platform, log) -> tuple:
     """
     Diagnose why an artifact was not found for a commit.
@@ -702,6 +829,16 @@ def _diagnose_missing_artifact(repository, commit_sha: str, platform, log) -> tu
         expected_workflow = Workflow_builds.LINUX
     else:
         expected_workflow = Workflow_builds.WINDOWS
+
+    # First, check if the workflow will even run based on path filters
+    will_run = _will_workflow_run_for_commit(repository, commit_sha, expected_workflow, log)
+    if will_run is False:
+        # Workflow will definitely NOT run - no matching files in commit
+        message = (f"No build will be created: commit {commit_sha[:7]} does not modify any files "
+                   f"that trigger the '{expected_workflow}' workflow. "
+                   f"Only documentation or non-code files were changed.")
+        log.info(f"Commit {commit_sha[:7]}: workflow '{expected_workflow}' will not run due to path filters")
+        return (message, False)  # NOT retryable - workflow will never run
 
     try:
         # Build workflow name lookup
@@ -762,8 +899,33 @@ def _diagnose_missing_artifact(repository, commit_sha: str, platform, log) -> tu
                 return (message, False)  # Not retryable
 
         if not workflow_found:
-            # No workflow run found - could be queued or not triggered
-            # This is RETRYABLE (workflow might be queued or path filters excluded it)
+            # No workflow run found - could be queued, not triggered, or too old
+            # Check commit age to determine if we should keep waiting
+            MAX_WAIT_HOURS = 3
+            try:
+                from datetime import datetime, timezone, timedelta
+                commit_obj = repository.get_commit(commit_sha)
+                commit_date = commit_obj.commit.author.date
+                if commit_date.tzinfo is None:
+                    commit_date = commit_date.replace(tzinfo=timezone.utc)
+                now = datetime.now(timezone.utc)
+                commit_age = now - commit_date
+
+                if commit_age > timedelta(hours=MAX_WAIT_HOURS):
+                    # Commit is too old - workflow was never triggered or history expired
+                    hours_old = commit_age.total_seconds() / 3600
+                    message = (f"No build available: '{expected_workflow}' never ran for commit "
+                               f"{commit_sha[:7]} (commit is {hours_old:.1f} hours old). "
+                               f"The workflow was likely not triggered due to path filters, "
+                               f"or the commit predates the workflow configuration.")
+                    log.info(f"Commit {commit_sha[:7]} is {hours_old:.1f} hours old with no workflow run - "
+                             f"marking as permanent failure")
+                    return (message, False)  # NOT retryable - too old
+            except Exception as e:
+                log.warning(f"Could not check commit age: {e}")
+                # Fall through to retryable on error
+
+            # Commit is recent enough - workflow might still be queued
             message = (f"No workflow run found: '{expected_workflow}' has not run for commit "
                        f"{commit_sha[:7]}. The workflow may be queued, or was not triggered "
                        f"due to path filters. Will retry.")

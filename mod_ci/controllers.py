@@ -17,6 +17,7 @@ from typing import Any, Callable, Dict, Optional, TypeVar
 
 import googleapiclient.discovery
 import requests
+import yaml
 from flask import (Blueprint, abort, flash, g, jsonify, redirect, request,
                    url_for)
 from github import (Auth, Commit, Github, GithubException, GithubObject,
@@ -24,7 +25,6 @@ from github import (Auth, Commit, Github, GithubException, GithubObject,
 from google.oauth2 import service_account
 from lxml import etree
 from markdown2 import markdown
-import yaml
 from pymysql.err import IntegrityError
 from sqlalchemy import and_, func
 from sqlalchemy.sql import label
@@ -903,7 +903,7 @@ def _diagnose_missing_artifact(repository, commit_sha: str, platform, log) -> tu
             # Check commit age to determine if we should keep waiting
             MAX_WAIT_HOURS = 3
             try:
-                from datetime import datetime, timezone, timedelta
+                from datetime import datetime, timedelta, timezone
                 commit_obj = repository.get_commit(commit_sha)
                 commit_date = commit_obj.commit.author.date
                 if commit_date.tzinfo is None:

@@ -760,16 +760,12 @@ def _will_workflow_run_for_commit(repository, commit_sha: str, workflow_name: st
     """
     Check if a workflow will run for a given commit based on path filters.
 
-    Returns:
-        True: Workflow will definitely run (files match path filters)
-        False: Workflow will definitely NOT run (no files match)
-        None: Cannot determine (no path filters, or error occurred)
-
     :param repository: GitHub repository object
     :param commit_sha: The commit SHA to check
     :param workflow_name: Name of the workflow
     :param log: Logger instance
-    :return: True/False/None as described above
+    :return: True if workflow will run (files match), False if it won't (no match),
+             None if cannot determine (no path filters or error)
     """
     # Get the workflow's path filters
     path_filters = _get_workflow_path_filters(repository, workflow_name, log)

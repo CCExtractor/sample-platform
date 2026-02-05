@@ -207,11 +207,14 @@
                                 
                                 // Update sample progress display
                                 if (data.sample_progress) {
-                                    var progressText = document.getElementById('sample-progress-text');
-                                    if (progressText) {
-                                        progressText.textContent = data.sample_progress.current + ' / ' + 
-                                            data.sample_progress.total + ' samples (' + 
-                                            data.sample_progress.percentage + '%)';
+                                    var $progressText = $('#sample-progress-text');
+                                    if ($progressText.length) {
+                                        var text = data.sample_progress.current + ' / ' +
+                                            data.sample_progress.total + ' samples';
+                                        if (data.sample_progress.total > 0) {
+                                            text += ' (' + data.sample_progress.percentage + '%)';
+                                        }
+                                        $progressText.text(text);
                                     }
                                 }
                                 

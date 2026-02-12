@@ -347,6 +347,7 @@ class BaseTestCase(TestCase):
 
         categories[0].regression_tests.append(regression_tests[0])
         categories[2].regression_tests.append(regression_tests[1])
+
         regression_test_outputs = [
             RegressionTestOutput(1, "sample_out1", ".srt", ""),
             RegressionTestOutput(2, "sample_out2", ".srt", "")

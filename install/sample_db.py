@@ -7,7 +7,6 @@ from sqlalchemy.exc import IntegrityError
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
-
 def run():
     from database import create_session
     from mod_auth.models import User
@@ -62,6 +61,5 @@ def run():
         except IntegrityError:
             print("Entry already exists!", entry, flush=True)
             db.rollback()
-
 
 run()

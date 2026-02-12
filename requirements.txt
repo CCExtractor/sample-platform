@@ -1,4 +1,4 @@
-sqlalchemy==2.0.45
+sqlalchemy==2.0.46
 flask==3.1.2
 passlib==1.7.4
 pymysql==1.1.2
@@ -20,9 +20,10 @@ WTForms==3.2.1
 MarkupSafe==3.0.3
 jinja2==3.1.6
 itsdangerous==2.2.0
-google-api-python-client==2.187.0
-google-cloud-storage==3.7.0
+google-api-python-client==2.189.0
+google-cloud-storage==3.9.0
 cffi==2.0.0
 PyGithub==2.8.1
 blinker==1.9.0
 click==8.3.1
+PyYAML==6.0.3

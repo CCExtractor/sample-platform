@@ -1,4 +1,3 @@
-# Use Python 3.11-slim for compatibility with modern dependencies
 FROM python:3.11-slim-bullseye
 
 # Environment variables to optimize Python for Docker
@@ -43,7 +42,7 @@ RUN pip install --no-cache-dir mysqlclient lxml cryptography
 COPY requirements.txt .
 RUN pip install --no-cache-dir --default-timeout=100 -r requirements.txt
 
-# 6. Install gunicorn (not in requirements.txt)
+# 6. Install gunicorn
 RUN pip install --no-cache-dir gunicorn
 
 # 7. Copy Application Code
@@ -51,12 +50,6 @@ COPY . .
 
 # 8. Create logs directory (the only build-time prep needed)
 RUN mkdir -p logs
-
-# NOTE: Secret keys and git repo are created at RUNTIME in docker-entrypoint.sh,
-#       NOT here. Baking them into the image would:
-#       - Expose secrets in image layers (docker history)
-#       - Share the same keys across all containers from this image
-#       - Conflict with the dev volume mount (.:/app)
 
 # 9. Setup Entrypoint Script
 COPY docker-entrypoint.sh /usr/local/bin/

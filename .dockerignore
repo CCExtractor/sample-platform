@@ -1,0 +1,61 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+*.egg-info/
+dist/
+build/
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker (don't copy docker files into the image)
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Database lock files
+*.db
+*.sqlite
+*.sqlite3
+.db_initialized
+
+# Logs
+logs/
+*.log
+
+# Test files
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# CI/CD
+.github/
+.travis.yml
+.circleci/
+
+# Temporary files
+tmp/
+temp/
+*.tmp

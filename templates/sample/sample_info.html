@@ -26,7 +26,6 @@
                 <p>
                     SHA256-hash: {{ sample.sha }}<br />
                     Extension: {{ sample.extension }}<br />
-
                     {% if user.is_admin or user.id == sample.upload.user.id %}
                     Original name: {{ sample.original_name }}<br />
                     {% endif %}
@@ -47,7 +46,7 @@
                 <thead>
                     <tr>
                         <th>File</th>
-                        {user.is_admin or user.id == sample.upload.user.id %}
+                        {% if user.is_admin or user.id == sample.upload.user.id %}
                         <th>Original name</th>
                         {% endif %}
                         <th>Actions</th>
@@ -57,7 +56,7 @@
                     {% for file in additional_files %}
                     <tr>
                         <td>{{ file.short_name }}</td>
-                        {user.is_admin or user.id == sample.upload.user.id %}
+                        {% if user.is_admin or user.id == sample.upload.user.id %}
                         <td>{{ file.original_name }}</td>
                         {% endif %}
                         <td>

@@ -308,8 +308,8 @@ def edit_sample(sample_id):
 
         if not form.is_submitted():
             # Populate form with current set sample values
-            form.version.data = sample.upload.version.id if sample.upload.version else None
-            form.platform.data = sample.upload.platform.name if sample.upload.platform else None
+            form.version.data = sample.upload.version.id
+            form.platform.data = sample.upload.platform.name
             form.notes.data = sample.upload.notes
             form.parameters.data = sample.upload.parameters
             form.tags.data = [tag.id for tag in sample.tags]

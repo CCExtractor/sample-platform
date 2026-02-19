@@ -2,124 +2,135 @@
 
 {% block title %}Sample information {{ super() }}{% endblock %}
 {% block body %}
-    {{ super() }}
-    <br />
+{{ super() }}
+<br />
+<div class="grid-x">
     <div class="grid-x">
-        <div class="grid-x">
-            <div class="column medium-9">
-                {% with messages = get_flashed_messages(with_categories=true) %}
-                    {% if messages %}
-                        <div class="grid-x">
-                            <div class="callout alert">
-                                <ul class="flashes">
-                                    {% for category, message in messages %}
-                                    <li class="{{ category }}">{{ message }}</li>
-                                    {% endfor %}
-                                </ul>
-                            </div>
-                        </div>
-                    {% endif %}
-                {% endwith %}
-                <h1>Sample information</h1>
-                <h2>Basic details</h2>
-                <blockquote class="small">
-                    <p>
-                        SHA256-hash: {{ sample.sha }}<br/>
-                        Extension: {{ sample.extension }}<br/>
-                        {% if sample.upload %}
-                            {% if user.is_admin or user.id == sample.upload.user.id %}
-                                Original name: {{ sample.original_name }}<br />
-                            {% endif %}
-                            {% if user.is_admin %}
-                                Submitted by: <a href="{{ url_for('auth.user', uid=sample.upload.user.id) }}">{{ sample.upload.user.name }}</a><br/>
-                            {% endif %}
-                            Submitted for CCExtractor version {{ sample.upload.version.version }} (released {{ sample.upload.version.released }})<br />
-                            Platform: {{ sample.upload.platform.description }}<br />
-                            Parameters: {{ sample.upload.parameters }}<br />
-                            Notes: {{ sample.upload.notes }}<br />
-                        {% else %}
-                            Upload information: N/A<br />
-                        {% endif %}
-                    </p>
-                </blockquote>
-                {% if additional_files|length > 0 %}
-                    <h2>Additional files</h2>
-                    <table class="tight striped sortable">
-                        <thead>
-                            <tr>
-                                <th>File</th>
-                                {% if sample.upload and (user.is_admin or user.id == sample.upload.user.id) %}
-                                    <th>Original name</th>
-                                {% endif %}
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for file in additional_files %}
-                                <tr>
-                                    <td>{{ file.short_name }}</td>
-                                    {% if sample.upload and (user.is_admin or user.id == sample.upload.user.id) %}
-                                        <td>{{ file.original_name }}</td>
-                                    {% endif %}
-                                    <td>
-                                        <a target="_blank" href="{{ url_for(".download_sample_additional", sample_id=sample.id, additional_id=file.id) }}" title="Download additional file"><i class="fa fa-download"></i></a>
-                                        {% if user.is_admin %}
-                                            &nbsp;<a href="{{ url_for(".delete_sample_additional", sample_id=sample.id, additional_id=file.id) }}" title="Delete additional file"><i class="fa fa-remove"></i></a>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                {% endif %}
-                <p id="tags" href="#tags">
-                    Tags:
-                    {% if sample.tags|length %}
-                        {% for tag in sample.tags %}
-                            <span class="tag" title="{{tag.description or tag.name}}">{{ tag.name }}</span>
+        <div class="column medium-9">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="grid-x">
+                <div class="callout alert">
+                    <ul class="flashes">
+                        {% for category, message in messages %}
+                        <li class="{{ category }}">{{ message }}</li>
                         {% endfor %}
-                    {% else %}
-                        No tags yet.
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+            {% endwith %}
+            <h1>Sample information</h1>
+            <h2>Basic details</h2>
+            <blockquote class="small">
+                <p>
+                    SHA256-hash: {{ sample.sha }}<br />
+                    Extension: {{ sample.extension }}<br />
+
+                    {% if user.is_admin or user.id == sample.upload.user.id %}
+                    Original name: {{ sample.original_name }}<br />
                     {% endif %}
                     {% if user.is_admin %}
-                    &nbsp;<a href="{{ url_for(".edit_sample", sample_id=sample.id) }}" title="Edit sample"><i class="fa fa-edit"></i></a>
+                    Submitted by: <a href="{{ url_for('auth.user', uid=sample.upload.user.id) }}">{{
+                        sample.upload.user.name }}</a><br />
                     {% endif %}
+                    Submitted for CCExtractor version {{ sample.upload.version.version }} (released {{
+                    sample.upload.version.released }})<br />
+                    Platform: {{ sample.upload.platform.description }}<br />
+                    Parameters: {{ sample.upload.parameters }}<br />
+                    Notes: {{ sample.upload.notes }}<br />
                 </p>
-                <h2>Test status & regression tests</h2>
-                <p>Repository: {{ latest_commit }}</p>
-                <p>Last release: {{ latest_release }}</p>
-                <p><a href="{{ url_for("regression.by_sample", sample_id=sample.id) }}">See in which regression tests this sample has been used</a></p>
-                {% if media %}
-                    <h2>Media info</h2>
-                    <p class="small">Full media info can be downloaded using the link at the right -->.</p>
-                    <blockquote class="small">
-                        {% if media and media|length > 0 %}
-                            {{ macros.render_media_info(media) }}
-                        {% else %}
-                            <p>No media info available</p>
+            </blockquote>
+            {% if additional_files|length > 0 %}
+            <h2>Additional files</h2>
+            <table class="tight striped sortable">
+                <thead>
+                    <tr>
+                        <th>File</th>
+                        {user.is_admin or user.id == sample.upload.user.id %}
+                        <th>Original name</th>
                         {% endif %}
-                    </blockquote>
-                {% endif %}
-                <h2>GitHub Issues</h2>
-                {% include "sample/list_issues.html" %}
-                <p class="small">Do you want to see more information displayed by default or did I forget something? Please make a request on GitHub!</p>
-            </div>
-            <div class="column medium-3">
-            <h5>Actions</h5>
-            <ul class="no-bullet">
-                <li><i class="fa fa-li fa-download"></i> 
-                    <a target="_blank" href="{{ url_for(".download_sample", sample_id=sample.id) }}">Download sample</a></li>
-                {% if media %}
-                    <li><i class="fa fa-li fa-file-code-o"></i> 
-                        <a target="_blank" href="{{ url_for(".download_sample_media_info", sample_id=sample.id) }}">Download media info xml</a>
-                    </li>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for file in additional_files %}
+                    <tr>
+                        <td>{{ file.short_name }}</td>
+                        {user.is_admin or user.id == sample.upload.user.id %}
+                        <td>{{ file.original_name }}</td>
+                        {% endif %}
+                        <td>
+                            <a target="_blank" href="{{ url_for(" .download_sample_additional", sample_id=sample.id,
+                                additional_id=file.id) }}" title="Download additional file"><i
+                                    class="fa fa-download"></i></a>
+                            {% if user.is_admin %}
+                            &nbsp;<a href="{{ url_for(" .delete_sample_additional", sample_id=sample.id,
+                                additional_id=file.id) }}" title="Delete additional file"><i
+                                    class="fa fa-remove"></i></a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+            <p id="tags" href="#tags">
+                Tags:
+                {% if sample.tags|length %}
+                {% for tag in sample.tags %}
+                <span class="tag" title="{{tag.description or tag.name}}">{{ tag.name }}</span>
+                {% endfor %}
+                {% else %}
+                No tags yet.
                 {% endif %}
                 {% if user.is_admin %}
-                    <li><i class="fa fa-li fa-edit"></i> <a href="{{ url_for(".edit_sample", sample_id=sample.id) }}">Edit sample</a></li>
-                    <li><i class="fa fa-li fa-remove"></i> <a href="{{ url_for(".delete_sample", sample_id=sample.id) }}">Delete sample</a></li>
+                &nbsp;<a href="{{ url_for(" .edit_sample", sample_id=sample.id) }}" title="Edit sample"><i
+                        class="fa fa-edit"></i></a>
+                {% endif %}
+            </p>
+            <h2>Test status & regression tests</h2>
+            <p>Repository: {{ latest_commit }}</p>
+            <p>Last release: {{ latest_release }}</p>
+            <p><a href="{{ url_for(" regression.by_sample", sample_id=sample.id) }}">See in which regression tests this
+                    sample has been used</a></p>
+            {% if media %}
+            <h2>Media info</h2>
+            <p class="small">Full media info can be downloaded using the link at the right -->.</p>
+            <blockquote class="small">
+                {% if media and media|length > 0 %}
+                {{ macros.render_media_info(media) }}
+                {% else %}
+                <p>No media info available</p>
+                {% endif %}
+            </blockquote>
+            {% endif %}
+            <h2>GitHub Issues</h2>
+            {% include "sample/list_issues.html" %}
+            <p class="small">Do you want to see more information displayed by default or did I forget something? Please
+                make a request on GitHub!</p>
+        </div>
+        <div class="column medium-3">
+            <h5>Actions</h5>
+            <ul class="no-bullet">
+                <li><i class="fa fa-li fa-download"></i>
+                    <a target="_blank" href="{{ url_for(" .download_sample", sample_id=sample.id) }}">Download
+                        sample</a>
+                </li>
+                {% if media %}
+                <li><i class="fa fa-li fa-file-code-o"></i>
+                    <a target="_blank" href="{{ url_for(" .download_sample_media_info", sample_id=sample.id)
+                        }}">Download media info xml</a>
+                </li>
+                {% endif %}
+                {% if user.is_admin %}
+                <li><i class="fa fa-li fa-edit"></i> <a href="{{ url_for(" .edit_sample", sample_id=sample.id) }}">Edit
+                        sample</a></li>
+                <li><i class="fa fa-li fa-remove"></i> <a href="{{ url_for(" .delete_sample", sample_id=sample.id)
+                        }}">Delete sample</a></li>
                 {% endif %}
             </ul>
         </div>
-        </div>
     </div>
+</div>
 {% endblock %}

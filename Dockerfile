@@ -64,11 +64,12 @@ RUN mkdir -p logs && \
     sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh && \
     chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# 6. Create a non-root user and set ownership
-RUN groupadd --gid 1001 appuser && \
+# 6. Create a non-root user for running the application server
+RUN apt-get update && apt-get install -y --no-install-recommends gosu && \
+    rm -rf /var/lib/apt/lists/* && \
+    groupadd --gid 1001 appuser && \
     useradd --uid 1001 --gid appuser --shell /bin/bash --create-home appuser && \
     chown -R appuser:appuser /app
-USER appuser
 
 # 7. Expose the Flask Port
 EXPOSE 5000

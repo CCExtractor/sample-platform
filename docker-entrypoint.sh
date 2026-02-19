@@ -20,6 +20,7 @@ if [[ ! -f "/app/secret_csrf" ]]; then
 fi
 
 # --- 2. Ensure Git Repo Exists ---
+git config --global --add safe.directory /app
 if [[ ! -d "/app/.git" ]]; then
     log "Initializing git repository (required by GitPython for build commit display)..."
     git init /app > /dev/null 2>&1
@@ -92,6 +93,9 @@ if [[ -n "$GCS_BUCKET_NAME" ]] && [[ -f "$REAL_SA_PATH" ]]; then
     set +e
     gcsfuse --key-file "$REAL_SA_PATH" \
             --implicit-dirs \
+            --uid 1001 --gid 1001 \
+            --file-mode 666 --dir-mode 777 \
+            -o allow_other \
             --debug_gcs \
             --debug_fuse \
             --log-file /tmp/gcsfuse_debug.log \
@@ -137,12 +141,13 @@ mkdir -p "${REPO}/TestData/ci-linux"
 mkdir -p "${REPO}/TestData/ci-windows"
 mkdir -p "${REPO}/vm_data"
 
+# Ensure appuser has write access to the repository
+chown -R appuser:appuser "$REPO" 2>/dev/null || true
+
 # --- 6. Install Initial Data (if requested) ---
 if [[ "${INSTALL_SAMPLE_DATA}" = "true" ]]; then
     if [[ -d "/app/install/sample_files" ]]; then
         log "Copying sample files to ${REPO}/TestFiles/..."
-        # Copy without overwriting if unnecessary, but -n might be safer?
-        # Using -rn to not overwrite existing
         cp -rn /app/install/sample_files/* "${REPO}/TestFiles/" 2>/dev/null || true
     fi
 fi
@@ -177,10 +182,6 @@ sleep 3
 # Two schema mechanisms exist in this codebase:
 #   a) database.py → create_session() calls Base.metadata.create_all() when the app is imported
 #   b) Flask-Migrate (Alembic) for versioned migrations
-#
-# Strategy:
-#   - Fresh DB: Let create_all() build schema, then stamp as HEAD so Alembic doesn't re-apply
-#   - Existing DB: Run migrate + upgrade for any new changes
 
 ALEMBIC_EXISTS=$(python3 -c "
 import pymysql, os
@@ -278,10 +279,12 @@ else
 fi
 
 # --- 10. Start Server ---
-log "Starting Gunicorn on 0.0.0.0:5000..."
+chown -R appuser:appuser /app 2>/dev/null || true
+
+log "Starting Gunicorn on 0.0.0.0:5000 as appuser..."
 log "Application accessible at http://localhost:${APP_PORT:-5000}"
 
-exec gunicorn \
+exec gosu appuser gunicorn \
     --workers 4 \
     --bind 0.0.0.0:5000 \
     --timeout 120 \

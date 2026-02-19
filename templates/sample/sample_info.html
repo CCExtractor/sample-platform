@@ -26,16 +26,20 @@
                     <p>
                         SHA256-hash: {{ sample.sha }}<br/>
                         Extension: {{ sample.extension }}<br/>
-                        {% if user.is_admin or user.id == sample.upload.user.id %}
-                            Original name: {{ sample.original_name }}<br />
+                        {% if sample.upload %}
+                            {% if user.is_admin or user.id == sample.upload.user.id %}
+                                Original name: {{ sample.original_name }}<br />
+                            {% endif %}
+                            {% if user.is_admin %}
+                                Submitted by: <a href="{{ url_for('auth.user', uid=sample.upload.user.id) }}">{{ sample.upload.user.name }}</a><br/>
+                            {% endif %}
+                            Submitted for CCExtractor version {{ sample.upload.version.version }} (released {{ sample.upload.version.released }})<br />
+                            Platform: {{ sample.upload.platform.description }}<br />
+                            Parameters: {{ sample.upload.parameters }}<br />
+                            Notes: {{ sample.upload.notes }}<br />
+                        {% else %}
+                            Upload information: N/A<br />
                         {% endif %}
-                        {% if user.is_admin %}
-                            Submitted by: <a href="{{ url_for('auth.user', uid=sample.upload.user.id) }}">{{ sample.upload.user.name }}</a><br/>
-                        {% endif %}
-                        Submitted for CCExtractor version {{ sample.upload.version.version }} (released {{ sample.upload.version.released }})<br />
-                        Platform: {{ sample.upload.platform.description }}<br />
-                        Parameters: {{ sample.upload.parameters }}<br />
-                        Notes: {{ sample.upload.notes }}<br />
                     </p>
                 </blockquote>
                 {% if additional_files|length > 0 %}
@@ -44,7 +48,7 @@
                         <thead>
                             <tr>
                                 <th>File</th>
-                                {% if user.is_admin or user.id == sample.upload.user.id %}
+                                {% if sample.upload and (user.is_admin or user.id == sample.upload.user.id) %}
                                     <th>Original name</th>
                                 {% endif %}
                                 <th>Actions</th>
@@ -54,7 +58,7 @@
                             {% for file in additional_files %}
                                 <tr>
                                     <td>{{ file.short_name }}</td>
-                                    {% if user.is_admin or user.id == sample.upload.user.id %}
+                                    {% if sample.upload and (user.is_admin or user.id == sample.upload.user.id) %}
                                         <td>{{ file.original_name }}</td>
                                     {% endif %}
                                     <td>

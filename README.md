@@ -25,6 +25,29 @@ samples and associated test results.
 An installation guideline can be found here:
 [installation guide](install/installation.md).
 
+### Windows Setup Troubleshooting
+
+If you are setting up the platform on Windows, you may encounter environment-specific blockers. Use the following fixes to stabilize your build:
+
+#### 1. libmagic ImportError
+The `python-magic` library requires native C-dependencies. On Windows, the standard package often fails to locate `magic.dll`.
+* **Fix:**
+  ```powershell
+  pip uninstall python-magic
+  pip install python-magic-bin
+  ```
+#### 2. MySQL Driver Configuration
+To ensure `SQLAlchemy` communicates correctly with a local MySQL instance on Windows, use the `pymysql` driver dialect in your `config.py`.
+* **Fix:** Update your `DATABASE_URI` string as follows:
+  `DATABASE_URI = 'mysql+pymysql://user:password@localhost/db_name'`
+
+#### 3. Environment Variables (PowerShell)
+The `flask db` commands require the `FLASK_APP` variable to be set. In PowerShell, the standard `export` command will not work.
+* **Fix:**
+  ```powershell
+  $env:FLASK_APP = "run.py"
+  ```
+
 ## Sample Updates
 
 A lot of times it may happen that we add new features to ccextractor which render the result files associated with

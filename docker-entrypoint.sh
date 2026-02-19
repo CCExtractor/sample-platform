@@ -145,11 +145,9 @@ mkdir -p "${REPO}/vm_data"
 chown -R appuser:appuser "$REPO" 2>/dev/null || true
 
 # --- 6. Install Initial Data (if requested) ---
-if [[ "${INSTALL_SAMPLE_DATA}" = "true" ]]; then
-    if [[ -d "/app/install/sample_files" ]]; then
-        log "Copying sample files to ${REPO}/TestFiles/..."
-        cp -rn /app/install/sample_files/* "${REPO}/TestFiles/" 2>/dev/null || true
-    fi
+if [[ "${INSTALL_SAMPLE_DATA}" = "true" ]] && [[ -d "/app/install/sample_files" ]]; then
+    log "Copying sample files to ${REPO}/TestFiles/..."
+    cp -rn /app/install/sample_files/* "${REPO}/TestFiles/" 2>/dev/null || true
 fi
 
 if [[ -d "/app/install/ci-vm/ci-windows/ci" ]]; then

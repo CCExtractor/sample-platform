@@ -3,22 +3,24 @@ set -e
 
 # Professional Logging Function
 log() {
-    echo -e "\033[1;34m[Platform]\033[0m $1"
+    local message="$1"
+    echo -e "\033[1;34m[Platform]\033[0m ${message}"
+    return 0
 }
 
 # --- 1. Ensure Secret Key Files Exist ---
 
-if [ ! -f "/app/secret_key" ]; then
+if [[ ! -f "/app/secret_key" ]]; then
     log "Generating secret_key file..."
     head -c 24 /dev/urandom > /app/secret_key
 fi
-if [ ! -f "/app/secret_csrf" ]; then
+if [[ ! -f "/app/secret_csrf" ]]; then
     log "Generating secret_csrf file..."
     head -c 24 /dev/urandom > /app/secret_csrf
 fi
 
 # --- 2. Ensure Git Repo Exists ---
-if [ ! -d "/app/.git" ]; then
+if [[ ! -d "/app/.git" ]]; then
     log "Initializing git repository (required by GitPython for build commit display)..."
     git init /app > /dev/null 2>&1
     git -C /app config user.email "docker@sample-platform.local"
@@ -32,7 +34,7 @@ SA_PATH="/app/service-account.json"
 REAL_SA_PATH="$SA_PATH"
 
 # Docker mounts a directory if the host file doesn't exist.
-if [ -d "$SA_PATH" ]; then
+if [[ -d "$SA_PATH" ]]; then
     log "WARNING: $SA_PATH is a directory (likely because ./service-account.json is missing on host)."
     log "Using internal path for generated credentials..."
     REAL_SA_PATH="/app/generated-service-account.json"
@@ -40,7 +42,7 @@ if [ -d "$SA_PATH" ]; then
     export SERVICE_ACCOUNT_FILE="generated-service-account.json"
 fi
 
-if [ ! -f "$REAL_SA_PATH" ]; then
+if [[ ! -f "$REAL_SA_PATH" ]]; then
     log "Generating dummy service-account.json at $REAL_SA_PATH (GCS will use local fallback)..."
     python3 -c "
 import json
@@ -79,7 +81,7 @@ mkdir -p logs
 # If GCS_BUCKET_NAME is set, we mount it to a clean path and use that.
 # Otherwise, we use the default volume mount at /repository.
 
-if [ -n "$GCS_BUCKET_NAME" ] && [ -f "$REAL_SA_PATH" ]; then
+if [[ -n "$GCS_BUCKET_NAME" ]] && [[ -f "$REAL_SA_PATH" ]]; then
     log "GCS_BUCKET_NAME is set to '$GCS_BUCKET_NAME'. Configuring GCS mount..."
     
     # Use a separate mount point to avoid conflict with local volume at /repository
@@ -98,7 +100,7 @@ if [ -n "$GCS_BUCKET_NAME" ] && [ -f "$REAL_SA_PATH" ]; then
     MOUNT_STATUS=$?
     set -e
 
-    if [ $MOUNT_STATUS -eq 0 ]; then
+    if [[ $MOUNT_STATUS -eq 0 ]]; then
         log "SUCCESS: GCS bucket mounted at $GCS_MOUNT_POINT"
         export SAMPLE_REPOSITORY="$GCS_MOUNT_POINT"
     else
@@ -106,7 +108,7 @@ if [ -n "$GCS_BUCKET_NAME" ] && [ -f "$REAL_SA_PATH" ]; then
         log "--- gcsfuse stderr ---"
         cat /tmp/gcsfuse.log
         log "----------------------"
-        if [ -f "/tmp/gcsfuse_debug.log" ]; then
+        if [[ -f "/tmp/gcsfuse_debug.log" ]]; then
             log "--- gcsfuse debug log (last 20 lines) ---"
             tail -n 20 /tmp/gcsfuse_debug.log
             log "----------------------"
@@ -136,8 +138,8 @@ mkdir -p "${REPO}/TestData/ci-windows"
 mkdir -p "${REPO}/vm_data"
 
 # --- 6. Install Initial Data (if requested) ---
-if [ "${INSTALL_SAMPLE_DATA}" = "true" ]; then
-    if [ -d "/app/install/sample_files" ]; then
+if [[ "${INSTALL_SAMPLE_DATA}" = "true" ]]; then
+    if [[ -d "/app/install/sample_files" ]]; then
         log "Copying sample files to ${REPO}/TestFiles/..."
         # Copy without overwriting if unnecessary, but -n might be safer?
         # Using -rn to not overwrite existing
@@ -145,10 +147,10 @@ if [ "${INSTALL_SAMPLE_DATA}" = "true" ]; then
     fi
 fi
 
-if [ -d "/app/install/ci-vm/ci-windows/ci" ]; then
+if [[ -d "/app/install/ci-vm/ci-windows/ci" ]]; then
     cp -rn /app/install/ci-vm/ci-windows/ci/* "${REPO}/TestData/ci-windows/" 2>/dev/null || true
 fi
-if [ -d "/app/install/ci-vm/ci-linux/ci" ]; then
+if [[ -d "/app/install/ci-vm/ci-linux/ci" ]]; then
     cp -rn /app/install/ci-vm/ci-linux/ci/* "${REPO}/TestData/ci-linux/" 2>/dev/null || true
 fi
 
@@ -161,7 +163,7 @@ DB_PORT="${DB_PORT:-3306}"
 while ! nc -z "$DB_HOST" "$DB_PORT"; do
   sleep 1
   counter=$((counter + 1))
-  if [ $counter -ge $timeout ]; then
+  if [[ $counter -ge $timeout ]]; then
     log "ERROR: MySQL connection timeout after ${timeout} seconds"
     exit 1
   fi
@@ -195,11 +197,11 @@ except Exception:
     print('no')
 " 2>/dev/null)
 
-if [ "$ALEMBIC_EXISTS" = "no" ]; then
+if [[ "$ALEMBIC_EXISTS" = "no" ]]; then
     log "Fresh database detected. Setting up schema..."
 
     # Ensure migrations directory is properly initialized
-    if [ ! -d "migrations/versions" ]; then
+    if [[ ! -d "migrations/versions" ]]; then
         log "Initializing fresh migrations folder..."
         rm -rf migrations
         flask db init || {
@@ -220,7 +222,7 @@ if [ "$ALEMBIC_EXISTS" = "no" ]; then
 else
     log "Existing database detected. Applying any pending migrations..."
 
-    if [ ! -d "migrations/versions" ]; then
+    if [[ ! -d "migrations/versions" ]]; then
         rm -rf migrations
         flask db init || {
             log "ERROR: Failed to initialize migrations"
@@ -254,8 +256,8 @@ except Exception:
     print('no')
 " 2>/dev/null)
 
-if [ -f "install/init_db.py" ]; then
-    if [ "$ADMIN_EXISTS" = "no" ]; then
+if [[ -f "install/init_db.py" ]]; then
+    if [[ "$ADMIN_EXISTS" = "no" ]]; then
         log "Creating Admin User..."
 
         python3 install/init_db.py \
@@ -264,7 +266,7 @@ if [ -f "install/init_db.py" ]; then
             "${ADMIN_EMAIL:-admin@example.com}" \
             "${ADMIN_PASSWORD:-admin}" || log "Admin creation skipped (may already exist)"
 
-        if [ "$INSTALL_SAMPLE_DATA" = "true" ] && [ -f "install/sample_db.py" ]; then
+        if [[ "$INSTALL_SAMPLE_DATA" = "true" ]] && [[ -f "install/sample_db.py" ]]; then
             log "Populating sample data..."
             python3 install/sample_db.py "$SQLALCHEMY_DATABASE_URI" || log "Sample data population skipped"
         fi

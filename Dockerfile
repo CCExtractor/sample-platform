@@ -32,32 +32,30 @@ RUN apt-get update && apt-get install -y \
 # 2. Setup Workspace
 WORKDIR /app
 
-# 3. Upgrade Pip & Build Tools
-RUN pip install --upgrade pip wheel setuptools
-
-# 4. Install heavy C-extension packages first (Caching Layer)
-RUN pip install --no-cache-dir mysqlclient lxml cryptography
-
-# 5. Install Project Dependencies
+# 3. Install all Python dependencies in a single layer
 COPY requirements.txt .
-RUN pip install --no-cache-dir --default-timeout=100 -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip wheel setuptools && \
+    pip install --no-cache-dir mysqlclient lxml cryptography && \
+    pip install --no-cache-dir --default-timeout=100 -r requirements.txt && \
+    pip install --no-cache-dir gunicorn
 
-# 6. Install gunicorn
-RUN pip install --no-cache-dir gunicorn
-
-# 7. Copy Application Code
+# 4. Copy Application Code
 COPY . .
 
-# 8. Create logs directory (the only build-time prep needed)
-RUN mkdir -p logs
-
-# 9. Setup Entrypoint Script
+# 5. Create logs directory & setup entrypoint
 COPY docker-entrypoint.sh /usr/local/bin/
-RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh && \
+RUN mkdir -p logs && \
+    sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh && \
     chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# 10. Expose the Flask Port
+# 6. Create a non-root user and set ownership
+RUN groupadd --gid 1001 appuser && \
+    useradd --uid 1001 --gid appuser --shell /bin/bash --create-home appuser && \
+    chown -R appuser:appuser /app
+USER appuser
+
+# 7. Expose the Flask Port
 EXPOSE 5000
 
-# 11. Define the runtime command
+# 8. Define the runtime command
 ENTRYPOINT ["docker-entrypoint.sh"]

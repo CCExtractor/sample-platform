@@ -59,3 +59,11 @@ htmlcov/
 tmp/
 temp/
 *.tmp
+
+# Secrets and credentials (prevent accidental inclusion)
+*.pem
+*.key
+service-account.json
+gcp-key.json
+secret_key
+secret_csrf

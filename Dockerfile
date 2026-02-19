@@ -71,7 +71,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends gosu && \
     useradd --uid 1001 --gid appuser --shell /bin/bash --create-home appuser && \
     chown -R appuser:appuser /app
 
-# 7. Expose the Flask Port
+# 7. Switch to non-root user 
+USER appuser
+
+# 8. Expose the Flask Port
 EXPOSE 5000
 
 # 8. Define the runtime command

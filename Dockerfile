@@ -39,8 +39,24 @@ RUN pip install --no-cache-dir --upgrade pip wheel setuptools && \
     pip install --no-cache-dir --default-timeout=100 -r requirements.txt && \
     pip install --no-cache-dir gunicorn
 
-# 4. Copy Application Code
-COPY . .
+# 4. Copy Application Code 
+COPY run.py manage.py config.py config_parser.py config_sample.py database.py \
+    decorators.py exceptions.py log_configuration.py mailer.py utility.py \
+    bootstrap_gunicorn.py ./
+COPY mod_auth/ mod_auth/
+COPY mod_ci/ mod_ci/
+COPY mod_customized/ mod_customized/
+COPY mod_health/ mod_health/
+COPY mod_home/ mod_home/
+COPY mod_regression/ mod_regression/
+COPY mod_sample/ mod_sample/
+COPY mod_test/ mod_test/
+COPY mod_upload/ mod_upload/
+COPY templates/ templates/
+COPY static/ static/
+COPY install/ install/
+COPY migrations/ migrations/
+COPY tests/ tests/
 
 # 5. Create logs directory & setup entrypoint
 COPY docker-entrypoint.sh /usr/local/bin/

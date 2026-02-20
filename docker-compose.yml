@@ -1,0 +1,64 @@
+services:
+  # --- 1. Database Service ---
+  db:
+    image: mysql:8.0
+    container_name: sample_platform_db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
+    ports:
+      - "${DB_EXTERNAL_PORT:-3306}:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - sample_platform_network
+
+  # --- 2. Backend Service (Flask) ---
+  backend:
+    build: .
+    container_name: sample_platform_backend
+    user: root
+    ports:
+      - "${APP_PORT:-5000}:5000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      # Live-reload: mount source code for development
+      - .:/app
+      # Prevent host pollution from Python caches
+      - /app/__pycache__
+      - /app/logs
+      # Mount the Service Account Key (read-only)
+      - ./service-account.json:/app/service-account.json:ro
+      # Persistent storage for sample files
+      - repository_data:/repository
+    env_file:
+      - .env
+    networks:
+      - sample_platform_network
+    restart: unless-stopped
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/fuse
+
+networks:
+  sample_platform_network:
+    driver: bridge
+
+volumes:
+  db_data:
+    driver: local
+  repository_data:
+    driver: local

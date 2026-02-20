@@ -33,6 +33,11 @@ static/img/status/build-windows.svg
 
 # Gunicorn
 gunicorn.pid
+gunicorn.ctl
+
+# Docker-generated files (leak via .:/app volume mount)
+.db_initialized
+migrations/versions/*docker_auto_migration*
 
 # OS Generated Files
 .DS_Store

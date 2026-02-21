@@ -2437,7 +2437,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
         results = g.db.query(count(TestResultFile.got)).filter(
             and_(
                 TestResultFile.test_id == test.id,
-                TestResultFile.regression_test_id.in_(results_zero_rc),
+                TestResultFile.regression_test_id.in_(results_zero_rc.select()),
                 TestResultFile.got.isnot(None)
             )
         ).scalar()
@@ -2513,13 +2513,13 @@ def progress_type_request(log, test, test_id, request) -> bool:
             finished_tests = g.db.query(TestProgress.test_id).filter(
                 and_(
                     TestProgress.status.in_([TestStatus.canceled, TestStatus.completed]),
-                    TestProgress.test_id.in_(platform_tests)
+                    TestProgress.test_id.in_(platform_tests.select())
                 )
             ).subquery()
             in_progress_statuses = [TestStatus.preparation, TestStatus.completed, TestStatus.canceled]
             finished_tests_progress = g.db.query(TestProgress).filter(
                 and_(
-                    TestProgress.test_id.in_(finished_tests),
+                    TestProgress.test_id.in_(finished_tests.select()),
                     TestProgress.status.in_(in_progress_statuses)
                 )
             ).subquery()

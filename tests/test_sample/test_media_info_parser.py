@@ -68,7 +68,7 @@ class TestMediaInfoFetcher(BaseTestCase):
         result = MediaInfoFetcher.get_media_info(MOCK_MediaInfoFetcher, False)
 
         MOCK_MediaInfoFetcher._process_tracks.assert_not_called()
-        self.assertEqual(len(result), 4)
+        self.assertEqual(len(result), 5)
 
     def test_get_media_info_forced(self):
         """Test get_media_info with forced parsing."""
@@ -77,7 +77,7 @@ class TestMediaInfoFetcher(BaseTestCase):
         result = MediaInfoFetcher.get_media_info(MOCK_MediaInfoFetcher, True)
 
         MOCK_MediaInfoFetcher._process_tracks.assert_called_once()
-        self.assertEqual(len(result), 4)
+        self.assertEqual(len(result), 5)
 
     def test__process_tracks_file_key_error(self):
         """Test _process_tracks method with key error in self.media_info."""
@@ -143,17 +143,13 @@ class TestMediaInfoFetcher(BaseTestCase):
         MOCK_MediaInfoFetcher._process_video.assert_called_once_with(track)
 
     def test__process_track_audio(self):
-        """
-        Test _process_track method for audio track.
-
-        This is currently not supported.
-        """
+        """Test _process_track method for audio track."""
         MOCK_MediaInfoFetcher.reset_mock()
         track = OrderedDict([('@type', 'Audio')])
 
         MediaInfoFetcher._process_track(MOCK_MediaInfoFetcher, track)
 
-        MOCK_MediaInfoFetcher._process_audio.assert_not_called()
+        MOCK_MediaInfoFetcher._process_audio.assert_called_once_with(track)
 
     def test__process_track_text(self):
         """Test _process_track method for text track."""

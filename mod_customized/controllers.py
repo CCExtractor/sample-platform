@@ -82,7 +82,7 @@ def index():
         g.log.error('GitHub token not configured, cannot fetch commits')
 
     populated_categories = g.db.query(regressionTestLinkTable.c.category_id).subquery()
-    categories = Category.query.filter(Category.id.in_(populated_categories)).order_by(Category.name.asc()).all()
+    categories = Category.query.filter(Category.id.in_(populated_categories.select())).order_by(Category.name.asc()).all()
 
     tests = Test.query.filter(and_(TestFork.user_id == g.user.id, TestFork.test_id == Test.id)).order_by(
         Test.id.desc()).limit(50).all()

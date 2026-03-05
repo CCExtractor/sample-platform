@@ -60,7 +60,7 @@ def test_results(test_id: int):
             tests.append({
                 'regression_test_id': category_test['test'].id,
                 'command': category_test['test'].command,
-                'expected_rc': category_test['test'].expected_rc,
+                'expected_rc': category_test['test'].expected_rc if result is None else result.expected_rc,
                 'exit_code': None if result is None else result.exit_code,
                 'runtime': None if result is None else result.runtime,
                 'error': category_test['error'],

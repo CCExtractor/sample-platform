@@ -25,7 +25,7 @@ def test_not_found(error: TestNotFoundException):
     return jsonify({'status': 'failure', 'error': error.message}), 404
 
 
-@mod_api.route('/v1/tests/<int:test_id>/summary')
+@mod_api.route('/v1/tests/<int:test_id>/summary', methods=['GET'])
 def test_summary(test_id: int):
     test = _require_test(test_id)
     customized_ids = test.get_customized_regressiontests()
@@ -48,7 +48,7 @@ def test_summary(test_id: int):
     })
 
 
-@mod_api.route('/v1/tests/<int:test_id>/results')
+@mod_api.route('/v1/tests/<int:test_id>/results', methods=['GET'])
 def test_results(test_id: int):
     test = _require_test(test_id)
     categories: List[Dict[str, Any]] = []
@@ -75,7 +75,7 @@ def test_results(test_id: int):
     return jsonify({'status': 'success', 'data': categories})
 
 
-@mod_api.route('/v1/tests/<int:test_id>/files')
+@mod_api.route('/v1/tests/<int:test_id>/files', methods=['GET'])
 def test_result_files(test_id: int):
     test = _require_test(test_id)
     files = TestResultFile.query.filter(TestResultFile.test_id == test.id).all()
@@ -88,7 +88,7 @@ def test_result_files(test_id: int):
     return jsonify({'status': 'success', 'data': data})
 
 
-@mod_api.route('/v1/tests/<int:test_id>/progress')
+@mod_api.route('/v1/tests/<int:test_id>/progress', methods=['GET'])
 def test_progress(test_id: int):
     test = _require_test(test_id)
     progress = [{
@@ -111,7 +111,7 @@ def test_progress(test_id: int):
     })
 
 
-@mod_api.route('/v1/categories')
+@mod_api.route('/v1/categories', methods=['GET'])
 def categories():
     populated_categories = regressionTestLinkTable.select().with_only_columns(
         regressionTestLinkTable.c.category_id

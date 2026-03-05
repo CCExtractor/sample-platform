@@ -185,7 +185,7 @@ After the completion of the automated installation of the platform, the followin
 - `TempFiles/` - Directory containing temporary files
 - `TestData/` - Directory containing files required for starting a test - runCI files, variables file, tester
 - `TestFiles/` - Directory containing regression test samples
-- `TestResults/` - Direction containing regression test results
+- `TestResults/` - Directory containing regression test results
 - `vm_data/` - Directory containing test-specific subfolders, each folder containing files required for testing to be passed to the VM instance, test files and CCExtractor build artefact.
 
 Now for tests to run, we need to download the [CCExtractor testsuite](https://github.com/CCExtractor/ccx_testsuite) release file, extract and put it in the `TestData/ci-linux` and `TestData/ci-windows` folders.

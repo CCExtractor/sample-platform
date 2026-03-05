@@ -2,6 +2,7 @@ import base64
 from importlib import reload
 from io import BytesIO
 from unittest import mock
+from functools import wraps
 
 from flask import g, url_for
 
@@ -10,6 +11,19 @@ from mod_sample.models import Issue, Sample
 from mod_upload.models import QueuedSample
 from tests.base import BaseTestCase, MockResponse
 
+
+def mock_decorator(f):
+    """
+    Passthrough replacement for login_required in unit tests.
+
+    When mock.patch sets side_effect=mock_decorator, Python calls
+    mock_decorator(f) at decoration time and receives this wrapper,
+    which skips all authentication logic and delegates directly to f.
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        return f(*args, **kwargs)
+    return decorated_function
 
 class TestControllers(BaseTestCase):
     """Test upload-related cases."""
@@ -170,35 +184,64 @@ class TestControllers(BaseTestCase):
             QueuedSample.sha == filehash).first()
         self.assertEqual(queued_sample, None)
 
-    # TODO: The methods below are not working due to decorator login_required not being mocked
-    # @mock.patch('mod_upload.controllers.login_required', side_effect=mock_decorator)
-    # def test_link_id_confirm_invalid(self, mock_login):
-    #     """
-    #     Try to confirm link for invalid sample and queue.
-    #     """
-    #     from mod_upload.controllers import link_id_confirm, QueuedSampleNotFoundException
+    @mock.patch('mod_auth.controllers.login_required', side_effect=mock_decorator)
+    def test_link_id_confirm_invalid(self, mock_login):
+        """Confirm that an unrecognised upload/sample pair raises QueuedSampleNotFoundException."""
+        # Patching the source module and reloading the consumer forces all
+        # @login_required decorators in mod_upload.controllers to be re-applied
+        # under the mock, since decorators are evaluated at import time.
+        import mod_upload.controllers
+        reload(mod_upload.controllers)
 
-    #     with self.assertRaises(QueuedSampleNotFoundException):
-    #         link_id_confirm(1000, 1000)
+        from mod_upload.controllers import link_id_confirm, QueuedSampleNotFoundException
+        with self.assertRaises(QueuedSampleNotFoundException):
+            link_id_confirm(1000, 1000)
 
-    # @mock.patch('mod_upload.controllers.redirect')
-    # @mock.patch('mod_upload.controllers.login_required', side_effect=mock_decorator)
-    # @mock.patch('mod_upload.controllers.QueuedSample')
-    # @mock.patch('mod_upload.controllers.Sample')
-    # def test_link_id_confirm(self, mock_sample, mock_queue, mock_login, mock_redirect):
-    #     """
-    #     Test confirm link for valid sample and queue.
-    #     """
-    #     from mod_upload.controllers import link_id_confirm
+    def test_link_id_confirm_valid(self):
+        """
+        Test that a logged-in user can confirm a link between a queued upload
+        and an existing sample when they own both records.
 
-    #     mock_queue.query.filter.return_value.first.return_value.user_id = g.user
-    #     mock_sample.query.filter.return_value.first.return_value.upload.user_id = g.user
+        The controller traverses a Sample -> Upload -> User ownership chain,
+        so the test database must contain the full relational structure before
+        hitting the route. A bare QueuedSample is not sufficient.
+        """
+        from mod_auth.models import User
+        from mod_sample.models import Sample
+        from mod_upload.models import Platform, QueuedSample, Upload 
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.user)
+        # create_user_with_role has no return statement, so we query by the
+        # unique email field to get the SQLAlchemy instance with its real primary key.
+        db_user = User.query.filter(User.email == self.user.email).first()
 
-    #     response = link_id_confirm(1, 1)
+        with self.app.test_client() as c:
+            c.post('/account/login', data=self.create_login_form_data(
+                self.user.email, self.user.password))
+            
+            filehash = 'confirm_test_hash'
+            
+            # The controller checks sample.upload.user_id == g.user.id, which means
+            # Sample and Upload must exist and be correctly linked before the request.
+            test_sample = Sample(filehash, '.ts', f'{filehash}.ts')
+            g.db.add(test_sample)
+            g.db.flush()  # flush before Upload so test_sample.id is populated
 
-    #     self.assertEqual(response, mock_redirect())
-    #     mock_queue.query.filter.assert_called_once_with(mock_queue.id == 1)
-    #     mock_sample.query.filter.assert_called_once_with(mock_sample.id == 1)
+            # Upload is the bridge between User and Sample; version_id=1 assumes
+            # the test database seeds a default CCExtractorVersion row.
+            test_upload = Upload(db_user.id, test_sample.id, 1, Platform.linux)
+            g.db.add(test_upload)
+            g.db.flush()  # flush before QueuedSample so test_upload.id is populated
+
+            queued_sample = QueuedSample(filehash, '.ts', f'{filehash}.ts', db_user.id)
+            g.db.add(queued_sample)
+            g.db.commit()
+
+            # Pass both dynamically generated IDs so the route resolves correctly
+            # regardless of insertion order across test runs.
+            response = c.get(f'/upload/link/{queued_sample.id}/{test_sample.id}')
+            
+            self.assertEqual(response.status_code, 302)
 
     def test_create_hash_for_sample(self):
         """Test creating hash for temp file."""

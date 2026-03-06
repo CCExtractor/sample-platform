@@ -59,6 +59,24 @@ class Category(Base):
         return f"<Category {self.name}>"
 
 
+class BaselineStatus(DeclEnum):
+    """Enum to track whether a regression test has ever passed.
+
+    This distinguishes true regressions (tests that used to pass but now fail)
+    from tests that have never produced correct output on any CCExtractor version.
+
+    Transitions:
+        unknown -> established  (first test run passes)
+        unknown -> never_worked (first test run fails)
+        never_worked -> established (a passing run occurs; test now works)
+        established stays established (a failure is a regression, not "never worked")
+    """
+
+    unknown = "unknown", "Unknown"
+    never_worked = "never_worked", "Never Worked"
+    established = "established", "Established"
+
+
 class InputType(DeclEnum):
     """Enumerator types for input."""
 
@@ -97,6 +115,7 @@ class RegressionTest(Base):
     last_passed_on_windows = Column(Integer, ForeignKey('test.id', onupdate="CASCADE", ondelete="SET NULL"))
     last_passed_on_linux = Column(Integer, ForeignKey('test.id', onupdate="CASCADE", ondelete="SET NULL"))
     description = Column(String(length=1024))
+    baseline_status = Column(BaselineStatus.db_type(), nullable=False, default=BaselineStatus.unknown)
 
     def __init__(self, sample_id, command, input_type, output_type, category_id, expected_rc,
                  active=True, description="") -> None:
@@ -117,7 +136,6 @@ class RegressionTest(Base):
         :type expected_rc: int
         :param active: The value of the 'active' field of RegressionTest model
         :type active: bool
-
         """
         self.sample_id = sample_id
         self.command = command
@@ -127,6 +145,7 @@ class RegressionTest(Base):
         self.expected_rc = expected_rc
         self.active = active
         self.description = description
+        self.baseline_status = BaselineStatus.unknown
 
     def __repr__(self) -> str:
         """
@@ -136,6 +155,48 @@ class RegressionTest(Base):
         :rtype: str
         """
         return f"<RegressionTest {self.id}>"
+
+    def update_baseline_status(self, passed: bool) -> bool:
+        """
+        Update baseline_status based on the outcome of a test run.
+
+        Called after each completed test run for this regression test.
+        Returns True if the status changed, False if it stayed the same.
+
+        Transition table::
+
+            unknown + pass      -> established
+            unknown + fail      -> never_worked
+            never_worked + pass -> established
+            never_worked + fail -> never_worked  (no change)
+            established + pass  -> established   (no change)
+            established + fail  -> established   (it's a regression, not "never worked")
+
+        :param passed: True if exit_code matched expected_rc for this test run.
+        :type passed: bool
+        :return: True if the baseline_status changed, False otherwise.
+        :rtype: bool
+        """
+        previous = self.baseline_status
+        if passed:
+            self.baseline_status = BaselineStatus.established
+        elif self.baseline_status == BaselineStatus.unknown:
+            self.baseline_status = BaselineStatus.never_worked
+        return self.baseline_status != previous
+
+    @property
+    def is_regression(self) -> bool:
+        """
+        Return True if a failing result on this test is a true regression.
+
+        A result is a regression only when the test is established (has passed before)
+        but is currently failing. Tests with 'never_worked' or 'unknown' status are
+        not regressions; they are pre-existing issues.
+
+        :return: True if this test can produce a regression result.
+        :rtype: bool
+        """
+        return self.baseline_status == BaselineStatus.established
 
 
 class RegressionTestOutput(Base):

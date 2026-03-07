@@ -60,7 +60,7 @@ html[dark=''] {
 
 @media screen and (min-width: 64em) {
     .position-left.reveal-for-large ~ .off-canvas-content {
-        margin-left: 260px; /* Needed to respect the border shadow*/
+        margin-left: 250px; /* Matches sidebar width previously (260) */
     }
 }
 

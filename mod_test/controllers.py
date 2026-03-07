@@ -61,7 +61,7 @@ def get_test_results(test) -> List[Dict[str, Any]]:
     :type test: Test
     """
     populated_categories = g.db.query(regressionTestLinkTable.c.category_id).subquery()
-    categories = Category.query.filter(Category.id.in_(populated_categories)).order_by(Category.name.asc()).all()
+    categories = Category.query.filter(Category.id.in_(populated_categories.select())).order_by(Category.name.asc()).all()
     results = [{
         'category': category,
         'tests': [{

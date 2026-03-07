@@ -65,6 +65,10 @@ class MediaInfoFetcher:
             'value': self.video_tracks
         })
         result.append({
+            'name': 'Audio',
+            'value': self.audio_tracks
+        })
+        result.append({
             'name': 'Captions',
             'value': self.caption_tracks
         })
@@ -111,8 +115,7 @@ class MediaInfoFetcher:
         elif track_type == 'Video':
             self._process_video(track)
         elif track_type == 'Audio':
-            # TODO: Implement at some point
-            pass
+            self._process_audio(track)
         elif track_type == 'Text':
             self._process_text(track)
 
@@ -185,6 +188,32 @@ class MediaInfoFetcher:
             name = f"ID: {track['ID']}"
 
         self.video_tracks.append({'name': name, 'value': result})
+
+    def _process_audio(self, track) -> None:
+        """
+        Process audio information from a track.
+
+        :param track: track
+        :type track: dict
+        """
+        result = self._process_generic(track, ['Format', 'CodecID', 'Duration', 'BitRate', 'Language'])
+
+        if 'Channel_s_' in track:
+            result['Channels'] = track['Channel_s_']
+
+        if 'SamplingRate' in track:
+            rate = round(int(track['SamplingRate']) / 1000, 1)
+            result['Sampling rate'] = f'{rate} kHz'
+
+        if 'BitRate' in result:
+            bitrate = round(int(result['BitRate']) / 1000)
+            result['BitRate'] = f'{bitrate} kbps'
+
+        name = f"Stream nr. {len(self.audio_tracks)}"
+        if 'ID' in track:
+            name = f"ID: {track['ID']}"
+
+        self.audio_tracks.append({'name': name, 'value': result})
 
     def _process_text(self, track) -> None:
         self.caption_tracks.append({

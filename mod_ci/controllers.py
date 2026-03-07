@@ -2433,7 +2433,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
             )).scalar()
         results_zero_rc = g.db.query(RegressionTest.id).filter(
             RegressionTest.expected_rc == 0
-        ).subquery()
+        ).scalar_subquery()
         results = g.db.query(count(TestResultFile.got)).filter(
             and_(
                 TestResultFile.test_id == test.id,
@@ -2509,13 +2509,13 @@ def progress_type_request(log, test, test_id, request) -> bool:
         total_time = 0
 
         if current_average is None:
-            platform_tests = g.db.query(Test.id).filter(Test.platform == test.platform).subquery()
+            platform_tests = g.db.query(Test.id).filter(Test.platform == test.platform).scalar_subquery()
             finished_tests = g.db.query(TestProgress.test_id).filter(
                 and_(
                     TestProgress.status.in_([TestStatus.canceled, TestStatus.completed]),
                     TestProgress.test_id.in_(platform_tests)
                 )
-            ).subquery()
+            ).scalar_subquery()
             in_progress_statuses = [TestStatus.preparation, TestStatus.completed, TestStatus.canceled]
             finished_tests_progress = g.db.query(TestProgress).filter(
                 and_(

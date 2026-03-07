@@ -1,8 +1,8 @@
 import base64
+from functools import wraps
 from importlib import reload
 from io import BytesIO
 from unittest import mock
-from functools import wraps
 
 from flask import g, url_for
 
@@ -186,7 +186,8 @@ class TestControllers(BaseTestCase):
 
     def test_link_id_confirm_invalid(self):
         """Try to confirm link for invalid sample and queue."""
-        from mod_upload.controllers import link_id_confirm, QueuedSampleNotFoundException
+        from mod_upload.controllers import (QueuedSampleNotFoundException,
+                                            link_id_confirm)
 
         with self.assertRaises(QueuedSampleNotFoundException):
             link_id_confirm.__wrapped__(1000, 1000)

@@ -99,7 +99,7 @@ def get_test_results(test) -> List[Dict[str, Any]]:
                 # We need to check if the regression test had any file that shouldn't have been ignored.
                 outputs = RegressionTestOutput.query.filter(and_(
                     RegressionTestOutput.regression_id == category_test['test'].id,
-                    RegressionTestOutput.ignore is False
+                    RegressionTestOutput.ignore.is_(False)
                 )).all()
                 got = None
                 if len(outputs) > 0:

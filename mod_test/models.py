@@ -444,14 +444,26 @@ class TestResultFile(Base):
     @staticmethod
     def read_lines(file_name: str) -> List[str]:
         """
-        Try to load a file in different encodings.
+        Try to load a file in different encodings and normalize text content.
 
         :param file_name: The name to read lines from.
         :type file_name: str
         :return: A list of lines.
         :rtype: List[str]
         """
+        # Define extensions that should NOT be normalized (binary)
+        binary_extensions = ('.bin', '.png', '.jpg', '.jpeg', '.ts', '.mp4', '.mkv', '.m4v')
+        is_binary = file_name.lower().endswith(binary_extensions)
+
+        def normalize(lines: List[str]) -> List[str]:
+            if is_binary:
+                return lines
+            # Strip trailing whitespace and ensure consistent line endings
+            return [line.rstrip() + '\n' for line in lines]
+
         try:
-            return open(file_name, encoding='utf8').readlines()
+            with open(file_name, encoding='utf8') as f:
+                return normalize(f.readlines())
         except UnicodeDecodeError:
-            return open(file_name, encoding='cp1252').readlines()
+            with open(file_name, encoding='cp1252') as f:
+                return normalize(f.readlines())

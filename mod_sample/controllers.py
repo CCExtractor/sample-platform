@@ -66,7 +66,7 @@ def display_sample_info(sample) -> Dict[str, Any]:
 
     if len(regression_tests) > 0:
         if test_commit is not None:
-            sq = g.db.query(RegressionTest.id).filter(RegressionTest.sample_id == sample.id).subquery()
+            sq = g.db.query(RegressionTest.id).filter(RegressionTest.sample_id == sample.id).scalar_subquery()
             exit_code = g.db.query(TestResult.exit_code).filter(and_(
                 TestResult.exit_code != TestResult.expected_rc,
                 and_(TestResult.test_id == test_commit.id, TestResult.regression_test_id.in_(sq))
@@ -83,7 +83,7 @@ def display_sample_info(sample) -> Dict[str, Any]:
 
         if test_release is not None:
             sq = g.db.query(RegressionTest.id).filter(
-                RegressionTest.sample_id == sample.id).subquery()
+                RegressionTest.sample_id == sample.id).scalar_subquery()
             exit_code = g.db.query(TestResult.exit_code).filter(
                 and_(
                     TestResult.exit_code != TestResult.expected_rc,

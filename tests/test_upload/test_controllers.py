@@ -1,5 +1,4 @@
 import base64
-from functools import wraps
 from importlib import reload
 from io import BytesIO
 from unittest import mock
@@ -11,19 +10,6 @@ from mod_sample.models import Issue, Sample
 from mod_upload.models import QueuedSample
 from tests.base import BaseTestCase, MockResponse
 
-
-def mock_decorator(f):
-    """
-    Passthrough replacement for login_required in unit tests.
-
-    When mock.patch sets side_effect=mock_decorator, Python calls
-    mock_decorator(f) at decoration time and receives this wrapper,
-    which skips all authentication logic and delegates directly to f.
-    """
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        return f(*args, **kwargs)
-    return decorated_function
 
 class TestControllers(BaseTestCase):
     """Test upload-related cases."""

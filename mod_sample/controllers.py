@@ -5,6 +5,7 @@ from operator import and_
 from typing import Any, Dict
 
 from flask import Blueprint, g, redirect, request, url_for
+from sqlalchemy import select
 
 from decorators import template_renderer
 from exceptions import SampleNotFoundException
@@ -66,7 +67,7 @@ def display_sample_info(sample) -> Dict[str, Any]:
 
     if len(regression_tests) > 0:
         if test_commit is not None:
-            sq = g.db.query(RegressionTest.id).filter(RegressionTest.sample_id == sample.id).scalar_subquery()
+            sq = select(RegressionTest.id).filter(RegressionTest.sample_id == sample.id)
             exit_code = g.db.query(TestResult.exit_code).filter(and_(
                 TestResult.exit_code != TestResult.expected_rc,
                 and_(TestResult.test_id == test_commit.id, TestResult.regression_test_id.in_(sq))
@@ -82,8 +83,8 @@ def display_sample_info(sample) -> Dict[str, Any]:
                 status = 'Fail'
 
         if test_release is not None:
-            sq = g.db.query(RegressionTest.id).filter(
-                RegressionTest.sample_id == sample.id).scalar_subquery()
+            sq = select(RegressionTest.id).filter(
+                RegressionTest.sample_id == sample.id)
             exit_code = g.db.query(TestResult.exit_code).filter(
                 and_(
                     TestResult.exit_code != TestResult.expected_rc,

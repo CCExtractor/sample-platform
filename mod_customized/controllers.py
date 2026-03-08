@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from flask import Blueprint, g, redirect, request, url_for
 from github import Auth, Github, GithubException
-from sqlalchemy import and_
+from sqlalchemy import and_, select
 
 from decorators import template_renderer
 from mod_auth.controllers import (check_access_rights,
@@ -81,7 +81,7 @@ def index():
     elif username is not None:
         g.log.error('GitHub token not configured, cannot fetch commits')
 
-    populated_categories = g.db.query(regressionTestLinkTable.c.category_id).scalar_subquery()
+    populated_categories = select(regressionTestLinkTable.c.category_id)
     categories = Category.query.filter(Category.id.in_(populated_categories)).order_by(Category.name.asc()).all()
 
     tests = Test.query.filter(and_(TestFork.user_id == g.user.id, TestFork.test_id == Test.id)).order_by(

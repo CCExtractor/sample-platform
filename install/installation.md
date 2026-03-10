@@ -130,9 +130,7 @@ When the domain is asked during installation, enter the domain name that will ru
 
 ### Windows
 
-* Install cygwin (http://cygwin.com/install.html). When cygwin asks which
- packages to install, select Python, MySql, and google-api-client. If you 
- already have cygwin installed, you must run its setup file to install the new packages. Make sure the dropdown menu is set to Full, so you can all packages. To select one, click skip and it will change to the version number of the package. Use the end of [this](https://www.davidbaumgold.com/tutorials/set-up-python-windows/) tutorial for help on getting cygwin to recognize python.
+* Install cygwin (http://cygwin.com/install.html). When cygwin asks which packages to install, select Python, MySql, and google-api-client. If you already have cygwin installed, you must run its setup file to install the new packages. Make sure the dropdown menu is set to Full, so you can see all packages. To select one, click skip and it will change to the version number of the package. Use the end of [this](https://www.davidbaumgold.com/tutorials/set-up-python-windows/) tutorial for help on getting cygwin to recognize python.
 * Install [WinFsp](https://winfsp.dev/) and [Rclone](https://rclone.org/) from their official websites.
 * Now rclone is a command line program, follow the [official documentation](https://rclone.org/googlecloudstorage/) to mount the google cloud storage bucket, using the service account key file.
 * By default home directory of Cygwin is `C:\cygwin\home\<USERNAME>\` (this can be obtained by running `cygpath -w ~` from cygwin terminal), and assuming `\repository` to be the location of samples to be configured, mount the bucket using rclone at `C:\cygwin\home\<USERNAME>\repository` through the following command using command prompt:
@@ -185,7 +183,7 @@ After the completion of the automated installation of the platform, the followin
 - `TempFiles/` - Directory containing temporary files
 - `TestData/` - Directory containing files required for starting a test - runCI files, variables file, tester
 - `TestFiles/` - Directory containing regression test samples
-- `TestResults/` - Direction containing regression test results
+- `TestResults/` - Directory containing regression test results
 - `vm_data/` - Directory containing test-specific subfolders, each folder containing files required for testing to be passed to the VM instance, test files and CCExtractor build artefact.
 
 Now for tests to run, we need to download the [CCExtractor testsuite](https://github.com/CCExtractor/ccx_testsuite) release file, extract and put it in the `TestData/ci-linux` and `TestData/ci-windows` folders.

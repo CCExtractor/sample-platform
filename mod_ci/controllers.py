@@ -2800,19 +2800,19 @@ def get_info_for_pr_comment(test: Test) -> PrCommentInfo:
         category_name = category_results['category'].name
 
         category_test_pass_count = 0
-        for test in category_results['tests']:
-            platform_last_passed = getattr(test['test'], platform_column)
-            if not test['error']:
+        for category_test in category_results['tests']:
+            platform_last_passed = getattr(category_test['test'], platform_column)
+            if not category_test['error']:
                 category_test_pass_count += 1
                 if last_test_master and platform_last_passed != last_test_master.id:
-                    fixed_tests.append(test['test'])
+                    fixed_tests.append(category_test['test'])
             else:
-                if platform_last_passed is None and test['test'].baseline_status != BaselineStatus.unknown:
-                    never_worked_tests.append(test['test'])
+                if platform_last_passed is None and category_test['test'].baseline_status != BaselineStatus.unknown:
+                    never_worked_tests.append(category_test['test'])
                 elif last_test_master and platform_last_passed != last_test_master.id:
-                    common_failed_tests.append(test['test'])
+                    common_failed_tests.append(category_test['test'])
                 else:
-                    extra_failed_tests.append(test['test'])
+                    extra_failed_tests.append(category_test['test'])
 
         category_stats.append(CategoryTestInfo(category_name, len(category_results['tests']), category_test_pass_count))
 

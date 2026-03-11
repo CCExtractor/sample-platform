@@ -136,6 +136,8 @@ class RegressionTest(Base):
         :type expected_rc: int
         :param active: The value of the 'active' field of RegressionTest model
         :type active: bool
+        :param description: The value of the 'description' field of RegressionTest model
+        :type description: str
         """
         self.sample_id = sample_id
         self.command = command

@@ -31,6 +31,17 @@ def upgrade():
         )
     )
 
+    # Historical backfill:
+    # - if the regression test has ever passed on either tracked platform, it is established
+    # - otherwise keep the trusted state as unknown until a main-repo commit run refreshes it
+    op.execute(
+        """
+        UPDATE regression_test
+        SET baseline_status = 'established'
+        WHERE last_passed_on_linux IS NOT NULL OR last_passed_on_windows IS NOT NULL
+        """
+    )
+
 
 def downgrade():
     """Remove baseline_status column from regression_test table."""

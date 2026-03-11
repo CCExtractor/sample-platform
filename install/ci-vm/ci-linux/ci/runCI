@@ -128,8 +128,7 @@ if [ -e "${dstDir}/ccextractor" ]; then
         echo "=== CCExtractor Binary Version ===" >> "${logFile}"
         ./ccextractor --version >> "${logFile}" 2>&1
         echo "=== End Version Info ===" >> "${logFile}"
-
-
+        postStatus "testing" "Running tests"
         ccextractor_path="$(pwd)/ccextractor"
         combined_stdout="/tmp/combined_stdout.log"
         : > "${combined_stdout}"
@@ -190,7 +189,6 @@ WRAPPER_EOF
         done
 
         sendLogFile
-        upload_artifact "${logFile}" "test_artifacts/${test_id}/full_output.log"
         postStatus "completed" "Ran all tests"
 
         sudo shutdown -h now

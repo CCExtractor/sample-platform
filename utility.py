@@ -30,14 +30,13 @@ def serve_file_download(file_name, file_folder, file_sub_folder='') -> werkzeug.
     """
     from run import config, storage_client_bucket
 
-    file_path = path.join(file_folder, file_sub_folder, file_name)
+    file_path = '/'.join(filter(None, [file_folder, file_sub_folder, file_name]))
     blob = storage_client_bucket.blob(file_path)
-    blob.content_disposition = f'attachment; filename="{file_name}"'
-    blob.patch()
     url = blob.generate_signed_url(
         version="v4",
-        expiration=timedelta(minutes=config.get('GCS_SIGNED_URL_EXPIRY_LIMIT', '')),
+        expiration=timedelta(minutes=config.get('GCS_SIGNED_URL_EXPIRY_LIMIT', 30)),
         method="GET",
+        response_disposition=f'attachment; filename="{file_name}"'
     )
     return redirect(url)
 

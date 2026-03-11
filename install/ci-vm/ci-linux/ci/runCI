@@ -7,6 +7,11 @@
 
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
+# Enable coredump capture
+ulimit -c unlimited
+mkdir -p /tmp/coredumps
+echo "/tmp/coredumps/core.%e.%p" | sudo tee /proc/sys/kernel/core_pattern > /dev/null
+
 if [ ! -f "$DIR/variables" ]; then
     # No variable file defined
     sudo shutdown -h now
@@ -123,10 +128,69 @@ if [ -e "${dstDir}/ccextractor" ]; then
         echo "=== CCExtractor Binary Version ===" >> "${logFile}"
         ./ccextractor --version >> "${logFile}" 2>&1
         echo "=== End Version Info ===" >> "${logFile}"
-        postStatus "testing" "Running tests"
+
+
+        ccextractor_path="$(pwd)/ccextractor"
+        combined_stdout="/tmp/combined_stdout.log"
+        : > "${combined_stdout}"
+
+        # Create a wrapper script that tees stdout/stderr to a combined log
+        wrapper_path="$(pwd)/ccextractor_wrapper"
+        cat > "${wrapper_path}" << 'WRAPPER_EOF'
+#!/bin/bash
+COMBINED_LOG="/tmp/combined_stdout.log"
+REAL_BINARY="PLACEHOLDER_BINARY"
+EXIT_CODE_FILE="/tmp/.wrapper_exit_code"
+echo "=== TEST INVOCATION: $@ ===" >> "$COMBINED_LOG"
+{ "$REAL_BINARY" "$@" 2>&1; echo $? > "$EXIT_CODE_FILE"; } | tee -a "$COMBINED_LOG"
+exit_code=$(cat "$EXIT_CODE_FILE")
+echo "=== EXIT CODE: ${exit_code} ===" >> "$COMBINED_LOG"
+echo "" >> "$COMBINED_LOG"
+exit $exit_code
+WRAPPER_EOF
+        sed -i "s|PLACEHOLDER_BINARY|${ccextractor_path}|" "${wrapper_path}"
+        chmod +x "${wrapper_path}"
+
         executeCommand cd ${suiteDstDir}
-        executeCommand ${tester} --debug --entries "${testFile}" --executable "ccextractor" --tempfolder "${tempFolder}" --timeout 600 --reportfolder "${reportFolder}" --resultfolder "${resultFolder}" --samplefolder "${sampleFolder}" --method Server --url "${reportURL}"
+        executeCommand ${tester} --debug --entries "${testFile}" --executable "${wrapper_path}" --tempfolder "${tempFolder}" --timeout 600 --reportfolder "${reportFolder}" --resultfolder "${resultFolder}" --samplefolder "${sampleFolder}" --method Server --url "${reportURL}"
+
+        # Upload AI artifacts to GCS
+        gcs_bucket=$(curl -s "http://metadata/computeMetadata/v1/instance/attributes/bucket" -H "Metadata-Flavor: Google")
+        test_id=$(curl -s "http://metadata/computeMetadata/v1/instance/attributes/testID" -H "Metadata-Flavor: Google")
+        token=$(curl -s "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token" -H "Metadata-Flavor: Google" | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+        upload_artifact() {
+            local file_path="$1"
+            local dest_path="$2"
+            if [ -f "$file_path" ]; then
+                local http_code
+                http_code=$(curl -s -X POST --data-binary @"$file_path" \
+                    -H "Authorization: Bearer $token" \
+                    -H "Content-Type: application/octet-stream" \
+                    -w "%{http_code}" \
+                    -o /dev/null \
+                    "https://storage.googleapis.com/upload/storage/v1/b/${gcs_bucket}/o?uploadType=media&name=${dest_path}")
+                if [ -z "$http_code" ] || [ "$http_code" -ne 200 ]; then
+                    echo "GCS upload failed for ${dest_path}: HTTP ${http_code:-no_response}" >> "${logFile}"
+                fi
+            fi
+        }
+
+        upload_artifact "$ccextractor_path" "test_artifacts/${test_id}/ccextractor"
+
+        # Upload combined stdout log
+        upload_artifact "${combined_stdout}" "test_artifacts/${test_id}/combined_stdout.log"
+
+        # Upload coredumps if any
+        for core_file in /tmp/coredumps/core.*; do
+            if [ -f "$core_file" ]; then
+                upload_artifact "$core_file" "test_artifacts/${test_id}/coredump"
+                break
+            fi
+        done
+
         sendLogFile
+        upload_artifact "${logFile}" "test_artifacts/${test_id}/full_output.log"
         postStatus "completed" "Ran all tests"
 
         sudo shutdown -h now

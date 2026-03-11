@@ -367,7 +367,6 @@ def generate_diff(test_id: int, regression_test_id: int, output_id: int, to_view
 
 
 @mod_test.route('/log-files/<test_id>')
-@login_required
 def download_build_log_file(test_id):
     """
     Serve download of build log.
@@ -379,15 +378,17 @@ def download_build_log_file(test_id):
     :return: build log text file
     :rtype: Flask response
     """
-    from run import config
+    from run import config, storage_client_bucket
     test = Test.query.filter(Test.id == test_id).first()
 
+    from flask import send_from_directory
+    
     if test is not None:
         file_name = f"{test_id}.txt"
-        log_file_path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'LogFiles', file_name)
-
+        log_dir = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'LogFiles')
+        log_file_path = os.path.join(log_dir, file_name)
         if os.path.isfile(log_file_path):
-            return serve_file_download(file_name, 'LogFiles')
+            return send_from_directory(log_dir, file_name, as_attachment=True)
 
         raise TestNotFoundException(f"Build log for Test {test_id} not found")
 
@@ -442,3 +443,249 @@ def stop_test(test_id):
     g.db.commit()
     g.log.info(f"test with id: {test_id} stopped")
     return redirect(url_for('.by_id', test_id=test.id))
+
+
+def _artifact_redirect(test_id, blob_path, filename='artifact'):
+    """Generate a signed URL for a GCS artifact and redirect, or 404."""
+    from datetime import timedelta
+
+    from run import config, storage_client_bucket
+
+    blob = storage_client_bucket.blob(blob_path)
+    if not blob.exists():
+        abort(404)
+    url = blob.generate_signed_url(
+        version="v4",
+        expiration=timedelta(minutes=config.get('GCS_SIGNED_URL_EXPIRY_LIMIT', 30)),
+        method="GET",
+        response_disposition=f'attachment; filename="{filename}"'
+    )
+    return redirect(url)
+
+
+@mod_test.route('/<int:test_id>/binary')
+def download_binary(test_id):
+    """Download the ccextractor binary used in a test (linux or windows)."""
+    from run import storage_client_bucket
+    # Try linux name first, then windows
+    for name in ['ccextractor', 'ccextractor.exe']:
+        blob_path = f'test_artifacts/{test_id}/{name}'
+        if storage_client_bucket.blob(blob_path).exists():
+            return _artifact_redirect(test_id, blob_path, filename=name)
+    abort(404)
+
+
+@mod_test.route('/<int:test_id>/coredump')
+def download_coredump(test_id):
+    """Download the coredump from a test, if one was produced."""
+    return _artifact_redirect(
+        test_id,
+        f'test_artifacts/{test_id}/coredump',
+        filename=f'coredump-{test_id}'
+    )
+
+
+@mod_test.route('/<int:test_id>/combined-stdout')
+def download_combined_stdout(test_id):
+    """Download the combined stdout/stderr log from all test invocations."""
+    return _artifact_redirect(
+        test_id,
+        f'test_artifacts/{test_id}/combined_stdout.log',
+        filename=f'combined_stdout-{test_id}.log'
+    )
+
+
+@mod_test.route('/<int:test_id>/regression/<int:regression_test_id>/<int:output_id>/output-got')
+def download_output_got(test_id, regression_test_id, output_id):
+    """Download the actual output file from TestResults using DB hash."""
+    rf = TestResultFile.query.filter(and_(
+        TestResultFile.test_id == test_id,
+        TestResultFile.regression_test_id == regression_test_id,
+        TestResultFile.regression_test_output_id == output_id
+    )).first()
+    if rf is None or rf.got is None:
+        abort(404)
+    import os
+    ext = os.path.splitext(rf.regression_test_output.filename_correct)[1]
+    return _artifact_redirect(
+        test_id,
+        f'TestResults/{rf.got}{ext}',
+        filename=f'output_got_{regression_test_id}_{output_id}{ext}'
+    )
+
+
+@mod_test.route('/<int:test_id>/regression/<int:regression_test_id>/<int:output_id>/output-expected')
+def download_output_expected(test_id, regression_test_id, output_id):
+    """Download the expected output file from TestResults using DB hash."""
+    rf = TestResultFile.query.filter(and_(
+        TestResultFile.test_id == test_id,
+        TestResultFile.regression_test_id == regression_test_id,
+        TestResultFile.regression_test_output_id == output_id
+    )).first()
+    if rf is None:
+        abort(404)
+    import os
+    ext = os.path.splitext(rf.regression_test_output.filename_correct)[1]
+    return _artifact_redirect(
+        test_id,
+        f'TestResults/{rf.expected}{ext}',
+        filename=f'output_expected_{regression_test_id}_{output_id}{ext}'
+    )
+@mod_test.route('/<int:test_id>/sample/<int:sample_id>')
+def download_sample_ai(test_id, sample_id):
+    """Download the sample file for a regression test (no auth required for AI workflow)."""
+    from mod_sample.models import Sample
+    sample = Sample.query.filter(Sample.id == sample_id).first()
+    if sample is None:
+        abort(404)
+    return _artifact_redirect(
+        test_id,
+        f'TestFiles/{sample.filename}',
+        filename=sample.original_name
+    )
+
+
+@mod_test.route('/<int:test_id>/ai.json')
+def ai_json_endpoint(test_id):
+    """Structured JSON with download URLs for all artifacts — for AI agents."""
+    from run import storage_client_bucket
+
+    test = Test.query.filter(Test.id == test_id).first()
+    if test is None:
+        return jsonify({'error': f'Test {test_id} not found'}), 404
+
+    def blob_exists(path):
+        return storage_client_bucket.blob(path).exists()
+
+    has_binary = (
+        blob_exists(f'test_artifacts/{test_id}/ccextractor') or
+        blob_exists(f'test_artifacts/{test_id}/ccextractor.exe')
+    )
+    has_coredump = blob_exists(f'test_artifacts/{test_id}/coredump')
+    has_combined_stdout = blob_exists(f'test_artifacts/{test_id}/combined_stdout.log')
+
+    results = get_test_results(test)
+    test_cases = []
+    total = 0
+    passed = 0
+    failed = 0
+
+    for category in results:
+        for t_data in category['tests']:
+            total += 1
+            rt = t_data['test']
+            result = t_data['result']
+            is_error = t_data.get('error', False)
+            result_files = t_data['files']
+
+            if is_error:
+                failed += 1
+            else:
+                passed += 1
+
+            outputs = []
+            for expected_output in rt.output_files:
+                if expected_output.ignore:
+                    continue
+                
+                matched_rf = None
+                for rf in result_files:
+                    if rf.test_id != -1 and rf.regression_test_output_id == expected_output.id:
+                        matched_rf = rf
+                        break
+                
+                got_url = None
+                diff_url = None
+                
+                if matched_rf and matched_rf.got is not None:
+                    got_url = url_for(
+                        '.download_output_got',
+                        test_id=test_id,
+                        regression_test_id=rt.id,
+                        output_id=expected_output.id,
+                        _external=True
+                    )
+                    diff_url = url_for(
+                        '.generate_diff',
+                        test_id=test_id,
+                        regression_test_id=rt.id,
+                        output_id=expected_output.id,
+                        to_view=0,
+                        _external=True
+                    )
+                else:
+                    # If test passed, got and expected match exactly.
+                    got_url = url_for(
+                        '.download_output_expected',
+                        test_id=test_id,
+                        regression_test_id=rt.id,
+                        output_id=expected_output.id,
+                        _external=True
+                    )
+                
+                output_entry = {
+                    'output_id': expected_output.id,
+                    'correct_extension': expected_output.correct_extension,
+                    'expected_url': url_for(
+                        '.download_output_expected',
+                        test_id=test_id,
+                        regression_test_id=rt.id,
+                        output_id=expected_output.id,
+                        _external=True
+                    ),
+                    'got_url': got_url,
+                    'diff_url': diff_url,
+                }
+                outputs.append(output_entry)
+
+            test_cases.append({
+                'regression_test_id': rt.id,
+                'category': category['category'].name,
+                'sample_filename': rt.sample.original_name,
+                'sample_url': url_for(
+                    '.download_sample_ai',
+                    test_id=test_id,
+                    sample_id=rt.sample.id,
+                    _external=True
+                ),
+                'arguments': rt.command,
+                'result': 'Fail' if is_error else 'Pass',
+                'exit_code': result.exit_code if result else None,
+                'expected_exit_code': result.expected_rc if result else None,
+                'runtime_ms': result.runtime if result else None,
+                'outputs': outputs,
+                'how_to_reproduce': f'./ccextractor {rt.command} {rt.sample.original_name}',
+            })
+
+    report = {
+        'test_id': test.id,
+        'commit': test.commit,
+        'platform': test.platform.value,
+        'branch': test.branch,
+        'status': 'completed' if test.finished else 'running',
+        'binary_url': url_for(
+            '.download_binary', test_id=test_id, _external=True
+        ) if has_binary else None,
+        'coredump_url': url_for(
+            '.download_coredump', test_id=test_id, _external=True
+        ) if has_coredump else None,
+        'log_url': url_for(
+            '.download_build_log_file', test_id=test_id, _external=True
+        ),
+        'combined_stdout_url': url_for(
+            '.download_combined_stdout', test_id=test_id, _external=True
+        ) if has_combined_stdout else None,
+        'summary': {
+            'total': total,
+            'passed': passed,
+            'failed': failed,
+        },
+        'test_cases': test_cases,
+        'how_to_reproduce': (
+            'Download the binary and sample, then run: '
+            + ('./ccextractor {arguments} {sample_filename}' if test.platform.value == 'linux'
+               else 'ccextractorwinfull.exe {arguments} {sample_filename}')
+        ),
+    }
+
+    return jsonify(report)

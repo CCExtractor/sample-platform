@@ -99,7 +99,7 @@ def liveness_check() -> Tuple[Any, int]:
     """
     return jsonify({
         'status': 'alive',
-        'timestamp': datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + 'Z'  
+        'timestamp': datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + 'Z'
     }), 200
 
 

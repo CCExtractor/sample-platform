@@ -4,7 +4,7 @@ import sys
 
 class QueuedSampleNotFoundException(Exception):
     """Raised when a queued sample cannot be found by the given ID."""
-    
+
     def __init__(self, message="Queued sample not found."):
         # By providing a default, all existing raise sites that call
         # this exception without arguments will still work, and new

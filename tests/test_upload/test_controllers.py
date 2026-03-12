@@ -188,7 +188,7 @@ class TestControllers(BaseTestCase):
 
         # Mock g.user to have an 'id' attribute to satisfy the controller
         mock_g.user.id = 1
-        
+
         # Ensure the mocked database queries return an object owned by that user
         mock_queue.query.filter.return_value.first.return_value.user_id = mock_g.user.id
         mock_sample.query.filter.return_value.first.return_value.upload.user_id = mock_g.user.id

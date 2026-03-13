@@ -10,7 +10,7 @@ from typing import Callable, List, Union
 
 import requests
 import werkzeug
-from flask import abort, g, redirect, request
+from flask import abort, g, redirect, request, send_file
 
 ROOT_DIR = path.dirname(path.abspath(__file__))
 
@@ -18,6 +18,10 @@ ROOT_DIR = path.dirname(path.abspath(__file__))
 def serve_file_download(file_name, file_folder, file_sub_folder='') -> werkzeug.wrappers.response.Response:
     """
     Serve file download by redirecting using Signed Download URLs.
+
+    Falls back to serving from local filesystem if GCS returns NotFound.
+    This enables Docker development environments where /repository is a plain
+    volume rather than a gcsfuse mount backed by GCS.
 
     :param file_name: name of the file
     :type file_name: str
@@ -31,15 +35,25 @@ def serve_file_download(file_name, file_folder, file_sub_folder='') -> werkzeug.
     from run import config, storage_client_bucket
 
     file_path = path.join(file_folder, file_sub_folder, file_name)
-    blob = storage_client_bucket.blob(file_path)
-    blob.content_disposition = f'attachment; filename="{file_name}"'
-    blob.patch()
-    url = blob.generate_signed_url(
-        version="v4",
-        expiration=timedelta(minutes=config.get('GCS_SIGNED_URL_EXPIRY_LIMIT', '')),
-        method="GET",
-    )
-    return redirect(url)
+
+    # Try GCS first (production path — /repository is a gcsfuse mount)
+    try:
+        blob = storage_client_bucket.blob(file_path)
+        blob.content_disposition = f'attachment; filename="{file_name}"'
+        blob.patch()
+        url = blob.generate_signed_url(
+            version="v4",
+            expiration=timedelta(minutes=config.get('GCS_SIGNED_URL_EXPIRY_LIMIT', '')),
+            method="GET",
+        )
+        return redirect(url)
+    except Exception:
+        # GCS failed — fall back to local file serving (Docker dev environment)
+        local_path = path.join(config.get('SAMPLE_REPOSITORY', ''), file_path)
+        if path.isfile(local_path):
+            return send_file(local_path, as_attachment=True, download_name=file_name)
+        # File doesn't exist locally either — re-raise
+        raise
 
 
 def request_from_github(abort_code: int = 418) -> Callable:

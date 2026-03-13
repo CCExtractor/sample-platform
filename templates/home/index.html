@@ -1,35 +1,106 @@
 {% extends "base.html" %}
 
 {% block title %}Home {{ super() }}{% endblock %}
+
 {% block body %}
-    {{ super() }}
-    <br />
-    <div class="grid-x">
-        <div class="column medium-9">
-            <h1>{{ applicationName }}</h1>
-            <p>Welcome to the sample submission platform. On this platform you can do the next things:</p>
-            <ul>
-                <li>Check on the current status of the regression tests</li>
-                <li>Upload samples that are broken</li>
-                <li>Get information on previously submitted samples</li>
-                <li>Run the regression tests</li>
-                {% if test_access %}
-                <li><a href="{{ url_for('custom.index')}}"> Run your own tests </a>if you have <a href="{{url_for('auth.manage')}}">linked</a> your GitHub</li>
-                {% else %}
-                <li>"Want to run your own tests? Send the admins a request" if you don't have the permissions yet</li>
-                {% endif %}
-            </ul>
-            <h4>Development information</h4>
-            <p>Last official release: <a target="_blank" href="https://github.com/CCExtractor/ccextractor/releases/tag/v{{ ccx_last_release.version }}">{{ ccx_last_release.version }}</a> (release date: {{ ccx_last_release.released }}). Regression tests for this version are available here: <a href="{{ url_for("test.ccextractor_version", ccx_version=ccx_last_release.version) }}">regression tests</a></p>
-            <p>Latest GitHub commit: <a target="_blank" href="https://github.com/CCExtractor/ccextractor/commit/{{ ccx_latest_commit }}">{{ ccx_latest_commit }}</a>. View the <a href="{{ url_for("test.by_commit", commit_hash=ccx_latest_commit) }}">regression tests</a>.</p>
+  {{ super() }}
+
+  <!-- Hero banner -->
+  <div class="home-hero">
+    <h1 style="margin-bottom:0.5rem;">{{ applicationName }}</h1>
+    <p style="margin-bottom:1.5rem;font-size:1.0625rem;">
+      Welcome to the sample submission platform for CCExtractor regression testing.
+    </p>
+    <ul style="list-style:none;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:0.5rem 1.5rem;">
+      <li style="color:var(--text-secondary);display:flex;align-items:center;gap:0.4rem;">
+        <i class="fa-solid fa-chart-bar" style="color:var(--color-primary)"></i>
+        Check regression test status
+      </li>
+      <li style="color:var(--text-secondary);display:flex;align-items:center;gap:0.4rem;">
+        <i class="fa-solid fa-upload" style="color:var(--color-primary)"></i>
+        Upload broken samples
+      </li>
+      <li style="color:var(--text-secondary);display:flex;align-items:center;gap:0.4rem;">
+        <i class="fa-solid fa-circle-info" style="color:var(--color-primary)"></i>
+        Browse submitted samples
+      </li>
+      {% if test_access %}
+      <li style="color:var(--text-secondary);display:flex;align-items:center;gap:0.4rem;">
+        <i class="fa-solid fa-flask" style="color:var(--color-primary)"></i>
+        <a href="{{ url_for('custom.index') }}">Run your own tests</a>
+      </li>
+      {% else %}
+      <li style="color:var(--text-secondary);display:flex;align-items:center;gap:0.4rem;">
+        <i class="fa-solid fa-lock" style="color:var(--text-muted)"></i>
+        <span>Run custom tests <em>(requires elevated role)</em></span>
+      </li>
+      {% endif %}
+    </ul>
+  </div>
+
+  <!-- Stat cards -->
+  <div class="home-stat-grid">
+    <div class="stat-card">
+      <div class="stat-card-icon">
+        <i class="fa-solid fa-tag"></i>
+      </div>
+      <div class="stat-card-body">
+        <div class="stat-card-label">Latest Release</div>
+        <div class="stat-card-value">
+          <a target="_blank" href="https://github.com/CCExtractor/ccextractor/releases/tag/v{{ ccx_last_release.version }}">
+            v{{ ccx_last_release.version }}
+          </a>
         </div>
-        <div class="column medium-3">
-            <h5>Helpful links</h5>
-            <ul class="no-bullet">
-                <li><i class="fa fa-external-link-square"></i> <a target="_blank" href="http://www.ccextractor.org">CCExtractor website</a></li>
-                <li><i class="fa fa-github-square"></i> <a target="_blank" href="https://github.com/CCExtractor/ccextractor">CCExtractor on GitHub</a></li>
-                <li><i class="fa fa-github-square"></i> <a target="_blank" href="https://github.com/CCExtractor/sample-platform">Sample platform on GitHub</a></li>
-            </ul>
+        <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.2rem;">
+          {{ ccx_last_release.released }}
+          &bull;
+          <a href="{{ url_for('test.ccextractor_version', ccx_version=ccx_last_release.version) }}">
+            regression tests
+          </a>
         </div>
+      </div>
     </div>
+
+    <div class="stat-card">
+      <div class="stat-card-icon" style="background:rgba(34,197,94,0.1);color:var(--color-success);">
+        <i class="fa-solid fa-code-commit"></i>
+      </div>
+      <div class="stat-card-body">
+        <div class="stat-card-label">Latest Commit</div>
+        <div class="stat-card-value">
+          <a target="_blank" href="https://github.com/CCExtractor/ccextractor/commit/{{ ccx_latest_commit }}">
+            {{ ccx_latest_commit[:10] }}&hellip;
+          </a>
+        </div>
+        <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.2rem;">
+          <a href="{{ url_for('test.by_commit', commit_hash=ccx_latest_commit) }}">
+            view regression tests
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-card-icon" style="background:rgba(245,158,11,0.1);color:var(--color-warning);">
+        <i class="fa-solid fa-link"></i>
+      </div>
+      <div class="stat-card-body">
+        <div class="stat-card-label">Helpful Links</div>
+        <ul class="no-bullet" style="margin:0;font-size:0.875rem;">
+          <li>
+            <i class="fa-solid fa-globe"></i>
+            <a target="_blank" href="http://www.ccextractor.org">CCExtractor website</a>
+          </li>
+          <li>
+            <i class="fa-brands fa-github"></i>
+            <a target="_blank" href="https://github.com/CCExtractor/ccextractor">CCExtractor on GitHub</a>
+          </li>
+          <li>
+            <i class="fa-brands fa-github"></i>
+            <a target="_blank" href="https://github.com/CCExtractor/sample-platform">Sample platform on GitHub</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
 {% endblock %}

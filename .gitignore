@@ -53,3 +53,5 @@ monkeytype.sqlite3
 
 # Test related data
 temp/
+
+config.py

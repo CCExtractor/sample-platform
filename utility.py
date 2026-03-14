@@ -89,12 +89,13 @@ def cache_has_expired() -> bool:
     :rtype: bool
     """
     global cached_load_time
-    from run import config
+    import sys
 
-    # Always bypass cache during unit tests to prevent test pollution
-    if config.get('TESTING'):
+    # Foolproof bypass: if a test framework is running in the Python interpreter, bypass the cache to prevent mock pollution
+    if 'nose' in sys.modules or 'unittest' in sys.modules:
         return True
 
+    from datetime import datetime, timedelta
     return cached_load_time + timedelta(hours=1) < datetime.now()
 
 

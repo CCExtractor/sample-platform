@@ -91,7 +91,8 @@ def cache_has_expired() -> bool:
     global cached_load_time
     import sys
 
-    # Foolproof bypass: if a test framework is running in the Python interpreter, bypass the cache to prevent mock pollution
+    # Foolproof bypass: if a test framework is running in the Python
+    # interpreter, bypass the cache to prevent mock pollution.
     if 'nose' in sys.modules or 'unittest' in sys.modules:
         return True
 

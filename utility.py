@@ -89,10 +89,10 @@ def cache_has_expired() -> bool:
     :rtype: bool
     """
     global cached_load_time
-    from flask import current_app
+    from run import config
 
     # Always bypass cache during unit tests to prevent test pollution
-    if current_app.config.get('TESTING'):
+    if config.get('TESTING'):
         return True
 
     return cached_load_time + timedelta(hours=1) < datetime.now()

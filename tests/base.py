@@ -4,7 +4,6 @@ import os
 import warnings
 from collections import namedtuple
 from contextlib import contextmanager
-from unittest import mock
 
 from flask import g
 from flask_testing import TestCase
@@ -279,12 +278,13 @@ class BaseTestCase(TestCase):
 
     def setUp(self):
         """Set up all entities."""
-        # Patch the cache before parent setup runs to prevent HTTP calls
-        self.cache_patcher = mock.patch.object(
-            utility, 'cache_has_expired', return_value=False
-        )
-        self.cache_patcher.start()
-        self.addCleanup(self.cache_patcher.stop)
+        from datetime import datetime
+
+        import utility
+
+        # Reset the state directly for test isolation. No mocks needed!
+        utility.cached_load_time = datetime(1970, 1, 1)
+        utility.cached_web_hook_blocks = []
 
         super().setUp()
         self.app.preprocess_request()

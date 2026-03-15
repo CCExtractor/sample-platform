@@ -216,8 +216,8 @@
 
         $(document).ready(function(){
             const urlParams = new URLSearchParams(window.location.search);
-            const hash = urlParams.get("category");
-            if(hash === "") hash = "1";
+            let hash = urlParams.get("category");
+            if(!hash || hash === "") hash = "1";
             $("#category").find("option").each(function(idx, elm){
                 if($(elm).val() === hash){
                     $(elm).attr("selected",true);

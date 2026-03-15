@@ -41,7 +41,7 @@ from mod_ci.models import (BlockedUsers, CategoryTestInfo, GcpInstance,
                            Status)
 from mod_customized.models import CustomizedTest
 from mod_home.models import CCExtractorVersion, GeneralData
-from mod_regression.models import (Category, RegressionTest,
+from mod_regression.models import (BaselineStatus, Category, RegressionTest,
                                    RegressionTestOutput)
 from mod_sample.models import Issue
 from mod_test.controllers import get_test_results
@@ -2421,6 +2421,8 @@ def progress_type_request(log, test, test_id, request) -> bool:
         message = 'Tests aborted due to an error; please check'
 
     elif status == TestStatus.completed:
+        if test.test_type == TestType.commit and is_main_repo(test.fork.github):
+            refresh_baseline_statuses_for_test(test)
         # Determine if success or failure
         # It fails if any of these happen:
         # - A crash (unexpected exit code)
@@ -2707,6 +2709,39 @@ def finish_type_request(log, test_id, test, request):
         log.error(f"Could not save the results for test {test_id}")
 
 
+def refresh_baseline_statuses_for_test(test: Test) -> None:
+    """
+    Persist baseline status for each regression test touched by a completed test run.
+
+    This uses the same full-result logic as the UI and PR comment paths, so output-file
+    mismatches and missing expected outputs count as failures in addition to exit-code
+    mismatches.
+
+    :param test: The completed test run whose regression results should refresh baseline state.
+    :type test: Test
+    """
+    from run import log
+
+    if test.test_type != TestType.commit or not is_main_repo(test.fork.github):
+        return
+
+    changed = False
+    processed_ids = set()
+    for category_results in get_test_results(test):
+        for category_test in category_results['tests']:
+            regression_test = category_test['test']
+            if regression_test.id in processed_ids or category_test['result'] is None:
+                continue
+
+            processed_ids.add(regression_test.id)
+            if regression_test.update_baseline_status(passed=not category_test['error']):
+                g.db.add(regression_test)
+                changed = True
+
+    if changed and not safe_db_commit(g.db, f"refreshing baseline status for test {test.id}"):
+        log.error(f"Failed to refresh baseline status for completed test {test.id}")
+
+
 def set_avg_time(platform, process_type: str, time_taken: int) -> None:
     """
     Set average platform preparation time.
@@ -2756,6 +2791,7 @@ def get_info_for_pr_comment(test: Test) -> PrCommentInfo:
     extra_failed_tests = []
     common_failed_tests = []
     fixed_tests = []
+    never_worked_tests = []
     category_stats = []
 
     test_results = get_test_results(test)
@@ -2764,20 +2800,30 @@ def get_info_for_pr_comment(test: Test) -> PrCommentInfo:
         category_name = category_results['category'].name
 
         category_test_pass_count = 0
-        for test in category_results['tests']:
-            if not test['error']:
+        for category_test in category_results['tests']:
+            platform_last_passed = getattr(category_test['test'], platform_column)
+            if not category_test['error']:
                 category_test_pass_count += 1
-                if last_test_master and getattr(test['test'], platform_column) != last_test_master.id:
-                    fixed_tests.append(test['test'])
+                if last_test_master and platform_last_passed != last_test_master.id:
+                    fixed_tests.append(category_test['test'])
             else:
-                if last_test_master and getattr(test['test'], platform_column) != last_test_master.id:
-                    common_failed_tests.append(test['test'])
+                if platform_last_passed is None and category_test['test'].baseline_status != BaselineStatus.unknown:
+                    never_worked_tests.append(category_test['test'])
+                elif last_test_master and platform_last_passed != last_test_master.id:
+                    common_failed_tests.append(category_test['test'])
                 else:
-                    extra_failed_tests.append(test['test'])
+                    extra_failed_tests.append(category_test['test'])
 
         category_stats.append(CategoryTestInfo(category_name, len(category_results['tests']), category_test_pass_count))
 
-    return PrCommentInfo(category_stats, extra_failed_tests, fixed_tests, common_failed_tests, last_test_master)
+    return PrCommentInfo(
+        category_stats,
+        extra_failed_tests,
+        fixed_tests,
+        common_failed_tests,
+        never_worked_tests,
+        last_test_master,
+    )
 
 
 def comment_pr(test: Test) -> str:

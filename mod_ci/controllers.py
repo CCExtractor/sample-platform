@@ -26,7 +26,7 @@ from google.oauth2 import service_account
 from lxml import etree
 from markdown2 import markdown
 from pymysql.err import IntegrityError
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, select
 from sqlalchemy.sql import label
 from sqlalchemy.sql.functions import count
 from werkzeug.utils import secure_filename
@@ -2431,9 +2431,9 @@ def progress_type_request(log, test, test_id, request) -> bool:
                 TestResult.test_id == test.id,
                 TestResult.exit_code != TestResult.expected_rc
             )).scalar()
-        results_zero_rc = g.db.query(RegressionTest.id).filter(
+        results_zero_rc = select(RegressionTest.id).filter(
             RegressionTest.expected_rc == 0
-        ).subquery()
+        )
         results = g.db.query(count(TestResultFile.got)).filter(
             and_(
                 TestResultFile.test_id == test.id,
@@ -2509,13 +2509,13 @@ def progress_type_request(log, test, test_id, request) -> bool:
         total_time = 0
 
         if current_average is None:
-            platform_tests = g.db.query(Test.id).filter(Test.platform == test.platform).subquery()
-            finished_tests = g.db.query(TestProgress.test_id).filter(
+            platform_tests = select(Test.id).filter(Test.platform == test.platform)
+            finished_tests = select(TestProgress.test_id).filter(
                 and_(
                     TestProgress.status.in_([TestStatus.canceled, TestStatus.completed]),
                     TestProgress.test_id.in_(platform_tests)
                 )
-            ).subquery()
+            )
             in_progress_statuses = [TestStatus.preparation, TestStatus.completed, TestStatus.canceled]
             finished_tests_progress = g.db.query(TestProgress).filter(
                 and_(

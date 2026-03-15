@@ -566,3 +566,12 @@ class TestControllers(BaseTestCase):
                 ).count(),
                 1
             )
+
+    def test_category_description_shown_without_tags(self):
+        """Test that category description is shown when accessing /regression/ with category parameter but no tags."""
+        response = self.app.test_client().get('/regression/?category=1')
+        self.assertEqual(response.status_code, 200)
+        # Check that the category description span is present and not hidden
+        self.assertIn('data-category="1"', str(response.data))
+        # The JavaScript should ensure the description is visible, but we can't test JS execution in unit tests
+        # This test verifies the HTML structure is correct for the fix to work

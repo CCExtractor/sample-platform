@@ -78,17 +78,18 @@ def request_from_github(abort_code: int = 418) -> Callable:
 
 
 cached_web_hook_blocks: List[str] = []
+cached_load_time: datetime = datetime(1970, 1, 1)
 
 
-def cache_has_expired() -> bool:
+def cache_has_expired(load_time: datetime) -> bool:
     """
     Check if the cache expired.
 
     :return: True if the cache was last updated more than one hour ago.
     :rtype: bool
     """
-    cached_load_time = datetime(1970, 1, 1)
-    return cached_load_time + timedelta(hours=1) < datetime.now()
+    from datetime import datetime, timedelta
+    return load_time + timedelta(hours=1) < datetime.now()
 
 
 def is_github_web_hook_ip(request_ip: Union[IPv4Address, IPv6Address]) -> bool:
@@ -115,15 +116,18 @@ def get_cached_web_hook_blocks() -> List[str]:
     :rtype: List[str]
     """
     global cached_web_hook_blocks
+    global cached_load_time
     from run import config
 
-    if len(cached_web_hook_blocks) == 0 or cache_has_expired():
+    if len(cached_web_hook_blocks) == 0 or cache_has_expired(cached_load_time):
         client_id = config.get('GITHUB_CLIENT_ID', '')
         client_secret = config.get('GITHUB_CLIENT_KEY', '')
         meta_json = requests.get(
             'https://api.github.com/meta', auth=(client_id, client_secret)).json()
         try:
             cached_web_hook_blocks = meta_json['hooks']
+            # We successfully fetched the IPs so we reset the clock
+            cached_load_time = datetime.now()
         except KeyError:
             g.log.critical(f"Failed to retrieve hook IP's from GitHub! API returned {meta_json}")
 

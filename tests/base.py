@@ -2,6 +2,7 @@
 
 import os
 import warnings
+import utility
 from collections import namedtuple
 from contextlib import contextmanager
 from unittest import mock
@@ -278,6 +279,14 @@ class BaseTestCase(TestCase):
 
     def setUp(self):
         """Set up all entities."""
+        # Patch the cache before parent setup runs to prevent HTTP calls
+        self.cache_patcher = mock.patch.object(
+            utility, 'cache_has_expired', return_value=False
+        )
+        self.cache_patcher.start()
+        self.addCleanup(self.cache_patcher.stop)
+
+        super().setUp()
         self.app.preprocess_request()
         g.db = create_session(
             self.app.config['DATABASE_URI'], drop_tables=True)
@@ -395,6 +404,10 @@ class BaseTestCase(TestCase):
         g.db.add(forbidden_mime)
         g.db.add_all(forbidden_ext)
         g.db.commit()
+
+    def tearDown(self):
+        """Clean up after every test."""
+        super().tearDown()
 
     @staticmethod
     def create_login_form_data(email, password) -> dict:

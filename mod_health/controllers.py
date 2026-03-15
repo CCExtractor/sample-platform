@@ -79,7 +79,7 @@ def health_check() -> Tuple[Any, int]:
 
     checks: Dict[str, Any] = {
         'status': 'healthy' if all_healthy else 'unhealthy',
-        'timestamp': datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + 'Z',
+        'timestamp': datetime.now(timezone.utc).isoformat(),
         'checks': check_results
     }
 

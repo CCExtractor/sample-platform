@@ -81,16 +81,15 @@ cached_web_hook_blocks: List[str] = []
 cached_load_time: datetime = datetime(1970, 1, 1)
 
 
-def cache_has_expired() -> bool:
+def cache_has_expired(load_time: datetime) -> bool:
     """
     Check if the cache expired.
 
     :return: True if the cache was last updated more than one hour ago.
     :rtype: bool
     """
-    global cached_load_time
     from datetime import datetime, timedelta
-    return cached_load_time + timedelta(hours=1) < datetime.now()
+    return load_time + timedelta(hours=1) < datetime.now()
 
 
 def is_github_web_hook_ip(request_ip: Union[IPv4Address, IPv6Address]) -> bool:
@@ -120,7 +119,7 @@ def get_cached_web_hook_blocks() -> List[str]:
     global cached_load_time
     from run import config
 
-    if len(cached_web_hook_blocks) == 0 or cache_has_expired():
+    if len(cached_web_hook_blocks) == 0 or cache_has_expired(cached_load_time):
         client_id = config.get('GITHUB_CLIENT_ID', '')
         client_secret = config.get('GITHUB_CLIENT_KEY', '')
         meta_json = requests.get(

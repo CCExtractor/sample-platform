@@ -77,7 +77,7 @@ class User(Base):
         :rtype : str
         """
         # Go for increased strength no matter what
-        return pwd_context.encrypt(password, category='admin')
+        return pwd_context.hash(password, category='admin')
 
     @staticmethod
     def create_random_password(length=16) -> str:

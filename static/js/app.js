@@ -1,152 +1,249 @@
-/*global $, Foundation */
-$(document).foundation();
+/**
+ * CCExtractor CI Platform — Modern Vanilla JS
+ * Replaces jQuery + Foundation JS
+ */
 
+/* ── Navigation: sidebar toggle (mobile) ───────────────────── */
+(function () {
+  const hamburger = document.getElementById('nav-hamburger');
+  const sidebar   = document.getElementById('sidebar');
+  const overlay   = document.getElementById('sidebar-overlay');
+  if (!hamburger || !sidebar) return;
+
+  function openSidebar() {
+    sidebar.classList.add('open');
+    if (overlay) overlay.classList.add('open');
+    hamburger.setAttribute('aria-expanded', 'true');
+    const icon = hamburger.querySelector('i');
+    if (icon) { icon.classList.replace('fa-bars', 'fa-xmark'); }
+  }
+  function closeSidebar() {
+    sidebar.classList.remove('open');
+    if (overlay) overlay.classList.remove('open');
+    hamburger.setAttribute('aria-expanded', 'false');
+    const icon = hamburger.querySelector('i');
+    if (icon) { icon.classList.replace('fa-xmark', 'fa-bars'); }
+  }
+
+  hamburger.addEventListener('click', function (e) {
+    e.stopPropagation();
+    sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
+  });
+  if (overlay) overlay.addEventListener('click', closeSidebar);
+
+  // Mobile: tap submenu parent to expand/collapse
+  sidebar.querySelectorAll('.has-submenu > a').forEach(function (link) {
+    link.addEventListener('click', function (e) {
+      if (window.innerWidth <= 900) {
+        e.preventDefault();
+        link.parentElement.classList.toggle('open');
+      }
+    });
+  });
+}());
+
+
+/* ── Theme: dark / light toggle ─────────────────────────────────── */
+(function () {
+  const btn       = document.getElementById('theme-toggle');
+  const iconDark  = document.getElementById('icon-dark');   // moon  — shown in light mode
+  const iconLight = document.getElementById('icon-light');  // sun   — shown in dark mode
+  const html      = document.documentElement;
+
+  function applyTheme(theme) {
+    html.setAttribute('data-theme', theme);
+    if (iconDark && iconLight) {
+      // Sun shown in light mode, moon shown in dark mode
+      iconLight.style.display = (theme === 'dark') ? 'none' : '';
+      iconDark.style.display  = (theme === 'dark') ? ''     : 'none';
+    }
+    if (btn) {
+      btn.title = (theme === 'dark') ? 'Switch to light mode' : 'Switch to dark mode';
+      btn.setAttribute('aria-label', btn.title);
+    }
+  }
+
+  // Load saved preference, else respect OS setting
+  const saved = localStorage.getItem('theme');
+  if (saved) {
+    applyTheme(saved);
+  } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    applyTheme('dark');
+  }
+
+  if (btn) {
+    btn.addEventListener('click', function () {
+      const current = html.getAttribute('data-theme');
+      const next    = current === 'dark' ? 'light' : 'dark';
+      applyTheme(next);
+      localStorage.setItem('theme', next);
+    });
+  }
+
+  // Sync with OS preference changes (when no manual override)
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
+      if (!localStorage.getItem('theme')) applyTheme(e.matches ? 'dark' : 'light');
+    });
+  }
+}());
+
+/* ── CIPlatform: error & loader helpers (vanilla JS) ────────────── */
 var CIPlatform = {};
+
 CIPlatform.errorHandler = (function () {
-    'use strict';
-    var instance, createContent, showErrorInElement, showErrorInList,
-        showFormErrors, clearFormErrors, showErrorInPopup, registerListeners;
+  'use strict';
 
-    // Init functions
-    createContent = function (errors, isFormError) {
-        var content, field, idx;
-
-        isFormError = isFormError || false;
-        content = "";
-        if (errors.length === 1) {
-            content = errors[0];
-        } else {
-            content = "The next errors occurred:<br><ul>";
-            if (isFormError) {
-                for (field in errors) {
-                    if (errors.hasOwnProperty(field)) {
-                        for (idx = 0; idx < errors[field].length; idx++) {
-                            content += "<li>" + errors[field][idx] + "</li>";
-                        }
-                    }
-                }
-            } else {
-                for (idx = 0; idx < errors.length; idx++) {
-                    content += "<li>" + errors[idx] + "</li>";
-                }
-            }
-            content += "</ul>";
+  function createContent(errors, isFormError) {
+    isFormError = isFormError || false;
+    if (!Array.isArray(errors) && typeof errors === 'object') {
+      // form errors object
+      var parts = [];
+      for (var f in errors) {
+        if (Object.prototype.hasOwnProperty.call(errors, f)) {
+          parts = parts.concat(errors[f]);
         }
-        window.console.log(errors);
+      }
+      errors = parts;
+    }
+    if (errors.length === 1) return errors[0];
+    var content = 'The following errors occurred:<br><ul>';
+    errors.forEach(function (e) { content += '<li>' + e + '</li>'; });
+    return content + '</ul>';
+  }
 
-        return content;
-    };
-    showErrorInElement = function (jQueryElement, errors, fadeOut) {
-        fadeOut = fadeOut || 0;
-        jQueryElement.show().html(createContent(errors));
-        if (fadeOut > 0) {
-            setTimeout(function () { jQueryElement.fadeOut(1000); }, fadeOut);
-        }
-    };
-    showErrorInList = function (jQueryElement, errors) {
-        jQueryElement.empty();
-        errors.forEach(function (elm) {
-            jQueryElement.append("<li>" + elm + "</li>");
-        });
-        $("#errorMessage").removeClass("hide");
-    };
-    showFormErrors = function(jQueryElement, formName, errors, prefix) {
-        var error, field, form;
+  function showErrorInElement(el, errors, fadeOut) {
+    fadeOut = fadeOut || 0;
+    // Accept both DOM elements and jQuery-like objects with [0]
+    var domEl = el && el[0] ? el[0] : el;
+    if (!domEl) return;
+    domEl.style.display = '';
+    domEl.innerHTML = createContent(errors);
+    if (fadeOut > 0) {
+      setTimeout(function () {
+        domEl.style.transition = 'opacity 1s';
+        domEl.style.opacity = '0';
+        setTimeout(function () {
+          domEl.style.display = 'none';
+          domEl.style.opacity = '';
+          domEl.style.transition = '';
+        }, 1000);
+      }, fadeOut);
+    }
+  }
 
-        prefix = '' || prefix;
-        form = document.forms[formName];
-        // Show error message
-        $(form.getElementsByClassName('form-errors')[0]).show();
-        // Mark fields
-        for (error in errors) {
-            if (errors.hasOwnProperty(error)) {
-                field = form[prefix + error];
-                if(field !== undefined){
-                    $(field).addClass('is-invalid-input').attr('aria-describedby',field.id + '_error');
-                    $("#" + field.id + "_error").html(errors[error].join(', ')+'.').addClass('is-visible');
-                    $('label[for=' + field.id + ']').addClass('is-invalid-label');
-                }
-            }
-        }
-        // Clear ajax loader
-        jQueryElement.html('');
-    };
-    clearFormErrors = function(formName) {
-        var form, field, idx;
+  function showErrorInList(listEl, errors) {
+    var domEl = listEl && listEl[0] ? listEl[0] : listEl;
+    if (!domEl) return;
+    domEl.innerHTML = '';
+    errors.forEach(function (e) {
+      var li = document.createElement('li');
+      li.textContent = e;
+      domEl.appendChild(li);
+    });
+    var errMsg = document.getElementById('errorMessage');
+    if (errMsg) errMsg.classList.remove('hidden');
+  }
 
-        form = document.forms[formName];
-        $(form.getElementsByClassName('form-errors')[0]).hide();
-        // Reset fields
-        for (idx = 0; idx < form.elements.length; idx++) {
-            field = form.elements[idx];
-            $(field).removeClass('is-invalid-input');
-            if($("#"+field.id+"_help_text").length > 0){
-                $(field).attr('aria-describedby', field.id + '_help_text');
-            }
-            $("#" + field.id + "_error").html('').removeClass('is-visible');
-            if (field.id.length > 0) {
-                $('label[for=' + field.id + ']').removeClass('is-invalid-label');
-            }
-        }
-    };
-    showErrorInPopup = function(errors, needsPageReload) {
-        var id, reveal, popup;
+  function showFormErrors(loaderEl, formName, errors, prefix) {
+    prefix = prefix || '';
+    var form = document.forms[formName];
+    if (!form) return;
+    var formErrors = form.getElementsByClassName('form-errors')[0];
+    if (formErrors) formErrors.style.display = '';
+    for (var error in errors) {
+      if (!Object.prototype.hasOwnProperty.call(errors, error)) continue;
+      var field = form[prefix + error];
+      if (!field) continue;
+      field.classList.add('is-invalid-input');
+      field.setAttribute('aria-describedby', field.id + '_error');
+      var errEl = document.getElementById(field.id + '_error');
+      if (errEl) {
+        errEl.textContent = errors[error].join(', ') + '.';
+        errEl.classList.add('is-visible');
+      }
+      var labelEl = form.querySelector('label[for="' + field.id + '"]');
+      if (labelEl) labelEl.classList.add('is-invalid-label');
+    }
+    var loaderDom = loaderEl && loaderEl[0] ? loaderEl[0] : loaderEl;
+    if (loaderDom) loaderDom.innerHTML = '';
+  }
 
-        reveal = document.createElement('div');
-        id = 'error-popup-'+(new Date()).getTime();
-        reveal.setAttribute('id', id);
-        reveal.setAttribute('class', 'large reveal');
-        reveal.setAttribute('data-reveal', '');
-        reveal.innerHTML = createContent(errors, true);
-        if (needsPageReload) {
-            reveal.innerHTML += '<strong>Please reload the page in order to get the current state for the disabled elements.</strong>';
-        }
-        reveal.innerHTML +=
-            '<button class="close-button" data-close aria-label="Cancel" type="button">' +
-            '   <span aria-hidden="true">&times;</span>' +
-            '</button>';
-        document.body.appendChild(reveal);
-        popup = new Foundation.Reveal($('#'+id));
-        popup.open();
-    };
-    registerListeners = function () {
-        // We need to add a listener for foundation reveal close events, so we can unregister the reveal instance.
-        $(document).on('closed.zf.reveal', function(e){
-            $(e.target).foundation('destroy');
-        });
-    };
+  function clearFormErrors(formName) {
+    var form = document.forms[formName];
+    if (!form) return;
+    var formErrors = form.getElementsByClassName('form-errors')[0];
+    if (formErrors) formErrors.style.display = 'none';
+    Array.from(form.elements).forEach(function (field) {
+      field.classList.remove('is-invalid-input');
+      var helpText = document.getElementById(field.id + '_help_text');
+      if (helpText) field.setAttribute('aria-describedby', field.id + '_help_text');
+      var errEl = document.getElementById(field.id + '_error');
+      if (errEl) { errEl.textContent = ''; errEl.classList.remove('is-visible'); }
+      if (field.id) {
+        var labelEl = form.querySelector('label[for="' + field.id + '"]');
+        if (labelEl) labelEl.classList.remove('is-invalid-label');
+      }
+    });
+  }
 
-    // Create instance & assign functions
-    instance = {};
-    instance.showErrorInElement = showErrorInElement;
-    instance.showErrorInList = showErrorInList;
-    instance.showFormErrors = showFormErrors;
-    instance.clearFormErrors = clearFormErrors;
-    instance.showErrorInPopup = showErrorInPopup;
-    instance.registerListeners = registerListeners;
+  function showErrorInPopup(errors, needsPageReload) {
+    var overlay = document.createElement('div');
+    overlay.style.cssText = [
+      'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9999;',
+      'display:flex;align-items:center;justify-content:center;',
+      'animation:fadeIn 0.2s ease;'
+    ].join('');
 
-    return instance;
+    var modal = document.createElement('div');
+    modal.style.cssText = [
+      'background:var(--bg-surface);border-radius:var(--radius-lg);',
+      'padding:2rem;max-width:560px;width:90%;position:relative;',
+      'box-shadow:var(--shadow-lg);border:1px solid var(--border);'
+    ].join('');
+    modal.innerHTML = createContent(errors, true);
+
+    if (needsPageReload) {
+      modal.innerHTML += '<p style="margin-top:1rem"><strong>Please reload the page to get the current state.</strong></p>';
+    }
+
+    var closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '&times;';
+    closeBtn.className = 'button secondary small';
+    closeBtn.style.cssText = 'position:absolute;top:1rem;right:1rem;';
+    closeBtn.addEventListener('click', function () { document.body.removeChild(overlay); });
+    modal.appendChild(closeBtn);
+
+    overlay.appendChild(modal);
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) document.body.removeChild(overlay);
+    });
+    document.body.appendChild(overlay);
+  }
+
+  return {
+    showErrorInElement : showErrorInElement,
+    showErrorInList    : showErrorInList,
+    showFormErrors     : showFormErrors,
+    clearFormErrors    : clearFormErrors,
+    showErrorInPopup   : showErrorInPopup,
+    registerListeners  : function () {} // kept for backward compatibility
+  };
 }());
+
 CIPlatform.loadHandler = (function () {
-    'use strict';
-    var instance, showLoaderInElement, defaultLoaderIcon, defaultLoaderText;
+  'use strict';
+  var defaultIcon = 'fa-gear';
+  var defaultText = 'Please wait while we process the request\u2026';
 
-    // Default texts
-    defaultLoaderIcon = 'fa-cog';
-    defaultLoaderText = 'Please wait while we process the request...';
-    // Methods
-    showLoaderInElement = function (jQueryElement, loaderIcon, loaderText) {
-        loaderIcon = loaderIcon || defaultLoaderIcon;
-        loaderText = loaderText || defaultLoaderText;
-        jQueryElement.html('<i class="fa fa-spin ' + loaderIcon + '"></i> ' + loaderText);
-    };
-    // Create instance & assign functions
-    instance = {};
-    instance.showLoaderInElement = showLoaderInElement;
+  function showLoaderInElement(el, loaderIcon, loaderText) {
+    loaderIcon = loaderIcon || defaultIcon;
+    loaderText = loaderText || defaultText;
+    var domEl = el && el[0] ? el[0] : el;
+    if (domEl) {
+      domEl.innerHTML = '<i class="fa-solid fa-spin ' + loaderIcon + '" aria-hidden="true"></i> ' + loaderText;
+    }
+  }
 
-    return instance;
+  return { showLoaderInElement: showLoaderInElement };
 }());
-
-$(document).ready(function(){
-    CIPlatform.errorHandler.registerListeners();
-});

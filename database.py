@@ -60,13 +60,16 @@ def create_session(db_string: str, drop_tables: bool = False) -> scoped_session:
                 )
             else:
                 db_engine = create_engine(db_string)
+
+            if drop_tables:
+                Base.metadata.drop_all(bind=db_engine)
+
+            # Only create tables once when the engine is first initialised,
+            # not on every request — avoids connection pool exhaustion.
+            Base.metadata.create_all(bind=db_engine)
+
         db_session = scoped_session(sessionmaker(bind=db_engine))
         Base.query = db_session.query_property()
-
-        if drop_tables:
-            Base.metadata.drop_all(bind=db_engine)
-
-        Base.metadata.create_all(bind=db_engine)
 
         return db_session
     except SQLAlchemyError:

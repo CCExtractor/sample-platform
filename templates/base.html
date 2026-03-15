@@ -1,93 +1,88 @@
 {%- import 'macros.html' as macros -%}
 <!DOCTYPE html>
-<html class="no-js" lang="en" prefix="og: {{request.url_root}}">
-    <head>
-        {%- block head %}
-            <meta charset="utf-8"/>
-            <meta http-equiv="x-ua-compatible" content="ie=edge">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<html lang="en" data-theme="">
+  <head>
+    {%- block head %}
+      <meta charset="utf-8"/>
+      <meta http-equiv="x-ua-compatible" content="ie=edge">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+      <title>{% block title %}| {{ applicationName }}{% endblock %}</title>
 
-            <title>{% block title %}| {{ applicationName }}{% endblock %}</title>
+      <!-- Google Fonts: Inter -->
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-            <link rel="stylesheet" href="{{ url_for('static', filename='css/foundation-light.min.css') }}" id="theme-link"/>
-            <link rel="stylesheet" href="{{ url_for('static', filename='css/font-awesome.min.css') }}"/>
-            <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}"/>
+      <!-- Font Awesome 6 -->
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+            integrity="sha512-Avb2QiuDEEvB4bZJYdft2mNjVShBftLdPG8FJ0V7irTLQ8Uo0qcPxh4Plq7G5tGm0rU+1SPhVotteLpBERwTkw=="
+            crossorigin="anonymous" referrerpolicy="no-referrer"/>
 
-            <!-- favicon & app stuff -->
-            <link rel="apple-touch-icon" sizes="57x57" href="{{ url_for('static', filename='img/favicon/apple-touch-icon-57x57.png') }}">
-            <link rel="apple-touch-icon" sizes="60x60" href="{{ url_for('static', filename='img/favicon/apple-touch-icon-60x60.png') }}">
-            <link rel="apple-touch-icon" sizes="72x72" href="{{ url_for('static', filename='img/favicon/apple-touch-icon-72x72.png') }}">
-            <link rel="apple-touch-icon" sizes="76x76" href="{{ url_for('static', filename='img/favicon/apple-touch-icon-76x76.png') }}">
-            <link rel="apple-touch-icon" sizes="114x114" href="{{ url_for('static', filename='img/favicon/apple-touch-icon-114x114.png') }}">
-            <link rel="apple-touch-icon" sizes="120x120" href="{{ url_for('static', filename='img/favicon/apple-touch-icon-120x120.png') }}">
-            <link rel="apple-touch-icon" sizes="144x144" href="{{ url_for('static', filename='img/favicon/apple-touch-icon-144x144.png') }}">
-            <link rel="apple-touch-icon" sizes="152x152" href="{{ url_for('static', filename='img/favicon/apple-touch-icon-152x152.png') }}">
-            <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='img/favicon/apple-touch-icon-180x180.png') }}">
-            <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon/favicon-32x32.png') }}" sizes="32x32">
-            <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon/android-chrome-192x192.png') }}" sizes="192x192">
-            <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon/favicon-96x96.png') }}" sizes="96x96">
-            <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon/favicon-16x16.png') }}" sizes="16x16">
-            <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-            <link rel="mask-icon" href="{{ url_for('static', filename='img/favicon/safari-pinned-tab.svg') }}" color="#5bbad5">
-            <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon/favicon.ico') }}">
-            <meta name="apple-mobile-web-app-title" content="CCExtractor CI Platform">
-            <meta name="application-name" content="CCExtractor CI Platform">
-            <meta name="msapplication-TileColor" content="#da532c">
-            <meta name="msapplication-TileImage" content="{{ url_for('static', filename='img/favicon/mstile-144x144.png') }}">
-            <meta name="msapplication-config" content="{{ url_for('static', filename='browserconfig.xml') }}">
-            <meta name="theme-color" content="#ffffff">
-            <!-- end of favicon & app stuff -->
+      <!-- Modern UI CSS -->
+      <link rel="stylesheet" href="{{ url_for('static', filename='css/modern.css') }}"/>
 
-            <!-- Open Graph Protocol-->
-            <meta property="og:title" content="CCExtractor CI Platform" />
-            <meta property="og:description" content="The Sample Platform is a Testing Platform for CCExtractor."/>
-            <meta property="og:type" content="website" />
-            <meta property="og:url" content="{{request.url}}"/> 
-            <meta property="og:image" content="https://raw.githubusercontent.com/CCExtractor/ccextractor-org-media/master/static/ccx_logo_transparent_800x600.png" />
-            <!-- End of Open Graph Protocol-->
+      <!-- Favicons -->
+      <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon/favicon-32x32.png') }}" sizes="32x32">
+      <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon/favicon-16x16.png') }}" sizes="16x16">
+      <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon/favicon.ico') }}">
+      <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='img/favicon/apple-touch-icon-180x180.png') }}">
+      <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+      <meta name="theme-color" content="#6366f1">
 
-            <script type="text/javascript" src="{{ url_for('static', filename='js/sorttable.js') }}"></script>
-        {%- endblock %}
-    </head>
-    <body>
-        <div class="off-canvas-wrapper">
-            <div class="off-canvas-wrapper-inner" data-off-canvas-wrapper>
-                {%- if hideMenu is not defined -%}
-                    {%- include 'menu.html' -%}
-                {%- endif -%}
-                <div class="off-canvas-content" data-off-canvas-content>
-                    <div class="theme-toggle">
-                        <i class="theme fa fa-moon-o to-dark fa-2x hidden"></i> 
-                        <i class="theme fa fa-sun-o to-light fa-2x hidden"></i> 
-                    </div>
-                    {% if hideMenu is not defined %}
-                    <div class="title-bar hide-for-large">
-                        <div class="title-bar-left">
-                            <button class="menu-icon" type="button" data-open="application-menu"></button>
-                            <span class="title-bar-title">{{ applicationName }}</span>
-                        </div>
-                    </div>
-                    {% endif %}
-                    <div class="flow">
-                        {% block body %}{% endblock %}
-                    </div>
-                    {% block footer %}
-                    <footer class="column" style="display:inline-block">
-                        &copy; {{ currentYear }} {{ applicationName }} &bull; <a href="{{ url_for('home.about') }}">About</a> &bull; Built with commit <a target="_blank" href="https://github.com/CCExtractor/sample-platform/commit/{{ build_commit }}">{{ build_commit|truncate(10, end='') }}</a>
-                    </footer>
-                    {% endblock %}
-                </div>
-            </div>
-        </div>
-        {# Load scripts only at the end of the page #}
-        <div id="scripts">
-            {% block scripts %}
-                <script src="{{ url_for('static', filename='js/vendor/jquery.js') }}"></script>
-                <script src="{{ url_for('static', filename='js/vendor/what-input.js') }}"></script>
-                <script src="{{ url_for('static', filename='js/vendor/foundation.min.js') }}"></script>
-                <script src="{{ url_for('static', filename='js/app.js') }}"></script>
-                <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
-            {% endblock %}
-        </div>
-    </body>
+
+      
+
+      <!-- Open Graph -->
+      <meta property="og:title"       content="CCExtractor CI Platform"/>
+      <meta property="og:description" content="The Sample Platform is a Testing Platform for CCExtractor."/>
+      <meta property="og:type"        content="website"/>
+      <meta property="og:url"         content="{{ request.url }}"/>
+      <meta property="og:image"       content="https://raw.githubusercontent.com/CCExtractor/ccextractor-org-media/master/static/ccx_logo_transparent_800x600.png"/>
+
+      <!-- Sortable tables -->
+      <script type="text/javascript" src="{{ url_for('static', filename='js/sorttable.js') }}"></script>
+    {%- endblock %}
+  </head>
+
+  <body>
+    <!-- Mobile dim overlay (closed by JS) -->
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <!-- Mobile hamburger (shown only on small screens) -->
+    <button class="nav-hamburger" id="nav-hamburger" aria-label="Open navigation" aria-expanded="false">
+      <i class="fa-solid fa-bars" aria-hidden="true"></i>
+    </button>
+
+    <!-- Theme toggle: fixed top-right -->
+    <button class="theme-btn" id="theme-toggle" title="Switch to dark mode" aria-label="Switch to dark mode">
+      <!-- Sun: visible in light mode (current theme = light) -->
+      <svg id="icon-light" xmlns="http://www.w3.org/2000/svg" width="35" height="35" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 8a4 4 0 1 1 -3.995 4.2l-.005 -.2l.005 -.2a4 4 0 0 1 3.995 -3.8z" /><path d="M12 4a1 1 0 0 1 .993 .883l.007 .127a1 1 0 0 1 -1.993 .117l-.007 -.127a1 1 0 0 1 1 -1z" /><path d="M17 6a1 1 0 0 1 .993 .883l.007 .127a1 1 0 0 1 -1.993 .117l-.007 -.127a1 1 0 0 1 1 -1z" /><path d="M19 11a1 1 0 0 1 .993 .883l.007 .127a1 1 0 0 1 -1.993 .117l-.007 -.127a1 1 0 0 1 1 -1z" /><path d="M17 16a1 1 0 0 1 .993 .883l.007 .127a1 1 0 0 1 -1.993 .117l-.007 -.127a1 1 0 0 1 1 -1z" /><path d="M12 18a1 1 0 0 1 .993 .883l.007 .127a1 1 0 0 1 -1.993 .117l-.007 -.127a1 1 0 0 1 1 -1z" /><path d="M7 16a1 1 0 0 1 .993 .883l.007 .127a1 1 0 0 1 -1.993 .117l-.007 -.127a1 1 0 0 1 1 -1z" /><path d="M5 11a1 1 0 0 1 .993 .883l.007 .127a1 1 0 0 1 -1.993 .117l-.007 -.127a1 1 0 0 1 1 -1z" /><path d="M7 6a1 1 0 0 1 .993 .883l.007 .127a1 1 0 0 1 -1.993 .117l-.007 -.127a1 1 0 0 1 1 -1z" /></svg>
+      <!-- Moon: visible in dark mode (current theme = dark) -->
+      <svg id="icon-dark" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="display:none"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 1.992a10 10 0 1 0 9.236 13.838c.341 -.82 -.476 -1.644 -1.298 -1.31a6.5 6.5 0 0 1 -6.864 -10.787l.077 -.08c.551 -.63 .113 -1.653 -.758 -1.653h-.266l-.068 -.006l-.06 -.002z" /></svg>
+    </button>
+
+
+    {%- if hideMenu is not defined -%}
+      {%- include 'menu.html' -%}
+    {%- endif -%}
+
+    <main class="page-content">
+      {% block body %}{% endblock %}
+    </main>
+
+    {% block footer %}
+    <footer>
+      &copy; {{ currentYear }} {{ applicationName }}
+      &bull; <a href="{{ url_for('home.about') }}">About</a>
+      &bull; Built with commit
+      <a target="_blank" href="https://github.com/CCExtractor/sample-platform/commit/{{ build_commit }}">
+        {{ build_commit|truncate(10, end='') }}
+      </a>
+    </footer>
+    {% endblock %}
+
+    {% block scripts %}
+      <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% endblock %}
+  </body>
 </html>

@@ -29,3 +29,8 @@ def run():
 
 
 run()
+
+
+
+
+# python install/init_db.py mysql2://root:password@localhost:3306/ccextractor?charset=utf8 test test@test.com testpassword

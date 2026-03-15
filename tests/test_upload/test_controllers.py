@@ -170,35 +170,34 @@ class TestControllers(BaseTestCase):
             QueuedSample.sha == filehash).first()
         self.assertEqual(queued_sample, None)
 
-    # TODO: The methods below are not working due to decorator login_required not being mocked
-    # @mock.patch('mod_upload.controllers.login_required', side_effect=mock_decorator)
-    # def test_link_id_confirm_invalid(self, mock_login):
-    #     """
-    #     Try to confirm link for invalid sample and queue.
-    #     """
-    #     from mod_upload.controllers import link_id_confirm, QueuedSampleNotFoundException
+    def test_link_id_confirm_invalid(self):
+        """Try to confirm link for invalid sample and queue."""
+        from mod_upload.controllers import (QueuedSampleNotFoundException,
+                                            link_id_confirm)
 
-    #     with self.assertRaises(QueuedSampleNotFoundException):
-    #         link_id_confirm(1000, 1000)
+        with self.assertRaises(QueuedSampleNotFoundException):
+            link_id_confirm.__wrapped__(1000, 1000)
 
-    # @mock.patch('mod_upload.controllers.redirect')
-    # @mock.patch('mod_upload.controllers.login_required', side_effect=mock_decorator)
-    # @mock.patch('mod_upload.controllers.QueuedSample')
-    # @mock.patch('mod_upload.controllers.Sample')
-    # def test_link_id_confirm(self, mock_sample, mock_queue, mock_login, mock_redirect):
-    #     """
-    #     Test confirm link for valid sample and queue.
-    #     """
-    #     from mod_upload.controllers import link_id_confirm
+    @mock.patch('mod_upload.controllers.redirect')
+    @mock.patch('mod_upload.controllers.QueuedSample')
+    @mock.patch('mod_upload.controllers.Sample')
+    @mock.patch('mod_upload.controllers.g')
+    def test_link_id_confirm_valid(self, mock_g, mock_sample, mock_queue, mock_redirect):
+        """Test confirm link for valid sample and queue."""
+        from mod_upload.controllers import link_id_confirm
 
-    #     mock_queue.query.filter.return_value.first.return_value.user_id = g.user
-    #     mock_sample.query.filter.return_value.first.return_value.upload.user_id = g.user
+        # Mock g.user to have an 'id' attribute to satisfy the controller
+        mock_g.user.id = 1
 
-    #     response = link_id_confirm(1, 1)
+        # Ensure the mocked database queries return an object owned by that user
+        mock_queue.query.filter.return_value.first.return_value.user_id = mock_g.user.id
+        mock_sample.query.filter.return_value.first.return_value.upload.user_id = mock_g.user.id
 
-    #     self.assertEqual(response, mock_redirect())
-    #     mock_queue.query.filter.assert_called_once_with(mock_queue.id == 1)
-    #     mock_sample.query.filter.assert_called_once_with(mock_sample.id == 1)
+        response = link_id_confirm.__wrapped__(1, 1)
+
+        self.assertEqual(response, mock_redirect())
+        mock_queue.query.filter.assert_called_once()
+        mock_sample.query.filter.assert_called_once()
 
     def test_create_hash_for_sample(self):
         """Test creating hash for temp file."""

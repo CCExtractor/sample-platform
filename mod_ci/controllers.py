@@ -1193,7 +1193,8 @@ def create_instance(compute, project, zone, test, reportURL) -> Dict:
         metadata_items = [
             {'key': 'startup-script', 'value': startup_script},
             {'key': 'reportURL', 'value': reportURL},
-            {'key': 'bucket', 'value': config.get('GCS_BUCKET_NAME', '')}
+            {'key': 'bucket', 'value': config.get('GCS_BUCKET_NAME', '')},
+            {'key': 'testID', 'value': str(test.id)}
         ]
     elif test.platform == TestPlatform.windows:
         image_response = compute.images().getFromFamily(project=config.get('WINDOWS_INSTANCE_PROJECT_NAME', ''),
@@ -1209,7 +1210,8 @@ def create_instance(compute, project, zone, test, reportURL) -> Dict:
             {'key': 'service_account', 'value': service_account},
             {'key': 'rclone_conf', 'value': rclone_conf},
             {'key': 'reportURL', 'value': reportURL},
-            {'key': 'bucket', 'value': config.get('GCS_BUCKET_NAME', '')}
+            {'key': 'bucket', 'value': config.get('GCS_BUCKET_NAME', '')},
+            {'key': 'testID', 'value': str(test.id)}
         ]
     source_disk_image = image_response['selfLink']
 
@@ -2625,7 +2627,7 @@ def upload_log_type_request(log, test_id, repo_folder, test, request) -> bool:
         uploaded_file.save(temp_path)
         final_path = os.path.join(repo_folder, 'LogFiles', f"{test.id}.txt")
 
-        os.rename(temp_path, final_path)
+        os.replace(temp_path, final_path)
         log.debug("Stored log file")
         return True
 
@@ -2671,7 +2673,7 @@ def upload_type_request(log, test_id, repo_folder, test, request) -> bool:
         results_dir = os.path.join(repo_folder, 'TestResults')
         os.makedirs(results_dir, exist_ok=True)
         final_path = os.path.join(results_dir, f'{file_hash}{file_extension}')
-        os.rename(temp_path, final_path)
+        os.replace(temp_path, final_path)
         rto = RegressionTestOutput.query.filter(
             RegressionTestOutput.id == request.form['test_file_id']).first()
         result_file = TestResultFile(test.id, request.form['test_id'], rto.id, rto.correct, file_hash)

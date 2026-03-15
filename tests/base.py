@@ -4,6 +4,7 @@ import os
 import warnings
 from collections import namedtuple
 from contextlib import contextmanager
+from unittest import mock
 
 from flask import g
 from flask_testing import TestCase

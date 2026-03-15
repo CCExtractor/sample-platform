@@ -2,7 +2,6 @@
 
 import os
 import warnings
-import utility
 from collections import namedtuple
 from contextlib import contextmanager
 from unittest import mock
@@ -12,6 +11,7 @@ from flask_testing import TestCase
 from sqlalchemy import text
 from werkzeug.datastructures import Headers
 
+import utility
 from database import create_session
 from mod_auth.models import Role, User
 from mod_customized.models import CustomizedTest, TestFork

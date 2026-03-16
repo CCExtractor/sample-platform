@@ -88,7 +88,6 @@ def cache_has_expired(load_time: datetime) -> bool:
     :return: True if the cache was last updated more than one hour ago.
     :rtype: bool
     """
-    from datetime import datetime, timedelta
     return load_time + timedelta(hours=1) < datetime.now()
 
 

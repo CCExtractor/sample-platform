@@ -99,7 +99,7 @@ def liveness_check() -> Tuple[Any, int]:
     """
     return jsonify({
         'status': 'alive',
-        'timestamp': datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + 'Z'
+        'timestamp': datetime.now(timezone.utc).isoformat()
     }), 200
 
 
@@ -172,7 +172,7 @@ def version_check() -> Tuple[Any, int]:
     git_info = get_git_info()
 
     response = {
-        'timestamp': datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + 'Z',
+        'timestamp': datetime.now(timezone.utc).isoformat(),
         'git': git_info,
     }
 

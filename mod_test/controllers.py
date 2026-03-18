@@ -445,7 +445,7 @@ def stop_test(test_id):
     return redirect(url_for('.by_id', test_id=test.id))
 
 
-def _artifact_redirect(test_id, blob_path, filename='artifact'):
+def _artifact_redirect(blob_path, filename='artifact'):
     """Generate a signed URL for a GCS artifact and redirect, or 404."""
     from datetime import timedelta
 
@@ -463,7 +463,7 @@ def _artifact_redirect(test_id, blob_path, filename='artifact'):
     return redirect(url)
 
 
-@mod_test.route('/<int:test_id>/binary')
+@mod_test.route('/<int:test_id>/binary', methods=['GET'])
 def download_binary(test_id):
     """Download the ccextractor binary used in a test (linux or windows)."""
     from run import storage_client_bucket
@@ -471,31 +471,29 @@ def download_binary(test_id):
     for name in ['ccextractor', 'ccextractor.exe']:
         blob_path = f'test_artifacts/{test_id}/{name}'
         if storage_client_bucket.blob(blob_path).exists():
-            return _artifact_redirect(test_id, blob_path, filename=name)
+            return _artifact_redirect(blob_path, filename=name)
     abort(404)
 
 
-@mod_test.route('/<int:test_id>/coredump')
+@mod_test.route('/<int:test_id>/coredump', methods=['GET'])
 def download_coredump(test_id):
     """Download the coredump from a test, if one was produced."""
     return _artifact_redirect(
-        test_id,
         f'test_artifacts/{test_id}/coredump',
         filename=f'coredump-{test_id}'
     )
 
 
-@mod_test.route('/<int:test_id>/combined-stdout')
+@mod_test.route('/<int:test_id>/combined-stdout', methods=['GET'])
 def download_combined_stdout(test_id):
     """Download the combined stdout/stderr log from all test invocations."""
     return _artifact_redirect(
-        test_id,
         f'test_artifacts/{test_id}/combined_stdout.log',
         filename=f'combined_stdout-{test_id}.log'
     )
 
 
-@mod_test.route('/<int:test_id>/regression/<int:regression_test_id>/<int:output_id>/output-got')
+@mod_test.route('/<int:test_id>/regression/<int:regression_test_id>/<int:output_id>/output-got', methods=['GET'])
 def download_output_got(test_id, regression_test_id, output_id):
     """Download the actual output file from TestResults using DB hash."""
     rf = TestResultFile.query.filter(and_(
@@ -505,16 +503,14 @@ def download_output_got(test_id, regression_test_id, output_id):
     )).first()
     if rf is None or rf.got is None:
         abort(404)
-    import os
     ext = os.path.splitext(rf.regression_test_output.filename_correct)[1]
     return _artifact_redirect(
-        test_id,
         f'TestResults/{rf.got}{ext}',
         filename=f'output_got_{regression_test_id}_{output_id}{ext}'
     )
 
 
-@mod_test.route('/<int:test_id>/regression/<int:regression_test_id>/<int:output_id>/output-expected')
+@mod_test.route('/<int:test_id>/regression/<int:regression_test_id>/<int:output_id>/output-expected', methods=['GET'])
 def download_output_expected(test_id, regression_test_id, output_id):
     """Download the expected output file from TestResults using DB hash."""
     rf = TestResultFile.query.filter(and_(
@@ -524,14 +520,12 @@ def download_output_expected(test_id, regression_test_id, output_id):
     )).first()
     if rf is None:
         abort(404)
-    import os
     ext = os.path.splitext(rf.regression_test_output.filename_correct)[1]
     return _artifact_redirect(
-        test_id,
         f'TestResults/{rf.expected}{ext}',
         filename=f'output_expected_{regression_test_id}_{output_id}{ext}'
     )
-@mod_test.route('/<int:test_id>/sample/<int:sample_id>')
+@mod_test.route('/<int:test_id>/sample/<int:sample_id>', methods=['GET'])
 def download_sample_ai(test_id, sample_id):
     """Download the sample file for a regression test (no auth required for AI workflow)."""
     from mod_sample.models import Sample
@@ -539,13 +533,94 @@ def download_sample_ai(test_id, sample_id):
     if sample is None:
         abort(404)
     return _artifact_redirect(
-        test_id,
         f'TestFiles/{sample.filename}',
         filename=sample.original_name
     )
 
 
-@mod_test.route('/<int:test_id>/ai.json')
+def _process_test_case(test_id, category_name, t_data):
+    """Helper function to process a single test case."""
+    rt = t_data['test']
+    result = t_data['result']
+    is_error = t_data.get('error', False)
+    result_files = t_data['files']
+
+    outputs = []
+    for expected_output in rt.output_files:
+        if expected_output.ignore:
+            continue
+        
+        matched_rf = None
+        for rf in result_files:
+            if rf.test_id != -1 and rf.regression_test_output_id == expected_output.id:
+                matched_rf = rf
+                break
+        
+        got_url = None
+        diff_url = None
+        
+        if matched_rf and matched_rf.got is not None:
+            got_url = url_for(
+                '.download_output_got',
+                test_id=test_id,
+                regression_test_id=rt.id,
+                output_id=expected_output.id,
+                _external=True
+            )
+            diff_url = url_for(
+                '.generate_diff',
+                test_id=test_id,
+                regression_test_id=rt.id,
+                output_id=expected_output.id,
+                to_view=0,
+                _external=True
+            )
+        else:
+            # If test passed, got and expected match exactly.
+            got_url = url_for(
+                '.download_output_expected',
+                test_id=test_id,
+                regression_test_id=rt.id,
+                output_id=expected_output.id,
+                _external=True
+            )
+        
+        output_entry = {
+            'output_id': expected_output.id,
+            'correct_extension': expected_output.correct_extension,
+            'expected_url': url_for(
+                '.download_output_expected',
+                test_id=test_id,
+                regression_test_id=rt.id,
+                output_id=expected_output.id,
+                _external=True
+            ),
+            'got_url': got_url,
+            'diff_url': diff_url,
+        }
+        outputs.append(output_entry)
+
+    return {
+        'regression_test_id': rt.id,
+        'category': category_name,
+        'sample_filename': rt.sample.original_name,
+        'sample_url': url_for(
+            '.download_sample_ai',
+            test_id=test_id,
+            sample_id=rt.sample.id,
+            _external=True
+        ),
+        'arguments': rt.command,
+        'result': 'Fail' if is_error else 'Pass',
+        'exit_code': result.exit_code if result else None,
+        'expected_exit_code': result.expected_rc if result else None,
+        'runtime_ms': result.runtime if result else None,
+        'outputs': outputs,
+        'how_to_reproduce': f'./ccextractor {rt.command} {rt.sample.original_name}',
+    }
+
+
+@mod_test.route('/<int:test_id>/ai.json', methods=['GET'])
 def ai_json_endpoint(test_id):
     """Structured JSON with download URLs for all artifacts — for AI agents."""
     from run import storage_client_bucket
@@ -573,89 +648,12 @@ def ai_json_endpoint(test_id):
     for category in results:
         for t_data in category['tests']:
             total += 1
-            rt = t_data['test']
-            result = t_data['result']
-            is_error = t_data.get('error', False)
-            result_files = t_data['files']
-
-            if is_error:
+            if t_data.get('error', False):
                 failed += 1
             else:
                 passed += 1
 
-            outputs = []
-            for expected_output in rt.output_files:
-                if expected_output.ignore:
-                    continue
-                
-                matched_rf = None
-                for rf in result_files:
-                    if rf.test_id != -1 and rf.regression_test_output_id == expected_output.id:
-                        matched_rf = rf
-                        break
-                
-                got_url = None
-                diff_url = None
-                
-                if matched_rf and matched_rf.got is not None:
-                    got_url = url_for(
-                        '.download_output_got',
-                        test_id=test_id,
-                        regression_test_id=rt.id,
-                        output_id=expected_output.id,
-                        _external=True
-                    )
-                    diff_url = url_for(
-                        '.generate_diff',
-                        test_id=test_id,
-                        regression_test_id=rt.id,
-                        output_id=expected_output.id,
-                        to_view=0,
-                        _external=True
-                    )
-                else:
-                    # If test passed, got and expected match exactly.
-                    got_url = url_for(
-                        '.download_output_expected',
-                        test_id=test_id,
-                        regression_test_id=rt.id,
-                        output_id=expected_output.id,
-                        _external=True
-                    )
-                
-                output_entry = {
-                    'output_id': expected_output.id,
-                    'correct_extension': expected_output.correct_extension,
-                    'expected_url': url_for(
-                        '.download_output_expected',
-                        test_id=test_id,
-                        regression_test_id=rt.id,
-                        output_id=expected_output.id,
-                        _external=True
-                    ),
-                    'got_url': got_url,
-                    'diff_url': diff_url,
-                }
-                outputs.append(output_entry)
-
-            test_cases.append({
-                'regression_test_id': rt.id,
-                'category': category['category'].name,
-                'sample_filename': rt.sample.original_name,
-                'sample_url': url_for(
-                    '.download_sample_ai',
-                    test_id=test_id,
-                    sample_id=rt.sample.id,
-                    _external=True
-                ),
-                'arguments': rt.command,
-                'result': 'Fail' if is_error else 'Pass',
-                'exit_code': result.exit_code if result else None,
-                'expected_exit_code': result.expected_rc if result else None,
-                'runtime_ms': result.runtime if result else None,
-                'outputs': outputs,
-                'how_to_reproduce': f'./ccextractor {rt.command} {rt.sample.original_name}',
-            })
+            test_cases.append(_process_test_case(test_id, category['category'].name, t_data))
 
     report = {
         'test_id': test.id,

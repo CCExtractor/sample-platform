@@ -128,6 +128,32 @@ The `install.sh` will begin downloading and updating all the necessary dependenc
 
 When the domain is asked during installation, enter the domain name that will run the platform. E.g., if the platform will run locally, enter `localhost` as the server name.
 
+### Windows (Recommended: WSL2)
+
+WSL2 (Windows Subsystem for Linux 2) is the recommended way to set up
+the Sample Platform on Windows. It provides a full Linux environment
+and is simpler than the legacy Cygwin method.
+
+#### Step 1 — Install WSL2
+Open PowerShell as Administrator and run:
+```
+wsl --install
+```
+Restart your computer when prompted. Ubuntu will be installed by default.
+
+#### Step 2 — Open Ubuntu
+After restarting, search for "Ubuntu" in your Start Menu and open it.
+Create a username and password when asked.
+
+#### Step 3 — Follow the Linux instructions
+Once inside the Ubuntu terminal, follow the Linux installation
+steps above from the beginning.
+
+> **Note:** The legacy Cygwin method below is no longer recommended.
+> WSL2 is the supported path going forward.
+
+---
+
 ### Windows
 
 * Install cygwin (http://cygwin.com/install.html). When cygwin asks which packages to install, select Python, MySql, and google-api-client. If you already have cygwin installed, you must run its setup file to install the new packages. Make sure the dropdown menu is set to Full, so you can see all packages. To select one, click skip and it will change to the version number of the package. Use the end of [this](https://www.davidbaumgold.com/tutorials/set-up-python-windows/) tutorial for help on getting cygwin to recognize python.

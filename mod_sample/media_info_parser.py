@@ -210,10 +210,10 @@ class MediaInfoFetcher:
 
         media_folder = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'TestFiles')
         media_info_path = os.path.join(media_folder, 'media', sample.sha + '.xml')
-        output_handle = open(media_info_path, 'w')
         media_path = os.path.join(media_folder, sample.filename)
-        process = subprocess.Popen(['mediainfo', '--Output=XML', media_path], stdout=output_handle)
-        process.wait()
+        with open(media_info_path, 'w') as output_handle:
+            process = subprocess.Popen(['mediainfo', '--Output=XML', media_path], stdout=output_handle)
+            process.wait()
         if os.path.isfile(media_info_path):
             # Load media info, and replace full pathname
             tree = etree.parse(media_info_path)

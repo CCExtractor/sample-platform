@@ -11,11 +11,11 @@ clear
 date=$(date +%Y-%m-%d-%H-%M)
 install_log="${dir}/PlatformInstall_${date}_log.txt"
 echo "Welcome to the CCExtractor platform installer!"
-if [[ "$EUID" -ne 0 ]]
-    then
-        echo "You must be a root user to install CCExtractor platform." 2>&1
-        exit -1
-fi
+ # macOS does not require root for most installs (Homebrew handles permissions)
+ if ! command -v brew >/dev/null 2>&1; then
+     echo "Homebrew is required but not installed. Install it from https://brew.sh/"
+     exit -1
+ fi
 echo ""
 echo "Detailed information will be written to $install_log"
 echo "Please read the installation instructions carefully before installing."
@@ -24,23 +24,17 @@ echo "-------------------------------"
 echo "|   Installing dependencies   |"
 echo "-------------------------------"
 echo ""
-echo "* Updating package list"
-apt-get update >> "$install_log" 2>&1
-echo "* Installing nginx, python, pip, mediainfo and gunicorn"
-add-apt-repository ppa:deadsnakes/ppa -y >> "$install_log" 2>&1
-apt-get -q -y install python3.9 nginx python3.9-distutils python3-pip mediainfo gunicorn3 >> "$install_log" 2>&1
-update-alternatives --install /usr/bin/python python /usr/bin/python3.9 1 >> "$install_log" 2>&1
-update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1 >> "$install_log" 2>&1
-rm -f /etc/nginx/sites-available/default
-rm -f /etc/nginx/sites-enabled/default
-if [ ! -f /etc/init.d/mysql* ]; then
-    echo "* Installing MySQL (root password will be empty!)"
-    apt-get install -y mysql-server >> "$install_log" 2>&1
-    if [ ! -f /etc/init.d/mysql* ]; then
-        echo "Failed to install MySQL! Please check the installation log!"
-        exit -1
-    fi
-fi
+echo "* Updating Homebrew"
+brew update >> "$install_log" 2>&1
+
+echo "* Installing nginx, python, mediainfo and mysql using Homebrew"
+brew install python@3.11 nginx mediainfo mysql >> "$install_log" 2>&1
+
+echo "* Installing gunicorn"
+python3 -m pip install gunicorn >> "$install_log" 2>&1
+
+echo "* Starting MySQL using brew services"
+brew services start mysql >> "$install_log" 2>&1
 
 RED='\033[0;31m'
 NC='\033[0m' 
@@ -259,16 +253,11 @@ LINUX_INSTANCE_FAMILY_NAME = '${linux_instance_family_name}'
 GCP_INSTANCE_MAX_RUNTIME = $gcp_instance_max_runtime  # In minutes
 GCS_BUCKET_NAME = '${gcs_bucket_name}'
 GCS_SIGNED_URL_EXPIRY_LIMIT = $signed_url_expiry_time  # In minutes" > "${dir}/../config.py"
-# Ensure the files are executable by www-data
-chown -R www-data:www-data "${root_dir}" "${sample_repository}"
+ # macOS does not use www-data user by default
+echo "Skipping www-data ownership change on macOS"
 echo "* Creating startup script"
 
-{
-    cp "${dir}/platform" /etc/init.d/platform
-    sed -i "s#BASE_DIR#${root_dir}#g" /etc/init.d/platform
-    chmod 755 /etc/init.d/platform
-    update-rc.d platform defaults
-}  >> "$install_log" 2>&1
+echo "Skipping init.d service creation (not supported on macOS)"
 echo "* Creating RClone config file"
 
 {
@@ -281,12 +270,12 @@ echo "* Creating RClone config file"
 echo "* Creating Nginx config"
 
 {
-    cp "${dir}/nginx.conf" /etc/nginx/sites-available/platform
-    sed -i "s/NGINX_HOST/${config_server_name}/g" /etc/nginx/sites-available/platform
-    sed -i "s#NGINX_CERT#${config_ssl_cert}#g" /etc/nginx/sites-available/platform 
-    sed -i "s#NGINX_KEY#${config_ssl_key}#g" /etc/nginx/sites-available/platform 
-    sed -i "s#NGINX_DIR#${root_dir}#g" /etc/nginx/sites-available/platform 
-    ln -s /etc/nginx/sites-available/platform /etc/nginx/sites-enabled/platform
+    mkdir -p /opt/homebrew/etc/nginx/servers
+    cp "${dir}/nginx.conf" /opt/homebrew/etc/nginx/servers/platform.conf
+    sed -i '' "s/NGINX_HOST/${config_server_name}/g" /opt/homebrew/etc/nginx/servers/platform.conf
+    sed -i '' "s#NGINX_CERT#${config_ssl_cert}#g" /opt/homebrew/etc/nginx/servers/platform.conf
+    sed -i '' "s#NGINX_KEY#${config_ssl_key}#g" /opt/homebrew/etc/nginx/servers/platform.conf
+    sed -i '' "s#NGINX_DIR#${root_dir}#g" /opt/homebrew/etc/nginx/servers/platform.conf
 } >> "$install_log" 2>&1
 echo "* Moving variables and runCI files"
 
@@ -295,8 +284,9 @@ echo "* Moving variables and runCI files"
     cp $root_dir/install/ci-vm/ci-linux/ci/* "${sample_repository}/TestData/ci-linux/"
 } >> "$install_log" 2>&1
 echo "* Reloading nginx"
-service nginx reload >> "$install_log" 2>&1
+brew services restart nginx >> "$install_log" 2>&1
 echo ""
 echo "* Starting Platform..."
-service platform start
+echo "Platform service auto-start not supported on macOS. Run the platform manually."
 echo "Platform installed!"
+

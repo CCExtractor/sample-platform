@@ -34,16 +34,17 @@ from mod_sample.controllers import mod_sample
 from mod_test.controllers import mod_test
 from mod_upload.controllers import mod_upload
 
+
+import config as config_module
+print("DEBUG: config.py loaded from:", config_module.__file__)
+print("DEBUG: INSTALL_FOLDER value:", config_module.INSTALL_FOLDER)
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app)  # type: ignore[method-assign]
-# Load config
-try:
-    config = parse_config('config')
-except ImportStringError:
-    traceback.print_exc()
-    raise MissingConfigError()
 
-app.config.from_mapping(config)
+# Load config directly from config.py
+import config as config_module
+config_dict = {k: getattr(config_module, k) for k in dir(config_module) if k.isupper()}
+app.config.from_mapping(config_dict)
 app.config['DEBUG'] = os.environ.get('DEBUG', False)
 
 # embed flask-migrate in the app itself
@@ -60,12 +61,13 @@ log_configuration = LogConfiguration(app.root_path,
                                      app.config['DEBUG'])
 log = log_configuration.create_logger("Platform")
 
-# Create bucket objext using GCS storage client
-sa_file = os.path.join(app.config.get('INSTALL_FOLDER', ''), app.config.get('SERVICE_ACCOUNT_FILE', ''))
+# Create bucket object using GCS storage client
+sa_file = app.config.get('SERVICE_ACCOUNT_FILE', '')
 storage_client = Client.from_service_account_json(sa_file)
 storage_client_bucket = storage_client.bucket(app.config.get('GCS_BUCKET_NAME', ''))
 
 # Save build commit
+print('DEBUG: INSTALL_FOLDER value:', app.config.get('INSTALL_FOLDER', ''))
 repo = git.Repo(app.config.get('INSTALL_FOLDER', ''))
 app.config['BUILD_COMMIT'] = repo.head.object.hexsha
 
@@ -261,7 +263,7 @@ def teardown(exception: Optional[Exception]):
     db = g.get('db', None)
     if db is not None:
         db.remove()
-
+print("INSTALL_FOLDER:", app.config.get('INSTALL_FOLDER', ''))
 
 # Register blueprints
 app.register_blueprint(mod_auth, url_prefix='/account')

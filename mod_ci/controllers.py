@@ -993,8 +993,18 @@ def start_test(compute, app, db, repository: Repository.Repository, test, bot_to
 
     categories = Category.query.order_by(Category.id.desc()).all()
     commit_name = 'fetch_commit_' + test.platform.value
-    commit_hash = GeneralData.query.filter(GeneralData.key == commit_name).first().value
-    last_commit = Test.query.filter(and_(Test.commit == commit_hash, Test.platform == test.platform)).first()
+    commit_entry = GeneralData.query.filter(GeneralData.key == commit_name).first()
+    if commit_entry is None:
+        log.warning(f'No commit hash found for {commit_name}, skipping comparison')
+        commit_hash = None
+    else:
+        commit_hash = commit_entry.value
+    last_commit = (
+        Test.query.filter(
+            and_(Test.commit == commit_hash,
+                 Test.platform == test.platform)
+        ).first() if commit_hash else None
+    )
 
     if last_commit is not None:
         log.debug(f"[{gcp_instance_name}] We will compare against the results of test {last_commit.id}")
@@ -1031,7 +1041,7 @@ def start_test(compute, app, db, repository: Repository.Repository, test, bot_to
             output_node.text = regression_test.output_type.value
             compare = etree.SubElement(entry, 'compare')
             last_files = TestResultFile.query.filter(and_(
-                TestResultFile.test_id == last_commit.id,
+                TestResultFile.test_id == last_commit.id,  # type: ignore
                 TestResultFile.regression_test_id == regression_test.id
             )).subquery()
 

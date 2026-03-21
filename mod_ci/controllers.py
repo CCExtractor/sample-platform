@@ -46,7 +46,8 @@ from mod_regression.models import (Category, RegressionTest,
 from mod_sample.models import Issue
 from mod_test.controllers import get_test_results
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
-                             TestResult, TestResultFile, TestStatus, TestType)
+                             TestResult, TestResultFile, TestResultStatus,
+                             TestStatus, TestType)
 from utility import is_valid_signature, request_from_github
 
 # Timeout constants (in seconds)
@@ -2756,6 +2757,7 @@ def get_info_for_pr_comment(test: Test) -> PrCommentInfo:
     extra_failed_tests = []
     common_failed_tests = []
     fixed_tests = []
+    never_worked_tests = []
     category_stats = []
 
     test_results = get_test_results(test)
@@ -2764,20 +2766,23 @@ def get_info_for_pr_comment(test: Test) -> PrCommentInfo:
         category_name = category_results['category'].name
 
         category_test_pass_count = 0
-        for test in category_results['tests']:
-            if not test['error']:
+        for t in category_results['tests']:
+            if not t['error']:
                 category_test_pass_count += 1
-                if last_test_master and getattr(test['test'], platform_column) != last_test_master.id:
-                    fixed_tests.append(test['test'])
+                if last_test_master and getattr(t['test'], platform_column) != last_test_master.id:
+                    fixed_tests.append(t['test'])
             else:
-                if last_test_master and getattr(test['test'], platform_column) != last_test_master.id:
-                    common_failed_tests.append(test['test'])
+                # Separate out tests that have NEVER passed on any CCExtractor version
+                if t['status'] == TestResultStatus.never_worked:
+                    never_worked_tests.append(t['test'])
+                elif last_test_master and getattr(t['test'], platform_column) != last_test_master.id:
+                    common_failed_tests.append(t['test'])
                 else:
-                    extra_failed_tests.append(test['test'])
+                    extra_failed_tests.append(t['test'])
 
         category_stats.append(CategoryTestInfo(category_name, len(category_results['tests']), category_test_pass_count))
 
-    return PrCommentInfo(category_stats, extra_failed_tests, fixed_tests, common_failed_tests, last_test_master)
+    return PrCommentInfo(category_stats, extra_failed_tests, fixed_tests, common_failed_tests, last_test_master, never_worked_tests)
 
 
 def comment_pr(test: Test) -> str:
@@ -2813,6 +2818,9 @@ def comment_pr(test: Test) -> str:
         log.debug(f"GitHub PR Comment ID {comment.id} Uploaded for Test_id: {test_id}")
     except Exception as e:
         log.error(f"GitHub PR Comment Failed for Test_id: {test_id} with Exception {e}")
+    
+    # Determine PR status:
+    # SUCCESS if no regressions caused by PR (never_worked tests don't count)
     return Status.SUCCESS if len(comment_info.extra_failed_tests) == 0 else Status.FAILURE
 
 

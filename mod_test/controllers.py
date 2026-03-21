@@ -1,7 +1,7 @@
 """Logic to find all tests, their progress and details of individual test."""
 
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, TypedDict
 
 from flask import (Blueprint, Response, abort, g, jsonify, redirect, request,
                    url_for)
@@ -16,8 +16,24 @@ from mod_home.models import CCExtractorVersion, GeneralData
 from mod_regression.models import (Category, RegressionTestOutput,
                                    regressionTestLinkTable)
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
-                             TestResult, TestResultFile, TestStatus, TestType)
+                             TestResult, TestResultFile, TestResultStatus,
+                             TestStatus, TestType)
 from utility import serve_file_download
+
+
+class CategoryTestItem(TypedDict):
+    test: Any  # RegressionTest
+    result: Optional[TestResult]
+    files: List[TestResultFile]
+    error: bool
+    status: TestResultStatus
+
+
+class CategoryResult(TypedDict):
+    category: Category
+    tests: List[CategoryTestItem]
+    error: bool
+
 
 mod_test = Blueprint('test', __name__)
 
@@ -53,15 +69,22 @@ def index():
     }
 
 
-def get_test_results(test) -> List[Dict[str, Any]]:
+def get_test_results(test) -> List[CategoryResult]:
     """
-    Get test results for each category.
+    Get test results for each category, with three-way pass/fail/never_worked classification.
+
+    The never_worked status is determined by the explicit `never_worked` boolean flag on each
+    RegressionTest, which is admin-editable from the regression test edit page.
 
     :param test: The test to retrieve the data for.
     :type test: Test
     """
     populated_categories = g.db.query(regressionTestLinkTable.c.category_id).subquery()
     categories = Category.query.filter(Category.id.in_(populated_categories)).order_by(Category.name.asc()).all()
+
+    # Collect all regression test IDs that are part of this test run
+    all_rt_ids = set(test.get_customized_regressiontests())
+
     results = [{
         'category': category,
         'tests': [{
@@ -69,8 +92,10 @@ def get_test_results(test) -> List[Dict[str, Any]]:
             'result': next((r for r in test.results if r.regression_test_id == rt.id), None),
             'files': TestResultFile.query.filter(
                 and_(TestResultFile.test_id == test.id, TestResultFile.regression_test_id == rt.id)
-            ).all()
-        } for rt in category.regression_tests if rt.id in test.get_customized_regressiontests()]
+            ).all(),
+            'error': False,
+            'status': TestResultStatus.passed
+        } for rt in category.regression_tests if rt.id in all_rt_ids]
     } for category in categories]
     # Run through the categories to see if they should be marked as failed or passed. A category failed if one or more
     # tests in said category failed.
@@ -109,6 +134,15 @@ def get_test_results(test) -> List[Dict[str, Any]]:
                 category_test['files'] = [TestResultFile(-1, -1, -1, '', got)]
             # Store test status in error field
             category_test['error'] = test_error
+
+            # --- Three-way classification: passed / failed / never_worked ---
+            if not test_error:
+                category_test['status'] = TestResultStatus.passed
+            elif category_test['test'].never_worked:
+                category_test['status'] = TestResultStatus.never_worked
+            else:
+                category_test['status'] = TestResultStatus.failed
+
             # Update category error
             error = error or test_error
         category['error'] = error

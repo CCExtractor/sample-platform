@@ -41,6 +41,14 @@ NOTE: The following tests have been failing on the master branch as well as the 
 {% endfor %}
 </ul>
 {% endif %}
+{% if comment_info.never_worked_tests | length %}
+⚠️ <b>Note:</b> The following tests have NEVER passed on any version of CCExtractor for this platform. These are pre-existing issues and are NOT caused by this PR:
+<ul>
+{% for test in comment_info.never_worked_tests %}
+<li> ccextractor {{ test.command }} <a href="{{ url_for('sample.sample_by_id', sample_id=test.sample.id, _external=True) }}">{{ test.sample.sha[:10] }}...</a></li>
+{% endfor %}
+</ul>
+{% endif %}
 {% if comment_info.fixed_tests | length %}
 Congratulations: Merging this PR would fix the following tests:
 <ul>

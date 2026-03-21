@@ -417,28 +417,95 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_test.controllers.get_test_results')
     @mock.patch('github.Github')
-    def test_comments_successfuly_in_failed_pr_test(self, mock_github, mock_get_test_results):
+    def test_comments_successfuly_in_failed_pr_test(
+            self, mock_github, mock_get_test_results):
         """Check comments in failed PR test."""
         import mod_ci.controllers
         reload(mod_ci.controllers)
         from github.IssueComment import IssueComment
 
-        from mod_ci.controllers import comment_pr
+        from mod_ci.controllers import Status, comment_pr
         from mod_regression.models import Category, RegressionTest
         from mod_test.models import Test
-        pull_request = mock_github.return_value.get_repo.return_value.get_pull(number=1)
-        pull_request.get_issue_comments.return_value = [MagicMock(IssueComment)]
+        pull_request = (mock_github.return_value.get_repo.return_value
+                        .get_pull(number=1))
+        pull_request.get_issue_comments.return_value = [
+            MagicMock(IssueComment)]
         regression_test = RegressionTest.query.first()
-        mock_get_test_results.return_value = [{'category': MagicMock(Category), 'tests': [{
-            'test': regression_test, 'error': True}]}]
-        # Comment on test that fails some/all regression tests
+        from mod_test.models import TestResultStatus
+        cat_mock = {'category': MagicMock(Category), 'tests': [{
+            'test': regression_test, 'error': True,
+            'status': TestResultStatus.failed}]}
+        mock_get_test_results.return_value = [cat_mock]
         test = Test.query.get(2)
-        comment_pr(test)
+        result = comment_pr(test)
+        self.assertEqual(result, Status.FAILURE)
         pull_request.get_issue_comments.assert_called_with()
         args, kwargs = pull_request.create_issue_comment.call_args
         message = kwargs['body']
         if regression_test.command not in message:
             assert False, "Message not Correct"
+
+    @mock.patch('mod_ci.controllers.get_test_results')
+    def test_get_info_for_pr_comment_buckets_tests_correctly(
+            self, mock_get_test_results):
+        """Check that tests are correctly binned for PR comment."""
+        from mod_ci.controllers import get_info_for_pr_comment
+        from mod_test.models import (Test, TestPlatform, TestProgress,
+                                     TestResultStatus, TestStatus, TestType)
+        from mod_regression.models import Category, RegressionTest
+
+        test = Test.query.get(2)
+        test.platform = TestPlatform.linux
+
+        test_1 = MagicMock(spec=RegressionTest)
+        test_1.id = 1
+        test_1.command = "pass"
+
+        test_2 = MagicMock(spec=RegressionTest)
+        test_2.id = 2
+        test_2.command = "new_fail"
+        test_2.last_passed_on_linux = 999
+
+        test_3 = MagicMock(spec=RegressionTest)
+        test_3.id = 3
+        test_3.command = "common_fail"
+        test_3.last_passed_on_linux = 0
+
+        test_4 = MagicMock(spec=RegressionTest)
+        test_4.id = 4
+        test_4.command = "never_worked"
+        test_4.never_worked = True
+
+        cat_data = {'category': MagicMock(Category, name='cat'), 'tests': [
+            {'test': test_1, 'error': False,
+             'status': TestResultStatus.passed},
+            {'test': test_2, 'error': True,
+             'status': TestResultStatus.failed},
+            {'test': test_3, 'error': True,
+             'status': TestResultStatus.failed},
+            {'test': test_4, 'error': True,
+             'status': TestResultStatus.never_worked},
+        ]}
+        mock_get_test_results.return_value = [cat_data]
+
+        with mock.patch('mod_ci.controllers.g') as mock_g:
+            mock_last_test_master = MagicMock()
+            mock_last_test_master.id = 999
+            
+            q = mock_g.db.query.return_value
+            f1 = q.filter.return_value
+            (f1.join.return_value.filter.return_value
+             .order_by.return_value.first.return_value) = mock_last_test_master
+
+            info = get_info_for_pr_comment(test)
+            self.assertEqual(info.last_test_master.id, 999)
+            self.assertEqual(len(info.extra_failed_tests), 1)
+            self.assertEqual(info.extra_failed_tests[0].id, 2)
+            self.assertEqual(len(info.common_failed_tests), 1)
+            self.assertEqual(info.common_failed_tests[0].id, 3)
+            self.assertEqual(len(info.never_worked_tests), 1)
+            self.assertEqual(info.never_worked_tests[0].id, 4)
 
     def test_get_running_instances(self):
         """Test get_running_instances function."""

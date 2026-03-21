@@ -97,9 +97,10 @@ class RegressionTest(Base):
     last_passed_on_windows = Column(Integer, ForeignKey('test.id', onupdate="CASCADE", ondelete="SET NULL"))
     last_passed_on_linux = Column(Integer, ForeignKey('test.id', onupdate="CASCADE", ondelete="SET NULL"))
     description = Column(String(length=1024))
+    never_worked = Column(Boolean(), default=False, nullable=False, server_default='false')
 
     def __init__(self, sample_id, command, input_type, output_type, category_id, expected_rc,
-                 active=True, description="") -> None:
+                 active=True, description="", never_worked=False) -> None:
         """
         Parametrized constructor for the RegressionTest model.
 
@@ -117,7 +118,10 @@ class RegressionTest(Base):
         :type expected_rc: int
         :param active: The value of the 'active' field of RegressionTest model
         :type active: bool
-
+        :param description: The value of the 'description' field of RegressionTest model
+        :type description: str
+        :param never_worked: Boolean flag whether the test has never worked for this sample
+        :type never_worked: bool
         """
         self.sample_id = sample_id
         self.command = command
@@ -127,6 +131,7 @@ class RegressionTest(Base):
         self.expected_rc = expected_rc
         self.active = active
         self.description = description
+        self.never_worked = never_worked
 
     def __repr__(self) -> str:
         """

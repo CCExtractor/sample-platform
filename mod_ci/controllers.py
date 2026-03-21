@@ -1198,8 +1198,10 @@ def create_instance(compute, project, zone, test, reportURL) -> Dict:
     if test.platform == TestPlatform.linux:
         image_response = compute.images().getFromFamily(project=config.get('LINUX_INSTANCE_PROJECT_NAME', ''),
                                                         family=config.get('LINUX_INSTANCE_FAMILY_NAME', '')).execute()
-        startup_script = open(os.path.join(config.get('INSTALL_FOLDER', ''), 'install', 'ci-vm',
-                                           'ci-linux', 'startup-script.sh'), 'r').read()
+        with open(os.path.join(
+                config.get('INSTALL_FOLDER', ''), 'install', 'ci-vm',
+                'ci-linux', 'startup-script.sh'), 'r') as f:
+            startup_script = f.read()
         metadata_items = [
             {'key': 'startup-script', 'value': startup_script},
             {'key': 'reportURL', 'value': reportURL},
@@ -1208,12 +1210,18 @@ def create_instance(compute, project, zone, test, reportURL) -> Dict:
     elif test.platform == TestPlatform.windows:
         image_response = compute.images().getFromFamily(project=config.get('WINDOWS_INSTANCE_PROJECT_NAME', ''),
                                                         family=config.get('WINDOWS_INSTANCE_FAMILY_NAME', '')).execute()
-        startup_script = open(os.path.join(config.get('INSTALL_FOLDER', ''), 'install', 'ci-vm',
-                                           'ci-windows', 'startup-script.ps1'), 'r').read()
-        service_account = open(os.path.join(config.get('INSTALL_FOLDER', ''),
-                                            config.get('SERVICE_ACCOUNT_FILE', '')), 'r').read()
-        rclone_conf = open(os.path.join(config.get('INSTALL_FOLDER', ''), 'install', 'ci-vm',
-                                        'ci-windows', 'rclone.conf'), 'r').read()
+        with open(os.path.join(
+                config.get('INSTALL_FOLDER', ''), 'install', 'ci-vm',
+                'ci-windows', 'startup-script.ps1'), 'r') as f:
+            startup_script = f.read()
+        with open(os.path.join(
+                config.get('INSTALL_FOLDER', ''),
+                config.get('SERVICE_ACCOUNT_FILE', '')), 'r') as f:
+            service_account = f.read()
+        with open(os.path.join(
+                config.get('INSTALL_FOLDER', ''), 'install', 'ci-vm',
+                'ci-windows', 'rclone.conf'), 'r') as f:
+            rclone_conf = f.read()
         metadata_items = [
             {'key': 'windows-startup-script-ps1', 'value': startup_script},
             {'key': 'service_account', 'value': service_account},

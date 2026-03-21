@@ -11,6 +11,7 @@ from flask_testing import TestCase
 from sqlalchemy import text
 from werkzeug.datastructures import Headers
 
+import utility
 from database import create_session
 from mod_auth.models import Role, User
 from mod_customized.models import CustomizedTest, TestFork
@@ -278,6 +279,15 @@ class BaseTestCase(TestCase):
 
     def setUp(self):
         """Set up all entities."""
+        from datetime import datetime
+
+        import utility
+
+        # Reset the state directly for test isolation. No mocks needed!
+        utility.cached_load_time = datetime(1970, 1, 1)
+        utility.cached_web_hook_blocks = []
+
+        super().setUp()
         self.app.preprocess_request()
         g.db = create_session(
             self.app.config['DATABASE_URI'], drop_tables=True)
@@ -395,6 +405,10 @@ class BaseTestCase(TestCase):
         g.db.add(forbidden_mime)
         g.db.add_all(forbidden_ext)
         g.db.commit()
+
+    def tearDown(self):
+        """Clean up after every test."""
+        super().tearDown()
 
     @staticmethod
     def create_login_form_data(email, password) -> dict:

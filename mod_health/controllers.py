@@ -2,10 +2,11 @@
 
 import os
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
 
 from flask import Blueprint, current_app, jsonify
+from sqlalchemy import text
 
 mod_health = Blueprint('health', __name__)
 
@@ -20,7 +21,7 @@ def check_database() -> Dict[str, Any]:
     try:
         from database import create_session
         db = create_session(current_app.config['DATABASE_URI'])
-        db.execute('SELECT 1')
+        db.execute(text('SELECT 1'))
         # remove() returns the scoped session's connection to the pool
         db.remove()
         return {'status': 'ok'}
@@ -78,7 +79,7 @@ def health_check() -> Tuple[Any, int]:
 
     checks: Dict[str, Any] = {
         'status': 'healthy' if all_healthy else 'unhealthy',
-        'timestamp': datetime.utcnow().isoformat() + 'Z',
+        'timestamp': datetime.now(timezone.utc).isoformat(),
         'checks': check_results
     }
 
@@ -98,7 +99,7 @@ def liveness_check() -> Tuple[Any, int]:
     """
     return jsonify({
         'status': 'alive',
-        'timestamp': datetime.utcnow().isoformat() + 'Z'
+        'timestamp': datetime.now(timezone.utc).isoformat()
     }), 200
 
 
@@ -171,7 +172,7 @@ def version_check() -> Tuple[Any, int]:
     git_info = get_git_info()
 
     response = {
-        'timestamp': datetime.utcnow().isoformat() + 'Z',
+        'timestamp': datetime.now(timezone.utc).isoformat(),
         'git': git_info,
     }
 

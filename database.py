@@ -4,15 +4,15 @@ from __future__ import annotations
 import re
 import traceback
 from abc import ABCMeta
-from typing import Any, Dict, Iterator, Tuple, Type, Union
+from typing import Any, Dict, Iterator, Optional, Tuple, Type, Union
 
 from sqlalchemy import create_engine
-from sqlalchemy.dialects.sqlite.pysqlite import SQLiteDialect_pysqlite
+from sqlalchemy.engine import Dialect
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.declarative import DeclarativeMeta, declarative_base
-from sqlalchemy.orm import scoped_session, sessionmaker
-from sqlalchemy.sql.schema import Column, Table
-from sqlalchemy.sql.sqltypes import Enum, SchemaType, TypeDecorator
+from sqlalchemy.orm import (DeclarativeBase, DeclarativeMeta, scoped_session,
+                            sessionmaker)
+from sqlalchemy.pool import StaticPool
+from sqlalchemy.sql.sqltypes import String, TypeDecorator
 
 from exceptions import EnumParsingException, FailedToSpawnDBSession
 
@@ -23,7 +23,12 @@ class DeclarativeABCMeta(DeclarativeMeta, ABCMeta):
     pass
 
 
-Base = declarative_base(metaclass=DeclarativeMeta)
+class Base(DeclarativeBase):
+    """Base class for all models."""
+
+    pass
+
+
 Base.query = None
 db_engine = None
 
@@ -43,9 +48,18 @@ def create_session(db_string: str, drop_tables: bool = False) -> scoped_session:
     global db_engine, Base
 
     try:
-        # In testing, we want to maintain same memory variable
-        if db_engine is None or 'TESTING' not in os.environ or os.environ['TESTING'] == 'False':
-            db_engine = create_engine(db_string, convert_unicode=True)
+        # Only create engine if it doesn't exist
+        # For SQLite in-memory, we must reuse the engine to share the database
+        if db_engine is None:
+            # For SQLite in-memory databases, use StaticPool to share connection
+            if db_string == 'sqlite:///:memory:':
+                db_engine = create_engine(
+                    db_string,
+                    connect_args={"check_same_thread": False},
+                    poolclass=StaticPool
+                )
+            else:
+                db_engine = create_engine(db_string)
         db_session = scoped_session(sessionmaker(bind=db_engine))
         Base.query = db_session.query_property()
 
@@ -162,32 +176,27 @@ class DeclEnum(object, metaclass=EnumMeta):
         return DeclEnumType(cls)
 
 
-class DeclEnumType(SchemaType, TypeDecorator):
+class DeclEnumType(TypeDecorator):
     """Declarative enumeration type."""
 
     cache_ok = True
+    impl = String(50)
 
     def __init__(self, enum: Any) -> None:
         self.enum = enum
-        self.impl = Enum(
-            *enum.values(),
-            name="ck{0}".format(re.sub('([A-Z])', lambda m: "_" + m.group(1).lower(), enum.__name__))
-        )
+        super().__init__()
 
-    def _set_table(self, table: Column, column: Table) -> None:
-        self.impl._set_table(table, column)
-
-    def copy(self) -> DeclEnumType:
+    def copy(self, **kwargs: Any) -> DeclEnumType:
         """Get enumeration type of self."""
         return DeclEnumType(self.enum)
 
-    def process_bind_param(self, value: EnumSymbol, dialect: SQLiteDialect_pysqlite) -> str:
+    def process_bind_param(self, value: Optional[EnumSymbol], dialect: Dialect) -> Optional[str]:
         """Get process bind parameter."""
         if value is None:
             return None
         return value.value
 
-    def process_result_value(self, value: str, dialect: SQLiteDialect_pysqlite) -> EnumSymbol:
+    def process_result_value(self, value: Optional[str], dialect: Dialect) -> Optional[EnumSymbol]:
         """Get process result value."""
         if value is None:
             return None

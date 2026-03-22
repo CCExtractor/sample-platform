@@ -14,18 +14,76 @@ fi
 
 # Functions for re-use in various stages of the test progress
 
-# Post status to the server
+# Post status to the server with retry logic
 function postStatus {
-    echo "Posting ${1} - ${2} to the server:" >> "${logFile}"
-    curl -s -A "${userAgent}" --data "type=progress&status=$1&message=$2" -w "\n" "${reportURL}" >> "${logFile}"
-    sleep 5
+    local status="$1"
+    local message="$2"
+    local max_retries=3
+    local retry_delay=5
+    local attempt=1
+
+    echo "Posting ${status} - ${message} to the server:" >> "${logFile}"
+
+    while [ $attempt -le $max_retries ]; do
+        local http_code
+        http_code=$(curl -s -A "${userAgent}" --data "type=progress&status=${status}&message=${message}" \
+            -w "%{http_code}" -o /tmp/curl_response.txt "${reportURL}" 2>/dev/null)
+        local curl_exit=$?
+
+        if [ $curl_exit -eq 0 ] && [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
+            echo "Status posted successfully (HTTP ${http_code})" >> "${logFile}"
+            cat /tmp/curl_response.txt >> "${logFile}" 2>/dev/null
+            echo "" >> "${logFile}"
+            sleep 5
+            return 0
+        fi
+
+        echo "Attempt ${attempt}/${max_retries} failed (curl exit: ${curl_exit}, HTTP: ${http_code})" >> "${logFile}"
+        attempt=$((attempt + 1))
+
+        if [ $attempt -le $max_retries ]; then
+            echo "Retrying in ${retry_delay} seconds..." >> "${logFile}"
+            sleep $retry_delay
+            retry_delay=$((retry_delay * 2))
+        fi
+    done
+
+    echo "ERROR: Failed to post status after ${max_retries} attempts" >> "${logFile}"
+    return 1
 }
 
-# Send the log file to the server so it can be used
+# Send the log file to the server with retry logic
 function sendLogFile {
+    local max_retries=3
+    local retry_delay=5
+    local attempt=1
+
     echo "Sending log to the server:" >> "${logFile}"
-    curl -s -A "${userAgent}" --form "type=logupload" --form "file=@${logFile}" -w "\n" "${reportURL}"
-    sleep 5
+
+    while [ $attempt -le $max_retries ]; do
+        local http_code
+        http_code=$(curl -s -A "${userAgent}" --form "type=logupload" --form "file=@${logFile}" \
+            -w "%{http_code}" -o /tmp/curl_log_response.txt "${reportURL}" 2>/dev/null)
+        local curl_exit=$?
+
+        if [ $curl_exit -eq 0 ] && [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
+            echo "Log uploaded successfully (HTTP ${http_code})" >> "${logFile}"
+            sleep 5
+            return 0
+        fi
+
+        echo "Log upload attempt ${attempt}/${max_retries} failed (curl exit: ${curl_exit}, HTTP: ${http_code})" >> "${logFile}"
+        attempt=$((attempt + 1))
+
+        if [ $attempt -le $max_retries ]; then
+            echo "Retrying log upload in ${retry_delay} seconds..." >> "${logFile}"
+            sleep $retry_delay
+            retry_delay=$((retry_delay * 2))
+        fi
+    done
+
+    echo "ERROR: Failed to upload log after ${max_retries} attempts" >> "${logFile}"
+    return 1
 }
 
 # Exit script and post abort status

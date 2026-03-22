@@ -5,6 +5,7 @@ from operator import and_
 from typing import Any, Dict
 
 from flask import Blueprint, g, redirect, request, url_for
+from sqlalchemy import select
 
 from decorators import template_renderer
 from exceptions import SampleNotFoundException
@@ -66,14 +67,14 @@ def display_sample_info(sample) -> Dict[str, Any]:
 
     if len(regression_tests) > 0:
         if test_commit is not None:
-            sq = g.db.query(RegressionTest.id).filter(RegressionTest.sample_id == sample.id).subquery()
+            sq = select(RegressionTest.id).filter(RegressionTest.sample_id == sample.id)
             exit_code = g.db.query(TestResult.exit_code).filter(and_(
                 TestResult.exit_code != TestResult.expected_rc,
-                and_(TestResult.test_id == test_commit.id, TestResult.regression_test_id.in_(sq))
+                and_(TestResult.test_id == test_commit.id, TestResult.regression_test_id.in_(sq.select()))
             )).first()
             not_null = g.db.query(TestResultFile.got).filter(and_(
                 TestResultFile.got.isnot(None),
-                and_(TestResultFile.test_id == test_commit.id, TestResultFile.regression_test_id.in_(sq))
+                and_(TestResultFile.test_id == test_commit.id, TestResultFile.regression_test_id.in_(sq.select()))
             )).first()
 
             if exit_code is None and not_null is None:
@@ -82,17 +83,17 @@ def display_sample_info(sample) -> Dict[str, Any]:
                 status = 'Fail'
 
         if test_release is not None:
-            sq = g.db.query(RegressionTest.id).filter(
-                RegressionTest.sample_id == sample.id).subquery()
+            sq = select(RegressionTest.id).filter(
+                RegressionTest.sample_id == sample.id)
             exit_code = g.db.query(TestResult.exit_code).filter(
                 and_(
                     TestResult.exit_code != TestResult.expected_rc,
-                    and_(TestResult.test_id == test_release.id, TestResult.regression_test_id.in_(sq))
+                    and_(TestResult.test_id == test_release.id, TestResult.regression_test_id.in_(sq.select()))
                 )
             ).first()
             not_null = g.db.query(TestResultFile.got).filter(and_(
                 TestResultFile.got.isnot(None),
-                and_(TestResultFile.test_id == test_release.id, TestResultFile.regression_test_id.in_(sq))
+                and_(TestResultFile.test_id == test_release.id, TestResultFile.regression_test_id.in_(sq.select()))
             )).first()
 
             if exit_code is None and not_null is None:

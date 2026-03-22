@@ -58,10 +58,10 @@ sys.path.insert(0, '$INSTALL_FOLDER')
 try:
     from config_parser import parse_config
     config = parse_config('config')
-    from sqlalchemy import create_engine
+    from sqlalchemy import create_engine, text
     engine = create_engine(config['DATABASE_URI'])
     conn = engine.connect()
-    conn.execute('SELECT 1')
+    conn.execute(text('SELECT 1'))
     conn.close()
     print('Database connection OK')
 except Exception as e:
@@ -99,6 +99,32 @@ echo "✓ Disk space OK (${FREE_SPACE_MB}MB free)"
 if ! git diff --quiet 2>/dev/null; then
     echo "WARNING: Uncommitted changes detected in repository"
     git status --short
+fi
+
+# Check 8: Verify logs directory ownership
+LOGS_DIR="$INSTALL_FOLDER/logs"
+WEB_USER="${WEB_USER:-www-data}"
+if [ -d "$LOGS_DIR" ]; then
+    LOGS_OWNER=$(stat -c '%U' "$LOGS_DIR" 2>/dev/null || echo "unknown")
+    if [ "$LOGS_OWNER" != "$WEB_USER" ]; then
+        echo "WARNING: Logs directory owned by '$LOGS_OWNER', should be '$WEB_USER'"
+        echo "Fixing ownership..."
+        chown -R "$WEB_USER:$WEB_USER" "$LOGS_DIR" 2>/dev/null || {
+            echo "ERROR: Failed to fix logs ownership. Run manually:"
+            echo "  sudo chown -R $WEB_USER:$WEB_USER $LOGS_DIR"
+            exit 1
+        }
+        echo "✓ Logs directory ownership fixed"
+    else
+        echo "✓ Logs directory ownership OK ($WEB_USER)"
+    fi
+else
+    echo "Creating logs directory with correct ownership..."
+    mkdir -p "$LOGS_DIR"
+    chown "$WEB_USER:$WEB_USER" "$LOGS_DIR" 2>/dev/null || {
+        echo "WARNING: Could not set logs ownership (run as root)"
+    }
+    echo "✓ Logs directory created"
 fi
 
 # Export backup directory for other scripts

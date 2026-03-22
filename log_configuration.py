@@ -3,9 +3,10 @@
 import logging
 import logging.handlers
 import os
+import sys
 from logging import Logger, StreamHandler
 from logging.handlers import RotatingFileHandler
-from typing import Union
+from typing import Optional, Union
 
 
 class LogConfiguration:
@@ -19,21 +20,47 @@ class LogConfiguration:
             self._consoleLogger.setLevel(logging.DEBUG)
         else:
             self._consoleLogger.setLevel(logging.INFO)
-        # create a file handler
-        path = os.path.join(folder, 'logs', f'{filename}.log')
-        self._fileLogger = logging.handlers.RotatingFileHandler(path, maxBytes=1024 * 1024, backupCount=20)
-        self._fileLogger.setLevel(logging.DEBUG)
-        # create a logging format
-        formatter = logging.Formatter('[%(name)s][%(levelname)s][%(asctime)s] %(message)s')
-        self._fileLogger.setFormatter(formatter)
+
+        # create a file handler with permission error handling
+        self._fileLogger: Optional[RotatingFileHandler] = None
+        log_dir = os.path.join(folder, 'logs')
+        path = os.path.join(log_dir, f'{filename}.log')
+
+        try:
+            # Ensure logs directory exists
+            os.makedirs(log_dir, exist_ok=True)
+
+            self._fileLogger = logging.handlers.RotatingFileHandler(
+                path, maxBytes=1024 * 1024, backupCount=20
+            )
+            self._fileLogger.setLevel(logging.DEBUG)
+            # create a logging format
+            formatter = logging.Formatter('[%(name)s][%(levelname)s][%(asctime)s] %(message)s')
+            self._fileLogger.setFormatter(formatter)
+        except PermissionError as e:
+            # Log file owned by different user (e.g., root vs www-data)
+            # Fall back to console-only logging rather than crashing
+            print(
+                f"[WARNING] Cannot write to log file {path}: {e}. "
+                f"Falling back to console-only logging. "
+                f"Fix: sudo chown www-data:www-data {log_dir} -R",
+                file=sys.stderr
+            )
+        except OSError as e:
+            # Other filesystem errors (disk full, etc.)
+            print(
+                f"[WARNING] Cannot create log file {path}: {e}. "
+                f"Falling back to console-only logging.",
+                file=sys.stderr
+            )
 
     @property
-    def file_logger(self) -> RotatingFileHandler:
+    def file_logger(self) -> Optional[RotatingFileHandler]:
         """
         Get file logger.
 
-        :return: file logger
-        :rtype: logging.handlers.RotatingFileHandler
+        :return: file logger or None if file logging unavailable
+        :rtype: Optional[logging.handlers.RotatingFileHandler]
         """
         return self._fileLogger
 
@@ -59,7 +86,8 @@ class LogConfiguration:
         logger = logging.getLogger(name)
         logger.setLevel(logging.DEBUG)
         # add the handlers to the logger
-        logger.addHandler(self.file_logger)
-        logger.addHandler(self.console_logger)
+        if self._fileLogger is not None:
+            logger.addHandler(self._fileLogger)
+        logger.addHandler(self._consoleLogger)
 
         return logger

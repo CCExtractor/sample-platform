@@ -1,6 +1,8 @@
 """maintains all functionality related running virtual machines, starting and tracking tests."""
 
+import base64
 import datetime
+import fnmatch
 import hashlib
 import json
 import os
@@ -15,6 +17,7 @@ from typing import Any, Callable, Dict, Optional, TypeVar
 
 import googleapiclient.discovery
 import requests
+import yaml
 from flask import (Blueprint, abort, flash, g, jsonify, redirect, request,
                    url_for)
 from github import (Auth, Commit, Github, GithubException, GithubObject,
@@ -23,7 +26,7 @@ from google.oauth2 import service_account
 from lxml import etree
 from markdown2 import markdown
 from pymysql.err import IntegrityError
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, select
 from sqlalchemy.sql import label
 from sqlalchemy.sql.functions import count
 from werkzeug.utils import secure_filename
@@ -51,6 +54,7 @@ GITHUB_API_TIMEOUT = 30  # Timeout for GitHub API calls
 GCP_API_TIMEOUT = 60  # Timeout for GCP API calls
 ARTIFACT_DOWNLOAD_TIMEOUT = 300  # 5 minutes for artifact downloads
 GCP_OPERATION_MAX_WAIT = 1800  # 30 minutes max wait for GCP operations
+GCP_VM_CREATE_VERIFY_TIMEOUT = 60  # 60 seconds to verify VM creation started
 
 # Retry constants
 MAX_RETRIES = 3
@@ -130,13 +134,50 @@ GCP_ERROR_MESSAGES = {
         "The test will be retried automatically when resources become available."
     ),
     'QUOTA_EXCEEDED': (
-        "GCP quota limit reached. Please wait for other tests to complete "
-        "or contact the administrator."
+        "GCP quota limit reached. "
+        "The test will be retried automatically when resources become available."
     ),
     'RESOURCE_NOT_FOUND': "Required GCP resource not found. Please contact the administrator.",
     'RESOURCE_ALREADY_EXISTS': "A VM with this name already exists. Please contact the administrator.",
     'TIMEOUT': "GCP operation timed out. The test will be retried automatically.",
 }
+
+# GCP error codes that are transient and should be retried automatically.
+# Tests encountering these errors will remain pending and be picked up on the next cron run.
+GCP_RETRYABLE_ERRORS = {
+    'ZONE_RESOURCE_POOL_EXHAUSTED',
+    'QUOTA_EXCEEDED',
+}
+
+
+def get_gcp_error_code(result: Dict) -> Optional[str]:
+    """
+    Extract the error code from a GCP API error response.
+
+    :param result: The GCP API response dictionary
+    :return: The error code string, or None if not found
+    """
+    if not isinstance(result, dict):
+        return None
+    error = result.get('error')
+    if not isinstance(error, dict):
+        return None
+    errors = error.get('errors', [])
+    if not errors or not isinstance(errors, list):
+        return None
+    first_error = errors[0] if len(errors) > 0 else {}
+    return first_error.get('code')
+
+
+def is_retryable_gcp_error(result: Dict) -> bool:
+    """
+    Check if a GCP error is transient and should be retried.
+
+    :param result: The GCP API response dictionary
+    :return: True if the error is retryable, False otherwise
+    """
+    error_code = get_gcp_error_code(result)
+    return error_code in GCP_RETRYABLE_ERRORS
 
 
 def parse_gcp_error(result: Dict, log=None) -> str:
@@ -209,7 +250,7 @@ class Artifact_names(DeclEnum):
     """Define CCExtractor GitHub Artifacts names."""
 
     linux = "CCExtractor Linux build"
-    windows = "CCExtractor Windows Release build"
+    windows = "CCExtractor Windows x64 Release build"
 
 
 def is_valid_commit_hash(commit: Optional[str]) -> bool:
@@ -470,7 +511,14 @@ def delete_expired_instances(compute, max_runtime, project, zone, db, repository
 
                 gh_commit = repository.get_commit(test.commit)
                 if gh_commit is not None:
-                    update_status_on_github(gh_commit, Status.ERROR, message, f"CI - {platform_name}")
+                    # Build target_url so users can see test results
+                    from flask import url_for
+                    try:
+                        target_url = url_for('test.by_id', test_id=test_id, _external=True)
+                    except RuntimeError:
+                        # Outside of request context
+                        target_url = f"https://sampleplatform.ccextractor.org/test/{test_id}"
+                    update_status_on_github(gh_commit, Status.ERROR, message, f"CI - {platform_name}", target_url)
 
                 # Delete VM instance with tracking for verification
                 from run import log
@@ -637,6 +685,126 @@ def mark_test_failed(db, test, repository, message: str) -> bool:
     return db_success and github_success
 
 
+# Mapping of workflow names to their YAML files in the repository
+WORKFLOW_FILES = {
+    "Build CCExtractor on Linux": ".github/workflows/build_linux.yml",
+    "Build CCExtractor on Windows": ".github/workflows/build_windows.yml",
+}
+
+# Cache for workflow path filters (refreshed periodically)
+_workflow_filters_cache: Dict[str, tuple] = {}  # {workflow_name: (filters, timestamp)}
+WORKFLOW_CACHE_TTL = 3600  # 1 hour cache TTL
+
+
+def _get_workflow_path_filters(repository, workflow_name: str, log) -> Optional[list]:
+    """
+    Fetch and parse the workflow YAML to extract path filters.
+
+    Returns a list of path patterns that trigger the workflow, or None if
+    the workflow has no path filters (runs on all changes).
+
+    :param repository: GitHub repository object
+    :param workflow_name: Name of the workflow (e.g., "Build CCExtractor on Linux")
+    :param log: Logger instance
+    :return: List of path patterns, or None if no filters
+    """
+    import time as time_module
+
+    # Check cache first
+    if workflow_name in _workflow_filters_cache:
+        filters, cached_at = _workflow_filters_cache[workflow_name]
+        if time_module.time() - cached_at < WORKFLOW_CACHE_TTL:
+            return filters
+
+    workflow_file = WORKFLOW_FILES.get(workflow_name)
+    if not workflow_file:
+        log.warning(f"Unknown workflow: {workflow_name}")
+        return None
+
+    try:
+        # Fetch the workflow file content from the repository
+        contents = repository.get_contents(workflow_file)
+        workflow_yaml = base64.b64decode(contents.content).decode('utf-8')
+
+        # Parse the YAML
+        workflow_config = yaml.safe_load(workflow_yaml)
+
+        # Extract path filters from 'on.push.paths' and 'on.pull_request.paths'
+        on_config = workflow_config.get('on', {})
+        path_filters = set()
+
+        # Check push paths
+        push_config = on_config.get('push', {})
+        if isinstance(push_config, dict) and 'paths' in push_config:
+            path_filters.update(push_config['paths'])
+
+        # Check pull_request paths
+        pr_config = on_config.get('pull_request', {})
+        if isinstance(pr_config, dict) and 'paths' in pr_config:
+            path_filters.update(pr_config['paths'])
+
+        filters = list(path_filters) if path_filters else None
+
+        # Cache the result
+        _workflow_filters_cache[workflow_name] = (filters, time_module.time())
+
+        log.debug(f"Workflow '{workflow_name}' path filters: {filters}")
+        return filters
+
+    except Exception as e:
+        log.warning(f"Failed to fetch/parse workflow file {workflow_file}: {e}")
+        return None  # Assume no filters on error (will retry)
+
+
+def _will_workflow_run_for_commit(repository, commit_sha: str, workflow_name: str, log) -> Optional[bool]:
+    """
+    Check if a workflow will run for a given commit based on path filters.
+
+    :param repository: GitHub repository object
+    :param commit_sha: The commit SHA to check
+    :param workflow_name: Name of the workflow
+    :param log: Logger instance
+    :return: True if workflow will run (files match), False if it won't (no match),
+             None if cannot determine (no path filters or error)
+    """
+    # Get the workflow's path filters
+    path_filters = _get_workflow_path_filters(repository, workflow_name, log)
+
+    if path_filters is None:
+        # No path filters means workflow runs on all changes
+        return None
+
+    try:
+        # Get the list of files changed in this commit
+        commit = repository.get_commit(commit_sha)
+        changed_files = [f.filename for f in commit.files]
+
+        log.debug(f"Commit {commit_sha[:7]} changed {len(changed_files)} files")
+
+        # Check if any changed file matches any path filter
+        for changed_file in changed_files:
+            for pattern in path_filters:
+                # Handle ** patterns (match any path depth)
+                if '**' in pattern:
+                    # Convert ** glob to regex-compatible pattern
+                    regex_pattern = pattern.replace('**/', '(.*/)?').replace('**', '.*')
+                    regex_pattern = regex_pattern.replace('*', '[^/]*')
+                    if re.match(regex_pattern, changed_file):
+                        log.debug(f"File '{changed_file}' matches pattern '{pattern}'")
+                        return True
+                elif fnmatch.fnmatch(changed_file, pattern):
+                    log.debug(f"File '{changed_file}' matches pattern '{pattern}'")
+                    return True
+
+        # No files matched any pattern
+        log.info(f"Commit {commit_sha[:7]}: No changed files match workflow '{workflow_name}' path filters")
+        return False
+
+    except Exception as e:
+        log.warning(f"Failed to check commit files against workflow filters: {e}")
+        return None  # Cannot determine
+
+
 def _diagnose_missing_artifact(repository, commit_sha: str, platform, log) -> tuple:
     """
     Diagnose why an artifact was not found for a commit.
@@ -657,6 +825,16 @@ def _diagnose_missing_artifact(repository, commit_sha: str, platform, log) -> tu
         expected_workflow = Workflow_builds.LINUX
     else:
         expected_workflow = Workflow_builds.WINDOWS
+
+    # First, check if the workflow will even run based on path filters
+    will_run = _will_workflow_run_for_commit(repository, commit_sha, expected_workflow, log)
+    if will_run is False:
+        # Workflow will definitely NOT run - no matching files in commit
+        message = (f"No build will be created: commit {commit_sha[:7]} does not modify any files "
+                   f"that trigger the '{expected_workflow}' workflow. "
+                   f"Only documentation or non-code files were changed.")
+        log.info(f"Commit {commit_sha[:7]}: workflow '{expected_workflow}' will not run due to path filters")
+        return (message, False)  # NOT retryable - workflow will never run
 
     try:
         # Build workflow name lookup
@@ -717,8 +895,33 @@ def _diagnose_missing_artifact(repository, commit_sha: str, platform, log) -> tu
                 return (message, False)  # Not retryable
 
         if not workflow_found:
-            # No workflow run found - could be queued or not triggered
-            # This is RETRYABLE (workflow might be queued or path filters excluded it)
+            # No workflow run found - could be queued, not triggered, or too old
+            # Check commit age to determine if we should keep waiting
+            MAX_WAIT_HOURS = 3
+            try:
+                from datetime import datetime, timedelta, timezone
+                commit_obj = repository.get_commit(commit_sha)
+                commit_date = commit_obj.commit.author.date
+                if commit_date.tzinfo is None:
+                    commit_date = commit_date.replace(tzinfo=timezone.utc)
+                now = datetime.now(timezone.utc)
+                commit_age = now - commit_date
+
+                if commit_age > timedelta(hours=MAX_WAIT_HOURS):
+                    # Commit is too old - workflow was never triggered or history expired
+                    hours_old = commit_age.total_seconds() / 3600
+                    message = (f"No build available: '{expected_workflow}' never ran for commit "
+                               f"{commit_sha[:7]} (commit is {hours_old:.1f} hours old). "
+                               f"The workflow was likely not triggered due to path filters, "
+                               f"or the commit predates the workflow configuration.")
+                    log.info(f"Commit {commit_sha[:7]} is {hours_old:.1f} hours old with no workflow run - "
+                             f"marking as permanent failure")
+                    return (message, False)  # NOT retryable - too old
+            except Exception as e:
+                log.warning(f"Could not check commit age: {e}")
+                # Fall through to retryable on error
+
+            # Commit is recent enough - workflow might still be queued
             message = (f"No workflow run found: '{expected_workflow}' has not run for commit "
                        f"{commit_sha[:7]}. The workflow may be queued, or was not triggered "
                        f"due to path filters. Will retry.")
@@ -921,18 +1124,43 @@ def start_test(compute, app, db, repository: Repository.Repository, test, bot_to
     # Check if the create_instance call itself returned an error (synchronous failure)
     if 'error' in operation:
         error_msg = parse_gcp_error(operation)
+        if is_retryable_gcp_error(operation):
+            # Transient error - leave test pending for retry on next cron run
+            log.warning(f"Test {test.id}: VM creation hit retryable error, will retry: {error_msg}")
+            return
         log.error(f"Error creating test instance for test {test.id}, result: {operation}")
         mark_test_failed(db, test, repository, error_msg)
         return
 
-    # VM creation request was accepted - record the instance optimistically
-    # We don't wait for the operation to complete because:
-    # 1. Waiting can take 60+ seconds, blocking gunicorn workers
-    # 2. If VM creation ultimately fails, the test won't report progress
-    #    and will be cleaned up by the expired instances cron job
+    # Wait for the VM creation operation to complete (or timeout)
+    # This catches quota errors and other failures that occur shortly after the
+    # insert request is accepted. Without this check, tests can get stuck forever
+    # when VM creation fails but a GcpInstance record is created.
     op_name = operation.get('name', 'unknown')
-    log.info(f"Test {test.id}: VM creation initiated (op: {op_name})")
+    log.info(f"Test {test.id}: VM creation initiated (op: {op_name}), waiting for verification...")
 
+    result = wait_for_operation(compute, project_id, zone, op_name, max_wait=GCP_VM_CREATE_VERIFY_TIMEOUT)
+
+    # Check if operation completed with an error (e.g., QUOTA_EXCEEDED)
+    if 'error' in result:
+        error_msg = parse_gcp_error(result)
+        log.error(f"Test {test.id}: VM creation failed: {error_msg}")
+        log.error(f"Test {test.id}: Full GCP response: {result}")
+        if is_retryable_gcp_error(result):
+            # Transient error - leave test pending for retry on next cron run
+            log.info(f"Test {test.id}: Error is retryable, will retry on next cron run")
+            return
+        mark_test_failed(db, test, repository, error_msg)
+        return
+
+    # Check for timeout - operation still running, which is OK for slow VM creation
+    if result.get('status') == 'TIMEOUT':
+        log.warning(f"Test {test.id}: VM creation still in progress after {GCP_VM_CREATE_VERIFY_TIMEOUT}s, "
+                    "recording instance optimistically")
+    else:
+        log.info(f"Test {test.id}: VM creation verified successfully")
+
+    # VM creation succeeded (or is still in progress) - record the instance
     db.add(status)
     if not safe_db_commit(db, f"recording GCP instance for test {test.id}"):
         log.error(f"Failed to record GCP instance for test {test.id}, but VM creation was initiated")
@@ -960,8 +1188,10 @@ def create_instance(compute, project, zone, test, reportURL) -> Dict:
     if test.platform == TestPlatform.linux:
         image_response = compute.images().getFromFamily(project=config.get('LINUX_INSTANCE_PROJECT_NAME', ''),
                                                         family=config.get('LINUX_INSTANCE_FAMILY_NAME', '')).execute()
-        startup_script = open(os.path.join(config.get('INSTALL_FOLDER', ''), 'install', 'ci-vm',
-                                           'ci-linux', 'startup-script.sh'), 'r').read()
+        with open(os.path.join(
+                config.get('INSTALL_FOLDER', ''), 'install', 'ci-vm',
+                'ci-linux', 'startup-script.sh'), 'r') as f:
+            startup_script = f.read()
         metadata_items = [
             {'key': 'startup-script', 'value': startup_script},
             {'key': 'reportURL', 'value': reportURL},
@@ -970,12 +1200,18 @@ def create_instance(compute, project, zone, test, reportURL) -> Dict:
     elif test.platform == TestPlatform.windows:
         image_response = compute.images().getFromFamily(project=config.get('WINDOWS_INSTANCE_PROJECT_NAME', ''),
                                                         family=config.get('WINDOWS_INSTANCE_FAMILY_NAME', '')).execute()
-        startup_script = open(os.path.join(config.get('INSTALL_FOLDER', ''), 'install', 'ci-vm',
-                                           'ci-windows', 'startup-script.ps1'), 'r').read()
-        service_account = open(os.path.join(config.get('INSTALL_FOLDER', ''),
-                                            config.get('SERVICE_ACCOUNT_FILE', '')), 'r').read()
-        rclone_conf = open(os.path.join(config.get('INSTALL_FOLDER', ''), 'install', 'ci-vm',
-                                        'ci-windows', 'rclone.conf'), 'r').read()
+        with open(os.path.join(
+                config.get('INSTALL_FOLDER', ''), 'install', 'ci-vm',
+                'ci-windows', 'startup-script.ps1'), 'r') as f:
+            startup_script = f.read()
+        with open(os.path.join(
+                config.get('INSTALL_FOLDER', ''),
+                config.get('SERVICE_ACCOUNT_FILE', '')), 'r') as f:
+            service_account = f.read()
+        with open(os.path.join(
+                config.get('INSTALL_FOLDER', ''), 'install', 'ci-vm',
+                'ci-windows', 'rclone.conf'), 'r') as f:
+            rclone_conf = f.read()
         metadata_items = [
             {'key': 'windows-startup-script-ps1', 'value': startup_script},
             {'key': 'service_account', 'value': service_account},
@@ -2203,13 +2439,15 @@ def progress_type_request(log, test, test_id, request) -> bool:
                 TestResult.test_id == test.id,
                 TestResult.exit_code != TestResult.expected_rc
             )).scalar()
-        results_zero_rc = g.db.query(RegressionTest.id).filter(
+        results_zero_rc = select(RegressionTest.id).filter(
             RegressionTest.expected_rc == 0
-        ).subquery()
+        )
         results = g.db.query(count(TestResultFile.got)).filter(
             and_(
                 TestResultFile.test_id == test.id,
-                TestResultFile.regression_test_id.in_(results_zero_rc),
+                TestResultFile.regression_test_id.in_(
+                    results_zero_rc.select()
+                ),
                 TestResultFile.got.isnot(None)
             )
         ).scalar()
@@ -2281,17 +2519,17 @@ def progress_type_request(log, test, test_id, request) -> bool:
         total_time = 0
 
         if current_average is None:
-            platform_tests = g.db.query(Test.id).filter(Test.platform == test.platform).subquery()
-            finished_tests = g.db.query(TestProgress.test_id).filter(
+            platform_tests = select(Test.id).filter(Test.platform == test.platform)
+            finished_tests = select(TestProgress.test_id).filter(
                 and_(
                     TestProgress.status.in_([TestStatus.canceled, TestStatus.completed]),
-                    TestProgress.test_id.in_(platform_tests)
+                    TestProgress.test_id.in_(platform_tests.select())
                 )
-            ).subquery()
+            )
             in_progress_statuses = [TestStatus.preparation, TestStatus.completed, TestStatus.canceled]
             finished_tests_progress = g.db.query(TestProgress).filter(
                 and_(
-                    TestProgress.test_id.in_(finished_tests),
+                    TestProgress.test_id.in_(finished_tests.select()),
                     TestProgress.status.in_(in_progress_statuses)
                 )
             ).subquery()

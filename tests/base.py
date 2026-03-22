@@ -1,14 +1,17 @@
 """Contains base test case with needed setup and helpers."""
 
 import os
+import warnings
 from collections import namedtuple
 from contextlib import contextmanager
 from unittest import mock
 
 from flask import g
 from flask_testing import TestCase
+from sqlalchemy import text
 from werkzeug.datastructures import Headers
 
+import utility
 from database import create_session
 from mod_auth.models import Role, User
 from mod_customized.models import CustomizedTest, TestFork
@@ -20,6 +23,15 @@ from mod_sample.models import ForbiddenExtension, ForbiddenMimeType, Sample
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
                              TestResult, TestResultFile, TestStatus, TestType)
 from mod_upload.models import Platform, Upload
+
+# Filter RuntimeWarning about coroutines from AsyncMock in Python 3.13+
+# This occurs when MagicMock auto-detects async-like method names (commit, debug, etc.)
+# Must be set before test execution begins.
+warnings.filterwarnings(
+    "ignore",
+    message="coroutine .* was never awaited",
+    category=RuntimeWarning
+)
 
 
 @contextmanager
@@ -46,6 +58,26 @@ def empty_github_token():
         g.github['bot_token'] = original
 
 
+def setup_mock_g(mock_g):
+    """
+    Set up mock_g with explicit MagicMock objects to avoid AsyncMock warnings.
+
+    In Python 3.13+, MagicMock returns AsyncMock for method calls that look
+    async-like (commit, debug, warning, etc.). This causes RuntimeWarnings
+    when the code calls these methods synchronously.
+
+    This helper sets up explicit MagicMock objects for g.db and g.log to
+    prevent these warnings.
+
+    :param mock_g: The mocked g object from @mock.patch
+    :return: mock_g for chaining
+    """
+    from unittest.mock import MagicMock
+    mock_g.db = MagicMock()
+    mock_g.log = MagicMock()
+    return mock_g
+
+
 def create_mock_db_query(mock_g, extra_setup=None):
     """
     Create a MagicMock for mock_g.db with common query chain setup.
@@ -59,6 +91,7 @@ def create_mock_db_query(mock_g, extra_setup=None):
     """
     from unittest.mock import MagicMock
     mock_g.db = MagicMock()
+    mock_g.log = MagicMock()  # Also set up log to prevent AsyncMock warnings
     mock_query = MagicMock()
     mock_g.db.query.return_value = mock_query
     mock_query.filter.return_value = mock_query
@@ -246,11 +279,20 @@ class BaseTestCase(TestCase):
 
     def setUp(self):
         """Set up all entities."""
+        from datetime import datetime
+
+        import utility
+
+        # Reset the state directly for test isolation. No mocks needed!
+        utility.cached_load_time = datetime(1970, 1, 1)
+        utility.cached_web_hook_blocks = []
+
+        super().setUp()
         self.app.preprocess_request()
         g.db = create_session(
             self.app.config['DATABASE_URI'], drop_tables=True)
         # enable Foreign keys for unit tests
-        g.db.execute('pragma foreign_keys=on')
+        g.db.execute(text('pragma foreign_keys=on'))
 
         general_data = [
             GeneralData('last_commit', "1978060bf7d2edd119736ba3ba88341f3bec3323"),
@@ -363,6 +405,10 @@ class BaseTestCase(TestCase):
         g.db.add(forbidden_mime)
         g.db.add_all(forbidden_ext)
         g.db.commit()
+
+    def tearDown(self):
+        """Clean up after every test."""
+        super().tearDown()
 
     @staticmethod
     def create_login_form_data(email, password) -> dict:

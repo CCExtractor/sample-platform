@@ -2708,8 +2708,20 @@ def finish_type_request(log, test_id, test, request):
     """
     log.debug(f"Finish for {test_id}/{request.form['test_id']}")
     regression_test = RegressionTest.query.filter(RegressionTest.id == request.form['test_id']).first()
+
+    raw_runtime = request.form.get('runTime', 0)
+    try:
+        runtime = int(raw_runtime)
+    except (TypeError, ValueError):
+        log.warning(f"Invalid runtime '{raw_runtime}' for test {test_id}; storing 0")
+        runtime = 0
+
+    if runtime < 0:
+        log.warning(f"Negative runtime {runtime} for test {test_id}; clamping to 0")
+        runtime = 0
+
     result = TestResult(
-        test.id, regression_test.id, request.form['runTime'],
+        test.id, regression_test.id, runtime,
         request.form['exitCode'], regression_test.expected_rc
     )
     g.db.add(result)

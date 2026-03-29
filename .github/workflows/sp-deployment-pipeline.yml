@@ -87,6 +87,7 @@ jobs:
               sudo cp "install/ci-vm/ci-linux/ci/bootstrap" "${SAMPLE_REPOSITORY}/TestData/ci-linux/bootstrap" 2>/dev/null || true
               sudo cp "install/ci-vm/ci-linux/ci/runCI" "${SAMPLE_REPOSITORY}/TestData/ci-linux/runCI" 2>/dev/null || true
               sudo cp "install/ci-vm/ci-windows/ci/runCI.bat" "${SAMPLE_REPOSITORY}/TestData/ci-windows/runCI.bat" 2>/dev/null || true
+              sudo cp "install/ci-vm/ci-windows/ci/variables.bat" "${SAMPLE_REPOSITORY}/TestData/ci-windows/variables.bat" 2>/dev/null || true
 
               sudo systemctl reload platform
             fi

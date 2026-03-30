@@ -137,6 +137,16 @@ class RegressionTest(Base):
         """
         return f"<RegressionTest {self.id}>"
 
+    @property
+    def never_worked(self) -> bool:
+        """
+        Determine if this regression test has never passed on any platform.
+
+        :return: True if the test has no pass history on either platform
+        :rtype: bool
+        """
+        return self.last_passed_on_linux is None and self.last_passed_on_windows is None
+
 
 class RegressionTestOutput(Base):
     """Model to store output of regression test."""

@@ -13,6 +13,7 @@
                     <tr>
                         <th>ID</th>
                         <th>Command</th>
+                        <th>Platform History</th>
                         <th>Actions</th>
                     </tr>
                     </thead>
@@ -21,6 +22,18 @@
                         <tr>
                             <td>{{ test.id }}</td>
                             <td>{{ test.command }}</td>
+                            <td>
+                                {% if test.never_worked %}
+                                    <span class="label alert">Never Worked</span>
+                                {% else %}
+                                    {% if test.last_passed_on_linux %}
+                                        <i class="fa fa-linux" title="Linux"></i> <a href="{{ url_for('test.by_id', test_id=test.last_passed_on_linux) }}">#{{ test.last_passed_on_linux }}</a>&nbsp;
+                                    {% endif %}
+                                    {% if test.last_passed_on_windows %}
+                                        <i class="fa fa-windows" title="Windows"></i> <a href="{{ url_for('test.by_id', test_id=test.last_passed_on_windows) }}">#{{ test.last_passed_on_windows }}</a>
+                                    {% endif %}
+                                {% endif %}
+                            </td>
                             <td>
                                 <a href="{{ url_for('.test_view', regression_id=test.id) }}" title="View details"><i class="fa fa-info-circle"></i></a>&nbsp;
                                 {% if user is not none and user.has_role('contributor') %}

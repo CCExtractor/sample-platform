@@ -12,6 +12,23 @@
             <p>Input type: {{ test.input_type.description }}</p>
             <p>Output type: {{ test.output_type.description }}</p>
             <p>Description: {{ test.description or "No description" }}</p>
+            <p>Platform history:</p>
+            <ul>
+                <li>Linux:
+                    {% if test.last_passed_on_linux %}
+                        Last passed on <a href="{{ url_for('test.by_id', test_id=test.last_passed_on_linux) }}">Test #{{ test.last_passed_on_linux }}</a>
+                    {% else %}
+                        <span class="label alert">Never passed</span>
+                    {% endif %}
+                </li>
+                <li>Windows:
+                    {% if test.last_passed_on_windows %}
+                        Last passed on <a href="{{ url_for('test.by_id', test_id=test.last_passed_on_windows) }}">Test #{{ test.last_passed_on_windows }}</a>
+                    {% else %}
+                        <span class="label alert">Never passed</span>
+                    {% endif %}
+                </li>
+            </ul>
             <p id="tags" href="#tags">
                 {% set sample = test.sample %}
                 Tags of sample:

@@ -575,3 +575,55 @@ class TestControllers(BaseTestCase):
         self.assertIn('data-category="1"', str(response.data))
         # The JavaScript should ensure the description is visible, but we can't test JS execution in unit tests
         # This test verifies the HTML structure is correct for the fix to work
+
+    def test_never_worked_when_both_platforms_null(self):
+        """Check never_worked is True when neither platform has a passing run."""
+        regression_test = RegressionTest.query.filter(RegressionTest.id == 1).first()
+        self.assertIsNone(regression_test.last_passed_on_linux)
+        self.assertIsNone(regression_test.last_passed_on_windows)
+        self.assertTrue(regression_test.never_worked)
+
+    def test_never_worked_false_when_linux_has_passed(self):
+        """Check never_worked is False when Linux has a recorded pass."""
+        regression_test = RegressionTest.query.filter(RegressionTest.id == 1).first()
+        regression_test.last_passed_on_linux = 1
+        g.db.commit()
+        self.assertFalse(regression_test.never_worked)
+
+    def test_never_worked_false_when_windows_has_passed(self):
+        """Check never_worked is False when Windows has a recorded pass."""
+        regression_test = RegressionTest.query.filter(RegressionTest.id == 1).first()
+        regression_test.last_passed_on_windows = 1
+        g.db.commit()
+        self.assertFalse(regression_test.never_worked)
+
+    def test_never_worked_false_when_both_platforms_have_passed(self):
+        """Check never_worked is False when both platforms have a recorded pass."""
+        regression_test = RegressionTest.query.filter(RegressionTest.id == 1).first()
+        regression_test.last_passed_on_linux = 1
+        regression_test.last_passed_on_windows = 2
+        g.db.commit()
+        self.assertFalse(regression_test.never_worked)
+
+    def test_regression_index_shows_never_worked_badge(self):
+        """Check the index page renders the Never Worked label for tests with no pass history."""
+        response = self.app.test_client().get('/regression/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Never Worked', response.data)
+
+    def test_regression_view_shows_platform_history_section(self):
+        """Check the test detail page renders the platform history section."""
+        response = self.app.test_client().get('/regression/test/1/view')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Platform history', response.data)
+        self.assertIn(b'Never passed', response.data)
+
+    def test_regression_view_shows_last_passed_link_when_set(self):
+        """Check the test detail page links to the last passing test run when history exists."""
+        regression_test = RegressionTest.query.filter(RegressionTest.id == 1).first()
+        regression_test.last_passed_on_linux = 1
+        g.db.commit()
+        response = self.app.test_client().get('/regression/test/1/view')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Test #1', response.data)
+        self.assertNotIn(b'Never Worked', response.data)

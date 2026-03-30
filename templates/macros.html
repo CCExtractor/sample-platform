@@ -21,6 +21,19 @@
     {% endif %}
 {% endmacro %}
 
+{% macro platform_history_cell(test) %}
+    {% if test.never_worked %}
+        <span class="label alert">Never Worked</span>
+    {% else %}
+        {% if test.last_passed_on_linux %}
+            <i class="fa fa-linux" title="Linux"></i> <a href="{{ url_for('test.by_id', test_id=test.last_passed_on_linux) }}">#{{ test.last_passed_on_linux }}</a>&nbsp;
+        {% endif %}
+        {% if test.last_passed_on_windows %}
+            <i class="fa fa-windows" title="Windows"></i> <a href="{{ url_for('test.by_id', test_id=test.last_passed_on_windows) }}">#{{ test.last_passed_on_windows }}</a>
+        {% endif %}
+    {% endif %}
+{% endmacro %}
+
 {% macro render_media_info(info) %}
     <ul style="list-style: none; margin-bottom: 0;">
         {% for entry in info recursive  %}

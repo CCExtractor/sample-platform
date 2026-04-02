@@ -3,10 +3,13 @@ import sys
 
 
 class QueuedSampleNotFoundException(Exception):
-    """Custom exception handler for queued sample not found."""
+    """Raised when a queued sample cannot be found by the given ID."""
 
-    def __init__(self, message: str) -> None:
-        Exception.__init__(self)
+    def __init__(self, message="Queued sample not found."):
+        # By providing a default, all existing raise sites that call
+        # this exception without arguments will still work, and new
+        # calls can optionally provide a custom message.
+        super().__init__(message)
         self.message = message
 
 

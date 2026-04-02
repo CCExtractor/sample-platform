@@ -26,7 +26,7 @@ from google.oauth2 import service_account
 from lxml import etree
 from markdown2 import markdown
 from pymysql.err import IntegrityError
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, select
 from sqlalchemy.sql import label
 from sqlalchemy.sql.functions import count
 from werkzeug.utils import secure_filename
@@ -1188,8 +1188,10 @@ def create_instance(compute, project, zone, test, reportURL) -> Dict:
     if test.platform == TestPlatform.linux:
         image_response = compute.images().getFromFamily(project=config.get('LINUX_INSTANCE_PROJECT_NAME', ''),
                                                         family=config.get('LINUX_INSTANCE_FAMILY_NAME', '')).execute()
-        startup_script = open(os.path.join(config.get('INSTALL_FOLDER', ''), 'install', 'ci-vm',
-                                           'ci-linux', 'startup-script.sh'), 'r').read()
+        with open(os.path.join(
+                config.get('INSTALL_FOLDER', ''), 'install', 'ci-vm',
+                'ci-linux', 'startup-script.sh'), 'r') as f:
+            startup_script = f.read()
         metadata_items = [
             {'key': 'startup-script', 'value': startup_script},
             {'key': 'reportURL', 'value': reportURL},
@@ -1198,12 +1200,18 @@ def create_instance(compute, project, zone, test, reportURL) -> Dict:
     elif test.platform == TestPlatform.windows:
         image_response = compute.images().getFromFamily(project=config.get('WINDOWS_INSTANCE_PROJECT_NAME', ''),
                                                         family=config.get('WINDOWS_INSTANCE_FAMILY_NAME', '')).execute()
-        startup_script = open(os.path.join(config.get('INSTALL_FOLDER', ''), 'install', 'ci-vm',
-                                           'ci-windows', 'startup-script.ps1'), 'r').read()
-        service_account = open(os.path.join(config.get('INSTALL_FOLDER', ''),
-                                            config.get('SERVICE_ACCOUNT_FILE', '')), 'r').read()
-        rclone_conf = open(os.path.join(config.get('INSTALL_FOLDER', ''), 'install', 'ci-vm',
-                                        'ci-windows', 'rclone.conf'), 'r').read()
+        with open(os.path.join(
+                config.get('INSTALL_FOLDER', ''), 'install', 'ci-vm',
+                'ci-windows', 'startup-script.ps1'), 'r') as f:
+            startup_script = f.read()
+        with open(os.path.join(
+                config.get('INSTALL_FOLDER', ''),
+                config.get('SERVICE_ACCOUNT_FILE', '')), 'r') as f:
+            service_account = f.read()
+        with open(os.path.join(
+                config.get('INSTALL_FOLDER', ''), 'install', 'ci-vm',
+                'ci-windows', 'rclone.conf'), 'r') as f:
+            rclone_conf = f.read()
         metadata_items = [
             {'key': 'windows-startup-script-ps1', 'value': startup_script},
             {'key': 'service_account', 'value': service_account},
@@ -2431,13 +2439,15 @@ def progress_type_request(log, test, test_id, request) -> bool:
                 TestResult.test_id == test.id,
                 TestResult.exit_code != TestResult.expected_rc
             )).scalar()
-        results_zero_rc = g.db.query(RegressionTest.id).filter(
+        results_zero_rc = select(RegressionTest.id).filter(
             RegressionTest.expected_rc == 0
-        ).subquery()
+        )
         results = g.db.query(count(TestResultFile.got)).filter(
             and_(
                 TestResultFile.test_id == test.id,
-                TestResultFile.regression_test_id.in_(results_zero_rc),
+                TestResultFile.regression_test_id.in_(
+                    results_zero_rc.select()
+                ),
                 TestResultFile.got.isnot(None)
             )
         ).scalar()
@@ -2509,17 +2519,17 @@ def progress_type_request(log, test, test_id, request) -> bool:
         total_time = 0
 
         if current_average is None:
-            platform_tests = g.db.query(Test.id).filter(Test.platform == test.platform).subquery()
-            finished_tests = g.db.query(TestProgress.test_id).filter(
+            platform_tests = select(Test.id).filter(Test.platform == test.platform)
+            finished_tests = select(TestProgress.test_id).filter(
                 and_(
                     TestProgress.status.in_([TestStatus.canceled, TestStatus.completed]),
-                    TestProgress.test_id.in_(platform_tests)
+                    TestProgress.test_id.in_(platform_tests.select())
                 )
-            ).subquery()
+            )
             in_progress_statuses = [TestStatus.preparation, TestStatus.completed, TestStatus.canceled]
             finished_tests_progress = g.db.query(TestProgress).filter(
                 and_(
-                    TestProgress.test_id.in_(finished_tests),
+                    TestProgress.test_id.in_(finished_tests.select()),
                     TestProgress.status.in_(in_progress_statuses)
                 )
             ).subquery()
@@ -2698,8 +2708,20 @@ def finish_type_request(log, test_id, test, request):
     """
     log.debug(f"Finish for {test_id}/{request.form['test_id']}")
     regression_test = RegressionTest.query.filter(RegressionTest.id == request.form['test_id']).first()
+
+    raw_runtime = request.form.get('runTime', 0)
+    try:
+        runtime = int(raw_runtime)
+    except (TypeError, ValueError):
+        log.warning(f"Invalid runtime '{raw_runtime}' for test {test_id}; storing 0")
+        runtime = 0
+
+    if runtime < 0:
+        log.warning(f"Negative runtime {runtime} for test {test_id}; clamping to 0")
+        runtime = 0
+
     result = TestResult(
-        test.id, regression_test.id, request.form['runTime'],
+        test.id, regression_test.id, runtime,
         request.form['exitCode'], regression_test.expected_rc
     )
     g.db.add(result)

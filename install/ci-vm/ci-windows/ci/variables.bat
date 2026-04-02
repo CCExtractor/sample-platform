@@ -18,3 +18,5 @@ set resultFolder=.\TestResults
 set testFile=.\vm_data\ci-tests\TestAll.xml
 :: The folder that will be used to store the results in
 set reportFolder=.\reports
+:: Temporary folder for ccextractortester output files
+set tempFolder=.\TempFiles

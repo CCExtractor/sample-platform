@@ -2,7 +2,7 @@
 
 import os
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
 
 from flask import Blueprint, current_app, jsonify
@@ -79,7 +79,7 @@ def health_check() -> Tuple[Any, int]:
 
     checks: Dict[str, Any] = {
         'status': 'healthy' if all_healthy else 'unhealthy',
-        'timestamp': datetime.utcnow().isoformat() + 'Z',
+        'timestamp': datetime.now(timezone.utc).isoformat(),
         'checks': check_results
     }
 
@@ -99,7 +99,7 @@ def liveness_check() -> Tuple[Any, int]:
     """
     return jsonify({
         'status': 'alive',
-        'timestamp': datetime.utcnow().isoformat() + 'Z'
+        'timestamp': datetime.now(timezone.utc).isoformat()
     }), 200
 
 
@@ -172,7 +172,7 @@ def version_check() -> Tuple[Any, int]:
     git_info = get_git_info()
 
     response = {
-        'timestamp': datetime.utcnow().isoformat() + 'Z',
+        'timestamp': datetime.now(timezone.utc).isoformat(),
         'git': git_info,
     }
 

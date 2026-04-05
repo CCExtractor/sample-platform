@@ -2406,8 +2406,9 @@ class TestControllers(BaseTestCase):
                 c.post("/blocked_users", data=dict(user_id=999, comment="Test user", add=True))
                 self.assertIsNotNone(BlockedUsers.query.filter(BlockedUsers.user_id == 999).first())
 
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
     @mock.patch('run.get_github_config')
-    def test_start_ci_empty_token(self, mock_get_github_config):
+    def test_start_ci_empty_token(self, mock_get_github_config, mock_requests):
         """Test start_ci returns 500 when GitHub token is empty."""
         payload = {'ref': 'refs/heads/master', 'after': 'abc123'}
         headers = self.generate_header(payload, 'push')

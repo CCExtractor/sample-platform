@@ -2516,29 +2516,17 @@ def progress_type_request(log, test, test_id, request) -> bool:
                     TestProgress.test_id.in_(platform_tests)
                 )
             ).subquery()
-            in_progress_statuses = [TestStatus.preparation, TestStatus.completed, TestStatus.canceled]
-            finished_tests_progress = g.db.query(TestProgress).filter(
-                and_(
-                    TestProgress.test_id.in_(finished_tests),
-                    TestProgress.status.in_(in_progress_statuses)
-                )
-            ).subquery()
             times = g.db.query(
-                finished_tests_progress.c.test_id,
-                label('time', func.group_concat(finished_tests_progress.c.timestamp))
-            ).group_by(finished_tests_progress.c.test_id).all()
+                TestProgress.test_id,
+                label('start_time', func.min(TestProgress.timestamp)),
+                label('end_time', func.max(TestProgress.timestamp))
+            ).filter(
+                TestProgress.test_id.in_(finished_tests)
+            ).group_by(TestProgress.test_id).all()
 
             for p in times:
-                parts = p.time.split(',')
-                try:
-                    # Try parsing with microsecond precision first
-                    start = datetime.datetime.strptime(parts[0], '%Y-%m-%d %H:%M:%S.%f')
-                    end = datetime.datetime.strptime(parts[-1], '%Y-%m-%d %H:%M:%S.%f')
-                except ValueError:
-                    # Fall back to format without microseconds
-                    start = datetime.datetime.strptime(parts[0], '%Y-%m-%d %H:%M:%S')
-                    end = datetime.datetime.strptime(parts[-1], '%Y-%m-%d %H:%M:%S')
-                total_time += int((end - start).total_seconds())
+                duration = max(0, int((p.end_time - p.start_time).total_seconds()))
+                total_time += duration
 
             if len(times) != 0:
                 average_time = total_time // len(times)
@@ -2549,10 +2537,15 @@ def progress_type_request(log, test, test_id, request) -> bool:
             safe_db_commit(g.db, "setting new average time")
 
         else:
-            all_results = TestResult.query.count()
-            regression_test_count = RegressionTest.query.count()
-            number_test = all_results / regression_test_count
-            updated_average = float(current_average.value) * (number_test - 1)
+            # Count actual finished tests for this platform
+            platform_tests = g.db.query(Test.id).filter(Test.platform == test.platform).subquery()
+            number_test = g.db.query(func.count(func.distinct(TestProgress.test_id))).filter(
+                and_(
+                    TestProgress.status.in_([TestStatus.completed, TestStatus.canceled]),
+                    TestProgress.test_id.in_(platform_tests)
+                )
+            ).scalar() or 0
+
             pr = test.progress_data()
             end_time = pr['end']
             start_time = pr['start']
@@ -2563,9 +2556,14 @@ def progress_type_request(log, test, test_id, request) -> bool:
             if start_time.tzinfo is not None:
                 start_time = start_time.replace(tzinfo=None)
 
-            last_running_test = end_time - start_time
-            updated_average = updated_average + last_running_test.total_seconds()
-            current_average.value = 0 if number_test == 0 else updated_average // number_test
+            last_duration = max(0, int((end_time - start_time).total_seconds()))
+
+            if number_test > 1:
+                updated_average = (float(current_average.value) * (number_test - 1) + last_duration) / number_test
+            else:
+                updated_average = last_duration
+
+            current_average.value = max(0, int(updated_average))
             safe_db_commit(g.db, "updating average time")
             log.info(f'average time updated to {str(current_average.value)}')
 

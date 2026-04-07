@@ -144,7 +144,7 @@ def get_data_for_test(test, title=None) -> Dict[str, Any]:
             avg_prep = float(prep_time_record.value) if prep_time_record else 0
 
             # Total average time in minutes
-            avg_minutes = int((avg_duration + avg_prep) / 60)
+            avg_minutes = max(0, int((avg_duration + avg_prep) / 60))
         except (ValueError, AttributeError):
             avg_minutes = 0
 

@@ -13,6 +13,7 @@ List of models corresponding to mysql tables:
 import datetime
 import os
 import string
+from enum import Enum
 from typing import Any, Dict, List, Tuple, Type, Union
 
 import pytz
@@ -73,6 +74,21 @@ class TestStatus(DeclEnum):
         :rtype: list
         """
         return [TestStatus.preparation, TestStatus.testing, TestStatus.completed]
+
+
+class TestResultStatus(Enum):
+    """Classification of a regression test result within a specific test run.
+
+    This is NOT stored in the database. It is derived at query time from:
+    - Output hash/status comparison (passed vs failed)
+    - The `never_worked` boolean flag on the RegressionTest model.
+    """
+    passed = "passed"
+    """Test produced the exact expected output."""
+    failed = "failed"
+    """Test produced output that differed from expected."""
+    never_worked = "never_worked"
+    """Test failed and is flagged as never having worked before."""
 
 
 class Fork(Base):

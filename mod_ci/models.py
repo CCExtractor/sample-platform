@@ -178,4 +178,5 @@ class PrCommentInfo:
     extra_failed_tests: List[RegressionTest]
     fixed_tests: List[RegressionTest]
     common_failed_tests: List[RegressionTest]
+    never_worked_tests: List[RegressionTest]
     last_test_master: Test

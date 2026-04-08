@@ -7,6 +7,10 @@
 * MySQL
 * Pure-FTPD with mysql (optional, only needed for FTP file uploads)
 
+## Note for Windows Environments
+
+Developing on Windows requires the `python-magic-bin` package and the `pymysql` driver for SQLAlchemy. Detailed steps for resolving these specific environment blockers, including PowerShell variable syntax, are documented in the [Windows Setup Troubleshooting](../README.md#windows-setup-troubleshooting) section of the main README.
+
 ## Configuring Google Cloud Platform
 
 To configure the GCP for the platform, see [the installation guide](ci-vm/installation.md).

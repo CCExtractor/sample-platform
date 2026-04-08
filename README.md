@@ -17,7 +17,7 @@ reported through a variety of channels (private email, mailing list, GitHub,
 and so on...).
 
 The aim of this project is to build a platform, which is accessible to
-everyone ([after signing up](https://sampleplatform.ccextractor.org/account/signup)), that provides a single place to upload, view 
+everyone ([after signing up](https://sampleplatform.ccextractor.org/account/signup)), that provides a single place to upload, view
 samples and associated test results.
 
 ## Installation
@@ -41,14 +41,14 @@ NOTE: Please backup old results and be sure about updating them as there is no m
 
 Sample-Platform uses flask-migrate to handle database migrations.
 
-If you want to perform more complex actions than the ones mentioned below, please have a look at the [flask-migrate 
+If you want to perform more complex actions than the ones mentioned below, please have a look at the [flask-migrate
 command reference](https://flask-migrate.readthedocs.io/en/latest/#command-reference).
 
 **NOTE: For the below commands to function properly, `FLASK_APP=/path/to/run.py` should be set in the environment variables.**
 
 #### First Time With Flask-Migrate
 
-If this is the first time that flask-migrate is being installed or run alongside existing database, use the 
+If this is the first time that flask-migrate is being installed or run alongside existing database, use the
 following command to create a head stamp in your database:
 
 ```bash
@@ -96,24 +96,48 @@ For creating a virtual environment, we use [virtualenv](https://pypi.org/project
 virtualenv venv                          # create a virtual environment
 source venv/bin/activate                 # activate the virtual environment
 pip install -r requirements.txt          # install dependencies
-pip install -r test-requirements.txt     # install test dependencies
+pip install -r test-requirements.txt     # install test dependencies (includes pytest)
 TESTING=True nose2
 ```
+
+### Windows: setup (venv) and running tests (Git Bash)
+
+```bash
+# From repo root
+python -m venv .venv
+
+# Git Bash:
+source .venv/Scripts/activate
+
+python -m pip install --upgrade pip
+
+# App dependencies
+pip install -r requirements.txt
+
+# Dev/test tooling (includes pytest)
+pip install -r test-requirements.txt
+
+# Run unit tests
+python -m pytest -q
+```
+
+If `python` is not found on Windows, try `py -3` instead of `python`.
 
 ## Migrating platform between machines
 
 In case you want to replicate/migrate a platform instance with all the data, samples, regression tests.etc., follow the following steps:
+
 - Install platform on the new instance, using the [installation guide](install/installation.md).
 - Now transfer the contents of the previous GCS bucket to the new GCS bucket and export the SQL database of the previous platform instance into a file using the following command:
-    ```
-    mysqldump -u PLATFORM_USER_USERNAME -p PLATFORM_DATABASE_NAME > sample_platform.sql
-    ```
-    PLATFORM_USER_USERNAME and PLATFORM_DATABASE_NAME values are details for the SQL database of the previous platform instance.
+  ```
+  mysqldump -u PLATFORM_USER_USERNAME -p PLATFORM_DATABASE_NAME > sample_platform.sql
+  ```
+  PLATFORM_USER_USERNAME and PLATFORM_DATABASE_NAME values are details for the SQL database of the previous platform instance.
 - Now import the database using the `sample_platform.sql` file into the new instance using the following command:
-    ```
-    mysql -u NEW_PLATFORM_USER_USERNAME -p NEW_PLATFORM_DATABASE_NAME < sample_platform.sql
-    ```
-    NEW_PLATFORM_USER_USERNAME and NEW_PLATFORM_DATABASE_NAME values are details for the SQL database of the new platform instance.
+  ```
+  mysql -u NEW_PLATFORM_USER_USERNAME -p NEW_PLATFORM_DATABASE_NAME < sample_platform.sql
+  ```
+  NEW_PLATFORM_USER_USERNAME and NEW_PLATFORM_DATABASE_NAME values are details for the SQL database of the new platform instance.
 
 ## Etiquettes
 

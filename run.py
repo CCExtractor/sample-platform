@@ -29,6 +29,7 @@ from mod_ci.controllers import mod_ci
 from mod_customized.controllers import mod_customized
 from mod_health.controllers import mod_health
 from mod_home.controllers import mod_home
+from mod_api.controllers import mod_api
 from mod_regression.controllers import mod_regression
 from mod_sample.controllers import mod_sample
 from mod_test.controllers import mod_test
@@ -273,3 +274,4 @@ app.register_blueprint(mod_test, url_prefix="/test")
 app.register_blueprint(mod_ci)
 app.register_blueprint(mod_customized, url_prefix='/custom')
 app.register_blueprint(mod_health)
+app.register_blueprint(mod_api, url_prefix='/api')

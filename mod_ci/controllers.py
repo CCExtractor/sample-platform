@@ -28,7 +28,6 @@ from markdown2 import markdown
 from pymysql.err import IntegrityError
 from sqlalchemy import and_, func, select
 from sqlalchemy.sql import label
-from sqlalchemy.sql.functions import count
 from werkzeug.utils import secure_filename
 
 from database import DeclEnum, create_session
@@ -2276,7 +2275,7 @@ def start_ci():
         return json.dumps({'msg': 'EOL'})
 
 
-def update_build_badge(status, test) -> None:
+def update_build_badge(status, test, test_results=None) -> None:
     """
     Build status badge for current test to be displayed on sample-platform.
 
@@ -2284,6 +2283,8 @@ def update_build_badge(status, test) -> None:
     :type status: str
     :param test: current commit that is tested
     :type test: Test
+    :param test_results: pre-computed results from get_test_results; if None, fetched internally
+    :type test_results: list | None
     :return: null
     :rtype: null
     """
@@ -2294,7 +2295,8 @@ def update_build_badge(status, test) -> None:
         shutil.copyfile(original_location, build_status_location)
         g.log.info('Build badge updated successfully!')
 
-        test_results = get_test_results(test)
+        if test_results is None:
+            test_results = get_test_results(test)
         test_ids_to_update = []
         for category_results in test_results:
             test_ids_to_update.extend([test['test'].id for test in category_results['tests'] if not test['error']])
@@ -2429,46 +2431,29 @@ def progress_type_request(log, test, test_id, request) -> bool:
         message = 'Tests aborted due to an error; please check'
 
     elif status == TestStatus.completed:
-        # Determine if success or failure
-        # It fails if any of these happen:
-        # - A crash (unexpected exit code)
-        # - A not None value on the "got" of a TestResultFile (
-        #       meaning the hashes do not match)
-        crashes = g.db.query(count(TestResult.exit_code)).filter(
-            and_(
-                TestResult.test_id == test.id,
-                TestResult.exit_code != TestResult.expected_rc
-            )).scalar()
-        results_zero_rc = select(RegressionTest.id).filter(
-            RegressionTest.expected_rc == 0
-        )
-        results = g.db.query(count(TestResultFile.got)).filter(
-            and_(
-                TestResultFile.test_id == test.id,
-                TestResultFile.regression_test_id.in_(
-                    results_zero_rc.select()
-                ),
-                TestResultFile.got.isnot(None)
-            )
-        ).scalar()
-        log.debug(f'[Test: {test.id}] Test completed: {crashes} crashes, {results} results')
-        if crashes > 0 or results > 0:
+        # Use get_test_results as the single source of truth for pass/fail.
+        # The old dual-query (crash count + TestResultFile.got count) would silently
+        # mark a test SUCCESS when a TestResultFile row was never created (e.g. the VM
+        # never wrote output), because COUNT(got IS NOT NULL) returns 0 and the check
+        # passes. get_test_results correctly treats a missing row as an error.
+        test_results = get_test_results(test)
+        has_error = any(category['error'] for category in test_results)
+        log.debug(f'[Test: {test.id}] Test completed: has_error={has_error}')
+        if has_error:
             state = Status.FAILURE
             message = 'Not all tests completed successfully, please check'
-
         else:
             state = Status.SUCCESS
             message = 'Tests completed'
         if test.test_type == TestType.pull_request:
             state = comment_pr(test)
-            # Update message to match the state returned by comment_pr()
-            # comment_pr() uses different logic: it returns SUCCESS if there are
-            # no NEW failures compared to master (pre-existing failures are OK)
+            # comment_pr() returns SUCCESS only if there are no NEW failures
+            # compared to master (pre-existing failures are acceptable).
             if state == Status.SUCCESS:
                 message = 'All tests passed'
             else:
                 message = 'Not all tests completed successfully, please check'
-        update_build_badge(state, test)
+        update_build_badge(state, test, test_results)
 
     else:
         message = progress.message

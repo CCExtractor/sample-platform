@@ -14,9 +14,11 @@ from mod_ci.controllers import (Workflow_builds, get_info_for_pr_comment,
 from mod_ci.models import BlockedUsers
 from mod_customized.models import CustomizedTest
 from mod_home.models import CCExtractorVersion, GeneralData
-from mod_regression.models import (RegressionTest, RegressionTestOutput,
+from mod_regression.models import (BaselineStatus, RegressionTest,
+                                   RegressionTestOutput,
                                    RegressionTestOutputFiles)
-from mod_test.models import Test, TestPlatform, TestResultFile, TestType
+from mod_test.models import (Test, TestPlatform, TestProgress, TestResult,
+                             TestResultFile, TestStatus, TestType)
 from tests.base import (BaseTestCase, MockResponse, create_mock_db_query,
                         create_mock_regression_test, empty_github_token,
                         generate_git_api_header, generate_signature,
@@ -67,6 +69,177 @@ WSGI_ENVIRONMENT = {'REMOTE_ADDR': "192.30.252.0"}
 
 class TestControllers(BaseTestCase):
     """Test CI-related controllers."""
+
+    def test_refresh_baseline_statuses_for_test_uses_full_result_status(self):
+        """Refresh baseline status using full regression results, not just exit codes."""
+        from mod_ci.controllers import refresh_baseline_statuses_for_test
+
+        test = Test(TestPlatform.linux, TestType.commit, 1, "master", "abc1234")
+        g.db.add(test)
+        g.db.commit()
+
+        g.db.add_all([
+            TestProgress(test.id, TestStatus.preparation, "prep"),
+            TestProgress(test.id, TestStatus.testing, "testing"),
+            TestProgress(test.id, TestStatus.completed, "done"),
+            TestResult(test.id, 1, 250, 1, 0),
+            TestResult(test.id, 2, 250, 0, 0),
+            TestResultFile(test.id, 1, 1, "sample_out1", "wrong"),
+            TestResultFile(test.id, 2, 2, "sample_out2"),
+        ])
+        g.db.commit()
+
+        regression_failed = RegressionTest.query.get(1)
+        regression_passed = RegressionTest.query.get(2)
+
+        self.assertEqual(regression_failed.baseline_status, BaselineStatus.unknown)
+        self.assertEqual(regression_passed.baseline_status, BaselineStatus.unknown)
+
+        refresh_baseline_statuses_for_test(test)
+
+        self.assertEqual(regression_failed.baseline_status, BaselineStatus.never_worked)
+        self.assertEqual(regression_passed.baseline_status, BaselineStatus.established)
+
+    def test_refresh_baseline_statuses_for_test_skips_pull_request_runs(self):
+        """Pull request runs must not rewrite the shared regression baseline."""
+        from mod_ci.controllers import refresh_baseline_statuses_for_test
+
+        test = Test.query.get(2)
+        regression_failed = RegressionTest.query.get(1)
+        regression_passed = RegressionTest.query.get(2)
+        passing_result_file = TestResultFile.query.filter(
+            TestResultFile.test_id == test.id,
+            TestResultFile.regression_test_id == regression_passed.id,
+        ).first()
+        passing_result_file.got = None
+        g.db.add(passing_result_file)
+        g.db.commit()
+
+        refresh_baseline_statuses_for_test(test)
+
+        self.assertEqual(regression_failed.baseline_status, BaselineStatus.unknown)
+        self.assertEqual(regression_passed.baseline_status, BaselineStatus.unknown)
+
+    def test_comment_info_separates_never_worked_failures(self):
+        """Pre-existing never-worked tests should not be reported as PR breakage."""
+        from mod_ci.controllers import get_info_for_pr_comment
+        from mod_customized.models import CustomizedTest
+
+        test = Test.query.get(2)
+        regression_test = RegressionTest.query.get(1)
+        regression_test.baseline_status = BaselineStatus.never_worked
+        g.db.add(regression_test)
+        g.db.add(CustomizedTest(test.id, regression_test.id))
+        g.db.commit()
+
+        comment_info = get_info_for_pr_comment(test)
+
+        self.assertIn(regression_test, comment_info.never_worked_tests)
+        self.assertEqual(comment_info.extra_failed_tests, [])
+        self.assertEqual(comment_info.common_failed_tests, [])
+
+    def test_comment_info_tracks_never_worked_per_platform(self):
+        """A test that has only passed on Linux should still be never-worked on Windows."""
+        from mod_ci.controllers import get_info_for_pr_comment
+        from mod_customized.models import CustomizedTest
+
+        regression_test = RegressionTest.query.get(1)
+        regression_test.baseline_status = BaselineStatus.established
+        regression_test.last_passed_on_linux = 1
+        regression_test.last_passed_on_windows = None
+        g.db.add(regression_test)
+        g.db.commit()
+
+        test = Test(TestPlatform.windows, TestType.pull_request, 1, "pull_request", "windowssha", 1)
+        g.db.add(test)
+        g.db.commit()
+
+        g.db.add(CustomizedTest(test.id, regression_test.id))
+        g.db.add(TestResult(test.id, regression_test.id, 250, 1, 0))
+        g.db.commit()
+
+        comment_info = get_info_for_pr_comment(test)
+
+        self.assertIn(regression_test, comment_info.never_worked_tests)
+        self.assertEqual(comment_info.extra_failed_tests, [])
+        self.assertEqual(comment_info.common_failed_tests, [])
+
+    @mock.patch('mod_ci.controllers.refresh_baseline_statuses_for_test')
+    @mock.patch('mod_ci.controllers.retry_with_backoff')
+    @mock.patch('mod_ci.controllers.update_build_badge')
+    @mock.patch('mod_ci.controllers.update_status_on_github')
+    @mock.patch('mod_ci.controllers.delete_instance_with_tracking')
+    @mock.patch('mod_ci.controllers.get_compute_service_object')
+    @mock.patch('mod_ci.controllers.Github')
+    def test_progress_type_request_completed_refreshes_baseline_status(
+        self,
+        mock_github,
+        mock_get_compute_service_object,
+        mock_delete_instance_with_tracking,
+        mock_update_status,
+        mock_update_build_badge,
+        mock_retry_with_backoff,
+        mock_refresh_baseline_statuses,
+    ):
+        """Completed test reporting should refresh baseline state before downstream reporting."""
+        test = Test(TestPlatform.linux, TestType.commit, 1, "master", "abc1234")
+        g.db.add(test)
+        g.db.commit()
+
+        progress_entries = [
+            TestProgress(test.id, TestStatus.preparation, "prep"),
+            TestProgress(test.id, TestStatus.testing, "testing"),
+        ]
+        g.db.add_all(progress_entries)
+        g.db.add(TestResult(test.id, 1, 250, 0, 0))
+        g.db.add(TestResultFile(test.id, 1, 1, "sample_out1"))
+        g.db.commit()
+
+        request = MagicMock()
+        request.form = {
+            'status': 'completed',
+            'message': 'done',
+        }
+        log = MagicMock()
+        mock_retry_with_backoff.side_effect = lambda func, **kwargs: func()
+        mock_delete_instance_with_tracking.return_value = {'name': 'delete-op'}
+
+        progress_type_request(log, test, test.id, request)
+
+        mock_refresh_baseline_statuses.assert_called_once_with(test)
+
+    @mock.patch('mod_ci.controllers.refresh_baseline_statuses_for_test')
+    @mock.patch('mod_ci.controllers.retry_with_backoff')
+    @mock.patch('mod_ci.controllers.update_build_badge')
+    @mock.patch('mod_ci.controllers.update_status_on_github')
+    @mock.patch('mod_ci.controllers.delete_instance_with_tracking')
+    @mock.patch('mod_ci.controllers.get_compute_service_object')
+    @mock.patch('mod_ci.controllers.Github')
+    def test_progress_type_request_completed_does_not_refresh_baseline_for_pull_requests(
+        self,
+        mock_github,
+        mock_get_compute_service_object,
+        mock_delete_instance_with_tracking,
+        mock_update_status,
+        mock_update_build_badge,
+        mock_retry_with_backoff,
+        mock_refresh_baseline_statuses,
+    ):
+        """Pull request completion should not mutate shared baseline state."""
+        test = Test.query.get(2)
+
+        request = MagicMock()
+        request.form = {
+            'status': 'completed',
+            'message': 'done',
+        }
+        log = MagicMock()
+        mock_retry_with_backoff.side_effect = lambda func, **kwargs: func()
+        mock_delete_instance_with_tracking.return_value = {'name': 'delete-op'}
+
+        progress_type_request(log, test, test.id, request)
+
+        mock_refresh_baseline_statuses.assert_not_called()
 
     def test_comment_info_handles_variant_files_correctly(self):
         """Test that allowed variants of output files are handled correctly in PR comments.
@@ -394,14 +567,12 @@ class TestControllers(BaseTestCase):
         self.assertEqual(mock_g.db.add.call_count, 0)
         mock_g.db.commit.assert_called_once()
 
-    @mock.patch('github.Github')
+    @mock.patch('mod_ci.controllers.Github')
     def test_comments_successfully_in_passed_pr_test(self, mock_github):
         """Check comments in passed PR test."""
-        import mod_ci.controllers
-        reload(mod_ci.controllers)
         from github.IssueComment import IssueComment
 
-        from mod_ci.controllers import Status, comment_pr
+        from mod_ci.controllers import comment_pr
         from mod_test.models import Test
         pull_request = mock_github.return_value.get_repo.return_value.get_pull(number=1)
         pull_request.get_issue_comments.return_value = [MagicMock(IssueComment)]
@@ -415,12 +586,10 @@ class TestControllers(BaseTestCase):
         if "passed" not in message:
             assert False, "Message not Correct"
 
-    @mock.patch('mod_test.controllers.get_test_results')
-    @mock.patch('github.Github')
+    @mock.patch('mod_ci.controllers.get_test_results')
+    @mock.patch('mod_ci.controllers.Github')
     def test_comments_successfuly_in_failed_pr_test(self, mock_github, mock_get_test_results):
         """Check comments in failed PR test."""
-        import mod_ci.controllers
-        reload(mod_ci.controllers)
         from github.IssueComment import IssueComment
 
         from mod_ci.controllers import comment_pr

@@ -41,11 +41,22 @@ NOTE: The following tests have been failing on the master branch as well as the 
 {% endfor %}
 </ul>
 {% endif %}
+{% if comment_info.never_worked_tests | length %}
+NOTE: The following tests have never passed on the platform yet:
+<ul>
+{% for test in comment_info.never_worked_tests %}
+<li> ccextractor {{ test.command }} <a href="{{ url_for('sample.sample_by_id', sample_id=test.sample.id, _external=True) }}">{{ test.sample.sha[:10] }}...</a>, Last passed:
+<span>Never</span>
+</li>
+{% endfor %}
+</ul>
+{% endif %}
 {% if comment_info.fixed_tests | length %}
 Congratulations: Merging this PR would fix the following tests:
 <ul>
 {% for test in comment_info.fixed_tests %}
-<li> ccextractor {{ test.command }} <a href="{{ url_for('sample.sample_by_id', sample_id=test.sample.id, _external=True) }}">{{ test.sample.sha[:10] }}...</a>, Last passed: {% if test.last_passed_on %}<a href="{{ url_for('test.by_id', test_id=test.last_passed_on, _external=True) }}">Test {{ test.last_passed_on }}</a>{% else %}<span>Never</span>{% endif %}</li>
+{% set last_passed_id = test.last_passed_on_windows if platform.lower() == 'windows' else test.last_passed_on_linux %}
+<li> ccextractor {{ test.command }} <a href="{{ url_for('sample.sample_by_id', sample_id=test.sample.id, _external=True) }}">{{ test.sample.sha[:10] }}...</a>, Last passed: {% if last_passed_id %}<a href="{{ url_for('test.by_id', test_id=last_passed_id, _external=True) }}">Test {{ last_passed_id }}</a>{% else %}<span>Never</span>{% endif %}</li>
 {% endfor %}
 </ul>
 {% endif %}
@@ -54,8 +65,8 @@ Congratulations: Merging this PR would fix the following tests:
 
 {% if comment_info.extra_failed_tests | length %}
 It seems that not all tests were passed completely. This is an indication that the output of some files is not as expected (but might be according to you).
-{% elif comment_info.common_failed_tests | length %}
-This PR does not introduce any new test failures. However, some tests are failing on both master and this PR (see above).
+{% elif comment_info.common_failed_tests | length or comment_info.never_worked_tests | length %}
+This PR does not introduce any new test failures. However, some tests are already failing on master or have never worked on the platform yet (see above).
 {% else %}
 All tests passed completely.
 {% endif %}

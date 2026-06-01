@@ -1194,9 +1194,7 @@ def create_instance(compute, project, zone, test, reportURL) -> Dict:
             startup_script = f.read()
         metadata_items = [
             {'key': 'startup-script', 'value': startup_script},
-            {'key': 'reportURL', 'value': reportURL},
-            {'key': 'bucket', 'value': config.get('GCS_BUCKET_NAME', '')},
-            {'key': 'testID', 'value': str(test.id)}
+            {'key': 'reportURL', 'value': reportURL}
         ]
     elif test.platform == TestPlatform.windows:
         image_response = compute.images().getFromFamily(project=config.get('WINDOWS_INSTANCE_PROJECT_NAME', ''),
@@ -1217,9 +1215,7 @@ def create_instance(compute, project, zone, test, reportURL) -> Dict:
             {'key': 'windows-startup-script-ps1', 'value': startup_script},
             {'key': 'service_account', 'value': service_account},
             {'key': 'rclone_conf', 'value': rclone_conf},
-            {'key': 'reportURL', 'value': reportURL},
-            {'key': 'bucket', 'value': config.get('GCS_BUCKET_NAME', '')},
-            {'key': 'testID', 'value': str(test.id)}
+            {'key': 'reportURL', 'value': reportURL}
         ]
     source_disk_image = image_response['selfLink']
 
@@ -2346,6 +2342,11 @@ def progress_reporter(test_id, token):
                 if not upload_type_request(log, test_id, repo_folder, test, request):
                     return "EMPTY"
 
+            elif request.form['type'] == 'artifact':
+                log.info(f'[PROGRESS_REPORTER][Test: {test_id}] Artifact upload')
+                if not artifact_upload_request(log, test_id, request):
+                    return "EMPTY"
+
             elif request.form['type'] == 'finish':
                 log.info(f'[PROGRESS_REPORTER][Test: {test_id}] Test finished')
                 finish_type_request(log, test_id, test, request)
@@ -2693,6 +2694,45 @@ def upload_type_request(log, test_id, repo_folder, test, request) -> bool:
         return True
 
     return False
+
+
+# Allowed artifact names that the VM can upload
+ALLOWED_ARTIFACT_NAMES = {'ccextractor', 'ccextractor.exe', 'combined_stdout.log', 'coredump'}
+
+
+def artifact_upload_request(log, test_id, request) -> bool:
+    """
+    Handle artifact upload from the CI VM.
+
+    Validates the artifact name against an allow-list, then uploads
+    the file to GCS under test_artifacts/{test_id}/{name}.
+
+    :param log: logger
+    :type log: Logger
+    :param test_id: The id of the test to update.
+    :type test_id: int
+    :param request: Request parameters
+    :type request: Request
+    :return: True if upload succeeded, False otherwise.
+    :rtype: bool
+    """
+    from run import storage_client_bucket
+
+    artifact_name = request.form.get('name', '')
+    if artifact_name not in ALLOWED_ARTIFACT_NAMES:
+        log.warning(f"[Test: {test_id}] Rejected artifact upload with disallowed name: {artifact_name}")
+        return False
+
+    if 'file' not in request.files:
+        log.warning(f"[Test: {test_id}] Artifact upload missing file")
+        return False
+
+    uploaded_file = request.files['file']
+    blob_path = f'test_artifacts/{test_id}/{artifact_name}'
+    blob = storage_client_bucket.blob(blob_path)
+    blob.upload_from_file(uploaded_file.stream)
+    log.info(f"[Test: {test_id}] Artifact '{artifact_name}' uploaded to {blob_path}")
+    return True
 
 
 def finish_type_request(log, test_id, test, request):

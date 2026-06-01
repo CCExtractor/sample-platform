@@ -21,6 +21,9 @@ from utility import serve_file_download
 
 mod_test = Blueprint('test', __name__)
 
+CCEXTRACTOR_WIN_BINARY = 'ccextractorwinfull.exe'
+CCEXTRACTOR_LINUX_BINARY = 'ccextractor'
+
 
 @mod_test.before_app_request
 def before_app_request() -> None:
@@ -367,6 +370,7 @@ def generate_diff(test_id: int, regression_test_id: int, output_id: int, to_view
 
 
 @mod_test.route('/log-files/<test_id>')
+@login_required
 def download_build_log_file(test_id):
     """
     Serve download of build log.
@@ -464,18 +468,18 @@ def _artifact_redirect(blob_path, filename='artifact'):
 
 
 @mod_test.route('/<int:test_id>/binary', methods=['GET'])
+@login_required
 def download_binary(test_id):
-    """Download the ccextractor binary used in a test (linux or windows)."""
-    from run import storage_client_bucket
-    # Try linux name first, then windows
-    for name in ['ccextractor', 'ccextractor.exe']:
-        blob_path = f'test_artifacts/{test_id}/{name}'
-        if storage_client_bucket.blob(blob_path).exists():
-            return _artifact_redirect(blob_path, filename=name)
-    abort(404)
+    """Download the ccextractor binary used in a test."""
+    test = Test.query.filter(Test.id == test_id).first()
+    if test is None:
+        abort(404)
+    name = CCEXTRACTOR_LINUX_BINARY if test.platform == TestPlatform.linux else CCEXTRACTOR_WIN_BINARY
+    return _artifact_redirect(f'test_artifacts/{test_id}/{name}', filename=name)
 
 
 @mod_test.route('/<int:test_id>/coredump', methods=['GET'])
+@login_required
 def download_coredump(test_id):
     """Download the coredump from a test, if one was produced."""
     return _artifact_redirect(
@@ -485,6 +489,7 @@ def download_coredump(test_id):
 
 
 @mod_test.route('/<int:test_id>/combined-stdout', methods=['GET'])
+@login_required
 def download_combined_stdout(test_id):
     """Download the combined stdout/stderr log from all test invocations."""
     return _artifact_redirect(
@@ -494,6 +499,7 @@ def download_combined_stdout(test_id):
 
 
 @mod_test.route('/<int:test_id>/regression/<int:regression_test_id>/<int:output_id>/output-got', methods=['GET'])
+@login_required
 def download_output_got(test_id, regression_test_id, output_id):
     """Download the actual output file from TestResults using DB hash."""
     rf = TestResultFile.query.filter(and_(
@@ -511,6 +517,7 @@ def download_output_got(test_id, regression_test_id, output_id):
 
 
 @mod_test.route('/<int:test_id>/regression/<int:regression_test_id>/<int:output_id>/output-expected', methods=['GET'])
+@login_required
 def download_output_expected(test_id, regression_test_id, output_id):
     """Download the expected output file from TestResults using DB hash."""
     rf = TestResultFile.query.filter(and_(
@@ -526,8 +533,9 @@ def download_output_expected(test_id, regression_test_id, output_id):
         filename=f'output_expected_{regression_test_id}_{output_id}{ext}'
     )
 @mod_test.route('/<int:test_id>/sample/<int:sample_id>', methods=['GET'])
+@login_required
 def download_sample_ai(test_id, sample_id):
-    """Download the sample file for a regression test (no auth required for AI workflow)."""
+    """Download the sample file for a regression test."""
     from mod_sample.models import Sample
     sample = Sample.query.filter(Sample.id == sample_id).first()
     if sample is None:
@@ -538,75 +546,69 @@ def download_sample_ai(test_id, sample_id):
     )
 
 
-def _process_test_case(test_id, category_name, t_data):
-    """Helper function to process a single test case."""
+def _build_output_entry(test_id, rt, expected_output, result_files):
+    """Build a single output entry dict for the ai.json response."""
+    matched_rf = next(
+        (rf for rf in result_files
+         if rf.test_id != -1 and rf.regression_test_output_id == expected_output.id),
+        None
+    )
+
+    got_url = None
+    diff_url = None
+
+    if matched_rf and matched_rf.got is not None:
+        got_url = url_for(
+            '.download_output_got',
+            test_id=test_id,
+            regression_test_id=rt.id,
+            output_id=expected_output.id,
+            _external=True
+        )
+        diff_url = url_for(
+            '.generate_diff',
+            test_id=test_id,
+            regression_test_id=rt.id,
+            output_id=expected_output.id,
+            to_view=0,
+            _external=True
+        )
+
+    return {
+        'output_id': expected_output.id,
+        'correct_extension': expected_output.correct_extension,
+        'expected_url': url_for(
+            '.download_output_expected',
+            test_id=test_id,
+            regression_test_id=rt.id,
+            output_id=expected_output.id,
+            _external=True
+        ),
+        'got_url': got_url,
+        'diff_url': diff_url,
+    }
+
+
+def _process_test_case(test, category_name, t_data):
+    """Build a structured dict for a single test case in the ai.json response."""
     rt = t_data['test']
     result = t_data['result']
     is_error = t_data.get('error', False)
     result_files = t_data['files']
 
-    outputs = []
-    for expected_output in rt.output_files:
-        if expected_output.ignore:
-            continue
-        
-        matched_rf = None
-        for rf in result_files:
-            if rf.test_id != -1 and rf.regression_test_output_id == expected_output.id:
-                matched_rf = rf
-                break
-        
-        got_url = None
-        diff_url = None
-        
-        if matched_rf and matched_rf.got is not None:
-            got_url = url_for(
-                '.download_output_got',
-                test_id=test_id,
-                regression_test_id=rt.id,
-                output_id=expected_output.id,
-                _external=True
-            )
-            diff_url = url_for(
-                '.generate_diff',
-                test_id=test_id,
-                regression_test_id=rt.id,
-                output_id=expected_output.id,
-                to_view=0,
-                _external=True
-            )
-        else:
-            # If test passed, got and expected match exactly.
-            got_url = url_for(
-                '.download_output_expected',
-                test_id=test_id,
-                regression_test_id=rt.id,
-                output_id=expected_output.id,
-                _external=True
-            )
-        
-        output_entry = {
-            'output_id': expected_output.id,
-            'correct_extension': expected_output.correct_extension,
-            'expected_url': url_for(
-                '.download_output_expected',
-                test_id=test_id,
-                regression_test_id=rt.id,
-                output_id=expected_output.id,
-                _external=True
-            ),
-            'got_url': got_url,
-            'diff_url': diff_url,
-        }
-        outputs.append(output_entry)
+    outputs = [
+        _build_output_entry(test.id, rt, expected_output, result_files)
+        for expected_output in rt.output_files
+        if not expected_output.ignore
+    ]
 
-    return {
+    test_case = {
         'regression_test_id': rt.id,
         'category': category_name,
         'sample_filename': rt.sample.original_name,
         'sample_url': url_for(
             '.download_sample_ai',
-            test_id=test_id,
+            test_id=test.id,
             sample_id=rt.sample.id,
             _external=True
         ),
@@ -616,11 +618,17 @@ def _process_test_case(test_id, category_name, t_data):
         'expected_exit_code': result.expected_rc if result else None,
         'runtime_ms': result.runtime if result else None,
         'outputs': outputs,
-        'how_to_reproduce': f'./ccextractor {rt.command} {rt.sample.original_name}',
     }
+
+    # Format the reproduction command based on platform
+    binary_name = f'./{CCEXTRACTOR_LINUX_BINARY}' if test.platform == TestPlatform.linux else CCEXTRACTOR_WIN_BINARY
+    test_case['how_to_reproduce'] = f'{binary_name} {rt.command} {rt.sample.original_name}'
+
+    return test_case
 
 
 @mod_test.route('/<int:test_id>/ai.json', methods=['GET'])
+@login_required
 def ai_json_endpoint(test_id):
     """Structured JSON with download URLs for all artifacts — for AI agents."""
     from run import storage_client_bucket
@@ -632,10 +640,8 @@ def ai_json_endpoint(test_id):
     def blob_exists(path):
         return storage_client_bucket.blob(path).exists()
 
-    has_binary = (
-        blob_exists(f'test_artifacts/{test_id}/ccextractor') or
-        blob_exists(f'test_artifacts/{test_id}/ccextractor.exe')
-    )
+    binary_name = CCEXTRACTOR_LINUX_BINARY if test.platform == TestPlatform.linux else CCEXTRACTOR_WIN_BINARY
+    has_binary = blob_exists(f'test_artifacts/{test_id}/{binary_name}')
     has_coredump = blob_exists(f'test_artifacts/{test_id}/coredump')
     has_combined_stdout = blob_exists(f'test_artifacts/{test_id}/combined_stdout.log')
 
@@ -653,7 +659,7 @@ def ai_json_endpoint(test_id):
             else:
                 passed += 1
 
-            test_cases.append(_process_test_case(test_id, category['category'].name, t_data))
+            test_cases.append(_process_test_case(test, category['category'].name, t_data))
 
     report = {
         'test_id': test.id,
@@ -681,8 +687,8 @@ def ai_json_endpoint(test_id):
         'test_cases': test_cases,
         'how_to_reproduce': (
             'Download the binary and sample, then run: '
-            + ('./ccextractor {arguments} {sample_filename}' if test.platform.value == 'linux'
-               else 'ccextractorwinfull.exe {arguments} {sample_filename}')
+            + (f'./{CCEXTRACTOR_LINUX_BINARY} {{arguments}} {{sample_filename}}' if test.platform.value == 'linux'
+               else f'{CCEXTRACTOR_WIN_BINARY} {{arguments}} {{sample_filename}}')
         ),
     }
 

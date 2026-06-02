@@ -2697,7 +2697,8 @@ def upload_type_request(log, test_id, repo_folder, test, request) -> bool:
 
 
 # Allowed artifact names that the VM can upload
-ALLOWED_ARTIFACT_NAMES = {'ccextractor', 'ccextractor.exe', 'combined_stdout.log', 'coredump'}
+from mod_test.controllers import CCEXTRACTOR_LINUX_BINARY, CCEXTRACTOR_WIN_BINARY
+ALLOWED_ARTIFACT_NAMES = {CCEXTRACTOR_LINUX_BINARY, CCEXTRACTOR_WIN_BINARY, 'combined_stdout.log', 'coredump'}
 
 
 def artifact_upload_request(log, test_id, request) -> bool:

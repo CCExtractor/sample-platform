@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 from flask import (Blueprint, Response, abort, g, jsonify, redirect, request,
                    url_for)
 from sqlalchemy import and_, select
-
+from sqlalchemy.orm import selectinload
 from decorators import template_renderer
 from exceptions import TestNotFoundException
 from mod_auth.controllers import check_access_rights, login_required
@@ -61,13 +61,21 @@ def get_test_results(test) -> List[Dict[str, Any]]:
     :type test: Test
     """
     populated_categories = select(regressionTestLinkTable.c.category_id)
-    categories = Category.query.filter(Category.id.in_(populated_categories)).order_by(Category.name.asc()).all()
+    categories = Category.query.options(
+        selectinload(Category.regression_tests)
+    ).filter(
+        Category.id.in_(populated_categories)
+    ).order_by(Category.name.asc()).all()
     results = [{
         'category': category,
         'tests': [{
             'test': rt,
             'result': next((r for r in test.results if r.regression_test_id == rt.id), None),
-            'files': TestResultFile.query.filter(
+            'files': TestResultFile.query.options(
+                selectinload(TestResultFile.regression_test_output).selectinload(
+                    RegressionTestOutput.multiple_files
+                )
+            ).filter(
                 and_(TestResultFile.test_id == test.id, TestResultFile.regression_test_id == rt.id)
             ).all()
         } for rt in category.regression_tests if rt.id in test.get_customized_regressiontests()]
@@ -88,7 +96,7 @@ def get_test_results(test) -> List[Dict[str, Any]]:
                 test_error = True
             if len(category_test['files']) > 0:
                 for result_file in category_test['files']:
-                    if result_file.got is not None and result.exit_code == 0:
+                    if result_file.got is not None and (result is None or result.exit_code == 0):
                         file_error = True
                         for file in result_file.regression_test_output.multiple_files:
                             if file.file_hashes == result_file.got:

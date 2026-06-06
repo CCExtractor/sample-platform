@@ -7,6 +7,7 @@ from flask import (Blueprint, Response, abort, g, jsonify, redirect, request,
                    url_for)
 from sqlalchemy import and_, select
 from sqlalchemy.orm import selectinload
+
 from decorators import template_renderer
 from exceptions import TestNotFoundException
 from mod_auth.controllers import check_access_rights, login_required

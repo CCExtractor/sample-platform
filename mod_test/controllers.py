@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 from flask import (Blueprint, Response, abort, g, jsonify, redirect, request,
                    url_for)
 from sqlalchemy import and_, select
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
 from decorators import template_renderer
 from exceptions import TestNotFoundException
@@ -73,7 +73,7 @@ def get_test_results(test) -> List[Dict[str, Any]]:
             'test': rt,
             'result': next((r for r in test.results if r.regression_test_id == rt.id), None),
             'files': TestResultFile.query.options(
-                selectinload(TestResultFile.regression_test_output).selectinload(
+                joinedload(TestResultFile.regression_test_output).selectinload(
                     RegressionTestOutput.multiple_files
                 )
             ).filter(

@@ -97,7 +97,7 @@ def get_test_results(test) -> List[Dict[str, Any]]:
                 test_error = True
             if len(category_test['files']) > 0:
                 for result_file in category_test['files']:
-                    if result_file.got is not None and (result is None or result.exit_code == 0):
+                    if result_file.got is not None and (result is None or result.exit_code == result.expected_rc):
                         file_error = True
                         for file in result_file.regression_test_output.multiple_files:
                             if file.file_hashes == result_file.got:

@@ -79,3 +79,21 @@ class TestDiff(unittest.TestCase):
         obtained_tr_count = obtained_diff.count("</tr>")
 
         self.assertGreater(obtained_tr_count, limit_tr_count)
+
+    def test_cascade_failure_missing_entry(self):
+        """Test cascade-failure when subtitle entries are missing."""
+        expected_sub = [
+            '1\n', '00:00:01,000 --> 00:00:02,000\n', 'First line\n',
+            '2\n', '00:00:03,000 --> 00:00:04,000\n', 'Second line\n'
+        ]
+        obtained_sub = [
+            '1\n', '00:00:01,000 --> 00:00:02,000\n', 'First line\n',
+            '3\n', '00:00:05,000 --> 00:00:06,000\n', 'Third line\n'
+        ]
+
+        diff_html = get_html_diff(expected_sub, obtained_sub)
+
+        self.assertIn('Third', diff_html)
+        self.assertIn('Second', diff_html)
+        self.assertIn('05', diff_html)
+        self.assertIn('03', diff_html)

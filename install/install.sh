@@ -26,11 +26,11 @@ echo "-------------------------------"
 echo ""
 echo "* Updating package list"
 apt-get update >> "$install_log" 2>&1
-echo "* Installing nginx, python, pip, mediainfo and gunicorn"
+echo "* Installing nginx, python3, pip, mediainfo and gunicorn"
 add-apt-repository ppa:deadsnakes/ppa -y >> "$install_log" 2>&1
 apt-get -q -y install python3.9 nginx python3.9-distutils python3-pip mediainfo gunicorn3 >> "$install_log" 2>&1
-update-alternatives --install /usr/bin/python python /usr/bin/python3.9 1 >> "$install_log" 2>&1
-update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1 >> "$install_log" 2>&1
+update-alternatives --install /usr/bin/python python /usr/bin/python3 1 >> "$install_log" 2>&1
+update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3 1 >> "$install_log" 2>&1
 rm -f /etc/nginx/sites-available/default
 rm -f /etc/nginx/sites-enabled/default
 if [ ! -f /etc/init.d/mysql* ]; then
@@ -64,9 +64,9 @@ userInput () {
 }
 
 echo "* Update pip, setuptools and wheel"
-python -m pip install --upgrade pip setuptools wheel >> "$install_log" 2>&1
+python3 -m pip install --upgrade pip setuptools wheel >> "$install_log" 2>&1
 echo "* Installing pip dependencies"
-python -m pip install -r "${root_dir}/requirements.txt" >> "$install_log" 2>&1
+python3 -m pip install -r "${root_dir}/requirements.txt" >> "$install_log" 2>&1
 echo ""
 echo "-------------------------------"
 echo "|        Configuration        |"
@@ -204,13 +204,13 @@ while [[ $admin_password == "" ]];do
    fi
 done
 echo "Creating admin account: "
-python "${root_dir}/install/init_db.py" "${config_db_uri}" "${admin_name}" "${admin_email}" "${admin_password}"
+python3 "${root_dir}/install/init_db.py" "${config_db_uri}" "${admin_name}" "${admin_email}" "${admin_password}"
 # Create sample database if user wanted to
 if [ "${sample_response}" == 'y' ]; then
     echo "Creating sample database.."
     sample_dir="${dir}/sample_files/*"
     cp -r $sample_dir "${sample_repository}/TestFiles"
-    python "${dir}/sample_db.py" "${config_db_uri}"
+    python3 "${dir}/sample_db.py" "${config_db_uri}"
 fi
 echo ""
 echo "-------------------------------"

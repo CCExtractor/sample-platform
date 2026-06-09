@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """handle cron logic for CI platform."""
 
 import sys

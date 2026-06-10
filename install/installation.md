@@ -162,7 +162,7 @@ determine what goes wrong. The snippet below shows how this can be done:
 
 ```
 cd /var/www/sample-platform/
-sudo python bootstrap_gunicorn.py
+sudo python3 bootstrap_gunicorn.py
 ```
 
 * If `gunicorn` boots up successfully, most relevant logs will be stored in
@@ -211,7 +211,7 @@ The file `mod_ci/cron.py` is to be run in periodic intervals. To setup a cron jo
 1. Open your terminal and enter the command `sudo crontab -e`.
 2. To setup a cron job that runs this file every 10 minutes, append this at the bottom of the file
     ```
-    */10 * * * * python /var/www/sample-platform/mod_ci/cron.py > /var/www/sample-platform/logs/cron.log 2>&1
+    */10 * * * * python3 /var/www/sample-platform/mod_ci/cron.py > /var/www/sample-platform/logs/cron.log 2>&1
     ```
     Change the `/var/www/sample-plaform` directory, if you have installed the platform in a different directory.
 

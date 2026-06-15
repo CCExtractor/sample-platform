@@ -32,7 +32,7 @@ regression tests useless. In these cases, the tests can give false negative. For
 result files by the following command.
 
 ```shell
-python manage.py update /path/to/ccextractor/executable
+python3 manage.py update /path/to/ccextractor/executable
 ```
 
 NOTE: Please backup old results and be sure about updating them as there is no method to go back.

@@ -24,6 +24,7 @@ from exceptions import (IncompleteConfigException, MissingConfigError,
                         SecretKeyInstallationException)
 from log_configuration import LogConfiguration
 from mailer import Mailer
+from mod_api import mod_api
 from mod_auth.controllers import mod_auth
 from mod_ci.controllers import mod_ci
 from mod_customized.controllers import mod_customized
@@ -273,3 +274,5 @@ app.register_blueprint(mod_test, url_prefix="/test")
 app.register_blueprint(mod_ci)
 app.register_blueprint(mod_customized, url_prefix='/custom')
 app.register_blueprint(mod_health)
+# REST API v1
+app.register_blueprint(mod_api, url_prefix='/api/v1')

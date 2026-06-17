@@ -32,6 +32,7 @@ class User(Base):
     name = Column(String(50), unique=True)
     email = Column(String(255), unique=True, nullable=True)
     github_token = Column(Text(), nullable=True)
+    github_login = Column(String(255), nullable=True)
     password = Column(String(255), unique=False, nullable=False)
     role = Column(Role.db_type())
 

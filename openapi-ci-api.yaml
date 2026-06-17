@@ -1,0 +1,2840 @@
+openapi: 3.0.3
+info:
+  title: CCExtractor CI System API
+  version: 1.2.0
+  description: |
+    Security-hardened JSON-only REST API for the CCExtractor CI/sample platform.
+    Designed for AI agents and CI automation. Enforces scoped Bearer token auth,
+    strict input validation, rate limiting on all routes, and safe defaults
+    throughout. No browser sessions, no HTML, no implicit permissions.
+
+    **Authentication:** All endpoints require bearer token authentication unless
+    explicitly marked with `security: []` (only /system/health and POST /auth/tokens).
+
+    **Rate-limit headers:** Every response includes `X-RateLimit-Limit`,
+    `X-RateLimit-Remaining`, and `X-RateLimit-Reset` headers. These are modeled
+    explicitly on the 429 response for brevity; they are present on all responses
+    regardless of status code.
+
+  contact:
+    name: CCExtractor Development
+    url: https://github.com/CCExtractor/sample-platform
+  license:
+    name: GPL-3.0-only
+    url: https://www.gnu.org/licenses/gpl-3.0.html
+
+servers:
+  - url: http://localhost:5000/api/v1
+    description: Local development server
+  - url: https://sampleplatform.ccextractor.org/api/v1
+    description: Production
+
+#
+# Global security: all endpoints require auth
+# unless explicitly overridden with security: []
+#
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Auth
+    description: Token issuance and revocation
+  - name: Runs
+    description: CI run lifecycle — list, inspect, trigger, and cancel
+  - name: Samples
+    description: Media samples and regression test definitions
+  - name: Results
+    description: Per-sample output, diffs, and baseline management
+  - name: Errors and Logs
+    description: Structured errors and raw log access
+  - name: System
+    description: Health, queue, and artifacts
+
+#
+# SECURITY NOTES (implementers must read)
+#
+# 1. AUTH MODEL
+#    - All tokens are opaque, server-side. Never expose session cookies via API.
+#    - The CI worker token (/ci/progress-reporter) is a separate secret and is
+#      NOT valid for user-facing API endpoints.
+#    - Token creation is rate-limited to 5 req/15 min per IP to prevent
+#      credential stuffing.
+#
+# 2. SCOPE ENFORCEMENT
+#    - Scope checks happen at the middleware layer before route handlers.
+#    - x-required-scope on each operation defines the minimum scope needed.
+#    - Missing scope → 403 Forbidden (not 401, token is valid but insufficient).
+#
+# 3. INPUT VALIDATION
+#    - additionalProperties: false on all request bodies (no mass-assignment).
+#    - Regex patterns on all free-text IDs (commit_sha, sha256, repository).
+#    - maxLength on every string field. maxItems on every array.
+#    - Integer IDs have minimum: 1 (no zero or negative IDs).
+#
+# 4. OUTPUT SAFETY
+#    - got=null in TestResultFile means match, not missing output.
+#      The dummy row (-1,-1,-1,'','error') is translated server-side to
+#      status=missing_output and never surfaced as a real object.
+#    - test.failed reflects cancellation only; fail_count is computed from
+#      TestResult rows. Do not expose test.failed directly.
+#    - Stack traces in infrastructure errors are opt-in (include_stack=false
+#      by default) to avoid leaking internal paths.
+#
+# 5. STORAGE
+#    - Artifacts may exist in local SAMPLE_REPOSITORY, GCS, or both.
+#    - storage_status=degraded means one backend only; missing means neither.
+#    - Never return a download_url that has not been verified to exist.
+#    - Log endpoints return 404 (not a broken download link) when the log
+#      file is absent from both storage backends.
+#
+# 6. RATE LIMITING (all routes)
+#    - Default: 120 req/min per token (reads), 20 req/min per token (writes).
+#    - Auth endpoint: 5 req/15 min per IP.
+#    - Every response includes X-RateLimit-Limit, X-RateLimit-Remaining,
+#      X-RateLimit-Reset headers.
+#    - 429 response includes Retry-After header (seconds).
+#
+# 7. IDEMPOTENCY
+#    - POST /runs/{run_id}/cancel is idempotent; canceling an already-canceled
+#      run returns 202 with status=accepted and a no-op message.
+#
+# 8. DIFF ACCESS
+#    - The diff route is header-gated on the legacy system (not role-gated).
+#      The API wraps the XHR path and returns structured JSON. No HTML.
+#
+# 9. STATUS DERIVATION
+#    - Run status is derived, not stored. TestStatus has only: preparation,
+#      testing, completed, canceled (canceled covers both canceled and error).
+#      The API normalizes this to the 7-value enum below.
+#    - RunSample.status is computed from TestResult + TestResultFile +
+#      expected exit code + multiple acceptable baselines.
+#    - fail_count and missing_output_count in RunSummary are mutually
+#      exclusive. A sample appears in exactly one bucket (missing_output
+#      is checked first; if the dummy sentinel row is detected the function
+#      returns immediately without evaluating fail conditions).
+#
+# 10. REPOSITORY PERMISSIONS
+#    - POST /runs enforces a repo-aware permission check. Triggering a run
+#      against the main configured repository (GITHUB_OWNER/GITHUB_REPOSITORY)
+#      requires the contributor role or above. Any authenticated user with
+#      runs:write scope may trigger runs against fork repositories. There is
+#      no global repository allowlist; the elevated-role check applies only
+#      to the main configured repository.
+#
+
+paths:
+
+  # AUTH
+
+  /auth/tokens:
+    get:
+      tags: [Auth]
+      summary: List API tokens
+      operationId: listTokens
+      description: >
+        Lists tokens for the authenticated user. Non-admin users see only their
+        own tokens. Admins may append ?all=true to list tokens across the entire
+        system; non-admin callers sending ?all=true receive 403.
+
+        Plaintext token values are never included in list responses.
+      security:
+        - bearerAuth: []
+      x-required-scope: tokens:manage
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - name: all
+          in: query
+          schema:
+            type: boolean
+          description: >
+            Admin only. Set to true to list tokens for all users in the system.
+            Non-admin callers receive 403 if this parameter is present and true.
+      responses:
+        "200":
+          description: Paginated list of tokens (without plaintext secrets).
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Page"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ApiTokenItem"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+    post:
+      tags: [Auth]
+      summary: Create an API token
+      operationId: createToken
+      description: >
+        Rate-limited to 5 requests per 15 minutes per IP. Tokens are opaque
+        and stored server-side. Scopes are additive; request only what you need.
+        Tokens expire after expires_in_days (default 7, max 30).
+      security: []
+      x-rate-limit: "5/15min per IP"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenCreateRequest"
+      responses:
+        "201":
+          description: Token created. Store the token value; it will not be shown again.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthToken"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                code: invalid_credentials
+                message: Email or password is incorrect.
+                details: {}
+        "403":
+          description: >
+            Authenticated caller tried to create a token with higher scopes
+            than their current token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                code: forbidden
+                message: Cannot create token with scopes you do not possess.
+                details: {}
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /auth/tokens/current:
+    delete:
+      tags: [Auth]
+      summary: Revoke the current API token
+      operationId: revokeCurrentToken
+      description: >
+        Immediately invalidates the token used in the Authorization header.
+        Subsequent requests with the same token will receive 401.
+
+        No specific scope is required beyond authentication — any valid token
+        can self-revoke. This is the preferred way to clean up a token when
+        you have it in hand but do not know its numeric ID.
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Token revoked
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /auth/tokens/{token_id}:
+    delete:
+      tags: [Auth]
+      summary: Revoke a specific API token by ID
+      operationId: revokeToken
+      description: >
+        Revokes the token identified by token_id.
+        Users may revoke their own tokens without any scope requirement.
+        Revoking another user's token requires tokens:manage scope and admin role.
+        Attempting to revoke another user's token without admin role returns 404 to prevent token-ID enumeration.
+
+        To revoke the token currently in use without knowing its ID, use
+        DELETE /auth/tokens/current instead.
+      security:
+        - bearerAuth: []
+      x-required-scope: tokens:manage  # only enforced for cross-user revocation
+      parameters:
+        - name: token_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "204":
+          description: Token revoked successfully.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: >
+            Token is valid but the request is forbidden. Admins requesting cross-user revocation get a 403 response if their token lacks the tokens:manage scope.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                code: forbidden
+                message: Cross-user revocation requires tokens:manage scope.
+                details: {}
+        "404":
+          description: >
+            Token not found. Non-admin users attempting to revoke another user's token receive a uniform 404 response to prevent token-ID enumeration.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                code: not_found
+                message: Token not found.
+                details: {}
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  # RUNS
+
+  /runs:
+    get:
+      tags: [Runs]
+      summary: List CI runs
+      operationId: listRuns
+      description: >
+        The underlying table is capped at the 50 most recent runs
+        in the current implementation; this endpoint adds full pagination.
+        Sorted by -created_at by default (newest first).
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:read
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/RunStatus"
+        - $ref: "#/components/parameters/Branch"
+        - $ref: "#/components/parameters/CommitSha"
+        - $ref: "#/components/parameters/Repository"
+        - $ref: "#/components/parameters/Platform"
+        - $ref: "#/components/parameters/CreatedAfter"
+        - $ref: "#/components/parameters/CreatedBefore"
+        - name: sort
+          in: query
+          schema:
+            type: string
+            default: -created_at
+            enum: [created_at, -created_at, run_id, -run_id]
+          description: Sort field. Prefix with - for descending order.
+      responses:
+        "200":
+          description: Paginated runs
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/RateLimitLimit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/RateLimitRemaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/RateLimitReset"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Page"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Run"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+    post:
+      tags: [Runs]
+      summary: Trigger a new CI run
+      operationId: createRun
+      description: >
+        Requires runs:write scope and contributor role or above.
+        The regression_test_ids set is validated against active tests only.
+        If omitted, all active regression tests are used.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:write
+      x-required-roles: [admin, tester, contributor]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RunCreateRequest"
+      responses:
+        "202":
+          description: Run queued. Poll /runs/{run_id}/progress for status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Run"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /runs/{run_id}:
+    get:
+      tags: [Runs]
+      summary: Get a CI run
+      operationId: getRun
+      description: >
+        Returns normalized run status derived from TestProgress rows.
+        status=canceled covers both explicit cancellation and infrastructure
+        errors (the underlying model does not distinguish them).
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:read
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Run details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Run"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /runs/{run_id}/summary:
+    get:
+      tags: [Runs]
+      summary: Get pass/fail summary for a run
+      operationId: getRunSummary
+      description: >
+        fail_count is computed from TestResult rows, not from test.failed.
+        test.failed only reflects whether the final progress status is
+        canceled — it does not reflect regression test outcomes.
+        Use this endpoint, not test.failed, to triage a run.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:read
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Run summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /runs/{run_id}/progress:
+    get:
+      tags: [Runs]
+      summary: Get progress events for a run
+      operationId: getRunProgress
+      description: >
+        Progress events are sourced from TestProgress rows written by the CI
+        worker via /ci/progress-reporter. Messages are unstructured text.
+        Structured error types are aspirational until the worker protocol
+        emits structured JSON.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:read
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [queued, preparation, testing, completed, canceled]
+      responses:
+        "200":
+          description: Paginated progress events
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Page"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ProgressEvent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /runs/{run_id}/cancel:
+    post:
+      tags: [Runs]
+      summary: Cancel a queued or running CI run
+      operationId: cancelRun
+      description: >
+        Idempotent. Canceling an already-canceled or completed run returns
+        202 with a no-op message rather than an error.
+        Requires runs:write scope.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:write
+      x-required-roles: [admin, tester, contributor]
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  minLength: 5
+                  maxLength: 255
+                  description: >
+                    Reason for cancellation, stored in the audit log.
+              additionalProperties: false
+      responses:
+        "202":
+          description: Cancellation accepted (or no-op if already terminal)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunActionResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /runs/{run_id}/config:
+    get:
+      tags: [Runs]
+      summary: Get run configuration and test matrix
+      operationId: getRunConfig
+      description: >
+        regression_test_ids lists IDs included in this run. When no custom
+        set was configured, all regression tests are returned.
+        Implementers must filter by active=true explicitly.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:read
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Run configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunConfig"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  # SAMPLES
+
+  /runs/{run_id}/samples:
+    get:
+      tags: [Samples]
+      summary: List regression test results in a run
+      operationId: listRunSamples
+      description: >
+        Returns one entry per regression test result, not one per unique media
+        file. A single media sample may yield multiple entries if it has
+        multiple regression tests (different command flags).
+        sample_progress in the legacy JSON endpoint is len(test.results) over
+        total regression tests; it does not reflect multi-output completeness.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:read
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pass, fail, skipped, missing_output, running, not_started]
+        - name: name
+          in: query
+          schema:
+            type: string
+            maxLength: 100
+        - name: tag
+          in: query
+          schema:
+            type: string
+            maxLength: 50
+        - name: category
+          in: query
+          schema:
+            type: string
+            maxLength: 50
+      responses:
+        "200":
+          description: Paginated regression test results
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Page"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/RunSample"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /runs/{run_id}/samples/{regression_test_id}:
+    get:
+      tags: [Samples]
+      summary: Get full details for a regression test result in a run
+      operationId: getRunSample
+      description: >
+        Returns the result for a specific regression test within a run.
+        Note: the path parameter is regression_test_id, not a media sample ID.
+        A single media sample may have multiple regression tests.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:read
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/RegressionTestId"
+      responses:
+        "200":
+          description: Regression test result details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunSample"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /samples:
+    get:
+      tags: [Samples]
+      summary: List all known media samples
+      operationId: listSamples
+      description: >
+        Returns paginated media sample metadata. Samples are the original
+        media files uploaded for regression testing.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:read
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - name: status
+          in: query
+          description: >
+            Derived from linked regression tests. The sample table itself has
+            no quarantine state; active/inactive reflects whether any active
+            regression tests reference the sample.
+          schema:
+            type: string
+            enum: [active, inactive]
+        - name: name
+          in: query
+          schema:
+            type: string
+            maxLength: 100
+        - name: tag
+          in: query
+          schema:
+            type: string
+            maxLength: 50
+        - name: sha256
+          in: query
+          schema:
+            type: string
+            pattern: '^[a-fA-F0-9]{64}$'
+        - name: extension
+          in: query
+          schema:
+            type: string
+            maxLength: 10
+            pattern: '^[a-zA-Z0-9]+$'
+      responses:
+        "200":
+          description: Paginated media samples
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Page"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Sample"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /samples/{sample_id}:
+    get:
+      tags: [Samples]
+      summary: Get media sample metadata
+      operationId: getSample
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:read
+      parameters:
+        - $ref: "#/components/parameters/SampleId"
+      responses:
+        "200":
+          description: Media sample metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sample"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /samples/{sample_id}/history:
+    get:
+      tags: [Samples]
+      summary: Get regression test result history for a sample across runs
+      operationId: getSampleHistory
+      description: >
+        Use failure_signature for flake detection: a stable signature across
+        multiple runs on different commits indicates a genuine regression,
+        not infrastructure noise.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:read
+      parameters:
+        - $ref: "#/components/parameters/SampleId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/RunStatus"
+        - $ref: "#/components/parameters/Branch"
+        - $ref: "#/components/parameters/Platform"
+        - $ref: "#/components/parameters/CreatedAfter"
+        - $ref: "#/components/parameters/CreatedBefore"
+      responses:
+        "200":
+          description: Paginated sample history
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Page"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/SampleHistoryEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /regression-tests:
+    get:
+      tags: [Samples]
+      summary: List regression test definitions
+      operationId: listRegressionTests
+      description: >
+        The active filter must be applied explicitly. When no custom set is
+        defined, all regression tests are returned — including inactive ones.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:read
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - name: active
+          in: query
+          schema:
+            type: boolean
+            default: true
+        - name: category
+          in: query
+          schema:
+            type: string
+            maxLength: 50
+        - name: tag
+          in: query
+          schema:
+            type: string
+            maxLength: 50
+        - name: sample_id
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Paginated regression test definitions
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Page"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/RegressionTest"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  # RESULTS
+
+  /runs/{run_id}/samples/{sample_id}/regression-tests/{regression_id}/outputs/{output_id}/expected:
+    get:
+      tags: [Results]
+      summary: Get expected output for a regression test result
+      operationId: getExpectedOutput
+      description: >
+        Expected output is a file reference stored under TestResults using the
+        regression output extension. Resolved from GCS or local
+        SAMPLE_REPOSITORY at request time. storage_status reflects which
+        backends have the file. Do not assume local and GCS are always in sync.
+      security:
+        - bearerAuth: []
+      x-required-scope: results:read
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/SampleId"
+        - $ref: "#/components/parameters/RegressionId"
+        - $ref: "#/components/parameters/OutputId"
+        - $ref: "#/components/parameters/Format"
+      responses:
+        "200":
+          description: Expected output file
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OutputFile"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /runs/{run_id}/samples/{sample_id}/regression-tests/{regression_id}/outputs/{output_id}/actual:
+    get:
+      tags: [Results]
+      summary: Get actual output generated by a regression test in a run
+      operationId: getActualOutput
+      description: >
+        IMPORTANT: TestResultFile.got = null means the actual output MATCHED
+        expected, not that actual output is missing. This is a semantic trap
+        in the data model. Missing output is represented by a dummy row
+        (-1,-1,-1,'','error') which the API translates to status=missing_output
+        and returns 404. A 200 response always contains a real output file.
+      security:
+        - bearerAuth: []
+      x-required-scope: results:read
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/SampleId"
+        - $ref: "#/components/parameters/RegressionId"
+        - $ref: "#/components/parameters/OutputId"
+        - $ref: "#/components/parameters/Format"
+      responses:
+        "200":
+          description: Actual output file (output exists and differs from expected)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OutputFile"
+        "303":
+          description: Output matched expected. Redirected to /expected.
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /runs/{run_id}/samples/{sample_id}/regression-tests/{regression_id}/outputs/{output_id}/diff:
+    get:
+      tags: [Results]
+      summary: Get expected-vs-actual diff for a failing regression test result
+      operationId: getDiff
+      description: >
+        The legacy diff route is header-gated (X-Requested-With: XMLHttpRequest),
+        not role-gated. The 403 seen on direct browser requests was a
+        header-check artifact. This endpoint wraps the XHR logic and returns
+        structured JSON — no HTML, no 50-line truncation.
+      security:
+        - bearerAuth: []
+      x-required-scope: results:read
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/SampleId"
+        - $ref: "#/components/parameters/RegressionId"
+        - $ref: "#/components/parameters/OutputId"
+        - name: context_lines
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 3
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [structured, unified]
+            default: structured
+      responses:
+        "200":
+          description: Structured or unified diff
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Diff"
+                  - $ref: "#/components/schemas/UnifiedDiff"
+                discriminator:
+                  propertyName: format
+                  mapping:
+                    structured: "#/components/schemas/Diff"
+                    unified: "#/components/schemas/UnifiedDiff"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /runs/{run_id}/samples/{sample_id}/baseline-approval:
+    post:
+      tags: [Results]
+      summary: Approve actual output as new expected baseline
+      operationId: approveBaseline
+      description: >
+        Requires baselines:write scope and admin role.
+        This is a destructive write — the approved output becomes the new
+        expected baseline for the regression test.
+      security:
+        - bearerAuth: []
+      x-required-scope: baselines:write
+      x-required-roles: [admin, contributor]
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/SampleId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BaselineApprovalRequest"
+      responses:
+        "200":
+          description: Baseline approval applied immediately.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BaselineApproval"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  # ERRORS AND LOGS
+
+  /runs/{run_id}/errors:
+    get:
+      tags: [Errors and Logs]
+      summary: Get structured test errors for a run
+      operationId: listRunErrors
+      description: >
+        Error types are derived from TestResult and TestResultFile rows.
+        missing_output is detected from the dummy (-1,-1,-1,'','error') row
+        pattern, not from got=null (which means match, not missing).
+      security:
+        - bearerAuth: []
+      x-required-scope: results:read
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [test_failure, exit_code_mismatch, missing_output, diff_mismatch]
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [info, warning, error, critical]
+        - name: sample_id
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Paginated test errors
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Page"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ErrorItem"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /runs/{run_id}/infrastructure-errors:
+    get:
+      tags: [Errors and Logs]
+      summary: Get worker, provisioning, and build errors for a run
+      operationId: listInfraErrors
+      description: >
+        Errors are extracted from TestProgress rows written by the CI worker.
+        Messages are currently unstructured text. The type filter does
+        best-effort text matching until the worker protocol emits structured
+        error types.
+        Stack traces are opt-in (include_stack defaults to false) to avoid
+        leaking internal paths to unauthorized callers.
+      security:
+        - bearerAuth: []
+      x-required-scope: system:read
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [queue, vm_provisioning, checkout, merge, build, worker, web_server, storage]
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [info, warning, error, critical]
+        - name: include_stack
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: >
+            Default false. Set true only when debugging infrastructure failures.
+            Stacks may contain internal paths; access requires system:read scope.
+      responses:
+        "200":
+          description: Paginated infrastructure errors
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Page"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ErrorItem"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /runs/{run_id}/logs:
+    get:
+      tags: [Errors and Logs]
+      summary: Get raw logs for a run
+      operationId: getRunLogs
+      description: >
+        Logs are stored at SAMPLE_REPOSITORY/LogFiles/{id}.txt and served
+        via GCS signed URL. Returns 404 — not a broken download link — when
+        the file is absent from both local and GCS storage.
+        Uses cursor-based pagination.
+      security:
+        - bearerAuth: []
+      x-required-scope: system:read
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: level
+          in: query
+          schema:
+            type: string
+            enum: [debug, info, warning, error, critical]
+        - name: source
+          in: query
+          schema:
+            type: string
+            enum: [orchestrator, worker, build, test_runner, web]
+        - name: contains
+          in: query
+          schema:
+            type: string
+            maxLength: 100
+      responses:
+        "200":
+          description: Cursor-paginated run log lines
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/CursorPage"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/LogLine"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Log file not found in local or GCS storage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                code: log_not_found
+                message: Log file for run 9309 does not exist in any storage backend.
+                details:
+                  run_id: 9309
+                  checked: [local, gcs]
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /runs/{run_id}/samples/{sample_id}/logs:
+    get:
+      tags: [Errors and Logs]
+      summary: Get raw logs for a regression test result in a run
+      operationId: getSampleLogs
+      description: >
+        Returns raw log lines for a specific regression test result.
+        Logs are stored at SAMPLE_REPOSITORY/LogFiles/ and served via GCS
+        signed URL when available. Returns 404 when the log file is absent
+        from both local and GCS storage.
+      security:
+        - bearerAuth: []
+      x-required-scope: system:read
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/SampleId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: level
+          in: query
+          schema:
+            type: string
+            enum: [debug, info, warning, error, critical]
+        - name: contains
+          in: query
+          schema:
+            type: string
+            maxLength: 100
+      responses:
+        "200":
+          description: Cursor-paginated sample log lines
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/CursorPage"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/LogLine"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /runs/{run_id}/error-summary:
+    get:
+      tags: [Errors and Logs]
+      summary: Get grouped error summary for a run
+      operationId: getErrorSummary
+      description: >
+        Use this endpoint to triage a run before drilling into individual
+        errors. group_by=type gives a high-level failure breakdown;
+        group_by=sample_id helps identify flaky samples.
+      security:
+        - bearerAuth: []
+      x-required-scope: results:read
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - name: group_by
+          in: query
+          schema:
+            type: string
+            enum: [type, sample_id, regression_id, severity]
+            default: type
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [info, warning, error, critical]
+      responses:
+        "200":
+          description: Paginated grouped error summary
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Page"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ErrorSummaryBucket"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  # SYSTEM
+
+  /system/health:
+    get:
+      tags: [System]
+      summary: Get CI system health and dependency status
+      operationId: getHealth
+      description: >
+        Unauthenticated. Returns overall system status and per-dependency
+        health. Used by monitoring and uptime checks.
+      security: []
+      responses:
+        "200":
+          description: System healthy or degraded
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/RateLimitLimit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/RateLimitRemaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/RateLimitReset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemHealth"
+        "503":
+          description: System is down
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/RateLimitLimit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/RateLimitRemaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/RateLimitReset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemHealth"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /system/queue:
+    get:
+      tags: [System]
+      summary: Get queue depth and currently running jobs
+      operationId: getQueue
+      security:
+        - bearerAuth: []
+      x-required-scope: system:read
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - name: platform
+          in: query
+          schema:
+            type: string
+            enum: [linux, windows]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [queued, running]
+      responses:
+        "200":
+          description: Queue status and active jobs
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Page"
+                  - type: object
+                    properties:
+                      queue_depth:
+                        type: integer
+                        minimum: 0
+                      running_count:
+                        type: integer
+                        minimum: 0
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/QueueJob"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /runs/{run_id}/artifacts:
+    get:
+      tags: [System]
+      summary: List downloadable artifacts for a run
+      operationId: listArtifacts
+      description: >
+        Only returns artifacts with a verified download_url from at least one
+        storage backend. storage_status=degraded means one backend only;
+        storage_status=missing means neither backend has the file (download_url
+        will be null). Never returns a URL that has not been verified to exist.
+      security:
+        - bearerAuth: []
+      x-required-scope: results:read
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [build_log, sample_output, expected_output, diff, media_info, binary, coredump, combined_stdout]
+      responses:
+        "200":
+          description: Paginated run artifacts
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Page"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Artifact"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+#
+# COMPONENTS
+#
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+      description: >
+        Opaque server-side API token. Obtain via POST /auth/tokens.
+        The CI worker token used by /ci/progress-reporter is a separate
+        secret and is NOT valid here. Never use browser session cookies
+        for API clients.
+
+  # HEADERS
+
+  headers:
+    RateLimitLimit:
+      description: Maximum requests allowed in the current window
+      schema:
+        type: integer
+        example: 120
+    RateLimitRemaining:
+      description: Requests remaining in the current window
+      schema:
+        type: integer
+        example: 117
+    RateLimitReset:
+      description: Unix timestamp when the rate limit window resets
+      schema:
+        type: integer
+        example: 1748908800
+
+  # PARAMETERS
+
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      description: Maximum number of results to return (1–100)
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+
+    Offset:
+      name: offset
+      in: query
+      description: Number of results to skip for pagination
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 2147483647
+        default: 0
+
+    Cursor:
+      name: cursor
+      in: query
+      description: >
+        Numeric line offset or ID for cursor-based pagination. Do not mix with offset. Mixing cursor and offset returns 400.
+        Obtain next_cursor from the previous response's pagination object.
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 10000000
+
+    RunId:
+      name: run_id
+      in: path
+      required: true
+      description: Numeric run ID
+      schema:
+        type: integer
+        minimum: 1
+
+    SampleId:
+      name: sample_id
+      in: path
+      required: true
+      description: Numeric media sample ID
+      schema:
+        type: integer
+        minimum: 1
+
+    RegressionTestId:
+      name: regression_test_id
+      in: path
+      required: true
+      description: Numeric regression test ID (not the same as media sample ID)
+      schema:
+        type: integer
+        minimum: 1
+
+    RunStatus:
+      name: status
+      in: query
+      description: >
+        Normalized run status. Derived from TestProgress rows and TestResult
+        outcomes. The underlying TestStatus model stores only preparation,
+        testing, completed, and canceled (where canceled covers both canceled
+        and error). This enum is the normalized API contract.
+      schema:
+        type: string
+        enum: [queued, running, pass, fail, canceled, incomplete]
+        example: pass
+
+    Branch:
+      name: branch
+      in: query
+      description: Filter by branch name (e.g. master, develop).
+      schema:
+        type: string
+        maxLength: 100
+        example: master
+
+    CommitSha:
+      name: commit_sha
+      in: query
+      description: >
+        Filter by full 40-character SHA-1 commit hash.
+      schema:
+        type: string
+        pattern: '^[a-fA-F0-9]{40}$'
+        example: 0b1a967b732898e705ea8f2fda5d08eb00328579
+
+    Repository:
+      name: repository
+      in: query
+      description: >
+        Filter by GitHub repository in owner/repo format.
+      schema:
+        type: string
+        pattern: '^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$'
+        maxLength: 100
+        example: CCExtractor/ccextractor
+
+    Platform:
+      name: platform
+      in: query
+      schema:
+        type: string
+        enum: [linux, windows]
+        example: linux
+
+    CreatedAfter:
+      name: created_after
+      in: query
+      description: >
+        ISO 8601 datetime filter. Returns runs created after this time.
+        Example: 2025-01-01T00:00:00Z
+      schema:
+        type: string
+        format: date-time
+
+    CreatedBefore:
+      name: created_before
+      in: query
+      description: >
+        ISO 8601 datetime filter. Returns runs created before this time.
+        Example: 2026-12-31T23:59:59Z
+      schema:
+        type: string
+        format: date-time
+
+    RegressionId:
+      name: regression_id
+      in: path
+      required: true
+      description: Regression test definition ID
+      schema:
+        type: integer
+        minimum: 1
+
+    OutputId:
+      name: output_id
+      in: path
+      required: true
+      description: Output file ID within a regression test definition
+      schema:
+        type: integer
+        minimum: 1
+
+    Format:
+      name: format
+      in: query
+      description: >
+        Content encoding for file responses.
+        Use text only when the file is known to be UTF-8 compatible.
+        Binary or unknown content defaults to base64.
+      schema:
+        type: string
+        enum: [text, base64]
+        default: base64
+
+  # RESPONSES
+
+  responses:
+    BadRequest:
+      description: Request body or query parameters failed schema validation
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: validation_error
+            message: Request failed schema validation.
+            details:
+              fields:
+                commit_sha: Must match pattern ^[a-fA-F0-9]{40}$
+                platform: Must be one of [linux, windows]
+
+    Unauthorized:
+      description: Missing, expired, or invalid bearer token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: unauthorized
+            message: Bearer token is missing, expired, or invalid.
+            details: {}
+
+    Forbidden:
+      description: Token is valid but lacks the required scope or role
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: forbidden
+            message: Token does not have the required scope for this operation.
+            details:
+              required_scope: runs:write
+              token_scopes: [runs:read, results:read]
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: not_found
+            message: Run 9317 not found.
+            details:
+              resource: run
+              id: 9317
+
+    UnprocessableEntity:
+      description: Request is valid JSON but semantically invalid
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: unprocessable
+            message: regression_test_ids contains inactive test IDs.
+            details:
+              inactive_ids: [42, 99]
+
+    RateLimited:
+      description: Too many requests. Retry after the indicated number of seconds.
+      headers:
+        Retry-After:
+          description: Seconds to wait before retrying
+          schema:
+            type: integer
+            example: 30
+        X-RateLimit-Limit:
+          $ref: "#/components/headers/RateLimitLimit"
+        X-RateLimit-Remaining:
+          $ref: "#/components/headers/RateLimitRemaining"
+        X-RateLimit-Reset:
+          $ref: "#/components/headers/RateLimitReset"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: rate_limited
+            message: Rate limit exceeded. Retry after 30 seconds.
+            details:
+              retry_after: 30
+              limit: 120
+              window: 60s
+
+    Error:
+      description: Unexpected server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  # SCHEMAS
+
+  schemas:
+
+    Page:
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          description: >
+            Result items. The concrete type is defined by allOf composition
+            in each endpoint response.
+          items: {}
+        pagination:
+          type: object
+          required: [limit, offset, total]
+          properties:
+            limit:
+              type: integer
+              minimum: 1
+            offset:
+              type: integer
+              minimum: 0
+            total:
+              type: integer
+              minimum: -1
+              nullable: true
+              description: >
+                Total matching records. Null if count was not computed for this request.
+                Pass ?count=true to force computation.
+            next_offset:
+              type: integer
+              minimum: 0
+              nullable: true
+            truncated:
+              type: boolean
+              description: >
+                Present and true when the result set was capped by an
+                internal safety limit (e.g. status-filter on runs). When
+                true, total may undercount the real number of matches.
+
+    CursorPage:
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          description: >
+            Result items. The concrete type is defined by allOf composition
+            in each endpoint response.
+          items: {}
+        pagination:
+          type: object
+          required: [limit, next_cursor]
+          properties:
+            limit:
+              type: integer
+              minimum: 1
+            next_cursor:
+              type: integer
+              minimum: 0
+              nullable: true
+              description: >
+                Numeric cursor for the next page. Null when there are no
+                more results.
+
+    ErrorResponse:
+      type: object
+      required: [code, message, details]
+      properties:
+        code:
+          type: string
+          maxLength: 100
+          description: Machine-readable error code (snake_case)
+          example: not_found
+        message:
+          type: string
+          maxLength: 500
+          description: Human-readable error summary
+          example: Run 9317 not found.
+        details:
+          type: object
+          additionalProperties: true
+          description: >
+            Structured context for the error. Always an object, never null.
+            Empty object {} when no additional detail is available.
+
+    ApiTokenItem:
+      type: object
+      description: >
+        Token metadata returned when listing tokens. The plaintext token
+        value is never included - it is shown only once at creation time.
+      required: [id, user_id, token_name, token_prefix, scopes, created_at, expires_at, is_revoked]
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        user_id:
+          type: integer
+          minimum: 1
+          description: Owner of the token. Visible to admins when listing all tokens.
+        token_name:
+          type: string
+          maxLength: 50
+        token_prefix:
+          type: string
+          maxLength: 20
+          description: First few characters of the token for identification.
+        scopes:
+          type: array
+          maxItems: 6
+          uniqueItems: true
+          items:
+            type: string
+            enum: [runs:read, runs:write, results:read, baselines:write, system:read, tokens:manage]
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        is_revoked:
+          type: boolean
+          description: True if the token has been explicitly revoked.
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    TokenCreateRequest:
+      type: object
+      required: [email, password, token_name]
+      additionalProperties: false
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 128
+          description: Not stored or logged. Used only to verify identity.
+        token_name:
+          type: string
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_-]+$'
+          description: >
+            Descriptive label for the token (e.g., local-agent, ci-bot).
+            Must be unique per user.
+        expires_in_days:
+          type: integer
+          minimum: 1
+          maximum: 30
+          default: 7
+        scopes:
+          type: array
+          maxItems: 6
+          uniqueItems: true
+          default: [runs:read, results:read]
+          items:
+            type: string
+            enum: [runs:read, runs:write, results:read, baselines:write, system:read, tokens:manage]
+          description: >
+            Requested scopes. Grant only what the client needs.
+            runs:read — list and inspect runs, samples, history.
+            runs:write — trigger and cancel runs.
+            results:read — access expected/actual output, diffs, errors, logs.
+            baselines:write — approve new expected baselines.
+            system:read — queue, infrastructure errors, stack traces, artifacts.
+            tokens:manage — list and revoke API tokens.
+
+    AuthToken:
+      type: object
+      required: [token, token_type, token_name, scopes, expires_at]
+      properties:
+        token:
+          type: string
+          maxLength: 512
+          description: >
+            Opaque token value. Store it securely. It will not be shown again.
+        token_type:
+          type: string
+          enum: [bearer]
+        token_name:
+          type: string
+          maxLength: 50
+        scopes:
+          type: array
+          maxItems: 8
+          uniqueItems: true
+          items:
+            type: string
+            enum: [runs:read, runs:write, results:read, baselines:write, system:read, tokens:manage]
+        expires_at:
+          type: string
+          format: date-time
+
+    RunCreateRequest:
+      type: object
+      required: [repository, commit_sha, platform]
+      additionalProperties: false
+      properties:
+        repository:
+          type: string
+          pattern: '^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$'
+          maxLength: 100
+          example: CCExtractor/ccextractor
+        branch:
+          type: string
+          pattern: '^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$'
+          maxLength: 100
+          example: master
+        commit_sha:
+          type: string
+          pattern: '^[a-fA-F0-9]{40}$'
+          example: 0632bff4e382d5f86eff9073b9ddd37f03f9778c
+        pull_request:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+          nullable: true
+          example: 2264
+        platform:
+          type: string
+          enum: [linux, windows]
+          example: windows
+        regression_test_ids:
+          type: array
+          maxItems: 500
+          uniqueItems: true
+          items:
+            type: integer
+            minimum: 1
+            maximum: 2147483647
+          description: >
+            Optional subset of active regression test IDs.
+            If omitted, all active tests are used.
+            Inactive test IDs are rejected with 422.
+
+    Run:
+      type: object
+      required: [run_id, status, repository, commit_sha, platform]
+      properties:
+        run_id:
+          type: integer
+          minimum: 1
+        status:
+          type: string
+          enum: [queued, running, pass, fail, canceled, incomplete]
+          description: >
+            Normalized status. Derived from TestProgress rows and TestResult
+            outcomes. status=canceled covers both explicit cancellation and
+            infrastructure error (the underlying model conflates them).
+        platform:
+          type: string
+          enum: [linux, windows]
+        test_type:
+          type: string
+          enum: [pr, commit]
+          description: Whether this run was triggered by a pull request or a commit push.
+        repository:
+          type: string
+          maxLength: 100
+        branch:
+          type: string
+          maxLength: 100
+          nullable: true
+        commit_sha:
+          type: string
+          pattern: '^[a-fA-F0-9]{40}$'
+        pr_number:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: Pull request number, if this run was triggered by a PR.
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        queued_at:
+          type: string
+          format: date-time
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        github_link:
+          type: string
+          format: uri
+          nullable: true
+          description: Direct link to the commit or PR on GitHub.
+
+    RunSummary:
+      type: object
+      required: [run_id, status, total_samples, pass_count, fail_count, skipped_count, missing_output_count]
+      properties:
+        run_id:
+          type: integer
+          minimum: 1
+        status:
+          type: string
+          enum: [queued, running, pass, fail, canceled, incomplete]
+          description: >
+            Overall run status at the time the summary was generated.
+            Same derivation as Run.status.
+        total_samples:
+          type: integer
+          minimum: 0
+          description: Total regression test results in this run.
+        pass_count:
+          type: integer
+          minimum: 0
+        fail_count:
+          type: integer
+          minimum: 0
+          description: >
+            Computed from TestResult rows. NOT derived from test.failed,
+            which only reflects cancellation state and is unreliable for
+            determining whether regression tests actually passed.
+        skipped_count:
+          type: integer
+          minimum: 0
+        missing_output_count:
+          type: integer
+          minimum: 0
+          description: >
+            Samples that produced no output when output was expected.
+            Detected from the dummy TestResultFile(-1,-1,-1,'','error') row,
+            not from got=null (which means output matched).
+        error_count:
+          type: integer
+          minimum: 0
+        duration_ms:
+          type: integer
+          minimum: 0
+          nullable: true
+        triggered_by:
+          type: string
+          maxLength: 100
+          nullable: true
+
+    ProgressEvent:
+      type: object
+      required: [timestamp, status, message]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [queued, preparation, testing, completed, canceled, error]
+        message:
+          type: string
+          maxLength: 500
+          description: Unstructured text from TestProgress rows.
+        step:
+          type: integer
+          minimum: 0
+          nullable: true
+
+    RunActionResult:
+      type: object
+      required: [run_id, action, status]
+      properties:
+        run_id:
+          type: integer
+          minimum: 1
+          description: ID of the run this action targets.
+        action:
+          type: string
+          enum: [cancel]
+        status:
+          type: string
+          enum: [accepted, rejected, no_op]
+          description: no_op is returned when canceling an already-terminal run.
+        message:
+          type: string
+          maxLength: 500
+
+    RunConfig:
+      type: object
+      required: [run_id, platform, branch, commit_sha, regression_test_ids]
+      properties:
+        run_id:
+          type: integer
+          minimum: 1
+        platform:
+          type: string
+          enum: [linux, windows]
+        branch:
+          type: string
+          maxLength: 100
+        commit_sha:
+          type: string
+          pattern: '^[a-fA-F0-9]{40}$'
+        regression_test_ids:
+          type: array
+          maxItems: 500
+          uniqueItems: true
+          items:
+            type: integer
+            minimum: 1
+          description: >
+            IDs included in this run. When no custom set was configured, all
+            regression tests are returned. Implementers must filter by
+            active=true — get_customized_regressiontests() does not do this.
+
+    Sample:
+      type: object
+      required: [sample_id, sha]
+      properties:
+        sample_id:
+          type: integer
+          minimum: 1
+        sha:
+          type: string
+          pattern: '^[a-fA-F0-9]{64}$'
+          description: SHA256 hash of the sample file.
+        extension:
+          type: string
+          maxLength: 10
+        original_name:
+          type: string
+          maxLength: 255
+        filename:
+          type: string
+          maxLength: 255
+        tags:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            maxLength: 50
+        regression_test_count:
+          type: integer
+          minimum: 0
+          description: Number of active regression tests referencing this sample.
+        active:
+          type: boolean
+          description: True if at least one active regression test references this sample.
+
+    RegressionTest:
+      type: object
+      required: [regression_test_id, sample_id, command]
+      properties:
+        regression_test_id:
+          type: integer
+          minimum: 1
+        sample_id:
+          type: integer
+          minimum: 1
+        sample_name:
+          type: string
+          maxLength: 255
+          nullable: true
+        command:
+          type: string
+          maxLength: 500
+        input_type:
+          type: string
+          maxLength: 50
+        output_type:
+          type: string
+          maxLength: 50
+        expected_rc:
+          type: integer
+          nullable: true
+        active:
+          type: boolean
+        categories:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            maxLength: 100
+        description:
+          type: string
+          maxLength: 1000
+          nullable: true
+
+    RunSample:
+      type: object
+      required: [regression_test_id, sample_id, status]
+      properties:
+        regression_test_id:
+          type: integer
+          minimum: 1
+        sample_id:
+          type: integer
+          minimum: 1
+          nullable: true
+        sample_name:
+          type: string
+          maxLength: 255
+          nullable: true
+        categories:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            maxLength: 100
+          description: Category labels from the regression test definition.
+        command:
+          type: string
+          maxLength: 500
+          nullable: true
+        status:
+          type: string
+          enum: [pass, fail, skipped, missing_output, running, not_started]
+          description: >
+            Computed from TestResult, TestResultFile, expected exit code,
+            and multiple acceptable baselines. Not a stored column.
+        runtime_ms:
+          type: integer
+          minimum: 0
+          nullable: true
+        exit_code:
+          type: integer
+          nullable: true
+        expected_rc:
+          type: integer
+          nullable: true
+          description: Expected return code for this regression test.
+        outputs:
+          type: array
+          maxItems: 20
+          description: >
+            One entry per expected output file.
+            got=null in the DB means output matched expected; no actual file
+            is stored. The dummy (-1,-1,-1,'','error') row is translated to
+            status=missing_output and is never exposed here.
+          items:
+            type: object
+            required: [output_id, filename, status]
+            additionalProperties: false
+            properties:
+              output_id:
+                type: integer
+                minimum: 1
+              filename:
+                type: string
+                maxLength: 255
+              status:
+                type: string
+                enum: [pass, fail, missing_output, missing_expected]
+                description: >
+                  pass = actual identical to expected.
+                  fail = actual differs from expected.
+                  missing_output = test produced no output.
+                  missing_expected = no expected baseline exists.
+
+    SampleHistoryEntry:
+      type: object
+      required: [run_id, regression_test_id, status]
+      properties:
+        run_id:
+          type: integer
+          minimum: 1
+        regression_test_id:
+          type: integer
+          minimum: 1
+        status:
+          type: string
+          enum: [pass, fail, skipped, missing_output, running, not_started]
+        platform:
+          type: string
+          enum: [linux, windows]
+        branch:
+          type: string
+          maxLength: 100
+          nullable: true
+        commit_sha:
+          type: string
+          pattern: '^[a-fA-F0-9]{40}$'
+          nullable: true
+        tested_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: completed_at or started_at timestamp from the run.
+        failure_signature:
+          type: string
+          maxLength: 255
+          nullable: true
+          description: >
+            Stable string identifying the failure type and output ID.
+            Use across runs to detect genuine regressions vs. infrastructure
+            flakes.
+
+    OutputFile:
+      type: object
+      required: [sample_id, regression_id, output_id, filename, content_type, encoding, content, storage_status]
+      properties:
+        run_id:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: Null for expected output not tied to a specific run.
+        sample_id:
+          type: integer
+          minimum: 1
+        regression_id:
+          type: integer
+          minimum: 1
+        output_id:
+          type: integer
+          minimum: 1
+        filename:
+          type: string
+          maxLength: 255
+        content_type:
+          type: string
+          maxLength: 100
+        encoding:
+          type: string
+          enum: [utf-8, base64]
+          description: >
+            utf-8 only when file is confirmed text. Default is base64.
+        content:
+          type: string
+          maxLength: 1048576
+          description: >
+            File content. Base64-encoded unless encoding=utf-8.
+            Files exceeding 1MB are truncated. Check truncated=true and use
+            download_url for the full file.
+        truncated:
+          type: boolean
+          description: True if content was truncated due to size limits.
+        download_url:
+          type: string
+          format: uri
+          nullable: true
+          description: URL to download the full file if it was truncated.
+        sha256:
+          type: string
+          pattern: '^[a-fA-F0-9]{64}$'
+        storage_status:
+          type: string
+          enum: [ok, degraded, missing]
+          description: >
+            ok = file verified in at least one storage backend.
+            degraded = file exists but integrity or redundancy check failed.
+            missing = file not found in any storage backend.
+
+    Diff:
+      type: object
+      required: [run_id, sample_id, regression_id, output_id, status]
+      properties:
+        run_id:
+          type: integer
+          minimum: 1
+        sample_id:
+          type: integer
+          minimum: 1
+        regression_id:
+          type: integer
+          minimum: 1
+        output_id:
+          type: integer
+          minimum: 1
+        status:
+          type: string
+          enum: [identical, different, missing_expected, missing_actual]
+        summary:
+          type: object
+          required: [added_lines, removed_lines, changed_hunks]
+          properties:
+            added_lines:
+              type: integer
+              minimum: 0
+            removed_lines:
+              type: integer
+              minimum: 0
+            changed_hunks:
+              type: integer
+              minimum: 0
+        hunks:
+          type: array
+          maxItems: 500
+          items:
+            type: object
+            required: [expected_start, actual_start, lines]
+            additionalProperties: false
+            properties:
+              expected_start:
+                type: integer
+                minimum: 0
+              actual_start:
+                type: integer
+                minimum: 0
+              lines:
+                type: array
+                maxItems: 500
+                items:
+                  type: object
+                  required: [kind, text]
+                  additionalProperties: false
+                  properties:
+                    kind:
+                      type: string
+                      enum: [context, added, removed]
+                    expected_line:
+                      type: integer
+                      minimum: 0
+                      nullable: true
+                    actual_line:
+                      type: integer
+                      minimum: 0
+                      nullable: true
+                    text:
+                      type: string
+                      maxLength: 1000
+
+    UnifiedDiff:
+      type: object
+      required: [run_id, sample_id, regression_id, output_id, format, content]
+      properties:
+        run_id:
+          type: integer
+        sample_id:
+          type: integer
+        regression_id:
+          type: integer
+        output_id:
+          type: integer
+        format:
+          type: string
+          enum: [unified]
+        content:
+          type: string
+          description: Raw unified diff text.
+          maxLength: 524288
+
+    BaselineApprovalRequest:
+      type: object
+      required: [regression_id, output_id]
+      additionalProperties: false
+      properties:
+        regression_id:
+          type: integer
+          minimum: 1
+        output_id:
+          type: integer
+          minimum: 1
+        remove_variants:
+          type: boolean
+          default: false
+          description: >
+            If true, removes all platform-specific variants (output_id != 1)
+            and promotes this output to the global baseline.
+
+    BaselineApproval:
+      type: object
+      required: [status, run_id, sample_id, regression_id, output_id, requested_by, created_at]
+      properties:
+        status:
+          type: string
+          enum: [approved]
+        run_id:
+          type: integer
+          minimum: 1
+        sample_id:
+          type: integer
+          minimum: 1
+        regression_id:
+          type: integer
+          minimum: 1
+        output_id:
+          type: integer
+          minimum: 1
+        requested_by:
+          type: string
+          maxLength: 100
+          description: Display name of the user who requested the approval.
+        created_at:
+          type: string
+          format: date-time
+
+    ErrorItem:
+      type: object
+      required: [error_id, run_id, type, severity, message, occurred_at]
+      properties:
+        error_id:
+          type: string
+          maxLength: 100
+        run_id:
+          type: integer
+          minimum: 1
+        sample_id:
+          type: integer
+          minimum: 1
+          nullable: true
+        regression_id:
+          type: integer
+          minimum: 1
+          nullable: true
+        type:
+          type: string
+          enum: [test_failure, exit_code_mismatch, missing_output, diff_mismatch, queue, vm_provisioning, checkout, merge, build, worker, web_server, storage]
+          maxLength: 100
+        severity:
+          type: string
+          enum: [info, warning, error, critical]
+        message:
+          type: string
+          maxLength: 1000
+        location:
+          type: object
+          nullable: true
+          additionalProperties: true
+          properties:
+            file:
+              type: string
+              maxLength: 500
+              nullable: true
+            line:
+              type: integer
+              minimum: 0
+              nullable: true
+            column:
+              type: integer
+              minimum: 0
+              nullable: true
+            sample_name:
+              type: string
+              maxLength: 255
+              nullable: true
+        stack:
+          type: array
+          maxItems: 50
+          description: Only present when include_stack=true was requested.
+          items:
+            type: string
+            maxLength: 2000
+        occurred_at:
+          type: string
+          format: date-time
+
+    LogLine:
+      type: object
+      required: [timestamp, level, source, message, run_id]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        level:
+          type: string
+          enum: [debug, info, warning, error, critical]
+        source:
+          type: string
+          enum: [orchestrator, worker, build, test_runner, web]
+        message:
+          type: string
+          maxLength: 4000
+        run_id:
+          type: integer
+          minimum: 1
+        sample_id:
+          type: integer
+          minimum: 1
+          nullable: true
+
+    ErrorSummaryBucket:
+      type: object
+      required: [key, count, severity, group_by]
+      properties:
+        group_by:
+          type: string
+          enum: [type, sample_id, regression_id, severity]
+          description: The dimension this bucket is grouped by.
+        key:
+          type: string
+          maxLength: 100
+          description: >
+            Value of the group_by dimension. When group_by=sample_id or
+            regression_id, this is an integer serialized as a string.
+        count:
+          type: integer
+          minimum: 0
+        severity:
+          type: string
+          enum: [info, warning, error, critical]
+        sample_ids:
+          type: array
+          maxItems: 1000
+          items:
+            type: integer
+            minimum: 1
+        first_seen_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_seen_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    SystemHealth:
+      type: object
+      required: [status, checked_at, dependencies]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, down]
+        checked_at:
+          type: string
+          format: date-time
+        dependencies:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            required: [name, status]
+            properties:
+              name:
+                type: string
+                maxLength: 100
+              status:
+                type: string
+                enum: [ok, degraded, down]
+              message:
+                type: string
+                maxLength: 500
+                nullable: true
+
+    QueueJob:
+      type: object
+      required: [run_id, status, platform, queued_at]
+      properties:
+        run_id:
+          type: integer
+          minimum: 1
+        status:
+          type: string
+          enum: [queued, running]
+        platform:
+          type: string
+          enum: [linux, windows]
+        queued_at:
+          type: string
+          format: date-time
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        position:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: Queue position. Null for jobs that are already running.
+
+    Artifact:
+      type: object
+      required: [artifact_id, run_id, type, filename, content_type, storage_status]
+      properties:
+        artifact_id:
+          type: string
+          maxLength: 100
+        run_id:
+          type: integer
+          minimum: 1
+        sample_id:
+          type: integer
+          minimum: 1
+          nullable: true
+        type:
+          type: string
+          enum: [build_log, sample_output, expected_output, actual_output, diff, media_info, binary, coredump, combined_stdout]
+        filename:
+          type: string
+          maxLength: 255
+        content_type:
+          type: string
+          maxLength: 100
+        size_bytes:
+          type: integer
+          minimum: 0
+          nullable: true
+        storage_status:
+          type: string
+          enum: [ok, degraded, missing]
+          description: >
+            ok = file verified in at least one storage backend.
+            degraded = file exists but integrity or redundancy check failed.
+            missing = file not found in any storage backend.
+        download_url:
+          type: string
+          format: uri
+          nullable: true
+          description: >
+            Only present and non-null when storage_status is ok or degraded.
+            Always a verified URL. Null when storage_status=missing.

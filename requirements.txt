@@ -27,3 +27,6 @@ PyGithub==2.9.1
 blinker==1.9.0
 click==8.3.3
 PyYAML==6.0.3
+marshmallow>=3.21
+argon2-cffi>=23.0
+Flask-Limiter>=3.5

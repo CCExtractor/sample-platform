@@ -122,9 +122,10 @@ class TestControllers(BaseTestCase):
         self.assertEqual(response.status_code, 404)
         self.assert_template_used('test/test_not_found.html')
 
+    @mock.patch('mod_test.controllers.selectinload')
     @mock.patch('mod_test.controllers.GeneralData')
     @mock.patch('mod_test.controllers.Category')
-    def test_data_for_test(self, mock_category, mock_gen_data):
+    def test_data_for_test(self, mock_category, mock_gen_data, mock_selectinload):
         """Test get_data_for_test method."""
         from mod_test.controllers import get_data_for_test
 
@@ -144,7 +145,7 @@ class TestControllers(BaseTestCase):
         self.assertIsInstance(result, dict)
         self.assertIn('avg_minutes', result)
         self.assertEqual(result['avg_minutes'], 6)  # (300 + 60) / 60 = 6 minutes
-        mock_category.query.filter.assert_called_once()
+        mock_category.query.options.assert_called_once()
         self.assertEqual(mock_gen_data.query.filter.call_count, 2)
 
     @mock.patch('mod_test.controllers.Test')

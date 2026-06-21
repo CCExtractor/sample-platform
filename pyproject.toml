@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sp-cli"
+version = "0.1.0"
+description = "AI-friendly CLI for the CCExtractor CI / Sample Platform"
+requires-python = ">=3.10"
+dependencies = ["click", "requests"]
+
+[project.scripts]
+sp = "sp_cli.main:cli"
+
+[tool.setuptools]
+packages = ["sp_cli", "sp_cli.commands"]

@@ -11,6 +11,7 @@ from typing import Callable, List, Union
 import requests
 import werkzeug
 from flask import abort, g, redirect, request
+from werkzeug.exceptions import ServiceUnavailable
 
 ROOT_DIR = path.dirname(path.abspath(__file__))
 
@@ -29,6 +30,9 @@ def serve_file_download(file_name, file_folder, file_sub_folder='') -> werkzeug.
     :rtype: werkzeug.wrappers.response.Responsee
     """
     from run import config, storage_client_bucket
+
+    if storage_client_bucket is None:
+        raise ServiceUnavailable('File storage backend is not configured.')
 
     file_path = path.join(file_folder, file_sub_folder, file_name)
     blob = storage_client_bucket.blob(file_path)

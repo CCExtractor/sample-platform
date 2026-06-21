@@ -60,10 +60,14 @@ log_configuration = LogConfiguration(app.root_path,
                                      app.config['DEBUG'])
 log = log_configuration.create_logger("Platform")
 
-# Create bucket objext using GCS storage client
-sa_file = os.path.join(app.config.get('INSTALL_FOLDER', ''), app.config.get('SERVICE_ACCOUNT_FILE', ''))
-storage_client = Client.from_service_account_json(sa_file)
-storage_client_bucket = storage_client.bucket(app.config.get('GCS_BUCKET_NAME', ''))
+# Create bucket object using GCS storage client, unless explicitly disabled (local dev)
+if os.environ.get('DISABLE_GCS', '0') == '1':
+    storage_client = None
+    storage_client_bucket = None
+else:
+    sa_file = os.path.join(app.config.get('INSTALL_FOLDER', ''), app.config.get('SERVICE_ACCOUNT_FILE', ''))
+    storage_client = Client.from_service_account_json(sa_file)
+    storage_client_bucket = storage_client.bucket(app.config.get('GCS_BUCKET_NAME', ''))
 
 # Save build commit
 repo = git.Repo(app.config.get('INSTALL_FOLDER', ''))

@@ -28,7 +28,6 @@ from markdown2 import markdown
 from pymysql.err import IntegrityError
 from sqlalchemy import and_, func, select
 from sqlalchemy.sql import label
-from sqlalchemy.sql.functions import count
 from werkzeug.utils import secure_filename
 
 from database import DeclEnum, create_session
@@ -2276,7 +2275,7 @@ def start_ci():
         return json.dumps({'msg': 'EOL'})
 
 
-def update_build_badge(status, test) -> None:
+def update_build_badge(status, test, test_results=None) -> None:
     """
     Build status badge for current test to be displayed on sample-platform.
 
@@ -2284,6 +2283,8 @@ def update_build_badge(status, test) -> None:
     :type status: str
     :param test: current commit that is tested
     :type test: Test
+    :param test_results: pre-computed results from get_test_results; if None, fetched internally
+    :type test_results: list | None
     :return: null
     :rtype: null
     """
@@ -2294,7 +2295,8 @@ def update_build_badge(status, test) -> None:
         shutil.copyfile(original_location, build_status_location)
         g.log.info('Build badge updated successfully!')
 
-        test_results = get_test_results(test)
+        if test_results is None:
+            test_results = get_test_results(test)
         test_ids_to_update = []
         for category_results in test_results:
             test_ids_to_update.extend([test['test'].id for test in category_results['tests'] if not test['error']])
@@ -2429,33 +2431,15 @@ def progress_type_request(log, test, test_id, request) -> bool:
         message = 'Tests aborted due to an error; please check'
 
     elif status == TestStatus.completed:
-        # Determine if success or failure
-        # It fails if any of these happen:
-        # - A crash (unexpected exit code)
-        # - A not None value on the "got" of a TestResultFile (
-        #       meaning the hashes do not match)
-        crashes = g.db.query(count(TestResult.exit_code)).filter(
-            and_(
-                TestResult.test_id == test.id,
-                TestResult.exit_code != TestResult.expected_rc
-            )).scalar()
-        results_zero_rc = select(RegressionTest.id).filter(
-            RegressionTest.expected_rc == 0
+        test_results = get_test_results(test)
+        has_failures = any(
+            t['error']
+            for category in test_results
+            for t in category['tests']
         )
-        results = g.db.query(count(TestResultFile.got)).filter(
-            and_(
-                TestResultFile.test_id == test.id,
-                TestResultFile.regression_test_id.in_(
-                    results_zero_rc.select()
-                ),
-                TestResultFile.got.isnot(None)
-            )
-        ).scalar()
-        log.debug(f'[Test: {test.id}] Test completed: {crashes} crashes, {results} results')
-        if crashes > 0 or results > 0:
+        if has_failures:
             state = Status.FAILURE
             message = 'Not all tests completed successfully, please check'
-
         else:
             state = Status.SUCCESS
             message = 'Tests completed'
@@ -2468,7 +2452,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
                 message = 'All tests passed'
             else:
                 message = 'Not all tests completed successfully, please check'
-        update_build_badge(state, test)
+        update_build_badge(state, test, test_results)
 
     else:
         message = progress.message
@@ -2526,29 +2510,17 @@ def progress_type_request(log, test, test_id, request) -> bool:
                     TestProgress.test_id.in_(platform_tests.select())
                 )
             )
-            in_progress_statuses = [TestStatus.preparation, TestStatus.completed, TestStatus.canceled]
-            finished_tests_progress = g.db.query(TestProgress).filter(
-                and_(
-                    TestProgress.test_id.in_(finished_tests.select()),
-                    TestProgress.status.in_(in_progress_statuses)
-                )
-            ).subquery()
             times = g.db.query(
-                finished_tests_progress.c.test_id,
-                label('time', func.group_concat(finished_tests_progress.c.timestamp))
-            ).group_by(finished_tests_progress.c.test_id).all()
+                TestProgress.test_id,
+                label('start_time', func.min(TestProgress.timestamp)),
+                label('end_time', func.max(TestProgress.timestamp))
+            ).filter(
+                TestProgress.test_id.in_(finished_tests)
+            ).group_by(TestProgress.test_id).all()
 
             for p in times:
-                parts = p.time.split(',')
-                try:
-                    # Try parsing with microsecond precision first
-                    start = datetime.datetime.strptime(parts[0], '%Y-%m-%d %H:%M:%S.%f')
-                    end = datetime.datetime.strptime(parts[-1], '%Y-%m-%d %H:%M:%S.%f')
-                except ValueError:
-                    # Fall back to format without microseconds
-                    start = datetime.datetime.strptime(parts[0], '%Y-%m-%d %H:%M:%S')
-                    end = datetime.datetime.strptime(parts[-1], '%Y-%m-%d %H:%M:%S')
-                total_time += int((end - start).total_seconds())
+                duration = max(0, int((p.end_time - p.start_time).total_seconds()))
+                total_time += duration
 
             if len(times) != 0:
                 average_time = total_time // len(times)
@@ -2559,10 +2531,15 @@ def progress_type_request(log, test, test_id, request) -> bool:
             safe_db_commit(g.db, "setting new average time")
 
         else:
-            all_results = TestResult.query.count()
-            regression_test_count = RegressionTest.query.count()
-            number_test = all_results / regression_test_count
-            updated_average = float(current_average.value) * (number_test - 1)
+            # Count actual finished tests for this platform
+            platform_tests = g.db.query(Test.id).filter(Test.platform == test.platform).subquery()
+            number_test = g.db.query(func.count(func.distinct(TestProgress.test_id))).filter(
+                and_(
+                    TestProgress.status.in_([TestStatus.completed, TestStatus.canceled]),
+                    TestProgress.test_id.in_(platform_tests)
+                )
+            ).scalar() or 0
+
             pr = test.progress_data()
             end_time = pr['end']
             start_time = pr['start']
@@ -2573,9 +2550,14 @@ def progress_type_request(log, test, test_id, request) -> bool:
             if start_time.tzinfo is not None:
                 start_time = start_time.replace(tzinfo=None)
 
-            last_running_test = end_time - start_time
-            updated_average = updated_average + last_running_test.total_seconds()
-            current_average.value = 0 if number_test == 0 else updated_average // number_test
+            last_duration = max(0, int((end_time - start_time).total_seconds()))
+
+            if number_test > 1:
+                updated_average = (float(current_average.value) * (number_test - 1) + last_duration) / number_test
+            else:
+                updated_average = last_duration
+
+            current_average.value = max(0, int(updated_average))
             safe_db_commit(g.db, "updating average time")
             log.info(f'average time updated to {str(current_average.value)}')
 

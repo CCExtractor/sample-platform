@@ -64,9 +64,9 @@ userInput () {
 }
 
 echo "* Update pip, setuptools and wheel"
-python3 -m pip install --upgrade pip setuptools wheel >> "$install_log" 2>&1
+python3 -m pip install --upgrade pip setuptools wheel --break-system-packages >> "$install_log" 2>&1
 echo "* Installing pip dependencies"
-python3 -m pip install -r "${root_dir}/requirements.txt" >> "$install_log" 2>&1
+python3 -m pip install -r "${root_dir}/requirements.txt" --break-system-packages >> "$install_log" 2>&1
 echo ""
 echo "-------------------------------"
 echo "|        Configuration        |"

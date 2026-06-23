@@ -81,7 +81,7 @@ jobs:
               sudo git clean -f -d
               sudo git pull origin $DEPLOY_BRANCH
 
-              sudo python -m pip install -r requirements.txt
+              sudo python3 -m pip install -r requirements.txt --break-system-packages
               sudo FLASK_APP=./run.py flask db upgrade
 
               sudo cp "install/ci-vm/ci-linux/ci/bootstrap" "${SAMPLE_REPOSITORY}/TestData/ci-linux/bootstrap" 2>/dev/null || true
@@ -156,7 +156,7 @@ jobs:
                 PREV_COMMIT=$(cat /tmp/previous_commit.txt)
                 echo "Rolling back to commit: $PREV_COMMIT"
                 sudo git checkout "$PREV_COMMIT"
-                sudo python -m pip install -r requirements.txt
+                sudo python3 -m pip install -r requirements.txt --break-system-packages
                 sudo systemctl reload platform
                 echo "Rollback complete"
               else

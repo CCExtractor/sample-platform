@@ -69,6 +69,14 @@ class SmartDiffTests(unittest.TestCase):
         result = smart_diff(_srt(_BASE), _srt(other))
         self.assertEqual(result["kind"], "mixed")
 
+    def test_works_on_webvtt_via_autodetect(self):
+        """smart_diff auto-detects WebVTT and still classifies a timing shift."""
+        base = "WEBVTT\n\n00:00:01.000 --> 00:00:04.000\nHello\n"
+        shifted = "WEBVTT\n\n00:00:01.250 --> 00:00:04.250\nHello\n"
+        result = smart_diff(base, shifted)
+        self.assertEqual(result["kind"], "timing_shift")
+        self.assertEqual(result["offset_ms"], 250)
+
 
 if __name__ == "__main__":
     unittest.main()

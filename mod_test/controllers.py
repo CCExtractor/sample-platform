@@ -1,7 +1,7 @@
 """Logic to find all tests, their progress and details of individual test."""
 
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, TypedDict
 
 from flask import (Blueprint, Response, abort, g, jsonify, redirect, request,
                    url_for)
@@ -17,8 +17,28 @@ from mod_home.models import CCExtractorVersion, GeneralData
 from mod_regression.models import (Category, RegressionTestOutput,
                                    regressionTestLinkTable)
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
-                             TestResult, TestResultFile, TestStatus, TestType)
+                             TestResult, TestResultFile, TestResultStatus,
+                             TestStatus, TestType)
 from utility import serve_file_download
+
+
+class CategoryTestItem(TypedDict):
+    """Represent a single regression test item in a category."""
+
+    test: Any  # RegressionTest
+    result: Optional[TestResult]
+    files: List[TestResultFile]
+    error: bool
+    status: TestResultStatus
+
+
+class CategoryResult(TypedDict):
+    """Represent the test results for an entire category."""
+
+    category: Category
+    tests: List[CategoryTestItem]
+    error: bool
+
 
 mod_test = Blueprint('test', __name__)
 
@@ -54,9 +74,75 @@ def index():
     }
 
 
-def get_test_results(test) -> List[Dict[str, Any]]:
+def _get_files_for_test(test_id: int, rt_id: int) -> List[TestResultFile]:
+    """Fetch result files for a test."""
+    return TestResultFile.query.options(
+        joinedload(TestResultFile.regression_test_output).selectinload(
+            RegressionTestOutput.multiple_files
+        )
+    ).filter(
+        and_(TestResultFile.test_id == test_id, TestResultFile.regression_test_id == rt_id)
+    ).all()
+
+
+def _build_test_item(test: Test, rt: Any) -> CategoryTestItem:
+    """Build a single CategoryTestItem."""
+    result = next((r for r in test.results if r.regression_test_id == rt.id), None)
+    files = _get_files_for_test(test.id, rt.id)
+    return {
+        'test': rt,
+        'result': result,
+        'files': files,
+        'error': False,
+        'status': TestResultStatus.passed
+    }
+
+
+def _has_file_error(result_file: TestResultFile, result: Optional[TestResult]) -> bool:
+    """Evaluate if a single result file has an error."""
+    if result_file.got is None:
+        return False
+    if result is not None and result.exit_code != result.expected_rc:
+        return False
+
+    for file in result_file.regression_test_output.multiple_files:
+        if file.file_hashes == result_file.got:
+            return False
+    return True
+
+
+def _evaluate_category_test(category_test: CategoryTestItem) -> bool:
+    """Evaluate if a single regression test failed."""
+    test_error = False
+    result = category_test['result']
+
+    if result is not None and result.exit_code != result.expected_rc:
+        test_error = True
+
+    if category_test['files']:
+        for result_file in category_test['files']:
+            if _has_file_error(result_file, result):
+                test_error = True
+    else:
+        outputs = RegressionTestOutput.query.filter(and_(
+            RegressionTestOutput.regression_id == category_test['test'].id,
+            RegressionTestOutput.ignore.is_(False)
+        )).all()
+        got = None
+        if outputs:
+            test_error = True
+            got = 'error'
+        category_test['files'] = [TestResultFile(-1, -1, -1, '', got)]
+
+    return test_error
+
+
+def get_test_results(test) -> List[CategoryResult]:
     """
-    Get test results for each category.
+    Get test results for each category, with three-way pass/fail/never_worked classification.
+
+    The never_worked status is determined by the explicit `never_worked` boolean flag on each
+    RegressionTest, which is admin-editable from the regression test edit page.
 
     :param test: The test to retrieve the data for.
     :type test: Test
@@ -67,60 +153,39 @@ def get_test_results(test) -> List[Dict[str, Any]]:
     ).filter(
         Category.id.in_(populated_categories)
     ).order_by(Category.name.asc()).all()
-    results = [{
-        'category': category,
-        'tests': [{
-            'test': rt,
-            'result': next((r for r in test.results if r.regression_test_id == rt.id), None),
-            'files': TestResultFile.query.options(
-                joinedload(TestResultFile.regression_test_output).selectinload(
-                    RegressionTestOutput.multiple_files
-                )
-            ).filter(
-                and_(TestResultFile.test_id == test.id, TestResultFile.regression_test_id == rt.id)
-            ).all()
-        } for rt in category.regression_tests if rt.id in test.get_customized_regressiontests()]
-    } for category in categories]
-    # Run through the categories to see if they should be marked as failed or passed. A category failed if one or more
-    # tests in said category failed.
+    # Collect all regression test IDs that are part of this test run
+    all_rt_ids = set(test.get_customized_regressiontests())
+
+    results: List[CategoryResult] = []
+    for category in categories:
+        cat_tests = []
+        for rt in category.regression_tests:
+            if rt.id in all_rt_ids:
+                cat_tests.append(_build_test_item(test, rt))
+        results.append({
+            'category': category,
+            'tests': cat_tests,
+            'error': False
+        })
+
+    # Run through the categories to see if they should be marked as failed or passed.
     for category in results:
         error = False
         for category_test in category['tests']:
-            test_error = False
-            # A test fails if:
-            # - Exit code is not what we expected
-            # - There are result files but one of the files is [not identical
-            #   and not one of the multiple correct output files]
-            # - There are no result files but there should have been
-            result = category_test['result']
-            if result is not None and result.exit_code != result.expected_rc:
-                test_error = True
-            if len(category_test['files']) > 0:
-                for result_file in category_test['files']:
-                    if result_file.got is not None and (result is None or result.exit_code == result.expected_rc):
-                        file_error = True
-                        for file in result_file.regression_test_output.multiple_files:
-                            if file.file_hashes == result_file.got:
-                                file_error = False
-                                break
-                        test_error = file_error or test_error
-            else:
-                # We need to check if the regression test had any file that shouldn't have been ignored.
-                outputs = RegressionTestOutput.query.filter(and_(
-                    RegressionTestOutput.regression_id == category_test['test'].id,
-                    RegressionTestOutput.ignore.is_(False)
-                )).all()
-                got = None
-                if len(outputs) > 0:
-                    test_error = True
-                    got = 'error'
-                # Add dummy entry for pass/fail display
-                category_test['files'] = [TestResultFile(-1, -1, -1, '', got)]
-            # Store test status in error field
+            test_error = _evaluate_category_test(category_test)
             category_test['error'] = test_error
-            # Update category error
+
+            # --- Three-way classification: passed / failed / never_worked ---
+            if not test_error:
+                category_test['status'] = TestResultStatus.passed
+            elif category_test['test'].never_worked:
+                category_test['status'] = TestResultStatus.never_worked
+            else:
+                category_test['status'] = TestResultStatus.failed
+
             error = error or test_error
         category['error'] = error
+
     results.sort(key=lambda entry: entry['category'].name)
     return results
 

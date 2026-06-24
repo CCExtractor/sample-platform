@@ -2,7 +2,7 @@
 
 from typing import Dict, List, Optional
 
-from mod_test.smartdiff.srt import parse_srt
+from mod_test.smartdiff.parsing import parse_subtitles
 
 
 def _norm(text: str) -> str:
@@ -46,26 +46,30 @@ def _result(kind: str, summary: str, n_exp: int, n_act: int,
     return out
 
 
-def smart_diff(expected: str, actual: str) -> Dict[str, object]:
+def smart_diff(expected: str, actual: str,
+               fmt: Optional[str] = None) -> Dict[str, object]:
     """
-    Compare expected vs actual SubRip output and classify the difference.
+    Compare expected vs actual subtitle output and classify the difference.
 
-    Aligns cues by position and reports the *kind* of difference rather than a
-    raw line diff: ``identical``, ``timing_shift`` (with a consistent offset),
-    ``text_change``, ``missing_cues``, ``extra_cues``, or ``mixed``. The goal is
-    an actionable answer ("subtitles are +120 ms late") instead of a wall of
-    changed lines.
+    Supports SubRip (.srt) and WebVTT (.vtt); the format is auto-detected from
+    content unless ``fmt`` is given. Aligns cues by position and reports the
+    *kind* of difference rather than a raw line diff: ``identical``,
+    ``timing_shift`` (with a consistent offset), ``text_change``,
+    ``missing_cues``, ``extra_cues``, or ``mixed``. The goal is an actionable
+    answer ("subtitles are +120 ms late") instead of a wall of changed lines.
 
-    :param expected: The expected/baseline .srt content.
+    :param expected: The expected/baseline subtitle content.
     :type expected: str
-    :param actual: The actual/produced .srt content.
+    :param actual: The actual/produced subtitle content.
     :type actual: str
+    :param fmt: Explicit format ('srt' or 'vtt'); auto-detected when None.
+    :type fmt: Optional[str]
     :return: A classification dict with keys ``kind``, ``summary``,
         ``expected_cues``, ``actual_cues`` and (for ``timing_shift``) ``offset_ms``.
     :rtype: Dict[str, object]
     """
-    exp = parse_srt(expected)
-    act = parse_srt(actual)
+    exp = parse_subtitles(expected, fmt)
+    act = parse_subtitles(actual, fmt)
     n_exp, n_act = len(exp), len(act)
     count_mismatch = n_exp != n_act
 

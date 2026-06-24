@@ -4029,7 +4029,7 @@ class TestVMCreationVerification(BaseTestCase):
 
         # Mock successful artifact download
         mock_artifact = MagicMock()
-        mock_artifact.name = 'CCExtractor Linux build'
+        mock_artifact.name = 'CCExtractor Linux build (with migrations)'
         mock_artifact.archive_download_url = 'https://example.com/artifact.zip'
         mock_find_artifact.return_value = mock_artifact
 

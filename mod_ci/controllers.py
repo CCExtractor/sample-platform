@@ -248,8 +248,8 @@ class Workflow_builds(DeclEnum):
 class Artifact_names(DeclEnum):
     """Define CCExtractor GitHub Artifacts names."""
 
-    linux = "CCExtractor Linux build"
-    windows = "CCExtractor Windows x64 Release build"
+    linux = "CCExtractor Linux build (with migrations)"
+    windows = "CCExtractor Windows x64 Release build (with migrations)"
 
 
 def is_valid_commit_hash(commit: Optional[str]) -> bool:

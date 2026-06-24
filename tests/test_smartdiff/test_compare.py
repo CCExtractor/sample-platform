@@ -1,0 +1,74 @@
+"""Tests for the semantic subtitle comparison / classifier."""
+
+import unittest
+
+from mod_test.smartdiff.compare import smart_diff
+
+
+def _srt(cues):
+    """
+    Build SubRip text from (start_ms, end_ms, text) tuples.
+
+    :param cues: Iterable of (start_ms, end_ms, text) tuples.
+    :type cues: list
+    :return: SubRip-formatted string.
+    :rtype: str
+    """
+    def stamp(ms):
+        h, ms = divmod(ms, 3600000)
+        m, ms = divmod(ms, 60000)
+        s, ms = divmod(ms, 1000)
+        return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
+
+    blocks = []
+    for i, (start, end, text) in enumerate(cues, start=1):
+        blocks.append(f"{i}\n{stamp(start)} --> {stamp(end)}\n{text}\n")
+    return "\n".join(blocks)
+
+
+_BASE = [(1000, 4000, "Hello world"), (5000, 8000, "Second line")]
+
+
+class SmartDiffTests(unittest.TestCase):
+    """Classifying the kind of difference between two outputs."""
+
+    def test_identical(self):
+        """Equal outputs classify as identical."""
+        result = smart_diff(_srt(_BASE), _srt(_BASE))
+        self.assertEqual(result["kind"], "identical")
+
+    def test_timing_shift_reports_offset(self):
+        """A constant timing offset is reported as timing_shift with offset_ms."""
+        shifted = [(s + 500, e + 500, t) for s, e, t in _BASE]
+        result = smart_diff(_srt(_BASE), _srt(shifted))
+        self.assertEqual(result["kind"], "timing_shift")
+        self.assertEqual(result["offset_ms"], 500)
+
+    def test_text_change_only(self):
+        """Same timing, different text classifies as text_change."""
+        changed = [(1000, 4000, "Hello world"), (5000, 8000, "DIFFERENT")]
+        result = smart_diff(_srt(_BASE), _srt(changed))
+        self.assertEqual(result["kind"], "text_change")
+
+    def test_missing_cues(self):
+        """Fewer cues than expected classifies as missing_cues."""
+        result = smart_diff(_srt(_BASE), _srt(_BASE[:1]))
+        self.assertEqual(result["kind"], "missing_cues")
+        self.assertEqual((result["expected_cues"], result["actual_cues"]), (2, 1))
+
+    def test_extra_cues(self):
+        """More cues than expected classifies as extra_cues."""
+        more = _BASE + [(9000, 10000, "Third line")]
+        result = smart_diff(_srt(_BASE), _srt(more))
+        self.assertEqual(result["kind"], "extra_cues")
+
+    def test_mixed_when_text_and_count_differ(self):
+        """Both text changes and a count mismatch classify as mixed."""
+        other = [(1000, 4000, "CHANGED"), (5000, 8000, "Second line"),
+                 (9000, 10000, "Third")]
+        result = smart_diff(_srt(_BASE), _srt(other))
+        self.assertEqual(result["kind"], "mixed")
+
+
+if __name__ == "__main__":
+    unittest.main()

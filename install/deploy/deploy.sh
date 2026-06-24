@@ -45,7 +45,7 @@ echo "✓ Updated to commit: $NEW_COMMIT"
 # Step 4: Update dependencies
 echo ""
 echo "--- Step 3: Updating dependencies ---"
-python3 -m pip install -r requirements.txt --quiet --disable-pip-version-check
+python3 -m pip install -r requirements.txt --quiet --disable-pip-version-check --break-system-packages
 echo "✓ Dependencies updated"
 
 # Step 5: Run database migrations

@@ -84,7 +84,7 @@ fi
 # Step 3: Reinstall dependencies for rolled-back version
 echo ""
 echo "--- Step 3: Reinstalling dependencies ---"
-python3 -m pip install -r requirements.txt --quiet --disable-pip-version-check
+python3 -m pip install -r requirements.txt --quiet --disable-pip-version-check --break-system-packages
 echo "✓ Dependencies reinstalled"
 
 # Step 4: Reload application

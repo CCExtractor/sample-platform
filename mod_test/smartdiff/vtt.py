@@ -3,7 +3,7 @@
 import re
 from typing import List, Optional
 
-from mod_test.smartdiff.srt import Cue
+from mod_test.smartdiff.srt import Cue, join_cue_text
 
 _TIMING_RE = re.compile(
     r'(?:(\d{1,2}):)?(\d{2}):(\d{2})[.,](\d{3})\s*-->\s*'
@@ -60,6 +60,6 @@ def parse_vtt(content: str) -> List[Cue]:
             continue
         start_ms = _to_ms(match.group(1), match.group(2), match.group(3), match.group(4))
         end_ms = _to_ms(match.group(5), match.group(6), match.group(7), match.group(8))
-        text = '\n'.join(lines[timing_idx + 1:]).strip()
+        text = join_cue_text(lines[timing_idx + 1:])
         cues.append(Cue(index=len(cues) + 1, start_ms=start_ms, end_ms=end_ms, text=text))
     return cues

@@ -27,6 +27,7 @@ def _srt(cues):
 
 
 _BASE = [(1000, 4000, "Hello world"), (5000, 8000, "Second line")]
+_BASE_CAPS = [(1000, 4000, "HELLO WORLD"), (5000, 8000, "SECOND LINE")]
 
 
 class SmartDiffTests(unittest.TestCase):
@@ -76,6 +77,18 @@ class SmartDiffTests(unittest.TestCase):
         result = smart_diff(base, shifted)
         self.assertEqual(result["kind"], "timing_shift")
         self.assertEqual(result["offset_ms"], 250)
+
+    def test_whitespace_padding_only(self):
+        """Trailing CEA-608 padding differences are flagged as cosmetic, not text."""
+        padded = [(1000, 4000, "HELLO WORLD   "), (5000, 8000, "SECOND LINE  ")]
+        result = smart_diff(_srt(_BASE_CAPS), _srt(padded))
+        self.assertEqual(result["kind"], "whitespace_change")
+
+    def test_formatting_tags_only(self):
+        """A styling-tags-only difference is flagged as formatting, not text."""
+        styled = [(1000, 4000, "<i>Hello world</i>"), (5000, 8000, "Second line")]
+        result = smart_diff(_srt(_BASE), _srt(styled))
+        self.assertEqual(result["kind"], "formatting_change")
 
 
 if __name__ == "__main__":

@@ -2,19 +2,8 @@
 
 from typing import Dict, List, Optional
 
+from mod_test.smartdiff.normalize import classify_text_pair
 from mod_test.smartdiff.parsing import parse_subtitles
-
-
-def _norm(text: str) -> str:
-    """
-    Normalise cue text for comparison (collapse whitespace, case-fold).
-
-    :param text: Raw cue text.
-    :type text: str
-    :return: Normalised text.
-    :rtype: str
-    """
-    return ' '.join(text.split()).casefold()
 
 
 def _result(kind: str, summary: str, n_exp: int, n_act: int,
@@ -55,8 +44,9 @@ def smart_diff(expected: str, actual: str,
     content unless ``fmt`` is given. Aligns cues by position and reports the
     *kind* of difference rather than a raw line diff: ``identical``,
     ``timing_shift`` (with a consistent offset), ``text_change``,
-    ``missing_cues``, ``extra_cues``, or ``mixed``. The goal is an actionable
-    answer ("subtitles are +120 ms late") instead of a wall of changed lines.
+    ``formatting_change`` (tags/entities only), ``whitespace_change`` (CEA-608
+    padding only), ``missing_cues``, ``extra_cues``, or ``mixed``. The goal is an
+    actionable answer ("subtitles are +120 ms late") instead of a wall of lines.
 
     :param expected: The expected/baseline subtitle content.
     :type expected: str
@@ -74,18 +64,32 @@ def smart_diff(expected: str, actual: str,
     count_mismatch = n_exp != n_act
 
     text_changes = 0
+    formatting_changes = 0
+    whitespace_changes = 0
+    raw_matches = True
     timing_deltas: List[int] = []
-    for e, a in zip(exp, act):
-        if _norm(e.text) != _norm(a.text):
+    for expected_cue, actual_cue in zip(exp, act):
+        category = classify_text_pair(expected_cue.text, actual_cue.text)
+        if category != 'match':
+            raw_matches = False
+        if category == 'text':
             text_changes += 1
-        else:
-            timing_deltas.append(a.start_ms - e.start_ms)
+            continue
+        if category == 'formatting':
+            formatting_changes += 1
+        elif category == 'whitespace':
+            whitespace_changes += 1
+        timing_deltas.append(actual_cue.start_ms - expected_cue.start_ms)
 
-    if not count_mismatch and text_changes == 0 and all(d == 0 for d in timing_deltas):
+    no_timing_move = all(delta == 0 for delta in timing_deltas)
+    uniform_shift = bool(timing_deltas) and len(set(timing_deltas)) == 1
+    cosmetic_changes = formatting_changes + whitespace_changes
+    fully_aligned = text_changes == 0 and cosmetic_changes == 0
+
+    if not count_mismatch and raw_matches and no_timing_move:
         return _result('identical', 'Outputs are identical.', n_exp, n_act)
 
-    uniform_shift = bool(timing_deltas) and len(set(timing_deltas)) == 1
-    if not count_mismatch and text_changes == 0 and uniform_shift and timing_deltas[0] != 0:
+    if not count_mismatch and fully_aligned and uniform_shift and timing_deltas[0] != 0:
         offset = timing_deltas[0]
         direction = 'late' if offset > 0 else 'early'
         return _result(
@@ -104,14 +108,27 @@ def smart_diff(expected: str, actual: str,
             f'Output has {n_act - n_exp} extra cues ({n_act} vs {n_exp} expected).',
             n_exp, n_act)
 
-    if not count_mismatch and text_changes > 0 and all(d == 0 for d in timing_deltas):
-        return _result(
-            'text_change',
-            f'{text_changes} of {n_exp} cues differ in text only (timing matches).',
-            n_exp, n_act)
+    if not count_mismatch and no_timing_move:
+        if text_changes > 0:
+            return _result(
+                'text_change',
+                f'{text_changes} of {n_exp} cues differ in text (timing aligned).',
+                n_exp, n_act)
+        if formatting_changes > 0 and whitespace_changes == 0:
+            return _result(
+                'formatting_change',
+                f'{formatting_changes} of {n_exp} cues differ only in formatting '
+                f'(tags/entities), not text.',
+                n_exp, n_act)
+        if whitespace_changes > 0 and formatting_changes == 0:
+            return _result(
+                'whitespace_change',
+                f'{whitespace_changes} of {n_exp} cues differ only in trailing '
+                f'whitespace/padding.',
+                n_exp, n_act)
 
     return _result(
         'mixed',
-        f'Mixed differences: {text_changes} text change(s) across '
-        f'{min(n_exp, n_act)} compared cues; expected {n_exp}, got {n_act}.',
+        f'Mixed differences across {min(n_exp, n_act)} compared cues; '
+        f'expected {n_exp}, got {n_act}.',
         n_exp, n_act)

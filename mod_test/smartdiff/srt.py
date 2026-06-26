@@ -31,6 +31,26 @@ class Cue:
     text: str
 
 
+def join_cue_text(lines: List[str]) -> str:
+    """
+    Join cue text lines, dropping surrounding blank lines but keeping trailing spaces.
+
+    Trailing whitespace is preserved on purpose: CCExtractor pads CEA-608 captions,
+    and the comparator (not the parser) decides whether that padding is cosmetic.
+
+    :param lines: The text lines following a cue's timing line.
+    :type lines: List[str]
+    :return: The joined cue text.
+    :rtype: str
+    """
+    start, end = 0, len(lines)
+    while start < end and lines[start].strip() == '':
+        start += 1
+    while end > start and lines[end - 1].strip() == '':
+        end -= 1
+    return '\n'.join(lines[start:end])
+
+
 def _to_ms(hours: str, minutes: str, seconds: str, millis: str) -> int:
     """
     Convert the parts of an SRT timestamp into total milliseconds.
@@ -77,6 +97,6 @@ def parse_srt(content: str) -> List[Cue]:
         index = len(cues) + 1
         if timing_idx > 0 and lines[timing_idx - 1].strip().isdigit():
             index = int(lines[timing_idx - 1].strip())
-        text = '\n'.join(lines[timing_idx + 1:]).strip()
+        text = join_cue_text(lines[timing_idx + 1:])
         cues.append(Cue(index=index, start_ms=start_ms, end_ms=end_ms, text=text))
     return cues

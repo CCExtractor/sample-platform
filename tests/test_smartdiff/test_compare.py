@@ -90,6 +90,27 @@ class SmartDiffTests(unittest.TestCase):
         result = smart_diff(_srt(_BASE), _srt(styled))
         self.assertEqual(result["kind"], "formatting_change")
 
+    def test_timing_drift_growing_offset(self):
+        """A growing (not constant) timing offset classifies as timing_drift."""
+        base = [(1000, 2000, "A"), (5000, 6000, "B"), (9000, 10000, "C")]
+        drifted = [(1000, 2000, "A"), (5040, 6040, "B"), (9080, 10080, "C")]
+        result = smart_diff(_srt(base), _srt(drifted))
+        self.assertEqual(result["kind"], "timing_drift")
+
+    def test_split_cues_same_text_more_cues(self):
+        """One cue rendered as two (same words) classifies as split_cues."""
+        one = [(1000, 4000, "hello world")]
+        two = [(1000, 2000, "hello"), (2000, 4000, "world")]
+        result = smart_diff(_srt(one), _srt(two))
+        self.assertEqual(result["kind"], "split_cues")
+
+    def test_merged_cues_same_text_fewer_cues(self):
+        """Two cues collapsed into one (same words) classifies as merged_cues."""
+        two = [(1000, 2000, "hello"), (2000, 4000, "world")]
+        one = [(1000, 4000, "hello world")]
+        result = smart_diff(_srt(two), _srt(one))
+        self.assertEqual(result["kind"], "merged_cues")
+
 
 if __name__ == "__main__":
     unittest.main()

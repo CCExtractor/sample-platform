@@ -2,8 +2,9 @@
 
 from typing import Dict, List, Optional
 
-from mod_test.smartdiff.normalize import classify_text_pair
+from mod_test.smartdiff.normalize import classify_text_pair, plain
 from mod_test.smartdiff.parsing import parse_subtitles
+from mod_test.smartdiff.srt import Cue
 
 
 def _result(kind: str, summary: str, n_exp: int, n_act: int,
@@ -35,6 +36,33 @@ def _result(kind: str, summary: str, n_exp: int, n_act: int,
     return out
 
 
+def _content(cues: List[Cue]) -> str:
+    """
+    Join all cues' normalised, whitespace-collapsed text — for split/merge detection.
+
+    :param cues: The parsed cues.
+    :type cues: List[Cue]
+    :return: A single normalised token string spanning every cue.
+    :rtype: str
+    """
+    return ' '.join(' '.join(plain(cue.text).split()) for cue in cues)
+
+
+def _monotonic(values: List[int]) -> bool:
+    """
+    Report whether a sequence is non-decreasing or non-increasing.
+
+    :param values: The sequence to test.
+    :type values: List[int]
+    :return: True if monotonic in either direction.
+    :rtype: bool
+    """
+    pairs = list(zip(values, values[1:]))
+    non_decreasing = all(a <= b for a, b in pairs)
+    non_increasing = all(a >= b for a, b in pairs)
+    return non_decreasing or non_increasing
+
+
 def smart_diff(expected: str, actual: str,
                fmt: Optional[str] = None) -> Dict[str, object]:
     """
@@ -43,10 +71,10 @@ def smart_diff(expected: str, actual: str,
     Supports SubRip (.srt) and WebVTT (.vtt); the format is auto-detected from
     content unless ``fmt`` is given. Aligns cues by position and reports the
     *kind* of difference rather than a raw line diff: ``identical``,
-    ``timing_shift`` (with a consistent offset), ``text_change``,
-    ``formatting_change`` (tags/entities only), ``whitespace_change`` (CEA-608
-    padding only), ``missing_cues``, ``extra_cues``, or ``mixed``. The goal is an
-    actionable answer ("subtitles are +120 ms late") instead of a wall of lines.
+    ``timing_shift`` (constant offset), ``timing_drift`` (growing offset),
+    ``text_change``, ``formatting_change`` (tags/entities only),
+    ``whitespace_change`` (CEA-608 padding only), ``split_cues``,
+    ``merged_cues``, ``missing_cues``, ``extra_cues``, or ``mixed``.
 
     :param expected: The expected/baseline subtitle content.
     :type expected: str
@@ -83,6 +111,8 @@ def smart_diff(expected: str, actual: str,
 
     no_timing_move = all(delta == 0 for delta in timing_deltas)
     uniform_shift = bool(timing_deltas) and len(set(timing_deltas)) == 1
+    varying_timing = len(set(timing_deltas)) > 1
+    drifting = varying_timing and _monotonic(timing_deltas)
     cosmetic_changes = formatting_changes + whitespace_changes
     fully_aligned = text_changes == 0 and cosmetic_changes == 0
 
@@ -97,16 +127,34 @@ def smart_diff(expected: str, actual: str,
             f'All {n_exp} cues match but are {abs(offset)} ms {direction}.',
             n_exp, n_act, offset_ms=offset)
 
-    if count_mismatch and text_changes == 0:
-        if n_act < n_exp:
-            return _result(
-                'missing_cues',
-                f'{n_exp - n_act} of {n_exp} cues are missing from the output.',
-                n_exp, n_act)
+    if not count_mismatch and fully_aligned and drifting:
+        first, last = timing_deltas[0], timing_deltas[-1]
         return _result(
-            'extra_cues',
-            f'Output has {n_act - n_exp} extra cues ({n_act} vs {n_exp} expected).',
+            'timing_drift',
+            f'Timing drifts from {first:+d} ms to {last:+d} ms across {n_exp} cues.',
             n_exp, n_act)
+
+    if count_mismatch:
+        if _content(exp) and _content(exp) == _content(act):
+            if n_act > n_exp:
+                return _result(
+                    'split_cues',
+                    f'Same text, but cues were split: expected {n_exp}, got {n_act}.',
+                    n_exp, n_act)
+            return _result(
+                'merged_cues',
+                f'Same text, but cues were merged: expected {n_exp}, got {n_act}.',
+                n_exp, n_act)
+        if text_changes == 0:
+            if n_act < n_exp:
+                return _result(
+                    'missing_cues',
+                    f'{n_exp - n_act} of {n_exp} cues are missing from the output.',
+                    n_exp, n_act)
+            return _result(
+                'extra_cues',
+                f'Output has {n_act - n_exp} extra cues ({n_act} vs {n_exp} expected).',
+                n_exp, n_act)
 
     if not count_mismatch and no_timing_move:
         if text_changes > 0:

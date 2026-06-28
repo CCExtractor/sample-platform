@@ -264,10 +264,12 @@ chown -R www-data:www-data "${root_dir}" "${sample_repository}"
 echo "* Creating startup script"
 
 {
-    cp "${dir}/platform" /etc/init.d/platform
-    sed -i "s#BASE_DIR#${root_dir}#g" /etc/init.d/platform
-    chmod 755 /etc/init.d/platform
-    update-rc.d platform defaults
+    rm -f /etc/init.d/platform
+    update-rc.d platform remove || true
+    cp "${dir}/platform.service" /etc/systemd/system/platform.service
+    sed -i "s#/var/www/sample-platform#${root_dir}#g" /etc/systemd/system/platform.service
+    systemctl daemon-reload
+    systemctl enable platform.service
 }  >> "$install_log" 2>&1
 echo "* Creating RClone config file"
 

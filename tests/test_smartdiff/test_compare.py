@@ -111,6 +111,26 @@ class SmartDiffTests(unittest.TestCase):
         result = smart_diff(_srt(two), _srt(one))
         self.assertEqual(result["kind"], "merged_cues")
 
+    def test_changes_list_text_detail(self):
+        """A text change lists which cue changed, with expected/actual snippets."""
+        changed = [(1000, 4000, "Hello world"), (5000, 8000, "DIFFERENT")]
+        result = smart_diff(_srt(_BASE), _srt(changed))
+        changes = result["changes"]
+        self.assertEqual(len(changes), 1)
+        self.assertEqual(changes[0]["cue"], 2)
+        self.assertEqual(changes[0]["kind"], "text")
+        self.assertEqual(changes[0]["actual"], "DIFFERENT")
+
+    def test_changes_list_timing_offsets(self):
+        """A timing shift lists a per-cue offset for each cue."""
+        shifted = [(s + 500, e + 500, t) for s, e, t in _BASE]
+        result = smart_diff(_srt(_BASE), _srt(shifted))
+        self.assertTrue(all(c["offset_ms"] == 500 for c in result["changes"]))
+
+    def test_identical_has_no_changes(self):
+        """An identical result carries no changes list."""
+        self.assertNotIn("changes", smart_diff(_srt(_BASE), _srt(_BASE)))
+
     def test_encoding_change_non_ascii_only(self):
         """A charset difference (accents only, e.g. -latin1) is flagged as encoding."""
         accented = [(1000, 4000, "Voilà"), (5000, 8000, "naïve café")]

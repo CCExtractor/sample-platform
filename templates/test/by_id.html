@@ -315,6 +315,16 @@
                         '<h4>Smart diff</h4>' +
                         '<p><span class="label">' + (resp.kind || 'unknown') + '</span></p>' +
                         '<p>' + (resp.summary || '') + '</p>';
+                    if (resp.changes && resp.changes.length) {
+                        var items = resp.changes.map(function(c){
+                            var d = 'Cue ' + c.cue + ': ' + c.kind;
+                            if (c.offset_ms !== undefined) { d += ' (' + (c.offset_ms > 0 ? '+' : '') + c.offset_ms + ' ms)'; }
+                            if (c.expected !== undefined) { d += ' — expected “' + c.expected + '”, got “' + c.actual + '”'; }
+                            return '<li>' + $('<div>').text(d).html() + '</li>';
+                        }).join('');
+                        reveal.innerHTML += '<ul class="smart-changes">' + items + '</ul>';
+                        if (resp.changes_truncated) { reveal.innerHTML += '<p><em>… more changes not shown.</em></p>'; }
+                    }
                     reveal.innerHTML +=
                         '<button class="close-button" data-close aria-label="Close" type="button">' +
                         '   <span aria-hidden="true">&times;</span>' +

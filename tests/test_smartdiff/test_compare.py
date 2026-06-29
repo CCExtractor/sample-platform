@@ -111,6 +111,13 @@ class SmartDiffTests(unittest.TestCase):
         result = smart_diff(_srt(two), _srt(one))
         self.assertEqual(result["kind"], "merged_cues")
 
+    def test_encoding_change_non_ascii_only(self):
+        """A charset difference (accents only, e.g. -latin1) is flagged as encoding."""
+        accented = [(1000, 4000, "Voilà"), (5000, 8000, "naïve café")]
+        folded = [(1000, 4000, "Voila"), (5000, 8000, "naive cafe")]
+        result = smart_diff(_srt(accented), _srt(folded))
+        self.assertEqual(result["kind"], "encoding_change")
+
 
 if __name__ == "__main__":
     unittest.main()

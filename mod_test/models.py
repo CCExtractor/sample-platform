@@ -455,3 +455,30 @@ class TestResultFile(Base):
             return open(file_name, encoding='utf8').readlines()
         except UnicodeDecodeError:
             return open(file_name, encoding='cp1252').readlines()
+
+    def generate_smart_diff(self, base_path: str) -> dict:
+        """
+        Classify *how* the actual output differs from the expected baseline.
+
+        Unlike the line diff, this returns a semantic classification (timing
+        shift, cosmetic padding/formatting/encoding, text change, missing/extra
+        cues) that a person or an agent can act on directly.
+
+        :param base_path: The base path for the files location.
+        :type base_path: str
+        :return: A smart-diff classification with ``kind`` and ``summary`` keys.
+        :rtype: dict
+        """
+        from mod_test.smartdiff.compare import smart_diff
+
+        if not self.got:
+            return {'kind': 'identical',
+                    'summary': 'Output matches the expected baseline.'}
+
+        extension = self.regression_test_output.correct_extension
+        file_ok = os.path.join(base_path, self.expected + extension)
+        file_fail = os.path.join(base_path, self.got + extension)
+        expected_text = ''.join(self.read_lines(file_ok))
+        actual_text = ''.join(self.read_lines(file_fail))
+        return smart_diff(expected_text, actual_text,
+                          fmt=extension.lstrip('.').lower() or None)

@@ -73,8 +73,9 @@ def smart_diff(expected: str, actual: str,
     *kind* of difference rather than a raw line diff: ``identical``,
     ``timing_shift`` (constant offset), ``timing_drift`` (growing offset),
     ``text_change``, ``formatting_change`` (tags/entities only),
-    ``whitespace_change`` (CEA-608 padding only), ``split_cues``,
-    ``merged_cues``, ``missing_cues``, ``extra_cues``, or ``mixed``.
+    ``whitespace_change`` (CEA-608 padding only), ``encoding_change``
+    (non-ASCII/accented characters only), ``split_cues``, ``merged_cues``,
+    ``missing_cues``, ``extra_cues``, or ``mixed``.
 
     :param expected: The expected/baseline subtitle content.
     :type expected: str
@@ -94,6 +95,7 @@ def smart_diff(expected: str, actual: str,
     text_changes = 0
     formatting_changes = 0
     whitespace_changes = 0
+    encoding_changes = 0
     raw_matches = True
     timing_deltas: List[int] = []
     for expected_cue, actual_cue in zip(exp, act):
@@ -107,13 +109,15 @@ def smart_diff(expected: str, actual: str,
             formatting_changes += 1
         elif category == 'whitespace':
             whitespace_changes += 1
+        elif category == 'encoding':
+            encoding_changes += 1
         timing_deltas.append(actual_cue.start_ms - expected_cue.start_ms)
 
     no_timing_move = all(delta == 0 for delta in timing_deltas)
     uniform_shift = bool(timing_deltas) and len(set(timing_deltas)) == 1
     varying_timing = len(set(timing_deltas)) > 1
     drifting = varying_timing and _monotonic(timing_deltas)
-    cosmetic_changes = formatting_changes + whitespace_changes
+    cosmetic_changes = formatting_changes + whitespace_changes + encoding_changes
     fully_aligned = text_changes == 0 and cosmetic_changes == 0
 
     if not count_mismatch and raw_matches and no_timing_move:
@@ -162,13 +166,19 @@ def smart_diff(expected: str, actual: str,
                 'text_change',
                 f'{text_changes} of {n_exp} cues differ in text (timing aligned).',
                 n_exp, n_act)
-        if formatting_changes > 0 and whitespace_changes == 0:
+        if encoding_changes > 0 and formatting_changes == 0 and whitespace_changes == 0:
+            return _result(
+                'encoding_change',
+                f'{encoding_changes} of {n_exp} cues differ only in character '
+                f'encoding (non-ASCII/accented characters).',
+                n_exp, n_act)
+        if formatting_changes > 0 and whitespace_changes == 0 and encoding_changes == 0:
             return _result(
                 'formatting_change',
                 f'{formatting_changes} of {n_exp} cues differ only in formatting '
                 f'(tags/entities), not text.',
                 n_exp, n_act)
-        if whitespace_changes > 0 and formatting_changes == 0:
+        if whitespace_changes > 0 and formatting_changes == 0 and encoding_changes == 0:
             return _result(
                 'whitespace_change',
                 f'{whitespace_changes} of {n_exp} cues differ only in trailing '

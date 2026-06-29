@@ -2,8 +2,8 @@
 
 import unittest
 
-from mod_test.smartdiff.normalize import (classify_text_pair, plain,
-                                          strip_tags, unescape)
+from mod_test.smartdiff.normalize import (ascii_fold, classify_text_pair,
+                                          plain, strip_tags, unescape)
 
 
 class NormalizeTests(unittest.TestCase):
@@ -32,6 +32,14 @@ class NormalizeTests(unittest.TestCase):
     def test_classify_formatting_only(self):
         """A tags-only difference classifies as formatting."""
         self.assertEqual(classify_text_pair('hello', '<i>hello</i>'), 'formatting')
+
+    def test_ascii_fold_decomposes_accents(self):
+        """ascii_fold strips accents and drops non-ASCII characters."""
+        self.assertEqual(ascii_fold('Voilà café ♪'), 'Voila cafe ')
+
+    def test_classify_encoding_only(self):
+        """A non-ASCII/accent-only difference classifies as encoding."""
+        self.assertEqual(classify_text_pair('PRÉCIS', 'PRECIS'), 'encoding')
 
     def test_classify_real_text_change(self):
         """A genuine text change classifies as text."""

@@ -375,6 +375,44 @@ def generate_diff(test_id: int, regression_test_id: int, output_id: int, to_view
     abort(404)
 
 
+@mod_test.route('/diff/<test_id>/<regression_test_id>/<output_id>/smart')
+def smart_diff_view(test_id: int, regression_test_id: int, output_id: int):
+    """
+    Return a semantic (smart) diff classification for an output as JSON.
+
+    Unlike the line diff, this reports *how* the output differs (timing shift,
+    cosmetic padding/formatting/encoding, text change, missing/extra cues), so a
+    person or an agent gets an actionable answer instead of a wall of lines.
+
+    :param test_id: id of the test
+    :type test_id: int
+    :param regression_test_id: id of the regression test
+    :type regression_test_id: int
+    :param output_id: id of the generated output
+    :type output_id: int
+    :return: JSON classification of the difference.
+    :rtype: flask.Response
+    """
+    from run import config
+
+    result = TestResultFile.query.filter(and_(
+        TestResultFile.test_id == test_id,
+        TestResultFile.regression_test_id == regression_test_id,
+        TestResultFile.regression_test_output_id == output_id
+    )).first()
+
+    if result is None:
+        abort(404)
+
+    path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'TestResults')
+    try:
+        classification = result.generate_smart_diff(path)
+    except OSError:
+        classification = {'kind': 'unavailable',
+                          'summary': 'Output files are not available locally.'}
+    return jsonify(classification)
+
+
 @mod_test.route('/log-files/<test_id>')
 @login_required
 def download_build_log_file(test_id):

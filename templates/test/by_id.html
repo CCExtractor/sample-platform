@@ -145,16 +145,16 @@
                                                             {%- endif %}
                                                           {%- endfor %}
                                                         {%- endif %}
-                                                        {% if test.result.exit_code != test.result.expected_rc %}
+                                                        {% if test.result and test.result.exit_code != test.result.expected_rc %}
                                                             {% if file.got is none or no_error.found-%}
                                                                 Fail
                                                             {% else %}
                                                                 <a href="#" class="diff_link" data-test="{{ file.test_id }}" data-regression="{{ file.regression_test_id }}" data-output="{{ file.regression_test_output_id }}">Fail</a><hr style="margin:5px 0;border:0;border-top:1px solid #777;width:44px" /><a href="#" class="smart_diff_link" data-test="{{ file.test_id }}" data-regression="{{ file.regression_test_id }}" data-output="{{ file.regression_test_output_id }}">Smart</a>
                                                             {%- endif %}
-                                                        {% elif file.got is none or no_error.found or test.result.exit_code != 0 -%}
-                                                            Pass
                                                         {% elif file.got == "error" %}
                                                             No output generated but there should be
+                                                        {% elif file.got is none or no_error.found or (test.result and test.result.exit_code != 0) -%}
+                                                            Pass
                                                         {% else %}
                                                             <a href="#" class="diff_link" data-test="{{ file.test_id }}" data-regression="{{ file.regression_test_id }}" data-output="{{ file.regression_test_output_id }}">Fail</a><hr style="margin:5px 0;border:0;border-top:1px solid #777;width:44px" /><a href="#" class="smart_diff_link" data-test="{{ file.test_id }}" data-regression="{{ file.regression_test_id }}" data-output="{{ file.regression_test_output_id }}">Smart</a>
                                                         {%- endif %}

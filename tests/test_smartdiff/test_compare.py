@@ -131,6 +131,24 @@ class SmartDiffTests(unittest.TestCase):
         """An identical result carries no changes list."""
         self.assertNotIn("changes", smart_diff(_srt(_BASE), _srt(_BASE)))
 
+    def test_no_cues_and_differ_is_unsupported_not_identical(self):
+        """Two different non-subtitle outputs (no cues) are not called identical."""
+        result = smart_diff("plain transcript one", "plain transcript two")
+        self.assertEqual(result["kind"], "unsupported")
+
+    def test_no_cues_but_equal_is_identical(self):
+        """Two equal cue-less outputs are still identical."""
+        self.assertEqual(smart_diff("same text", "same text")["kind"], "identical")
+
+    def test_text_change_with_shift_records_per_cue_offset(self):
+        """A combined text change + timing shift keeps the per-cue offset in changes."""
+        base = [(1000, 2000, "A"), (5000, 6000, "B")]
+        other = [(1500, 2500, "X"), (5500, 6500, "Y")]
+        result = smart_diff(_srt(base), _srt(other))
+        self.assertEqual(result["kind"], "text_change")
+        self.assertNotIn("aligned", result["summary"])
+        self.assertTrue(all(c["offset_ms"] == 500 for c in result["changes"]))
+
     def test_encoding_change_non_ascii_only(self):
         """A charset difference (accents only, e.g. -latin1) is flagged as encoding."""
         accented = [(1000, 4000, "Voilà"), (5000, 8000, "naïve café")]

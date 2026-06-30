@@ -407,9 +407,9 @@ def smart_diff_view(test_id: int, regression_test_id: int, output_id: int):
     path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'TestResults')
     try:
         classification = result.generate_smart_diff(path)
-    except OSError:
+    except (OSError, UnicodeDecodeError):
         classification = {'kind': 'unavailable',
-                          'summary': 'Output files are not available locally.'}
+                          'summary': 'Output files are not available or not readable.'}
     return jsonify(classification)
 
 

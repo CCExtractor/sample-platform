@@ -108,7 +108,8 @@ def classify_text_pair(expected: str, actual: str) -> str:
     actual_plain = plain(actual)
     if expected_plain == actual_plain:
         return 'formatting'
-    has_non_ascii = any(ord(ch) > 127 for ch in expected_plain + actual_plain)
-    if has_non_ascii and ascii_fold(expected_plain) == ascii_fold(actual_plain):
+    folded_expected = ascii_fold(expected_plain)
+    non_ascii = any(ord(ch) > 127 for ch in expected_plain + actual_plain)
+    if non_ascii and folded_expected and folded_expected == ascii_fold(actual_plain):
         return 'encoding'
     return 'text'

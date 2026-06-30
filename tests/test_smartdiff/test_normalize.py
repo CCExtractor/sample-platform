@@ -45,6 +45,11 @@ class NormalizeTests(unittest.TestCase):
         """A genuine text change classifies as text."""
         self.assertEqual(classify_text_pair('hello', 'goodbye'), 'text')
 
+    def test_classify_non_latin_text_change_not_encoding(self):
+        """Two different non-Latin texts (empty ASCII skeleton) classify as text."""
+        self.assertEqual(classify_text_pair('日本語', '中文'), 'text')
+        self.assertEqual(classify_text_pair('Привет', 'Спасибо'), 'text')
+
 
 if __name__ == "__main__":
     unittest.main()

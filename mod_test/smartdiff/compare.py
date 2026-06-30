@@ -93,7 +93,8 @@ def smart_diff(expected: str, actual: str,
     ``text_change``, ``formatting_change`` (tags/entities only),
     ``whitespace_change`` (CEA-608 padding only), ``encoding_change``
     (non-ASCII/accented characters only), ``split_cues``, ``merged_cues``,
-    ``missing_cues``, ``extra_cues``, or ``mixed``.
+    ``missing_cues``, ``extra_cues``, ``unsupported`` (no cues parsed), or
+    ``mixed``.
 
     :param expected: The expected/baseline subtitle content.
     :type expected: str
@@ -108,6 +109,13 @@ def smart_diff(expected: str, actual: str,
     exp = parse_subtitles(expected, fmt)
     act = parse_subtitles(actual, fmt)
     n_exp, n_act = len(exp), len(act)
+    if n_exp == 0 and n_act == 0:
+        if expected == actual:
+            return _result('identical', 'Outputs are identical.', 0, 0)
+        return _result(
+            'unsupported',
+            'No subtitle cues to compare (unsupported format); see the raw diff.',
+            0, 0)
     count_mismatch = n_exp != n_act
 
     text_changes = 0
@@ -180,7 +188,8 @@ def smart_diff(expected: str, actual: str,
             n_exp, n_act)
 
     if count_mismatch:
-        if _content(exp) and _content(exp) == _content(act):
+        exp_content = _content(exp)
+        if exp_content and exp_content == _content(act):
             if n_act > n_exp:
                 return _finish(
                     'split_cues',
@@ -205,7 +214,7 @@ def smart_diff(expected: str, actual: str,
         if text_changes > 0:
             return _finish(
                 'text_change',
-                f'{text_changes} of {n_exp} cues differ in text (timing aligned).',
+                f'{text_changes} of {n_exp} cues differ in text.',
                 n_exp, n_act)
         if encoding_changes > 0 and formatting_changes == 0 and whitespace_changes == 0:
             return _finish(

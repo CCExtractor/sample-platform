@@ -410,6 +410,49 @@ class BaseTestCase(TestCase):
         """Clean up after every test."""
         super().tearDown()
 
+    def setup_run_data(self, suffix="test"):
+        """Set up common models for API tests involving runs and samples."""
+        from flask import g
+
+        from mod_auth.models import Role, User
+        from mod_test.models import Fork, Test, TestPlatform, TestType
+
+        self.admin = User(
+            f'testadmin_{suffix}',
+            Role.admin,
+            f'{suffix}_admin@local.com',
+            User.generate_hash('adminpass123'))
+        self.user = User(
+            f'testuser_{suffix}',
+            Role.user,
+            f'{suffix}_user@local.com',
+            User.generate_hash('userpass123'))
+        g.db.add_all([self.admin, self.user])
+        g.db.commit()
+
+        self.fork = Fork('https://github.com/test/test.git')
+        g.db.add(self.fork)
+        g.db.commit()
+
+        self.test_obj = Test(TestPlatform.linux, TestType.commit,
+                             self.fork.id, 'master', 'commit_hash')
+        g.db.add(self.test_obj)
+        g.db.commit()
+        self.test_id = self.test_obj.id
+
+    def get_token(self, email, password, token_name='test_token', scopes=None):
+        """Get an API token for testing."""
+        import json
+        payload = {'email': email, 'password': password,
+                   'token_name': token_name}
+        if scopes:
+            payload['scopes'] = scopes
+        res = self.client.post(
+            '/api/v1/auth/tokens',
+            data=json.dumps(payload),
+            content_type='application/json')
+        return res.json['token']
+
     @staticmethod
     def create_login_form_data(email, password) -> dict:
         """

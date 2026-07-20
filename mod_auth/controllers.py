@@ -165,26 +165,30 @@ def github_redirect():
     return f'https://github.com/login/oauth/authorize?client_id={github_client_id}&scope=public_repo'
 
 
-def fetch_username_from_token() -> Any:
+def fetch_username_from_token(user=None) -> Any:
     """
     Get username from the GitHub token.
 
+    :param user: Optional user model to prevent redundant queries
     :return: username
     :rtype: str
     """
-    import json
-    user = User.query.filter(User.id == g.user.id).first()
+    if user is None:
+        user = User.query.filter(User.id == g.user.id).first()
+
     if user.github_token is None:
         return None
     url = 'https://api.github.com/user'
     session = requests.Session()
     session.auth = (user.email, user.github_token)
     try:
-        response = session.get(url)
+        response = session.get(url, timeout=(3.05, 10))
         data = response.json()
-        return data['login']
+        return data.get('login')
     except Exception as e:
-        g.log.error('Failed to fetch the user token')
+        import logging
+        log = getattr(g, 'log', logging.getLogger(__name__))
+        log.error('Failed to fetch the user token')
         return None
 
 
@@ -211,6 +215,12 @@ def github_callback():
         if 'access_token' in response:
             user = User.query.filter(User.id == g.user.id).first()
             user.github_token = response['access_token']
+
+            # Fetch and store github_login
+            github_login = fetch_username_from_token(user)
+            if github_login:
+                user.github_login = github_login
+
             g.db.commit()
         else:
             g.log.error("GitHub didn't return an access token")

@@ -33,5 +33,6 @@ mod_api.after_request(rate_limit.add_rate_limit_headers)
 # routing-level 404s/405s that never enter the blueprint).
 mod_api.after_app_request(error_handler.convert_api_errors_to_json)
 
-# Route modules register themselves against the blueprint; they land in
-# the follow-up PRs of this stack.
+# Route modules register themselves against the blueprint; the rest of
+# the stack adds one module per PR.
+from mod_api.routes import auth as auth_routes  # noqa: E402, F401

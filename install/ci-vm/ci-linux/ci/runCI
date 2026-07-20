@@ -103,6 +103,27 @@ function executeCommand {
         fi
 }
 
+# Send a build artifact to the server (best-effort: a failed upload must never
+# abort the run, so this always returns 0). Reuses the reportURL/curl pattern.
+function sendArtifact {
+    local artifactType="$1"
+    local filePath="$2"
+    if [ ! -f "${filePath}" ]; then
+        echo "Artifact ${artifactType}: no file at '${filePath}', skipping" >> "${logFile}"
+        return 0
+    fi
+    echo "Uploading ${artifactType} artifact (${filePath})" >> "${logFile}"
+    # --fail surfaces HTTP >= 400 (e.g. 413 on an oversized coredump) as a
+    # curl error so failed uploads are visible in the log; still best-effort.
+    curl -s --fail -A "${userAgent}" --form "type=artifactupload" --form "artifact_type=${artifactType}" \
+        --form "file=@${filePath}" "${reportURL}" >> "${logFile}" 2>&1
+    local curlStatus=$?
+    if [ ${curlStatus} -ne 0 ]; then
+        echo "Artifact ${artifactType}: upload failed (curl exit ${curlStatus})" >> "${logFile}"
+    fi
+    return 0
+}
+
 # Source variables
 . "$DIR/variables"
 
@@ -125,7 +146,25 @@ if [ -e "${dstDir}/ccextractor" ]; then
         echo "=== End Version Info ===" >> "${logFile}"
         postStatus "testing" "Running tests"
         executeCommand cd ${suiteDstDir}
-        executeCommand ${tester} --debug --entries "${testFile}" --executable "ccextractor" --tempfolder "${tempFolder}" --timeout 600 --reportfolder "${reportFolder}" --resultfolder "${resultFolder}" --samplefolder "${sampleFolder}" --method Server --url "${reportURL}"
+
+        # Enable core dumps and capture the test run's combined stdout/stderr so
+        # both can be uploaded as artifacts (the API serves them per run).
+        ulimit -c unlimited 2>/dev/null
+        echo "core.%p" | sudo tee /proc/sys/kernel/core_pattern >/dev/null 2>&1
+        combinedLog="${reportFolder}/combined_stdout.log"
+        ${tester} --debug --entries "${testFile}" --executable "ccextractor" --tempfolder "${tempFolder}" --timeout 600 --reportfolder "${reportFolder}" --resultfolder "${resultFolder}" --samplefolder "${sampleFolder}" --method Server --url "${reportURL}" > "${combinedLog}" 2>&1
+        testerStatus=$?
+        cat "${combinedLog}" >> "${logFile}"
+
+        # Upload artifacts before any failure-halt so crash data survives.
+        sendArtifact "binary" "${dstDir}/ccextractor"
+        sendArtifact "combined_stdout" "${combinedLog}"
+        sendArtifact "coredump" "$(ls -1t core.* 2>/dev/null | head -n1)"
+
+        if [ ${testerStatus} -ne 0 ]; then
+                haltAndCatchFire ""
+        fi
+
         sendLogFile
         postStatus "completed" "Ran all tests"
 

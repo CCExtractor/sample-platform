@@ -1,0 +1,37 @@
+name: CI-VM scripts
+
+# Static analysis for the CI-VM runner scripts (the scripts that run on the
+# throwaway test VMs). Runs only when those scripts change. shellcheck lints the
+# bash runners; PSScriptAnalyzer lints the PowerShell startup script.
+
+on:
+  pull_request:
+    paths:
+      - 'install/ci-vm/**'
+      - '.github/workflows/ci-vm-scripts.yml'
+  push:
+    paths:
+      - 'install/ci-vm/**'
+      - '.github/workflows/ci-vm-scripts.yml'
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: shellcheck (bash runner scripts)
+        run: shellcheck --severity=error install/ci-vm/ci-linux/ci/runCI install/ci-vm/ci-linux/startup-script.sh
+
+  psscriptanalyzer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PSScriptAnalyzer (startup-script.ps1)
+        shell: pwsh
+        run: |
+          Set-PSRepository PSGallery -InstallationPolicy Trusted
+          Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
+          $issues = Invoke-ScriptAnalyzer -Path install/ci-vm/ci-windows/startup-script.ps1 -Severity Error
+          if ($issues) { $issues | Format-Table -AutoSize; exit 1 }

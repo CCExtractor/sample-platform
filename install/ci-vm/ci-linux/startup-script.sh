@@ -4,7 +4,7 @@ curl -L -O https://github.com/GoogleCloudPlatform/gcsfuse/releases/download/v3.2
 dpkg --install gcsfuse_3.2.0_amd64.deb
 rm gcsfuse_3.2.0_amd64.deb
 
-apt install gnupg ca-certificates
+apt install -y gnupg ca-certificates
 gpg --homedir /tmp --no-default-keyring --keyring /usr/share/keyrings/mono-official-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF
 echo "deb [signed-by=/usr/share/keyrings/mono-official-archive-keyring.gpg] https://download.mono-project.com/repo/ubuntu stable-focal main" | sudo tee /etc/apt/sources.list.d/mono-official-stable.list
 sudo apt update
@@ -14,7 +14,8 @@ mkdir repository
 cd repository
 
 # Use gcsfuse and import required files
-mkdir temp TestFiles TestResults vm_data reports
+# TempFiles is used by the tester (--tempfolder) and must exist
+mkdir temp TestFiles TestResults TempFiles vm_data reports
 
 gcs_bucket=$(curl http://metadata/computeMetadata/v1/instance/attributes/bucket -H "Metadata-Flavor: Google")
 
@@ -30,6 +31,9 @@ mount temp
 mount vm_data
 mount TestFiles
 mount TestResults
+
+# Give gcsfuse mounts time to become ready
+sleep 10
 
 cp temp/* ./
 

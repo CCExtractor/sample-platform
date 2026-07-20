@@ -1,8 +1,9 @@
 """
-System, health, and queue routes.
+System, health, queue, and artifact routes.
 
 GET /system/health           Health check (unauthenticated)
 GET /system/queue            Queue status — active + queued runs
+GET /runs/{id}/artifacts     Run artifacts from GCS + local storage
 """
 
 import os
@@ -10,16 +11,24 @@ from datetime import datetime, timezone
 
 from flask import g, jsonify, request
 from sqlalchemy import text
+from sqlalchemy.orm import joinedload
 
 from mod_api import mod_api
 from mod_api.middleware.auth import require_scope
 from mod_api.middleware.error_handler import make_error_response
-from mod_api.middleware.validation import validate_offset_pagination
+from mod_api.middleware.validation import (validate_offset_pagination,
+                                           validate_path_id)
 from mod_api.models.api_token import Scope
 from mod_api.schemas.common import DATETIME_FORMAT
-from mod_api.services.status import batch_get_run_data
-from mod_api.utils import paginated_response
-from mod_test.models import Test, TestPlatform, TestProgress, TestStatus
+from mod_api.services.status import batch_get_run_data, is_dummy_row
+from mod_api.services.storage import (get_log_file_path,
+                                      get_test_results_base_path,
+                                      resolve_artifact)
+from mod_api.utils import paginated_response, safe_resolve
+from mod_test.models import (Test, TestPlatform, TestProgress, TestResultFile,
+                             TestStatus)
+
+OCTET_STREAM = 'application/octet-stream'
 
 
 @mod_api.route('/system/health', methods=['GET'])
@@ -202,3 +211,137 @@ def get_queue(limit=50, offset=0):
             'running_count': running_count,
         }
     )
+
+
+def _get_gcs_artifacts(run_id, platform):
+    binary_name = (
+        'ccextractor' if platform == TestPlatform.linux
+        else 'ccextractorwinfull.exe'
+    )
+    gcs_artifacts = [
+        ('binary',
+         f'test_artifacts/{run_id}/{binary_name}', binary_name, OCTET_STREAM),
+        ('coredump', f'test_artifacts/{run_id}/coredump',
+         f'coredump-{run_id}', OCTET_STREAM),
+        (
+            'combined_stdout',
+            f'test_artifacts/{run_id}/combined_stdout.log',
+            f'combined_stdout-{run_id}.log',
+            'text/plain',
+        ),
+    ]
+    artifacts = []
+    for artifact_type, gcs_path, filename, content_type in gcs_artifacts:
+        download_url, storage_status = resolve_artifact(gcs_path)
+        artifacts.append({
+            'artifact_id': f'{artifact_type}_{run_id}',
+            'run_id': run_id,
+            'sample_id': None,
+            'type': artifact_type,
+            'filename': filename,
+            'content_type': content_type,
+            'size_bytes': None,
+            'storage_status': storage_status,
+            'download_url': download_url,
+        })
+    return artifacts
+
+
+def _get_output_artifacts(run_id):
+    result_files = TestResultFile.query.options(
+        joinedload(TestResultFile.regression_test_output),
+        joinedload(TestResultFile.regression_test),
+    ).filter_by(test_id=run_id).all()
+    for rf in result_files:
+        if is_dummy_row(rf):
+            continue
+
+        ext = rf.regression_test_output.correct_extension if rf.regression_test_output else ''
+        sample_id = (rf.regression_test.sample_id
+                     if rf.regression_test else None)
+
+        expected_name = rf.expected + ext
+        # NOTE: storage metadata (storage_status, download_url, size_bytes,
+        # content_type) is resolved by list_artifacts for paged items only.
+
+        yield {
+            'artifact_id': f'expected_{run_id}_{rf.regression_test_id}_{rf.regression_test_output_id}',
+            'run_id': run_id,
+            'sample_id': sample_id,
+            'type': 'expected_output',
+            'filename': expected_name,
+        }
+
+        if rf.got is not None:
+            actual_name = rf.got + ext
+            yield {
+                'artifact_id': f'actual_{run_id}_{rf.regression_test_id}_{rf.regression_test_output_id}',
+                'run_id': run_id,
+                'sample_id': sample_id,
+                'type': 'actual_output',
+                'filename': actual_name,
+            }
+
+
+@mod_api.route('/runs/<run_id>/artifacts', methods=['GET'])
+@require_scope(Scope.RESULTS_READ)
+@validate_path_id('run_id')
+@validate_offset_pagination()
+def list_artifacts(run_id, limit=50, offset=0):
+    """
+    List all artifacts for a run.
+
+    Checks both GCS and local storage. Falls back to local when GCS
+    is unavailable. Supports ?type filter.
+    """
+    test = Test.query.filter(Test.id == run_id).first()
+    if test is None:
+        return make_error_response(
+            'not_found',
+            f'Run {run_id} not found.',
+            http_status=404)
+
+    artifacts = _get_gcs_artifacts(run_id, test.platform)
+
+    # Build log — accessed via /runs/{id}/logs, no direct download link.
+    log_path = get_log_file_path(run_id)
+    artifacts.append({
+        'artifact_id': f'buildlog_{run_id}',
+        'run_id': run_id,
+        'sample_id': None,
+        'type': 'build_log',
+        'filename': f'{run_id}.txt',
+        'content_type': 'text/plain',
+        'size_bytes': os.path.getsize(log_path) if log_path else None,
+        'storage_status': 'ok' if log_path else 'missing',
+        'download_url': None,
+    })
+
+    artifacts.extend(list(_get_output_artifacts(run_id)))
+
+    # Apply optional ?type filter.
+    type_filter = request.args.get('type')
+    if type_filter:
+        artifacts = [a for a in artifacts if a['type'] == type_filter]
+
+    total = len(artifacts)
+    paged = artifacts[offset:offset + limit]
+
+    # Resolve heavy artifact metadata only for the returned page
+    base_path = get_test_results_base_path()
+    for a in paged:
+        if 'storage_status' not in a:
+            # It's an output artifact
+            filename = a['filename']
+            url, status = resolve_artifact(f'TestResults/{filename}')
+            local = safe_resolve(base_path, filename)
+
+            a['content_type'] = OCTET_STREAM
+            a['size_bytes'] = (
+                os.path.getsize(local)
+                if local and os.path.isfile(local) else None
+            )
+            a['storage_status'] = status
+            a['download_url'] = url
+
+    return paginated_response(paged, total, limit, offset)

@@ -2346,6 +2346,11 @@ def progress_reporter(test_id, token):
                 if not upload_type_request(log, test_id, repo_folder, test, request):
                     return "EMPTY"
 
+            elif request.form['type'] == 'artifactupload':
+                log.info(f'[PROGRESS_REPORTER][Test: {test_id}] Artifact upload')
+                if not upload_artifact_type_request(log, test_id, repo_folder, test, request):
+                    return "EMPTY"
+
             elif request.form['type'] == 'finish':
                 log.info(f'[PROGRESS_REPORTER][Test: {test_id}] Test finished')
                 finish_type_request(log, test_id, test, request)
@@ -2673,6 +2678,78 @@ def upload_type_request(log, test_id, repo_folder, test, request) -> bool:
         return True
 
     return False
+
+
+# Artifact types the CI VM may upload, mapped to the fixed filenames the REST
+# API expects under <SAMPLE_REPOSITORY>/test_artifacts/<run_id>/ (see the
+# system route _get_gcs_artifacts in mod_api).
+ARTIFACT_TYPES = frozenset({'binary', 'coredump', 'combined_stdout'})
+
+
+def _artifact_target_name(artifact_type: str, platform) -> Optional[str]:
+    """Map an artifact type + platform to the exact filename the API resolves."""
+    if artifact_type == 'binary':
+        return 'ccextractor' if platform == TestPlatform.linux else 'ccextractorwinfull.exe'
+    if artifact_type == 'coredump':
+        return 'coredump'
+    if artifact_type == 'combined_stdout':
+        return 'combined_stdout.log'
+    return None
+
+
+def upload_artifact_type_request(log, test_id, repo_folder, test, request) -> bool:
+    """
+    Handle the artifactupload request type for the progress reporter.
+
+    Stores a CI artifact (binary, coredump, or combined stdout log) under
+    ``<SAMPLE_REPOSITORY>/test_artifacts/<test_id>/`` with the fixed name the
+    REST API expects. The target name is derived server-side from
+    ``artifact_type`` and the test platform, never from the uploaded filename,
+    so a crafted filename cannot escape the artifact directory.
+
+    :param log: logger
+    :type log: Logger
+    :param test_id: the id of the test the artifact belongs to
+    :type test_id: int
+    :param repo_folder: SAMPLE_REPOSITORY path
+    :type repo_folder: str
+    :param test: the concerned test
+    :type test: Test
+    :param request: request parameters
+    :type request: Request
+    :return: True on success, False on validation failure
+    :rtype: bool
+    """
+    artifact_type = request.form.get('artifact_type', '')
+    if artifact_type not in ARTIFACT_TYPES:
+        log.warning(f'[Test: {test_id}] Rejected artifact upload: bad artifact_type {artifact_type!r}')
+        return False
+
+    if 'file' not in request.files:
+        log.warning(f'[Test: {test_id}] Artifact upload missing file')
+        return False
+
+    uploaded_file = request.files['file']
+    if secure_filename(uploaded_file.filename or '') == '':
+        log.warning(f'[Test: {test_id}] Artifact upload has empty filename')
+        return False
+
+    target_name = _artifact_target_name(artifact_type, test.platform)
+    if target_name is None:
+        return False
+
+    artifact_dir = os.path.join(repo_folder, 'test_artifacts', str(test.id))
+    temp_dir = os.path.join(repo_folder, 'TempFiles')
+    os.makedirs(artifact_dir, exist_ok=True)
+    os.makedirs(temp_dir, exist_ok=True)
+
+    temp_path = os.path.join(temp_dir, f'artifact_{test.id}_{target_name}')
+    uploaded_file.save(temp_path)
+    final_path = os.path.join(artifact_dir, target_name)
+    os.replace(temp_path, final_path)
+
+    log.info(f'[Test: {test_id}] Stored {artifact_type} artifact at {final_path}')
+    return True
 
 
 def finish_type_request(log, test_id, test, request):

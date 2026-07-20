@@ -1797,6 +1797,110 @@ class TestControllers(BaseTestCase):
         mock_request.assert_not_called()
         mock_finish_type.assert_called_once_with(mock.ANY, 1, mock.ANY, mock.ANY)
 
+    @mock.patch('mod_ci.controllers.request')
+    @mock.patch('mod_ci.controllers.Test')
+    @mock.patch('mod_ci.controllers.upload_artifact_type_request')
+    def test_progress_reporter_artifactupload_type(self, mock_artifact_type, mock_test, mock_request):
+        """Test progress_reporter dispatches the artifactupload type to the handler."""
+        from mod_ci.controllers import progress_reporter
+
+        mock_test_obj = MagicMock()
+        mock_test_obj.token = "token"
+        mock_test.query.filter.return_value.first.return_value = mock_test_obj
+        mock_request.form = {'type': 'artifactupload'}
+        mock_artifact_type.return_value = True
+
+        self.assertEqual("OK", progress_reporter(1, "token"))
+        mock_artifact_type.assert_called_once_with(mock.ANY, 1, mock.ANY, mock.ANY, mock.ANY)
+
+    @mock.patch('mod_ci.controllers.request')
+    @mock.patch('mod_ci.controllers.Test')
+    @mock.patch('mod_ci.controllers.upload_artifact_type_request')
+    def test_progress_reporter_artifactupload_type_empty(self, mock_artifact_type, mock_test, mock_request):
+        """Test progress_reporter returns EMPTY when the artifact upload fails."""
+        from mod_ci.controllers import progress_reporter
+
+        mock_test_obj = MagicMock()
+        mock_test_obj.token = "token"
+        mock_test.query.filter.return_value.first.return_value = mock_test_obj
+        mock_request.form = {'type': 'artifactupload'}
+        mock_artifact_type.return_value = False
+
+        self.assertEqual("EMPTY", progress_reporter(1, "token"))
+        mock_artifact_type.assert_called_once_with(mock.ANY, 1, mock.ANY, mock.ANY, mock.ANY)
+
+    def test_upload_artifact_type_request_bad_type(self):
+        """Reject artifact uploads whose artifact_type is not whitelisted."""
+        from mod_ci.controllers import upload_artifact_type_request
+
+        mock_log = MagicMock()
+        mock_request = MagicMock()
+        mock_request.form = {'artifact_type': 'not_a_real_type'}
+
+        self.assertFalse(
+            upload_artifact_type_request(mock_log, 1, MagicMock(), MagicMock(), mock_request))
+        mock_log.warning.assert_called_once()
+
+    def test_upload_artifact_type_request_no_file(self):
+        """Reject artifact uploads with no file part."""
+        from mod_ci.controllers import upload_artifact_type_request
+
+        mock_log = MagicMock()
+        mock_request = MagicMock()
+        mock_request.form = {'artifact_type': 'binary'}
+        mock_request.files = {}
+
+        self.assertFalse(
+            upload_artifact_type_request(mock_log, 1, MagicMock(), MagicMock(), mock_request))
+
+    @mock.patch('mod_ci.controllers.secure_filename')
+    def test_upload_artifact_type_request_empty_filename(self, mock_filename):
+        """Reject artifact uploads with an empty filename."""
+        from mod_ci.controllers import upload_artifact_type_request
+
+        mock_log = MagicMock()
+        mock_request = MagicMock()
+        mock_request.form = {'artifact_type': 'combined_stdout'}
+        mock_request.files = {'file': MagicMock()}
+        mock_filename.return_value = ''
+
+        self.assertFalse(
+            upload_artifact_type_request(mock_log, 1, MagicMock(), MagicMock(), mock_request))
+
+    @mock.patch('mod_ci.controllers.os')
+    @mock.patch('mod_ci.controllers.secure_filename')
+    def test_upload_artifact_type_request(self, mock_filename, mock_os):
+        """Store a valid artifact under test_artifacts/<id>/ with the API's expected name."""
+        from mod_ci.controllers import upload_artifact_type_request
+        from mod_test.models import TestPlatform
+
+        mock_log = MagicMock()
+        mock_request = MagicMock()
+        mock_uploadfile = MagicMock()
+        mock_request.form = {'artifact_type': 'binary'}
+        mock_request.files = {'file': mock_uploadfile}
+        mock_filename.return_value = 'ccextractor'
+        mock_test = MagicMock()
+        mock_test.id = 7
+        mock_test.platform = TestPlatform.linux
+
+        self.assertTrue(
+            upload_artifact_type_request(mock_log, 7, '/repo', mock_test, mock_request))
+        mock_uploadfile.save.assert_called_once()
+        mock_os.replace.assert_called_once()
+        self.assertTrue(mock_os.makedirs.called)
+
+    def test_artifact_target_name_mapping(self):
+        """Artifact filenames are derived server-side per type and platform."""
+        from mod_ci.controllers import _artifact_target_name
+        from mod_test.models import TestPlatform
+
+        self.assertEqual('ccextractor', _artifact_target_name('binary', TestPlatform.linux))
+        self.assertEqual('ccextractorwinfull.exe', _artifact_target_name('binary', TestPlatform.windows))
+        self.assertEqual('coredump', _artifact_target_name('coredump', TestPlatform.linux))
+        self.assertEqual('combined_stdout.log', _artifact_target_name('combined_stdout', TestPlatform.windows))
+        self.assertIsNone(_artifact_target_name('bogus', TestPlatform.linux))
+
     @mock.patch('mod_ci.controllers.RegressionTestOutput')
     def test_equality_type_request_rto_none(self, mock_rto):
         """Test function equality_type_request when rto is None."""

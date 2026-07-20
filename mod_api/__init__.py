@@ -36,3 +36,5 @@ mod_api.after_app_request(error_handler.convert_api_errors_to_json)
 # Route modules register themselves against the blueprint; the rest of
 # the stack adds one module per PR.
 from mod_api.routes import auth as auth_routes  # noqa: E402, F401
+from mod_api.routes import runs as runs_routes  # noqa: E402, F401
+from mod_api.routes import system as system_routes  # noqa: E402, F401

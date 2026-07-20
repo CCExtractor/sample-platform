@@ -730,7 +730,8 @@ class TestControllers(BaseTestCase):
             last_release = CCExtractorVersion.query.order_by(CCExtractorVersion.released.desc()).first()
             self.assertNotEqual(last_release.version, '2.1')
 
-    def test_webhook_prerelease(self):
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_prerelease(self, mock_request):
         """Check webhook release update CCExtractor Version for prerelease."""
         with self.app.test_client() as c:
             # Full Release with version with 2.1 (prereleased action is ignored)

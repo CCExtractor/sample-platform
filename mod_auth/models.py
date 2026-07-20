@@ -32,10 +32,13 @@ class User(Base):
     name = Column(String(50), unique=True)
     email = Column(String(255), unique=True, nullable=True)
     github_token = Column(Text(), nullable=True)
+    # GitHub username; populated at OAuth login and used by the API to
+    # authorize fork-run triggers.
+    github_login = Column(String(255), nullable=True)
     password = Column(String(255), unique=False, nullable=False)
     role = Column(Role.db_type())
 
-    def __init__(self, name, role=Role.user, email=None, password='', github_token=None) -> None:
+    def __init__(self, name, role=Role.user, email=None, password='', github_token=None, github_login=None) -> None:
         """
         Parametrized constructor for the User model.
 
@@ -55,6 +58,7 @@ class User(Base):
         self.password = password
         self.role = role
         self.github_token = github_token
+        self.github_login = github_login
 
     def __repr__(self) -> str:
         """

@@ -125,6 +125,12 @@ class TestMiddlewareAuth(ApiTestCase):
         self.assertEqual(res.status_code, 403)
         self.assertEqual(res.json['code'], 'forbidden')
 
+        # 3. POST /runs/1/samples/1/baseline-approval
+        res = self.client.post('/api/v1/runs/1/samples/1/baseline-approval',
+                               headers={'Authorization': f'Bearer {plaintext}'})
+        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.json['code'], 'forbidden')
+
     def test_multiple_candidates_same_prefix(self):
         plaintext1, token1 = self.generate_db_token(self.user, scopes=['system:read'])
         plaintext2, token2 = self.generate_db_token(self.user, scopes=['system:read'])

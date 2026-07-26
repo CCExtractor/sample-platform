@@ -172,7 +172,7 @@ sudo python3 bootstrap_gunicorn.py
     1. Firstly check the Platform Installation log file in the install folder. Check for any errors, which may have been caused during platform installation on your system, and then try to resolve them accordingly.
     2. Next check for nginx status by `service nginx status` command, if it is not active, check nginx error log file, possibly in `/var/log/nginx/error.log` file.
     3. Next check for platform status by `service platform status` command, if it is not `active(running)` then check for platform logs in the `logs` directory of your project.
-    4. In case of any gunicorn error try manually running `/etc/init.d/platform start` command and recheck the platform status.
+    4. In case of any gunicorn error try manually running `sudo systemctl start platform.service` command and recheck the platform status.
 
 ### Setting Up The Bucket
 

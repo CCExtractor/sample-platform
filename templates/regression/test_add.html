@@ -57,6 +57,12 @@
                 {{ macros.render_field(form.expected_rc) }}
             </div>
             <div class="medium-12 columns">
+                <label for="never_worked">
+                    {{ form.never_worked() }}
+                    {{ form.never_worked.label.text }}
+                </label>
+            </div>
+            <div class="medium-12 columns">
                 {{ macros.render_field(form.submit) }}
             </div>
         </div>

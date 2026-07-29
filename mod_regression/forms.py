@@ -1,8 +1,8 @@
 """Maintain forms related to CRUD operations on regression tests."""
 
 from flask_wtf import FlaskForm
-from wtforms import (HiddenField, IntegerField, SelectField, StringField,
-                     SubmitField, TextAreaField)
+from wtforms import (BooleanField, HiddenField, IntegerField, SelectField,
+                     StringField, SubmitField, TextAreaField)
 from wtforms.validators import DataRequired, InputRequired, Length
 
 from mod_regression.models import InputType, OutputType
@@ -36,6 +36,7 @@ class CommonTestForm(FlaskForm):
     )
     category_id = SelectField("Category", coerce=int)
     expected_rc = IntegerField("Expected Runtime Code", [InputRequired(message="Expected Runtime Code can't be empty")])
+    never_worked = BooleanField("Never Worked", default=False)
 
 
 class AddTestForm(CommonTestForm):

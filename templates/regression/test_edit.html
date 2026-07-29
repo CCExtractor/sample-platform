@@ -57,6 +57,12 @@
                     {{ macros.render_field(form.expected_rc) }}
                 </div>
                 <div class="medium-12 columns">
+                    <label for="never_worked">
+                        {{ form.never_worked() }} {{ form.never_worked.label.text }}
+                        <span style="color: #999; font-size: 0.85em;">(Check if this test has never produced correct output on any CCExtractor version)</span>
+                    </label>
+                </div>
+                <div class="medium-12 columns">
                     {{ macros.render_field(form.submit) }}
                 </div>
             </div>

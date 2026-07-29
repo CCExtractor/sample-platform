@@ -14,6 +14,9 @@
             display: block;
             text-align: center;
         }
+        .category-header.never-worked {
+            color: #777;
+        }
     </style>
 {% endblock %}
 
@@ -112,7 +115,19 @@
                         <h2>Test results</h2>
                         <p>Click on the category names to expand the results, and on "Fail" to see the differences.</p>
                         {% for result in results %}
-                            <h4 class="category-header {{ 'fail' if result.error else 'pass' }}" data-category="{{ result.category.id }}">{{ result.category.name }} - {{ 'Fail' if result.error else 'Pass' }}</h4>
+                            {% set category_class = 'fail' if result.error else 'pass' %}
+                            {% if result.error %}
+                                {% set ns = namespace(all_nw=true) %}
+                                {% for t in result.tests %}
+                                    {% if t.error and t.status.value != 'never_worked' %}
+                                        {% set ns.all_nw = false %}
+                                    {% endif %}
+                                {% endfor %}
+                                {% if ns.all_nw %}
+                                    {% set category_class = 'never-worked' %}
+                                {% endif %}
+                            {% endif %}
+                            <h4 class="category-header {{ category_class }}" data-category="{{ result.category.id }}">{{ result.category.name }} - {% if category_class == 'pass' %}Pass{% elif category_class == 'never-worked' %}Never Worked{% else %}Fail{% endif %}</h4>
                             {% if result.tests | length != 0 %}
                             <div id="no-more-tables">
                                 <table class="col-md-12 table-bordered table-striped table-condensed sortable hide cf" data-category="{{ result.category.id }}">
@@ -135,6 +150,9 @@
                                                 <td data-title="Runtime (ms)">{{ test.result.runtime }}</td>
                                                 <td data-title="Exit Code">{{ test.result.exit_code }}{{ '' if test.result.exit_code == test.result.expected_rc else ' (Expected '~test.result.expected_rc~')' }}</td>
                                                 <td data-title="Result">
+                                                    {% if test.status is defined and test.status.value == 'never_worked' %}
+                                                        <span class="label secondary" title="This test has never passed on any CCExtractor version for this platform">Never worked</span>
+                                                    {% endif %}
                                                     {% for file in test.files -%}
                                                         {% if file.got is not none %}
                                                           {% set no_error = namespace(found=False) %}

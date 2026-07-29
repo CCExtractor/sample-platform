@@ -72,14 +72,15 @@ def upgrade():
         {"test_id": test_id, "category_id": category_id},
     )
 
-    # 6. Insert expected XMLTV output (exit-code based validation)
+    # 6. Insert expected XMLTV output (exit-code-only; ignore=1 skips file comparison).
+    #    Keep `ignore` backticked: MySQL reserved word (unquoted -> 1064; SQLite hides it in CI).
     conn.execute(
         sa.text(
             """
             INSERT INTO regression_test_output
-                (regression_id, correct, correct_extension, expected_filename, ignore)
+                (regression_id, correct, correct_extension, expected_filename, `ignore`)
             VALUES
-                (:test_id, '', '.xml', '', 0)
+                (:test_id, '', '.xml', '', 1)
             """
         ),
         {"test_id": test_id},

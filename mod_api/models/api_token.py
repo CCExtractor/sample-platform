@@ -36,6 +36,9 @@ class Scope:
     RESULTS_READ = 'results:read'
     BASELINES_WRITE = 'baselines:write'
     SYSTEM_READ = 'system:read'
+    # Kept apart from system:read so a monitoring token can watch the
+    # platform without being able to reconfigure it.
+    SYSTEM_WRITE = 'system:write'
     TOKENS_MANAGE = 'tokens:manage'
 
 
@@ -45,6 +48,7 @@ VALID_SCOPES = frozenset([
     Scope.RESULTS_READ,
     Scope.BASELINES_WRITE,
     Scope.SYSTEM_READ,
+    Scope.SYSTEM_WRITE,
     Scope.TOKENS_MANAGE,
 ])
 

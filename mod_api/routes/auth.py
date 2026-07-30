@@ -1,10 +1,13 @@
 """
-Token lifecycle: create, list, and revoke API tokens.
+Token lifecycle, caller identity, and admin user management.
 
 POST   /auth/tokens          Authenticate with email/password, get a token
 GET    /auth/tokens          List tokens (admin-only; ?all=true for all users)
 DELETE /auth/tokens/current   Revoke the token you're currently using
 DELETE /auth/tokens/{id}      Revoke a specific token by ID
+GET    /auth/me              Identity, role and scopes behind the token
+GET    /users                List platform users (admin)
+PATCH  /users/{id}           Change a user's role (admin)
 """
 
 from flask import g, request
@@ -15,10 +18,11 @@ from mod_api import mod_api
 from mod_api.middleware.auth import require_roles, require_scope
 from mod_api.middleware.error_handler import make_error_response
 from mod_api.middleware.validation import (validate_body,
-                                           validate_offset_pagination)
+                                           validate_offset_pagination,
+                                           validate_path_id)
 from mod_api.models.api_token import DEFAULT_SCOPES, ApiToken, Scope
 from mod_api.schemas.auth import (ApiTokenItemSchema, AuthTokenSchema,
-                                  TokenCreateRequestSchema)
+                                  RoleUpdateSchema, TokenCreateRequestSchema)
 from mod_api.utils import paginated_response, single_response
 from mod_auth.models import Role, User
 
@@ -74,6 +78,7 @@ def create_token(validated_data=None):
     if user.is_admin:
         allowed_scopes.add(Scope.TOKENS_MANAGE)
         allowed_scopes.add(Scope.BASELINES_WRITE)
+        allowed_scopes.add(Scope.SYSTEM_WRITE)
 
     invalid_scopes = set(scopes) - allowed_scopes
     if invalid_scopes:
@@ -211,3 +216,75 @@ def revoke_specific_token(token_id):
         g.db.commit()
 
     return '', 204
+
+
+@mod_api.route('/auth/me', methods=['GET'])
+def get_current_user():
+    """
+    Return the identity, role and scopes behind the calling token.
+
+    Needs no extra scope: it reports on the caller itself and discloses
+    nothing another endpoint would withhold.
+    """
+    return single_response({
+        'user_id': g.api_user.id,
+        'name': g.api_user.name,
+        'email': g.api_user.email,
+        'role': g.api_user.role.value,
+        'scopes': g.api_token.scopes if g.api_token else [],
+    })
+
+
+def _serialize_user(user):
+    """Public shape of a user; omits password hash and GitHub token."""
+    return {
+        'user_id': user.id,
+        'name': user.name,
+        'email': user.email,
+        'role': user.role.value,
+        'github_linked': bool(user.github_login),
+        'github_login': user.github_login,
+    }
+
+
+@mod_api.route('/users', methods=['GET'])
+@require_roles([Role.admin])
+@require_scope(Scope.TOKENS_MANAGE)
+@validate_offset_pagination()
+def list_users(limit=50, offset=0):
+    """List platform users, oldest first."""
+    query = User.query.order_by(User.id.asc())
+    total = query.count()
+    users = query.offset(offset).limit(limit).all()
+    return paginated_response(
+        [_serialize_user(user) for user in users], total, limit, offset)
+
+
+@mod_api.route('/users/<user_id>', methods=['PATCH'])
+@require_roles([Role.admin])
+@require_scope(Scope.TOKENS_MANAGE)
+@validate_path_id('user_id')
+@validate_body(RoleUpdateSchema)
+def update_user_role(user_id, validated_data=None):
+    """
+    Change a user's role.
+
+    Admins cannot change their own role: demoting the last admin here
+    would leave nobody able to undo it.
+    """
+    user = User.query.filter(User.id == user_id).first()
+    if user is None:
+        return make_error_response(
+            'not_found', f'User {user_id} not found.', http_status=404)
+
+    if user.id == g.api_user.id:
+        return make_error_response(
+            'forbidden', 'You cannot change your own role.', http_status=403)
+
+    previous_role = user.role.value
+    user.role = Role.from_string(validated_data['role'])
+    g.db.commit()
+
+    g.log.info(f'user {user.id} role {previous_role} -> {user.role.value} '
+               f'by admin {g.api_user.id}')
+    return single_response(_serialize_user(user))

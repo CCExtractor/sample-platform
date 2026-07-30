@@ -1,9 +1,10 @@
-"""Request/response schemas for the token endpoints."""
+"""Request/response schemas for the token and user endpoints."""
 
 from marshmallow import RAISE, Schema, fields, validate
 
 from mod_api.models.api_token import VALID_SCOPES
 from mod_api.schemas.common import DATETIME_FORMAT
+from mod_auth.models import Role
 
 
 class TokenCreateRequestSchema(Schema):
@@ -31,7 +32,9 @@ class TokenCreateRequestSchema(Schema):
     scopes = fields.List(
         fields.String(validate=validate.OneOf(VALID_SCOPES)),
         load_default=None,
-        validate=validate.Length(max=6),
+        # Bounded by the scope list itself, so adding a scope cannot silently
+        # make "ask for everything I'm allowed" fail validation.
+        validate=validate.Length(max=len(VALID_SCOPES)),
     )
 
     class Meta:
@@ -65,3 +68,16 @@ class ApiTokenItemSchema(Schema):
     def get_scopes(self, obj):
         """Deserialize scopes from the model's JSON column."""
         return obj.scopes
+
+
+class RoleUpdateSchema(Schema):
+    """Validates PATCH /users/{id} bodies."""
+
+    # Taken from the model so the accepted values follow the Role enum.
+    role = fields.String(
+        required=True, validate=validate.OneOf(sorted(Role.values())))
+
+    class Meta:
+        """Reject unknown fields."""
+
+        unknown = RAISE

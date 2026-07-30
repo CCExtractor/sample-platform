@@ -5,6 +5,7 @@ GET /runs/{id}/samples              Per-run regression test results
 GET /runs/{id}/samples/{sid}        Single result in a run
 GET /samples                        Media sample catalog
 GET /samples/{id}                   Single media sample
+GET /samples/{id}/details           Upload metadata, extra files, media info
 GET /samples/{id}/history           Cross-run history for a sample
 GET /regression-tests               Regression test definitions
 """
@@ -29,9 +30,12 @@ from mod_api.services.status import (batch_get_run_data, derive_output_status,
 from mod_api.utils import paginated_response, single_response
 from mod_regression.models import (Category, RegressionTest,
                                    RegressionTestOutput)
-from mod_sample.models import Sample, Tag
+from mod_sample.media_info_parser import (InvalidMediaInfoError,
+                                          MediaInfoFetcher)
+from mod_sample.models import ExtraFile, Sample, Tag
 from mod_test.models import (Test, TestPlatform, TestProgress, TestResult,
                              TestResultFile)
+from mod_upload.models import Upload
 
 # Valid per-sample status values accepted by the ?status filter. Limited to the
 # statuses derive_sample_status can actually emit, so filtering can't silently
@@ -342,6 +346,67 @@ def list_samples(limit=50, offset=0):
     return paginated_response(serialized, total, limit, offset)
 
 
+@mod_api.route('/samples/<sample_id>/details', methods=['GET'])
+@require_scope(Scope.RUNS_READ)
+@validate_path_id('sample_id')
+def get_sample_details(sample_id):
+    """
+    Everything known about one sample, for a detail view.
+
+    Extends the /samples/{id} summary with the upload record, any extra
+    files, and the parsed MediaInfo tree. Media info is best-effort: missing
+    or unparseable XML reports ``null`` rather than failing the response.
+    Unlike the classic page this never regenerates the XML, because a GET
+    should not write to the sample repository.
+    """
+    sample = Sample.query.options(joinedload(Sample.tags)).filter(
+        Sample.id == sample_id).first()
+    if sample is None:
+        return make_error_response(
+            'not_found', f'Sample {sample_id} not found.', http_status=404)
+
+    upload = Upload.query.filter(Upload.sample_id == sample.id).first()
+    upload_info = None
+    if upload is not None:
+        version = upload.version
+        upload_info = {
+            'platform': upload.platform.value if upload.platform else None,
+            'parameters': upload.parameters or '',
+            'notes': upload.notes or '',
+            'version': version.version if version else None,
+            'version_released': (
+                version.released.isoformat()
+                if version and version.released else None),
+        }
+
+    extra_files = [
+        {
+            'id': extra.id,
+            'original_name': extra.original_name,
+            'extension': extra.extension,
+        }
+        for extra in ExtraFile.query.filter(
+            ExtraFile.sample_id == sample.id).all()
+    ]
+
+    try:
+        media_info = MediaInfoFetcher(sample).get_media_info()
+    except InvalidMediaInfoError:
+        media_info = None
+
+    return single_response({
+        'sample_id': sample.id,
+        'sha': sample.sha,
+        'extension': sample.extension,
+        'original_name': sample.original_name,
+        'filename': sample.filename,
+        'tags': [tag.name for tag in sample.tags],
+        'upload': upload_info,
+        'extra_files': extra_files,
+        'media_info': media_info,
+    })
+
+
 @mod_api.route('/samples/<sample_id>', methods=['GET'])
 @require_scope(Scope.RUNS_READ)
 @validate_path_id('sample_id')
@@ -557,7 +622,8 @@ def get_sample_history(
     )
 
 
-def _serialize_rt(rt):
+def serialize_rt(rt):
+    """Public shape of a regression test definition, without its outputs."""
     return {
         'regression_test_id': rt.id,
         'sample_id': rt.sample_id,
@@ -643,5 +709,5 @@ def list_regression_tests(limit=50, offset=0):
     # Paginate at DB level
     total = query.count()
     tests = query.offset(offset).limit(limit).all()
-    serialized = [_serialize_rt(rt) for rt in tests]
+    serialized = [serialize_rt(rt) for rt in tests]
     return paginated_response(serialized, total, limit, offset)

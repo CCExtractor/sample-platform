@@ -346,3 +346,109 @@ class TestRoutesAuth(ApiTestCase):
             headers={
                 'Authorization': f'Bearer {admin_token}'})
         self.assertEqual(res2.status_code, 204)
+
+    def test_get_current_user_returns_role_and_scopes(self):
+        token = self.get_token(
+            'auth_user@local.com', 'userpass123', 'me_tok',
+            scopes=['runs:read']).json['token']
+
+        res = self.client.get(
+            '/api/v1/auth/me',
+            headers={'Authorization': f'Bearer {token}'})
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json['user_id'], self.user_id)
+        self.assertEqual(res.json['email'], 'auth_user@local.com')
+        # The role comes from the account, never from what the client asked
+        # for; this is what the web console gates its UI on.
+        self.assertEqual(res.json['role'], 'contributor')
+        self.assertEqual(res.json['scopes'], ['runs:read'])
+
+    def test_get_current_user_reports_admin_role(self):
+        token = self.get_token(
+            'auth_admin@local.com', 'adminpass123', 'me_admin',
+            scopes=['runs:read']).json['token']
+
+        res = self.client.get(
+            '/api/v1/auth/me',
+            headers={'Authorization': f'Bearer {token}'})
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json['role'], 'admin')
+
+    def test_get_current_user_requires_a_token(self):
+        res = self.client.get('/api/v1/auth/me')
+        self.assertEqual(res.status_code, 401)
+
+    def _admin_token(self, name='usr_admin'):
+        return self.get_token('auth_admin@local.com', 'adminpass123', name,
+                              scopes=['tokens:manage']).json['token']
+
+    def _patch_user(self, token, user_id, body):
+        return self.client.patch(
+            f'/api/v1/users/{user_id}',
+            data=json.dumps(body),
+            content_type='application/json',
+            headers={'Authorization': f'Bearer {token}'})
+
+    def test_list_users(self):
+        res = self.client.get(
+            '/api/v1/users',
+            headers={'Authorization': f'Bearer {self._admin_token()}'})
+
+        self.assertEqual(res.status_code, 200)
+        row = next(r for r in res.json['data']
+                   if r['email'] == 'auth_admin@local.com')
+        self.assertEqual(row['role'], 'admin')
+        self.assertFalse(row['github_linked'])
+        # Credentials must never appear in the payload.
+        self.assertNotIn('password', row)
+        self.assertNotIn('github_token', row)
+
+    def test_list_users_is_paginated(self):
+        res = self.client.get(
+            '/api/v1/users?limit=1&offset=0',
+            headers={'Authorization': f'Bearer {self._admin_token("usr_p")}'})
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(res.json['data']), 1)
+        # total counts every user, not just the page, so a client knows to
+        # keep paging instead of silently seeing the first page only.
+        self.assertGreaterEqual(res.json['pagination']['total'], 2)
+
+    def test_list_users_forbidden_for_contributor(self):
+        token = self.get_token('auth_user@local.com', 'userpass123',
+                               'usr_c', scopes=['runs:read']).json['token']
+        res = self.client.get(
+            '/api/v1/users', headers={'Authorization': f'Bearer {token}'})
+        self.assertEqual(res.status_code, 403)
+
+    def test_update_user_role(self):
+        res = self._patch_user(self._admin_token('usr_up'), self.user_id,
+                               {'role': 'user'})
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json['role'], 'user')
+        self.assertEqual(
+            User.query.filter(User.id == self.user_id).first().role, Role.user)
+
+    def test_update_user_role_rejects_self(self):
+        admin_id = User.query.filter(
+            User.email == 'auth_admin@local.com').first().id
+        res = self._patch_user(self._admin_token('usr_self'), admin_id,
+                               {'role': 'user'})
+
+        # Demoting yourself would leave nobody able to undo it.
+        self.assertEqual(res.status_code, 403)
+        self.assertEqual(
+            User.query.filter(User.id == admin_id).first().role, Role.admin)
+
+    def test_update_user_role_invalid_role(self):
+        res = self._patch_user(self._admin_token('usr_bad'), self.user_id,
+                               {'role': 'superuser'})
+        self.assertEqual(res.status_code, 400)
+
+    def test_update_user_role_unknown_user(self):
+        res = self._patch_user(self._admin_token('usr_404'), 999999,
+                               {'role': 'user'})
+        self.assertEqual(res.status_code, 404)

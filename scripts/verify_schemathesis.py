@@ -60,14 +60,21 @@ from run import app  # noqa: E402
 # Schema loading
 # ---------------------------------------------------------------------------
 
-# Base schema used for the broad fuzz test — excludes destructive auth routes.
+# Base schema used for the broad fuzz test — excludes destructive routes.
+# The administration deletes and the maintenance switch are excluded for the
+# same reason as the auth ones: fuzzing them mutates the environment the rest
+# of the run depends on, and pausing a platform would stall CI outright.
 schema = schemathesis.openapi.from_path("openapi-ci-api.yaml")
 schema.base_url = "/api/v1"
 schema.app = app
 schema = (
-    schema.exclude(path="/auth/tokens/current").exclude(
-        path="/auth/tokens/{token_id}"
-    )
+    schema.exclude(path="/auth/tokens/current")
+    .exclude(path="/auth/tokens/{token_id}")
+    .exclude(path="/system/maintenance/{platform}", method="PATCH")
+    .exclude(path="/system/blocked-users/{user_id}", method="DELETE")
+    .exclude(path="/system/forbidden-extensions/{extension}", method="DELETE")
+    .exclude(path="/regression-tests/{regression_test_id}", method="DELETE")
+    .exclude(path="/categories/{category_id}", method="DELETE")
 )
 
 # Scoped sub-schemas used by per-endpoint targeted tests.
@@ -181,6 +188,7 @@ def auth_token():
             "results:read",
             "baselines:write",
             "system:read",
+            "system:write",
             "tokens:manage",
         ],
     )

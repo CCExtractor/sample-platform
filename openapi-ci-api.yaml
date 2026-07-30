@@ -49,6 +49,8 @@ tags:
     description: Structured errors and raw log access
   - name: System
     description: Health, queue, and artifacts
+  - name: Users
+    description: Platform accounts and role administration
 
 #
 # SECURITY NOTES (implementers must read)
@@ -290,6 +292,34 @@ paths:
                 code: not_found
                 message: Token not found.
                 details: {}
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Identify the account behind the current token
+      operationId: getCurrentUser
+      description: >
+        A token does not carry the account's role, so a client cannot infer
+        what the caller is allowed to do. Clients gate their interface on
+        this instead of guessing, and the granted scopes are echoed so a
+        client can also hide what this token could never call. Requires no
+        particular scope: it reports on the caller and discloses nothing
+        another endpoint would withhold.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The authenticated account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUser"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "429":
           $ref: "#/components/responses/RateLimited"
         default:
@@ -788,6 +818,41 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /samples/{sample_id}/details:
+    get:
+      tags: [Samples]
+      summary: Get the full detail payload for a media sample
+      operationId: getSampleDetails
+      description: >
+        Extends the summary payload with the upload record, any extra files
+        attached to the sample, and the parsed MediaInfo tree. Media info is
+        best effort: a sample whose XML is missing or unparseable reports
+        null rather than failing the response. Unlike the classic page this
+        never regenerates the XML, because a GET must not write to the
+        sample repository.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:read
+      parameters:
+        - $ref: "#/components/parameters/SampleId"
+      responses:
+        "200":
+          description: Full media sample detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SampleDetails"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
   /samples/{sample_id}/history:
     get:
       tags: [Samples]
@@ -890,6 +955,682 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+    post:
+      tags: [Samples]
+      summary: Create a regression test definition
+      operationId: createRegressionTest
+      description: >
+        Admin or contributor only. The test is created inactive unless the
+        body says otherwise, so it cannot join a CI suite before someone has
+        seen the output it actually produces on a verification run. Every
+        named category must already exist; an unknown name rejects the whole
+        request rather than silently dropping it.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegressionTestCreateRequest"
+      responses:
+        "201":
+          description: The created regression test
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegressionTest"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /categories:
+    get:
+      tags: [Samples]
+      summary: List regression test categories
+      operationId: listCategories
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:read
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Paginated categories, ordered by name
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Page"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Category"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+    post:
+      tags: [Samples]
+      summary: Create a category
+      operationId: createCategory
+      description: Admin or contributor only. Names are unique.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryCreateRequest"
+      responses:
+        "201":
+          description: The created category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /categories/{category_id}:
+    patch:
+      tags: [Samples]
+      summary: Rename or re-describe a category
+      operationId: updateCategory
+      description: Admin or contributor only. An empty body is rejected.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:write
+      parameters:
+        - $ref: "#/components/parameters/CategoryId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryUpdateRequest"
+      responses:
+        "200":
+          description: The updated category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+    delete:
+      tags: [Samples]
+      summary: Delete a category
+      operationId: deleteCategory
+      description: >
+        Admin or contributor only. A category still attached to regression
+        tests is refused with 409 and a count, because dropping it would
+        change which tests a suite selection picks up. Detach the tests
+        first by PATCHing their categories.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:write
+      parameters:
+        - $ref: "#/components/parameters/CategoryId"
+      responses:
+        "200":
+          description: The category was deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeletedResource"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /regression-tests/{regression_test_id}:
+    get:
+      tags: [Samples]
+      summary: Get one regression test with its baselines
+      operationId: getRegressionTest
+      description: >
+        Adds the expected outputs and the alternative hashes accepted as
+        variants, which the list endpoint omits because they multiply the
+        payload for every row.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:read
+      parameters:
+        - $ref: "#/components/parameters/RegressionTestId"
+      responses:
+        "200":
+          description: Regression test detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegressionTestDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+    delete:
+      tags: [Samples]
+      summary: Delete a regression test
+      operationId: deleteRegressionTest
+      description: >
+        Admin or contributor only. A test that has already run is refused
+        with 409 and the number of results referencing it, because deleting
+        it would erase evidence of past regressions. Retire such a test with
+        PATCH active=false instead.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:write
+      parameters:
+        - $ref: "#/components/parameters/RegressionTestId"
+      responses:
+        "200":
+          description: The regression test was deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeletedResource"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+    patch:
+      tags: [Samples]
+      summary: Update part of a regression test definition
+      operationId: updateRegressionTest
+      description: >
+        Admin or contributor only. Only the fields present in the body are
+        written, so two clients editing different fields cannot clobber each
+        other. An empty body is rejected.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:write
+      parameters:
+        - $ref: "#/components/parameters/RegressionTestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegressionTestUpdateRequest"
+      responses:
+        "200":
+          description: The updated regression test
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegressionTest"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  # PLATFORM CONFIGURATION
+
+  /system/maintenance:
+    get:
+      tags: [System]
+      summary: Report maintenance state for every platform
+      operationId: getMaintenance
+      description: >
+        A platform that has never been put into maintenance is reported as
+        disabled=false rather than omitted, so a client always receives one
+        entry per platform. Keyed on platforms rather than the data
+        collection envelope: the list comes from the platform enum, not a
+        growable table, so there is nothing to paginate. Admin only, like
+        the rest of the platform configuration.
+      security:
+        - bearerAuth: []
+      x-required-scope: system:read
+      responses:
+        "200":
+          description: Maintenance state per platform
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  platforms:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MaintenanceState"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /system/maintenance/{platform}:
+    patch:
+      tags: [System]
+      summary: Pause or resume CI for one platform
+      operationId: updateMaintenance
+      description: >
+        Admin only. While a platform is disabled new runs still queue; they
+        are simply not handed to a VM until it is resumed.
+      security:
+        - bearerAuth: []
+      x-required-scope: system:write
+      parameters:
+        - $ref: "#/components/parameters/PlatformPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MaintenanceUpdateRequest"
+      responses:
+        "200":
+          description: The updated maintenance state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaintenanceState"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /system/blocked-users:
+    get:
+      tags: [System]
+      summary: List GitHub accounts blocked from triggering CI runs
+      operationId: listBlockedUsers
+      description: >
+        Admin only. The blocklist names GitHub accounts, so it is not
+        readable with system:read alone.
+      security:
+        - bearerAuth: []
+      x-required-scope: system:read
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Paginated blocked GitHub accounts
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Page"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/BlockedUser"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+    post:
+      tags: [System]
+      summary: Block a GitHub account from triggering CI runs
+      operationId: createBlockedUser
+      description: >
+        Admin only. Keyed on the numeric GitHub account id rather than the
+        login, because a login can be changed and reused, which would
+        silently unblock somebody.
+      security:
+        - bearerAuth: []
+      x-required-scope: system:write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlockedUserCreateRequest"
+      responses:
+        "201":
+          description: The account is now blocked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlockedUser"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /system/blocked-users/{user_id}:
+    delete:
+      tags: [System]
+      summary: Unblock a GitHub account
+      operationId: deleteBlockedUser
+      description: Admin only.
+      security:
+        - bearerAuth: []
+      x-required-scope: system:write
+      parameters:
+        - $ref: "#/components/parameters/BlockedUserId"
+      responses:
+        "200":
+          description: The account is no longer blocked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id:
+                    type: integer
+                  deleted:
+                    type: boolean
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /system/forbidden-extensions:
+    get:
+      tags: [System]
+      summary: List file extensions rejected on upload
+      operationId: listForbiddenExtensions
+      description: Admin only, like the rest of the platform configuration.
+      security:
+        - bearerAuth: []
+      x-required-scope: system:read
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Paginated forbidden extensions, without a leading dot
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Page"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: string
+                          maxLength: 32
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+    post:
+      tags: [System]
+      summary: Forbid a file extension on upload
+      operationId: createForbiddenExtension
+      description: >
+        Admin only. Stored lower-cased and without a leading dot, matching
+        how upload validation looks it up.
+      security:
+        - bearerAuth: []
+      x-required-scope: system:write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForbiddenExtensionCreateRequest"
+      responses:
+        "201":
+          description: The extension is now forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  extension:
+                    type: string
+                    maxLength: 32
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /system/forbidden-extensions/{extension}:
+    delete:
+      tags: [System]
+      summary: Allow a file extension to be uploaded again
+      operationId: deleteForbiddenExtension
+      description: Admin only. A leading dot in the path is tolerated.
+      security:
+        - bearerAuth: []
+      x-required-scope: system:write
+      parameters:
+        - $ref: "#/components/parameters/ExtensionPath"
+      responses:
+        "200":
+          description: The extension is no longer forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  extension:
+                    type: string
+                    maxLength: 32
+                  deleted:
+                    type: boolean
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  # USERS
+
+  /users:
+    get:
+      tags: [Users]
+      summary: List platform users
+      operationId: listUsers
+      description: >
+        Admin only. Paginated like every other collection here, because the
+        platform has hundreds of accounts. Credentials and GitHub tokens are
+        never included.
+      security:
+        - bearerAuth: []
+      x-required-scope: tokens:manage
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Paginated platform users
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Page"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/PlatformUser"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /users/{user_id}:
+    patch:
+      tags: [Users]
+      summary: Change a user's role
+      operationId: updateUserRole
+      description: >
+        Admin only. An admin cannot change their own role: demoting the last
+        admin through this endpoint would leave nobody able to undo it, so
+        that request is refused with 403.
+      security:
+        - bearerAuth: []
+      x-required-scope: tokens:manage
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleUpdateRequest"
+      responses:
+        "200":
+          description: The updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformUser"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: >
+            The caller is not an admin, or attempted to change their own role.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                code: forbidden
+                message: You cannot change your own role.
+                details: {}
+        "404":
+          $ref: "#/components/responses/NotFound"
         "429":
           $ref: "#/components/responses/RateLimited"
         default:
@@ -1625,6 +2366,51 @@ components:
         type: integer
         minimum: 1
 
+    UserId:
+      name: user_id
+      in: path
+      required: true
+      description: Numeric platform user ID
+      schema:
+        type: integer
+        minimum: 1
+
+    CategoryId:
+      name: category_id
+      in: path
+      required: true
+      description: Numeric category ID
+      schema:
+        type: integer
+        minimum: 1
+
+    BlockedUserId:
+      name: user_id
+      in: path
+      required: true
+      description: Numeric GitHub account ID (not the login)
+      schema:
+        type: integer
+        minimum: 1
+
+    PlatformPath:
+      name: platform
+      in: path
+      required: true
+      description: CI platform
+      schema:
+        type: string
+        enum: [linux, windows]
+
+    ExtensionPath:
+      name: extension
+      in: path
+      required: true
+      description: File extension, with or without a leading dot
+      schema:
+        type: string
+        maxLength: 33
+
     RunStatus:
       name: status
       in: query
@@ -1778,6 +2564,24 @@ components:
             message: Run 9317 not found.
             details:
               resource: run
+
+    Conflict:
+      description: >
+        The request clashes with existing state — a duplicate name, or a
+        deletion that would discard records still referenced elsewhere.
+        Where the conflict is about dependants, details carries their count
+        and the request can be repeated with ?force=true.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: conflict
+            message: >
+              Regression test 42 has 118 historical result(s). Pass
+              ?force=true to delete it and them.
+            details:
+              result_count: 118
               id: 9317
 
     UnprocessableEntity:
@@ -1932,11 +2736,11 @@ components:
           maxLength: 50
         scopes:
           type: array
-          maxItems: 6
+          maxItems: 7
           uniqueItems: true
           items:
             type: string
-            enum: [runs:read, runs:write, results:read, baselines:write, system:read, tokens:manage]
+            enum: [runs:read, runs:write, results:read, baselines:write, system:read, system:write, tokens:manage]
         created_at:
           type: string
           format: date-time
@@ -1981,20 +2785,23 @@ components:
           default: 7
         scopes:
           type: array
-          maxItems: 6
+          maxItems: 7
           uniqueItems: true
           default: [runs:read, results:read]
           items:
             type: string
-            enum: [runs:read, runs:write, results:read, baselines:write, system:read, tokens:manage]
+            enum: [runs:read, runs:write, results:read, baselines:write, system:read, system:write, tokens:manage]
           description: >
             Requested scopes. Grant only what the client needs.
             runs:read — list and inspect runs, samples, history.
-            runs:write — trigger and cancel runs.
+            runs:write — trigger and cancel runs, and edit the regression suite.
             results:read — access expected/actual output, diffs, errors, logs.
             baselines:write — approve new expected baselines.
-            system:read — queue, infrastructure errors, stack traces, artifacts.
-            tokens:manage — list and revoke API tokens.
+            system:read — queue, infrastructure errors, stack traces, artifacts,
+            and the platform configuration.
+            system:write — change the platform configuration: maintenance mode,
+            blocked CI users, forbidden upload extensions. Admin only.
+            tokens:manage — list and revoke API tokens, and administer users.
 
     AuthToken:
       type: object
@@ -2017,7 +2824,7 @@ components:
           uniqueItems: true
           items:
             type: string
-            enum: [runs:read, runs:write, results:read, baselines:write, system:read, tokens:manage]
+            enum: [runs:read, runs:write, results:read, baselines:write, system:read, system:write, tokens:manage]
         expires_at:
           type: string
           format: date-time
@@ -2266,6 +3073,361 @@ components:
         active:
           type: boolean
           description: True if at least one active regression test references this sample.
+
+    DeletedResource:
+      type: object
+      required: [deleted]
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        deleted:
+          type: boolean
+
+    Category:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+          maxLength: 64
+        description:
+          type: string
+          maxLength: 1024
+        test_count:
+          type: integer
+          minimum: 0
+          description: How many regression tests reference this category.
+
+    CategoryCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+        description:
+          type: string
+          default: ""
+          maxLength: 1024
+
+    CategoryUpdateRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: Only the fields present are written; an empty body is rejected.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+        description:
+          type: string
+          maxLength: 1024
+
+    RegressionTestDetail:
+      allOf:
+        - $ref: "#/components/schemas/RegressionTest"
+        - type: object
+          properties:
+            outputs:
+              type: array
+              maxItems: 100
+              description: Expected outputs, with the hashes accepted as variants.
+              items:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    minimum: 1
+                  correct:
+                    type: string
+                    maxLength: 128
+                  correct_extension:
+                    type: string
+                    maxLength: 64
+                  expected_filename:
+                    type: string
+                    maxLength: 255
+                    nullable: true
+                  ignore:
+                    type: boolean
+                  variants:
+                    type: array
+                    maxItems: 100
+                    items:
+                      type: string
+                      maxLength: 128
+
+    MaintenanceState:
+      type: object
+      required: [platform, disabled]
+      properties:
+        platform:
+          type: string
+          enum: [linux, windows]
+        disabled:
+          type: boolean
+          description: >
+            True while the platform is paused. Runs still queue; they are
+            just not handed to a VM.
+
+    MaintenanceUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [disabled]
+      properties:
+        disabled:
+          type: boolean
+
+    BlockedUser:
+      type: object
+      required: [user_id]
+      properties:
+        user_id:
+          type: integer
+          minimum: 1
+          description: Numeric GitHub account ID.
+        comment:
+          type: string
+          maxLength: 1024
+
+    BlockedUserCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [user_id]
+      properties:
+        user_id:
+          type: integer
+          minimum: 1
+        comment:
+          type: string
+          default: ""
+          maxLength: 1024
+
+    ForbiddenExtensionCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [extension]
+      properties:
+        extension:
+          type: string
+          minLength: 1
+          maxLength: 32
+          pattern: "^[A-Za-z0-9]+$"
+          description: Alphanumeric, without a leading dot.
+
+    CurrentUser:
+      type: object
+      required: [user_id, email, role, scopes]
+      properties:
+        user_id:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+          maxLength: 255
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        role:
+          type: string
+          enum: [admin, contributor, tester, user]
+        scopes:
+          type: array
+          maxItems: 6
+          items:
+            type: string
+            maxLength: 50
+
+    PlatformUser:
+      type: object
+      required: [user_id, email, role]
+      properties:
+        user_id:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+          maxLength: 255
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        role:
+          type: string
+          enum: [admin, contributor, tester, user]
+        github_linked:
+          type: boolean
+        github_login:
+          type: string
+          maxLength: 255
+          nullable: true
+
+    RoleUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [role]
+      properties:
+        role:
+          type: string
+          enum: [admin, contributor, tester, user]
+
+    SampleDetails:
+      type: object
+      required: [sample_id, sha, extension, original_name]
+      properties:
+        sample_id:
+          type: integer
+          minimum: 1
+        sha:
+          type: string
+          maxLength: 128
+        extension:
+          type: string
+          maxLength: 64
+        original_name:
+          type: string
+          maxLength: 255
+        filename:
+          type: string
+          maxLength: 255
+        tags:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            maxLength: 100
+        upload:
+          nullable: true
+          description: The upload record, or null when the sample predates one.
+          type: object
+          properties:
+            platform:
+              type: string
+              maxLength: 50
+              nullable: true
+            parameters:
+              type: string
+              maxLength: 1024
+            notes:
+              type: string
+              maxLength: 4096
+            version:
+              type: string
+              maxLength: 50
+              nullable: true
+            version_released:
+              type: string
+              format: date-time
+              nullable: true
+        extra_files:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+                minimum: 1
+              original_name:
+                type: string
+                maxLength: 255
+              extension:
+                type: string
+                maxLength: 64
+        media_info:
+          nullable: true
+          description: >
+            Parsed MediaInfo tree, or null when the XML is absent or cannot
+            be parsed. Shape mirrors the source document and is not fixed.
+          type: array
+          items:
+            type: object
+
+    RegressionTestCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [sample_id, command, categories]
+      properties:
+        sample_id:
+          type: integer
+          minimum: 1
+        command:
+          type: string
+          minLength: 1
+          maxLength: 500
+        input_type:
+          type: string
+          default: file
+          enum: [file, stdin, udp]
+        output_type:
+          type: string
+          default: file
+          enum: [file, "null", stdout, tcp, cea708, multiprogram, report]
+        expected_rc:
+          type: integer
+          default: 0
+          minimum: 0
+          maximum: 255
+        description:
+          type: string
+          default: ""
+          maxLength: 1024
+        categories:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: string
+            minLength: 1
+            maxLength: 64
+        active:
+          type: boolean
+          default: false
+          description: >
+            Left false so a new test cannot join a CI suite before its
+            output has been verified on a run.
+
+    RegressionTestUpdateRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: Only the fields present are written; an empty body is rejected.
+      properties:
+        command:
+          type: string
+          minLength: 1
+          maxLength: 500
+        input_type:
+          type: string
+          enum: [file, stdin, udp]
+        output_type:
+          type: string
+          enum: [file, "null", stdout, tcp, cea708, multiprogram, report]
+        expected_rc:
+          type: integer
+          minimum: 0
+          maximum: 255
+        description:
+          type: string
+          maxLength: 1024
+        categories:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: string
+            minLength: 1
+            maxLength: 64
+        active:
+          type: boolean
 
     RegressionTest:
       type: object

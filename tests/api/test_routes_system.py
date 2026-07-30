@@ -7,7 +7,9 @@ from flask import g
 
 from mod_api.middleware.rate_limit import _rate_limit_store
 from mod_auth.models import Role, User
+from mod_ci.models import BlockedUsers, MaintenanceMode
 from mod_regression.models import RegressionTestOutput
+from mod_sample.models import ForbiddenExtension
 from mod_test.models import Fork, Test, TestPlatform, TestResultFile, TestType
 from tests.api.base import ApiTestCase
 
@@ -190,3 +192,187 @@ class TestRoutesSystem(ApiTestCase):
         # Should return None for path traversal attempts
         self.assertIsNone(safe_resolve(base, '../../../etc/passwd'))
         self.assertIsNone(safe_resolve(base, '/etc/passwd'))
+
+
+class TestRoutesPlatformConfig(ApiTestCase):
+    """Maintenance mode, blocked CI users, and forbidden upload extensions."""
+
+    def setUp(self):
+        super().setUp()
+        self.setup_run_data('adm')
+        g.db.add(BlockedUsers(4242, 'repeated abusive uploads'))
+        g.db.add(ForbiddenExtension('exe'))
+        g.db.commit()
+        _rate_limit_store.clear()
+
+    def _admin(self, name='adm_tok', scopes=None):
+        token = self.get_token(
+            'adm_admin@local.com', 'adminpass123', name,
+            scopes=scopes or ['system:read', 'system:write'])
+        return {'Authorization': f'Bearer {token}'}
+
+    def _reader(self, name='adm_read'):
+        token = self.get_token('adm_user@local.com', 'userpass123', name,
+                               scopes=['system:read'])
+        return {'Authorization': f'Bearer {token}'}
+
+    def _write(self, method, path, headers, body):
+        return getattr(self.client, method)(
+            f'/api/v1{path}', data=json.dumps(body),
+            content_type='application/json', headers=headers)
+
+    def test_plain_user_cannot_request_system_write(self):
+        # system:write reconfigures CI itself, so it is admin-only at the
+        # point a token is minted, not merely at the route.
+        res = self._write('post', '/auth/tokens', {}, {
+            'email': 'adm_user@local.com', 'password': 'userpass123',
+            'token_name': 'nope', 'scopes': ['system:write']})
+        self.assertEqual(res.status_code, 403)
+
+    def test_admin_can_request_every_scope(self):
+        # Guards the token schema's scope-count cap against the scope list.
+        res = self._write('post', '/auth/tokens', {}, {
+            'email': 'adm_admin@local.com', 'password': 'adminpass123',
+            'token_name': 'allscopes',
+            'scopes': ['runs:read', 'runs:write', 'results:read',
+                       'baselines:write', 'system:read', 'system:write',
+                       'tokens:manage']})
+        self.assertEqual(res.status_code, 201)
+
+    def test_platform_config_reads_refused_for_non_admin(self):
+        # The blocklist names accounts and the rest is platform configuration,
+        # so holding system:read is not on its own enough to read any of it.
+        headers = self._reader()
+        for path in ('/system/maintenance', '/system/blocked-users',
+                     '/system/forbidden-extensions'):
+            res = self.client.get(f'/api/v1{path}', headers=headers)
+            self.assertEqual(res.status_code, 403, f'{path} was readable')
+
+    def test_get_maintenance_reports_every_platform(self):
+        res = self.client.get('/api/v1/system/maintenance',
+                              headers=self._admin('adm_read_m'))
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual({row['platform'] for row in res.json['platforms']},
+                         set(TestPlatform.values()))
+        # Nothing stored yet, so every platform reads as running.
+        self.assertTrue(
+            all(row['disabled'] is False for row in res.json['platforms']))
+
+    def test_update_maintenance_creates_then_updates(self):
+        res = self._write('patch', '/system/maintenance/linux',
+                          self._admin(), {'disabled': True})
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(res.json['disabled'])
+
+        # Toggling back must reuse the row rather than add a second one.
+        res = self._write('patch', '/system/maintenance/linux',
+                          self._admin('adm_tok2'), {'disabled': False})
+        self.assertEqual(res.status_code, 200)
+        self.assertFalse(res.json['disabled'])
+        self.assertEqual(MaintenanceMode.query.filter(
+            MaintenanceMode.platform == TestPlatform.linux).count(), 1)
+
+    def test_update_maintenance_invalid_platform(self):
+        res = self._write('patch', '/system/maintenance/atari',
+                          self._admin(), {'disabled': True})
+        self.assertEqual(res.status_code, 400)
+
+    def test_update_maintenance_requires_system_write(self):
+        res = self._write('patch', '/system/maintenance/linux',
+                          self._admin('adm_ro', scopes=['system:read']),
+                          {'disabled': True})
+        self.assertEqual(res.status_code, 403)
+
+    def test_list_blocked_users(self):
+        res = self.client.get('/api/v1/system/blocked-users',
+                              headers=self._admin('adm_read_b'))
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json['data'][0]['user_id'], 4242)
+        self.assertEqual(res.json['data'][0]['comment'],
+                         'repeated abusive uploads')
+
+    def test_block_user(self):
+        res = self._write('post', '/system/blocked-users', self._admin(),
+                          {'user_id': 99, 'comment': 'spam'})
+
+        self.assertEqual(res.status_code, 201)
+        self.assertIsNotNone(
+            BlockedUsers.query.filter(BlockedUsers.user_id == 99).first())
+
+    def test_block_user_twice(self):
+        res = self._write('post', '/system/blocked-users', self._admin(),
+                          {'user_id': 4242})
+        self.assertEqual(res.status_code, 409)
+
+    def test_block_user_rejects_login_instead_of_id(self):
+        # The model keys on the numeric GitHub id; a login would silently
+        # block nobody.
+        res = self._write('post', '/system/blocked-users', self._admin(),
+                          {'user_id': 'octocat'})
+        self.assertEqual(res.status_code, 400)
+
+    def test_block_user_forbidden_for_non_admin(self):
+        res = self._write('post', '/system/blocked-users',
+                          self._reader('adm_r2'), {'user_id': 7})
+        self.assertEqual(res.status_code, 403)
+
+    def test_unblock_user(self):
+        res = self.client.delete('/api/v1/system/blocked-users/4242',
+                                 headers=self._admin())
+
+        self.assertEqual(res.status_code, 200)
+        self.assertIsNone(
+            BlockedUsers.query.filter(BlockedUsers.user_id == 4242).first())
+
+    def test_unblock_user_not_blocked(self):
+        res = self.client.delete('/api/v1/system/blocked-users/1234',
+                                 headers=self._admin())
+        self.assertEqual(res.status_code, 404)
+
+    def test_list_forbidden_extensions(self):
+        res = self.client.get('/api/v1/system/forbidden-extensions',
+                              headers=self._admin('adm_read_e'))
+        self.assertEqual(res.status_code, 200)
+        self.assertIn('exe', res.json['data'])
+
+    def test_forbid_extension(self):
+        res = self._write('post', '/system/forbidden-extensions',
+                          self._admin(), {'extension': 'BAT'})
+
+        self.assertEqual(res.status_code, 201)
+        # Stored lower-cased, since upload validation compares lower-cased.
+        self.assertEqual(res.json['extension'], 'bat')
+        self.assertIsNotNone(ForbiddenExtension.query.filter(
+            ForbiddenExtension.extension == 'bat').first())
+
+    def test_forbid_extension_rejects_dot_and_wildcards(self):
+        headers = self._admin('adm_ext')
+        for bad in ['.sh', '*', 'sh script']:
+            res = self._write('post', '/system/forbidden-extensions',
+                              headers, {'extension': bad})
+            self.assertEqual(res.status_code, 400, f'accepted {bad!r}')
+
+    def test_forbid_extension_twice(self):
+        res = self._write('post', '/system/forbidden-extensions',
+                          self._admin(), {'extension': 'exe'})
+        self.assertEqual(res.status_code, 409)
+
+    def test_allow_extension_again(self):
+        res = self.client.delete('/api/v1/system/forbidden-extensions/exe',
+                                 headers=self._admin())
+
+        self.assertEqual(res.status_code, 200)
+        self.assertIsNone(ForbiddenExtension.query.filter(
+            ForbiddenExtension.extension == 'exe').first())
+
+    def test_allow_extension_tolerates_leading_dot(self):
+        res = self.client.delete('/api/v1/system/forbidden-extensions/.exe',
+                                 headers=self._admin())
+        self.assertEqual(res.status_code, 200)
+
+    def test_allow_extension_not_forbidden(self):
+        res = self.client.delete('/api/v1/system/forbidden-extensions/mkv',
+                                 headers=self._admin())
+        self.assertEqual(res.status_code, 404)

@@ -282,3 +282,46 @@ class TestRoutesSamples(ApiTestCase):
             headers={
                 'Authorization': f'Bearer {token}'})
         self.assertEqual(res.status_code, 400)
+
+    def test_get_sample_details(self):
+        token = self.get_token('samp_user@local.com', 'userpass123',
+                               'det1', scopes=['runs:read'])
+        res = self.client.get(
+            f'/api/v1/samples/{self.sample_id}/details',
+            headers={'Authorization': f'Bearer {token}'})
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json['sample_id'], self.sample_id)
+        self.assertEqual(res.json['original_name'], 'test_sample')
+        self.assertEqual(res.json['extra_files'], [])
+        # No upload row exists for this sample, and the media XML is absent
+        # in tests; both degrade to null rather than failing the response.
+        self.assertIsNone(res.json['upload'])
+        self.assertIsNone(res.json['media_info'])
+
+    def test_get_sample_details_includes_upload_metadata(self):
+        from mod_upload.models import Platform, Upload
+        g.db.add(Upload(self.admin.id, self.sample_id, None,
+                        Platform.linux, '--autoprogram', 'a note'))
+        g.db.commit()
+
+        token = self.get_token('samp_user@local.com', 'userpass123',
+                               'det2', scopes=['runs:read'])
+        res = self.client.get(
+            f'/api/v1/samples/{self.sample_id}/details',
+            headers={'Authorization': f'Bearer {token}'})
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json['upload']['platform'], 'linux')
+        self.assertEqual(res.json['upload']['parameters'], '--autoprogram')
+        self.assertEqual(res.json['upload']['notes'], 'a note')
+        # No CCExtractorVersion row is linked, so version reports null.
+        self.assertIsNone(res.json['upload']['version'])
+
+    def test_get_sample_details_not_found(self):
+        token = self.get_token('samp_user@local.com', 'userpass123',
+                               'det3', scopes=['runs:read'])
+        res = self.client.get(
+            '/api/v1/samples/999999/details',
+            headers={'Authorization': f'Bearer {token}'})
+        self.assertEqual(res.status_code, 404)

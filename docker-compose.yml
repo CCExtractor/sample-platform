@@ -1,0 +1,50 @@
+services:
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-sample_platform}
+      MYSQL_USER: ${MYSQL_USER:-sample_platform}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env}
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - sample_platform
+
+  backend:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SQLALCHEMY_DATABASE_URI: mysql+pymysql://${MYSQL_USER:-sample_platform}:${MYSQL_PASSWORD}@db/${MYSQL_DATABASE:-sample_platform}?charset=utf8mb4
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_USER: ${MYSQL_USER:-sample_platform}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      SERVER_NAME: ${SERVER_NAME:-localhost:5000}
+      HMAC_KEY: ${HMAC_KEY:-dev-hmac-key}
+      GCS_BUCKET_NAME: ${GCS_BUCKET_NAME:-sample-platform-dev}
+      GITHUB_OWNER: ${GITHUB_OWNER:-CCExtractor}
+      GITHUB_REPOSITORY: ${GITHUB_REPOSITORY:-ccextractor}
+      DEBUG: ${DEBUG:-True}
+    ports:
+      - "${APP_PORT:-5000}:5000"
+    volumes:
+      - repository_data:/repository
+    networks:
+      - sample_platform
+    restart: unless-stopped
+
+networks:
+  sample_platform:
+
+volumes:
+  db_data:
+  repository_data:

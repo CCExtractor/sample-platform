@@ -10,7 +10,8 @@ from typing import Callable, List, Union
 
 import requests
 import werkzeug
-from flask import abort, g, redirect, request
+from flask import abort, g, redirect, request, send_file
+from google.auth.exceptions import GoogleAuthError
 
 ROOT_DIR = path.dirname(path.abspath(__file__))
 
@@ -18,6 +19,11 @@ ROOT_DIR = path.dirname(path.abspath(__file__))
 def serve_file_download(file_name, file_folder, file_sub_folder='') -> werkzeug.wrappers.response.Response:
     """
     Serve file download by redirecting using Signed Download URLs.
+
+    Falls back to the copy in the sample repository when the service account
+    does not authenticate, which is the case in the Docker development stack:
+    there the credentials are generated locally and ``/repository`` is a plain
+    volume rather than a gcsfuse mount backed by a bucket.
 
     :param file_name: name of the file
     :type file_name: str
@@ -31,15 +37,25 @@ def serve_file_download(file_name, file_folder, file_sub_folder='') -> werkzeug.
     from run import config, storage_client_bucket
 
     file_path = path.join(file_folder, file_sub_folder, file_name)
-    blob = storage_client_bucket.blob(file_path)
-    blob.content_disposition = f'attachment; filename="{file_name}"'
-    blob.patch()
-    url = blob.generate_signed_url(
-        version="v4",
-        expiration=timedelta(minutes=config.get('GCS_SIGNED_URL_EXPIRY_LIMIT', '')),
-        method="GET",
-    )
-    return redirect(url)
+
+    try:
+        blob = storage_client_bucket.blob(file_path)
+        blob.content_disposition = f'attachment; filename="{file_name}"'
+        blob.patch()
+        url = blob.generate_signed_url(
+            version="v4",
+            expiration=timedelta(minutes=config.get('GCS_SIGNED_URL_EXPIRY_LIMIT', '')),
+            method="GET",
+        )
+        return redirect(url)
+    except GoogleAuthError:
+        # Only raised when the token exchange itself fails, so a working
+        # service account never lands here and a Cloud Storage outage still
+        # surfaces in production instead of being served a stale local copy.
+        local_path = path.join(config.get('SAMPLE_REPOSITORY', ''), file_path)
+        if path.isfile(local_path):
+            return send_file(local_path, as_attachment=True, download_name=file_name)
+        return abort(404)
 
 
 def request_from_github(abort_code: int = 418) -> Callable:

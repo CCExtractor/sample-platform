@@ -96,6 +96,7 @@ class TestLogConfiguration(unittest.TestCase):
                         self.assertEqual(log_config._consoleLogger, mock_sh())
                         # File logger should be None
                         self.assertIsNone(log_config._fileLogger)
+                        self.assertIsNone(log_config.file_logger)
 
     def test_create_logger(self):
         """Test logger creation."""

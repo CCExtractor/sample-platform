@@ -11,7 +11,7 @@ List of models corresponding to mysql tables:
 
 import datetime
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, ClassVar, Dict, List, Optional, Type
 
 from sqlalchemy import (Boolean, Column, DateTime, ForeignKey, Integer, String,
                         Text)
@@ -91,7 +91,7 @@ class PendingDeletion(Base):
     retry_count = Column(Integer, nullable=False, default=0)
 
     # Max retries before we give up and just try to force delete
-    MAX_RETRIES = 5
+    MAX_RETRIES: ClassVar[int] = 5
 
     def __init__(self, vm_name, operation_name, created_at=None) -> None:
         """

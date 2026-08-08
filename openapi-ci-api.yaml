@@ -853,6 +853,39 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /samples/{sample_id}/download:
+    get:
+      tags: [Samples]
+      summary: Locate a sample's media file in storage
+      operationId: downloadSample
+      description: >
+        Returns a signed URL rather than the bytes. Samples run to several
+        gigabytes, so streaming one through the API would hold a worker for
+        the length of the transfer. Where only the local copy exists there is
+        no URL to hand out and storage_status reports that instead.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:read
+      parameters:
+        - $ref: "#/components/parameters/SampleId"
+      responses:
+        "200":
+          description: Where the sample file is stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoredFile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
   /samples/{sample_id}/history:
     get:
       tags: [Samples]
@@ -1247,6 +1280,74 @@ paths:
                 $ref: "#/components/schemas/RegressionTest"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /regression-tests/{regression_test_id}/outputs/{output_id}/download:
+    get:
+      tags: [Regression Tests]
+      summary: Locate the baseline a regression test is expected to reproduce
+      operationId: downloadRegressionTestOutput
+      description: >
+        Matches the output against its parent test, so an id belonging to a
+        different test reads as absent rather than resolving.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:read
+      parameters:
+        - $ref: "#/components/parameters/RegressionTestId"
+        - $ref: "#/components/parameters/OutputId"
+      responses:
+        "200":
+          description: Where the baseline file is stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoredFile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /regression-tests/{regression_test_id}/outputs/{output_id}/variants/{variant_id}/download:
+    get:
+      tags: [Regression Tests]
+      summary: Locate one of the alternative outputs accepted for a baseline
+      operationId: downloadRegressionTestVariant
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:read
+      parameters:
+        - $ref: "#/components/parameters/RegressionTestId"
+        - $ref: "#/components/parameters/OutputId"
+        - name: variant_id
+          in: path
+          required: true
+          description: Id of the variant, from the test detail payload
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Where the variant file is stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoredFile"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -3198,8 +3299,36 @@ components:
                     type: array
                     maxItems: 100
                     items:
-                      type: string
-                      maxLength: 128
+                      type: object
+                      required: [id, hash]
+                      properties:
+                        id:
+                          type: integer
+                          minimum: 1
+                          description: Addresses the variant in its download route.
+                        hash:
+                          type: string
+                          maxLength: 128
+
+    StoredFile:
+      type: object
+      required: [filename, download_url, storage_status]
+      description: >
+        Where a file lives rather than the file itself. Samples and baselines
+        are handed out as signed URLs so that large transfers do not run
+        through the API. A null download_url with storage_status=degraded
+        means the only copy is on the platform's own disk.
+      properties:
+        filename:
+          type: string
+          maxLength: 255
+        download_url:
+          type: string
+          format: uri
+          nullable: true
+        storage_status:
+          type: string
+          enum: [ok, degraded]
 
     MaintenanceState:
       type: object

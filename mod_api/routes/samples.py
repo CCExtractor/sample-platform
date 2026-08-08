@@ -6,6 +6,7 @@ GET /runs/{id}/samples/{sid}        Single result in a run
 GET /samples                        Media sample catalog
 GET /samples/{id}                   Single media sample
 GET /samples/{id}/details           Upload metadata, extra files, media info
+GET /samples/{id}/download          Where the media file lives in storage
 GET /samples/{id}/history           Cross-run history for a sample
 GET /regression-tests               Regression test definitions
 """
@@ -27,6 +28,7 @@ from mod_api.schemas.samples import SampleHistoryEntrySchema
 from mod_api.services.status import (batch_get_run_data, derive_output_status,
                                      derive_sample_status, get_run_timestamps,
                                      is_dummy_row)
+from mod_api.services.storage import resolve_artifact
 from mod_api.utils import paginated_response, single_response
 from mod_regression.models import (Category, RegressionTest,
                                    RegressionTestOutput)
@@ -442,6 +444,39 @@ def get_sample(sample_id):
         'tags': [t.name for t in sample.tags],
         'regression_test_count': active_count,
         'active': active_count > 0,
+    })
+
+
+@mod_api.route('/samples/<sample_id>/download', methods=['GET'])
+@require_scope(Scope.RUNS_READ)
+@validate_path_id('sample_id')
+def download_sample(sample_id):
+    """
+    Locate a sample's media file in storage.
+
+    Returns a signed URL rather than the bytes. Samples run to several
+    gigabytes, so streaming one through the API would hold a worker for the
+    length of the transfer. Where only the local copy exists there is no URL
+    to hand out and storage_status reports that instead, matching how
+    /runs/{id}/artifacts describes the same two backends.
+    """
+    sample = Sample.query.filter(Sample.id == sample_id).first()
+    if sample is None:
+        return make_error_response(
+            'not_found', f'Sample {sample_id} not found.', http_status=404)
+
+    url, status = resolve_artifact(f'TestFiles/{sample.filename}')
+    if status == 'missing':
+        return make_error_response(
+            'not_found',
+            f'Sample {sample_id} is not present in storage.',
+            http_status=404)
+
+    return single_response({
+        'sample_id': sample.id,
+        'filename': sample.filename,
+        'download_url': url,
+        'storage_status': status,
     })
 
 

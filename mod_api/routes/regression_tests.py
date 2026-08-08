@@ -5,6 +5,10 @@ GET    /regression-tests/{id}   Full detail, including baselines and variants
 POST   /regression-tests        Create a test (inactive unless asked otherwise)
 PATCH  /regression-tests/{id}   Partially update a test
 DELETE /regression-tests/{id}   Delete a test that has never run
+GET    /regression-tests/{id}/outputs/{oid}/download
+                                Where a baseline lives in storage
+GET    /regression-tests/{id}/outputs/{oid}/variants/{vid}/download
+                                The same, for an accepted variant
 GET    /categories              List categories with their test counts
 POST   /categories              Create a category
 PATCH  /categories/{id}         Rename or re-describe a category
@@ -30,6 +34,7 @@ from mod_api.schemas.regression_tests import (CategoryCreateSchema,
                                               CategoryUpdateSchema,
                                               RegressionTestCreateSchema,
                                               RegressionTestUpdateSchema)
+from mod_api.services.storage import resolve_artifact
 from mod_api.utils import paginated_response, single_response
 from mod_auth.models import Role
 from mod_regression.models import (Category, InputType, OutputType,
@@ -89,11 +94,93 @@ def get_regression_test(regression_test_id):
             'correct_extension': output.correct_extension,
             'expected_filename': output.expected_filename,
             'ignore': output.ignore,
-            'variants': [f.file_hashes for f in output.multiple_files],
+            # Ids as well as hashes: the download route addresses a variant
+            # by id, the same way the classic page does.
+            'variants': [
+                {'id': f.id, 'hash': f.file_hashes}
+                for f in output.multiple_files
+            ],
         }
         for output in test.output_files
     ]
     return single_response(data)
+
+
+def _get_output(regression_test_id, output_id):
+    """
+    Look up one expected output, matched against its parent test.
+
+    Filtering on both ids means an output id belonging to a different test
+    reads as absent rather than resolving, so these URLs cannot be used to
+    walk the table. Returns (output, error_response).
+    """
+    output = RegressionTestOutput.query.filter_by(
+        id=output_id, regression_id=regression_test_id).first()
+    if output is None:
+        return None, make_error_response(
+            'not_found',
+            f'Output {output_id} not found on regression test '
+            f'{regression_test_id}.',
+            http_status=404)
+    return output, None
+
+
+def _located(filename):
+    """
+    Report where a TestResults file is, in the artifact response shape.
+
+    Like the sample and run-artifact routes, this hands back a signed URL
+    instead of the bytes, and says which backend holds the file when there
+    is no URL to give.
+    """
+    url, status = resolve_artifact(f'TestResults/{filename}')
+    if status == 'missing':
+        return make_error_response(
+            'not_found', f'{filename} is not present in storage.',
+            http_status=404)
+    return single_response({
+        'filename': filename,
+        'download_url': url,
+        'storage_status': status,
+    })
+
+
+@mod_api.route(
+    '/regression-tests/<regression_test_id>/outputs/<int:output_id>/download',
+    methods=['GET']
+)
+@require_scope(Scope.RUNS_READ)
+@validate_path_id('regression_test_id')
+def download_output(regression_test_id, output_id):
+    """Locate the baseline a regression test is expected to reproduce."""
+    output, err = _get_output(regression_test_id, output_id)
+    if err:
+        return err
+    return _located(output.filename_correct)
+
+
+@mod_api.route(
+    '/regression-tests/<regression_test_id>/outputs/<int:output_id>'
+    '/variants/<int:variant_id>/download',
+    methods=['GET']
+)
+@require_scope(Scope.RUNS_READ)
+@validate_path_id('regression_test_id')
+def download_variant(regression_test_id, output_id, variant_id):
+    """Locate one of the alternative outputs accepted for a baseline."""
+    output, err = _get_output(regression_test_id, output_id)
+    if err:
+        return err
+
+    variant = RegressionTestOutputFiles.query.filter_by(
+        id=variant_id, regression_test_output_id=output.id).first()
+    if variant is None:
+        return make_error_response(
+            'not_found',
+            f'Variant {variant_id} not found on output {output_id}.',
+            http_status=404)
+
+    return _located(f'{variant.file_hashes}{output.correct_extension}')
 
 
 @mod_api.route('/regression-tests', methods=['POST'])

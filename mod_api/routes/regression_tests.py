@@ -9,6 +9,10 @@ GET    /regression-tests/{id}/outputs/{oid}/download
                                 Where a baseline lives in storage
 GET    /regression-tests/{id}/outputs/{oid}/variants/{vid}/download
                                 The same, for an accepted variant
+POST   /regression-tests/{id}/outputs/{oid}/variants
+                                Accept another output hash as correct
+DELETE /regression-tests/{id}/outputs/{oid}/variants/{vid}
+                                Stop accepting one
 GET    /categories              List categories with their test counts
 POST   /categories              Create a category
 PATCH  /categories/{id}         Rename or re-describe a category
@@ -33,7 +37,8 @@ from mod_api.routes.samples import serialize_rt
 from mod_api.schemas.regression_tests import (CategoryCreateSchema,
                                               CategoryUpdateSchema,
                                               RegressionTestCreateSchema,
-                                              RegressionTestUpdateSchema)
+                                              RegressionTestUpdateSchema,
+                                              VariantCreateSchema)
 from mod_api.services.storage import resolve_artifact
 from mod_api.utils import paginated_response, single_response
 from mod_auth.models import Role
@@ -181,6 +186,76 @@ def download_variant(regression_test_id, output_id, variant_id):
             http_status=404)
 
     return _located(f'{variant.file_hashes}{output.correct_extension}')
+
+
+@mod_api.route(
+    '/regression-tests/<regression_test_id>/outputs/<int:output_id>/variants',
+    methods=['POST']
+)
+@require_roles([Role.contributor, Role.admin])
+@require_scope(Scope.RUNS_WRITE)
+@validate_path_id('regression_test_id')
+@validate_body(VariantCreateSchema)
+def create_variant(regression_test_id, output_id, validated_data=None):
+    """
+    Accept another output hash as correct for a baseline.
+
+    A test can legitimately produce different bytes on different platforms
+    or CCExtractor builds. Recording the hash here makes those runs pass
+    without overwriting the baseline everyone else is compared against,
+    which is what promoting to baseline would do.
+    """
+    output, err = _get_output(regression_test_id, output_id)
+    if err:
+        return err
+
+    file_hash = validated_data['hash']
+    existing = RegressionTestOutputFiles.query.filter_by(
+        regression_test_output_id=output.id, file_hashes=file_hash).first()
+    if existing is not None:
+        return make_error_response(
+            'conflict',
+            f'Output {output_id} already accepts {file_hash}.',
+            http_status=409)
+
+    variant = RegressionTestOutputFiles(file_hash, output.id)
+    g.db.add(variant)
+    g.db.commit()
+
+    g.log.info(f'variant {file_hash} added to output {output_id} via API '
+               f'by {g.api_user.id}')
+    return single_response(
+        {'id': variant.id, 'hash': variant.file_hashes}, http_status=201)
+
+
+@mod_api.route(
+    '/regression-tests/<regression_test_id>/outputs/<int:output_id>'
+    '/variants/<int:variant_id>',
+    methods=['DELETE']
+)
+@require_roles([Role.contributor, Role.admin])
+@require_scope(Scope.RUNS_WRITE)
+@validate_path_id('regression_test_id')
+def delete_variant(regression_test_id, output_id, variant_id):
+    """Stop accepting one alternative output for a baseline."""
+    output, err = _get_output(regression_test_id, output_id)
+    if err:
+        return err
+
+    variant = RegressionTestOutputFiles.query.filter_by(
+        id=variant_id, regression_test_output_id=output.id).first()
+    if variant is None:
+        return make_error_response(
+            'not_found',
+            f'Variant {variant_id} not found on output {output_id}.',
+            http_status=404)
+
+    g.db.delete(variant)
+    g.db.commit()
+
+    g.log.info(f'variant {variant_id} removed from output {output_id} via '
+               f'API by {g.api_user.id}')
+    return single_response({'id': variant_id, 'deleted': True})
 
 
 @mod_api.route('/regression-tests', methods=['POST'])

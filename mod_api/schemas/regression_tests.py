@@ -18,6 +18,9 @@ _COMMAND_MAX = 500
 _NAME_MAX = 64
 _DESCRIPTION_MAX = 1024
 
+# Matches the maxLength the contract publishes for a variant hash.
+_HASH_MAX = 128
+
 
 class RegressionTestCreateSchema(Schema):
     """Validates POST /regression-tests bodies."""
@@ -87,6 +90,29 @@ class CategoryUpdateSchema(Schema):
 
     name = fields.String(validate=validate.Length(min=1, max=_NAME_MAX))
     description = fields.String(validate=validate.Length(max=_DESCRIPTION_MAX))
+
+    class Meta:
+        """Reject unknown fields."""
+
+        unknown = RAISE
+
+
+class VariantCreateSchema(Schema):
+    """Validates POST /regression-tests/{id}/outputs/{oid}/variants bodies."""
+
+    # The hash is joined to the baseline's extension to form a filename under
+    # TestResults, so it is restricted to characters that cannot climb out of
+    # that directory. Content hashes are hex, so this costs nothing real.
+    hash = fields.String(
+        required=True,
+        validate=[
+            validate.Length(min=1, max=_HASH_MAX),
+            validate.Regexp(
+                r'^[A-Za-z0-9]+$',
+                error='hash must be alphanumeric',
+            ),
+        ],
+    )
 
     class Meta:
         """Reject unknown fields."""

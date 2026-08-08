@@ -540,6 +540,40 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /runs/{run_id}/restart:
+    post:
+      tags: [Runs]
+      summary: Queue a finished or stuck run to be executed again
+      operationId: restartRun
+      description: >
+        Clears the run's results and progress trail, which is what makes CI
+        pick it up again. The run keeps its id, so existing links stay valid,
+        and the old results are replaced rather than kept alongside the new
+        ones. Requires runs:write scope.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:write
+      x-required-roles: [admin, tester, contributor]
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "202":
+          description: Restart accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunActionResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
   /runs/{run_id}/cancel:
     post:
       tags: [Runs]
@@ -1348,6 +1382,108 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StoredFile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /regression-tests/{regression_test_id}/outputs/{output_id}/variants:
+    post:
+      tags: [Regression Tests]
+      summary: Accept another output hash as correct for a baseline
+      operationId: createRegressionTestVariant
+      description: >
+        A test can legitimately produce different bytes on different
+        platforms or CCExtractor builds. Recording the hash here makes those
+        runs pass without overwriting the baseline everyone else is compared
+        against, which is what promoting to baseline would do.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:write
+      x-required-roles: [admin, contributor]
+      parameters:
+        - $ref: "#/components/parameters/RegressionTestId"
+        - $ref: "#/components/parameters/OutputId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [hash]
+              properties:
+                hash:
+                  type: string
+                  maxLength: 128
+                  pattern: '^[A-Za-z0-9]+$'
+      responses:
+        "201":
+          description: Variant accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, hash]
+                properties:
+                  id:
+                    type: integer
+                    minimum: 1
+                  hash:
+                    type: string
+                    maxLength: 128
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /regression-tests/{regression_test_id}/outputs/{output_id}/variants/{variant_id}:
+    delete:
+      tags: [Regression Tests]
+      summary: Stop accepting one alternative output for a baseline
+      operationId: deleteRegressionTestVariant
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:write
+      x-required-roles: [admin, contributor]
+      parameters:
+        - $ref: "#/components/parameters/RegressionTestId"
+        - $ref: "#/components/parameters/OutputId"
+        - name: variant_id
+          in: path
+          required: true
+          description: Id of the variant, from the test detail payload
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Variant removed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, deleted]
+                properties:
+                  id:
+                    type: integer
+                  deleted:
+                    type: boolean
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":

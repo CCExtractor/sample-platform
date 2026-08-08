@@ -1,4 +1,5 @@
 import json
+from unittest import mock
 
 from flask import g
 
@@ -210,8 +211,112 @@ class TestRoutesRegressionTests(ApiTestCase):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.json['regression_test_id'], self.existing_id)
         self.assertEqual(res.json['outputs'][0]['correct'], 'expected_hash')
-        # Alternative accepted hashes travel with the baseline.
-        self.assertEqual(res.json['outputs'][0]['variants'], ['variant_hash'])
+        # Alternative accepted hashes travel with the baseline, each carrying
+        # the id its download route is addressed by.
+        variants = res.json['outputs'][0]['variants']
+        self.assertEqual(len(variants), 1)
+        self.assertEqual(variants[0]['hash'], 'variant_hash')
+        self.assertIsInstance(variants[0]['id'], int)
+
+    # ---- regression tests: baseline downloads --------------------------
+
+    def _baseline(self):
+        """Give the existing test one baseline with one accepted variant."""
+        output = RegressionTestOutput(
+            self.existing_id, 'basehash', '.srt', 'expected_name')
+        g.db.add(output)
+        g.db.commit()
+        variant = RegressionTestOutputFiles('varianthash', output.id)
+        g.db.add(variant)
+        g.db.commit()
+        return output.id, variant.id
+
+    @mock.patch('mod_api.routes.regression_tests.resolve_artifact')
+    def test_download_output(self, resolve):
+        resolve.return_value = ('https://signed.url', 'ok')
+        output_id, _ = self._baseline()
+
+        res = self.client.get(
+            f'/api/v1/regression-tests/{self.existing_id}'
+            f'/outputs/{output_id}/download',
+            headers=self._as('rtw_user@local.com', 'userpass123', 'rt_dl',
+                             ['runs:read']))
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json['download_url'], 'https://signed.url')
+        self.assertEqual(res.json['filename'], 'basehash.srt')
+        resolve.assert_called_once_with('TestResults/basehash.srt')
+
+    @mock.patch('mod_api.routes.regression_tests.resolve_artifact')
+    def test_download_output_local_only_has_no_url(self, resolve):
+        resolve.return_value = (None, 'degraded')
+        output_id, _ = self._baseline()
+
+        res = self.client.get(
+            f'/api/v1/regression-tests/{self.existing_id}'
+            f'/outputs/{output_id}/download',
+            headers=self._as('rtw_user@local.com', 'userpass123', 'rt_dl_deg',
+                             ['runs:read']))
+
+        self.assertEqual(res.status_code, 200)
+        self.assertIsNone(res.json['download_url'])
+        self.assertEqual(res.json['storage_status'], 'degraded')
+
+    @mock.patch('mod_api.routes.regression_tests.resolve_artifact')
+    def test_download_output_missing_from_storage(self, resolve):
+        resolve.return_value = (None, 'missing')
+        output_id, _ = self._baseline()
+
+        res = self.client.get(
+            f'/api/v1/regression-tests/{self.existing_id}'
+            f'/outputs/{output_id}/download',
+            headers=self._as('rtw_user@local.com', 'userpass123', 'rt_dl_gone',
+                             ['runs:read']))
+
+        self.assertEqual(res.status_code, 404)
+
+    def test_download_output_of_another_test_is_not_found(self):
+        output_id, _ = self._baseline()
+        other = RegressionTest(
+            self.sample_id, 'other command', InputType.file, OutputType.file,
+            None, 0)
+        g.db.add(other)
+        g.db.commit()
+
+        # The output id is real, just not this test's, so it must not resolve.
+        res = self.client.get(
+            f'/api/v1/regression-tests/{other.id}'
+            f'/outputs/{output_id}/download',
+            headers=self._as('rtw_user@local.com', 'userpass123', 'rt_dl_x',
+                             ['runs:read']))
+
+        self.assertEqual(res.status_code, 404)
+
+    @mock.patch('mod_api.routes.regression_tests.resolve_artifact')
+    def test_download_variant(self, resolve):
+        resolve.return_value = ('https://signed.url', 'ok')
+        output_id, variant_id = self._baseline()
+
+        res = self.client.get(
+            f'/api/v1/regression-tests/{self.existing_id}/outputs/{output_id}'
+            f'/variants/{variant_id}/download',
+            headers=self._as('rtw_user@local.com', 'userpass123', 'rt_var',
+                             ['runs:read']))
+
+        self.assertEqual(res.status_code, 200)
+        # The variant borrows its parent baseline's extension.
+        resolve.assert_called_once_with('TestResults/varianthash.srt')
+
+    def test_download_variant_not_found(self):
+        output_id, _ = self._baseline()
+
+        res = self.client.get(
+            f'/api/v1/regression-tests/{self.existing_id}/outputs/{output_id}'
+            f'/variants/999999/download',
+            headers=self._as('rtw_user@local.com', 'userpass123', 'rt_var_404',
+                             ['runs:read']))
+
+        self.assertEqual(res.status_code, 404)
 
     def test_get_regression_test_detail_not_found(self):
         res = self.client.get(

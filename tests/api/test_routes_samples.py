@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest import mock
 
 from flask import g
 from sqlalchemy import event
@@ -350,7 +350,7 @@ class TestRoutesSamples(ApiTestCase):
         # The whole history fit inside the scan, so the page is complete.
         self.assertNotIn('truncated', res.json['pagination'])
 
-    @patch('mod_api.routes.samples._HISTORY_STATUS_SCAN_LIMIT', 2)
+    @mock.patch('mod_api.routes.samples._HISTORY_STATUS_SCAN_LIMIT', 2)
     def test_get_sample_history_status_filter_scan_is_bounded(self):
         # status is derived in Python, so it can't be pushed into SQL. The
         # scan is capped instead, and a capped page says so rather than
@@ -487,6 +487,53 @@ class TestRoutesSamples(ApiTestCase):
         # in tests; both degrade to null rather than failing the response.
         self.assertIsNone(res.json['upload'])
         self.assertIsNone(res.json['media_info'])
+
+    @mock.patch('mod_api.routes.samples.resolve_artifact')
+    def test_download_sample(self, resolve):
+        resolve.return_value = ('https://signed.url', 'ok')
+        token = self.get_token('samp_user@local.com', 'userpass123',
+                               'dl1', scopes=['runs:read'])
+        res = self.client.get(
+            f'/api/v1/samples/{self.sample_id}/download',
+            headers={'Authorization': f'Bearer {token}'})
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json['download_url'], 'https://signed.url')
+        resolve.assert_called_once_with(
+            f'TestFiles/{self.sample.filename}')
+
+    @mock.patch('mod_api.routes.samples.resolve_artifact')
+    def test_download_sample_local_only_has_no_url(self, resolve):
+        resolve.return_value = (None, 'degraded')
+        token = self.get_token('samp_user@local.com', 'userpass123',
+                               'dl2', scopes=['runs:read'])
+        res = self.client.get(
+            f'/api/v1/samples/{self.sample_id}/download',
+            headers={'Authorization': f'Bearer {token}'})
+
+        self.assertEqual(res.status_code, 200)
+        self.assertIsNone(res.json['download_url'])
+        self.assertEqual(res.json['storage_status'], 'degraded')
+
+    @mock.patch('mod_api.routes.samples.resolve_artifact')
+    def test_download_sample_missing_from_storage(self, resolve):
+        resolve.return_value = (None, 'missing')
+        token = self.get_token('samp_user@local.com', 'userpass123',
+                               'dl3', scopes=['runs:read'])
+        res = self.client.get(
+            f'/api/v1/samples/{self.sample_id}/download',
+            headers={'Authorization': f'Bearer {token}'})
+
+        self.assertEqual(res.status_code, 404)
+
+    def test_download_sample_not_found(self):
+        token = self.get_token('samp_user@local.com', 'userpass123',
+                               'dl4', scopes=['runs:read'])
+        res = self.client.get(
+            '/api/v1/samples/999999/download',
+            headers={'Authorization': f'Bearer {token}'})
+
+        self.assertEqual(res.status_code, 404)
 
     def test_get_sample_details_includes_upload_metadata(self):
         from mod_upload.models import Platform, Upload

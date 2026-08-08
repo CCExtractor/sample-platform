@@ -318,6 +318,83 @@ class TestRoutesRegressionTests(ApiTestCase):
 
         self.assertEqual(res.status_code, 404)
 
+    # ---- regression tests: variant management --------------------------
+
+    def test_create_variant(self):
+        output_id, _ = self._baseline()
+
+        res = self._write(
+            'post',
+            f'/regression-tests/{self.existing_id}/outputs/{output_id}'
+            f'/variants',
+            self._admin('rt_var_add'), {'hash': 'abc123'})
+
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(res.json['hash'], 'abc123')
+        self.assertEqual(
+            RegressionTestOutputFiles.query.filter_by(
+                regression_test_output_id=output_id,
+                file_hashes='abc123').count(), 1)
+
+    def test_create_variant_rejects_duplicate(self):
+        output_id, _ = self._baseline()
+
+        res = self._write(
+            'post',
+            f'/regression-tests/{self.existing_id}/outputs/{output_id}'
+            f'/variants',
+            self._admin('rt_var_dup'), {'hash': 'varianthash'})
+
+        self.assertEqual(res.status_code, 409)
+
+    def test_create_variant_rejects_path_characters(self):
+        output_id, _ = self._baseline()
+
+        # The hash is joined to an extension to build a path under
+        # TestResults, so separators must never reach the filesystem.
+        res = self._write(
+            'post',
+            f'/regression-tests/{self.existing_id}/outputs/{output_id}'
+            f'/variants',
+            self._admin('rt_var_bad'), {'hash': '../../etc/passwd'})
+
+        self.assertEqual(res.status_code, 400)
+
+    def test_create_variant_requires_write_role(self):
+        output_id, _ = self._baseline()
+
+        res = self._write(
+            'post',
+            f'/regression-tests/{self.existing_id}/outputs/{output_id}'
+            f'/variants',
+            self._as('rtw_user@local.com', 'userpass123', 'rt_var_role',
+                     ['runs:write']),
+            {'hash': 'abc123'})
+
+        self.assertEqual(res.status_code, 403)
+
+    def test_delete_variant(self):
+        output_id, variant_id = self._baseline()
+
+        res = self.client.delete(
+            f'/api/v1/regression-tests/{self.existing_id}'
+            f'/outputs/{output_id}/variants/{variant_id}',
+            headers=self._admin('rt_var_del'))
+
+        self.assertEqual(res.status_code, 200)
+        self.assertIsNone(RegressionTestOutputFiles.query.filter_by(
+            id=variant_id).first())
+
+    def test_delete_variant_not_found(self):
+        output_id, _ = self._baseline()
+
+        res = self.client.delete(
+            f'/api/v1/regression-tests/{self.existing_id}'
+            f'/outputs/{output_id}/variants/999999',
+            headers=self._admin('rt_var_del404'))
+
+        self.assertEqual(res.status_code, 404)
+
     def test_get_regression_test_detail_not_found(self):
         res = self.client.get(
             '/api/v1/regression-tests/999999',

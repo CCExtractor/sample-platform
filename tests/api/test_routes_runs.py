@@ -199,6 +199,39 @@ class TestRoutesRuns(ApiTestCase):
         progs = TestProgress.query.filter_by(test_id=self.test_id).all()
         self.assertEqual(progs[-1].status, TestStatus.canceled)
 
+    def test_restart_run(self):
+        token = self.get_token('runs_admin@local.com', 'adminpass123',
+                               'restart1', scopes=['runs:write'])
+        res = self.client.post(
+            f'/api/v1/runs/{self.test_id}/restart',
+            headers={'Authorization': f'Bearer {token}'})
+
+        self.assertEqual(res.status_code, 202)
+        self.assertEqual(res.json['status'], 'accepted')
+        # An empty progress trail is what makes CI pick the run up again.
+        self.assertEqual(
+            TestProgress.query.filter_by(test_id=self.test_id).count(), 0)
+        self.assertEqual(
+            TestResult.query.filter_by(test_id=self.test_id).count(), 0)
+
+    def test_restart_run_not_found(self):
+        token = self.get_token('runs_admin@local.com', 'adminpass123',
+                               'restart2', scopes=['runs:write'])
+        res = self.client.post(
+            '/api/v1/runs/999999/restart',
+            headers={'Authorization': f'Bearer {token}'})
+
+        self.assertEqual(res.status_code, 404)
+
+    def test_restart_run_requires_write_role(self):
+        token = self.get_token('runs_user@local.com', 'userpass123',
+                               'restart3', scopes=['runs:write'])
+        res = self.client.post(
+            f'/api/v1/runs/{self.test_id}/restart',
+            headers={'Authorization': f'Bearer {token}'})
+
+        self.assertEqual(res.status_code, 403)
+
     def test_cancel_run_idempotency(self):
         token = self.get_token('runs_admin@local.com',
                                'adminpass123', 't10', scopes=['runs:write'])

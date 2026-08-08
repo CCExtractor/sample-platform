@@ -8,6 +8,7 @@ GET    /runs/{id}/summary      Pass/fail/skip counts
 GET    /runs/{id}/progress     Progress event timeline
 GET    /runs/{id}/config       Run configuration and test matrix
 POST   /runs/{id}/cancel       Cancel a queued or running test
+POST   /runs/{id}/restart      Clear a run's results so CI picks it up again
 """
 
 from collections import defaultdict
@@ -674,4 +675,45 @@ def cancel_run(run_id):
         'action': 'cancel',
         'status': 'accepted',
         'message': 'Run has been canceled.',
+    }, http_status=202)
+
+
+@mod_api.route('/runs/<run_id>/restart', methods=['POST'])
+@require_roles([Role.admin, Role.contributor, Role.tester])
+@require_scope(Scope.RUNS_WRITE)
+@validate_path_id('run_id')
+def restart_run(run_id):
+    """
+    Queue a finished or stuck run to be executed again.
+
+    Clearing the results and the progress trail is what makes the run
+    eligible again, because CI picks up tests that have no progress
+    recorded. The run keeps its id, so existing links stay valid, and the
+    old results are replaced rather than kept alongside the new ones.
+
+    Like cancel, this is open to anyone holding runs:write rather than to
+    the run's owner, which suits a shared CI where a stuck VM blocks
+    everybody.
+    """
+    test = Test.query.filter(Test.id == run_id).first()
+    if test is None:
+        return make_error_response(
+            'not_found',
+            f'Run {run_id} not found.',
+            http_status=404)
+
+    TestResultFile.query.filter(
+        TestResultFile.test_id == test.id).delete(synchronize_session=False)
+    TestResult.query.filter(
+        TestResult.test_id == test.id).delete(synchronize_session=False)
+    TestProgress.query.filter(
+        TestProgress.test_id == test.id).delete(synchronize_session=False)
+    g.db.commit()
+
+    g.log.info(f'run {run_id} restarted via API by {g.api_user.id}')
+    return single_response({
+        'run_id': run_id,
+        'action': 'restart',
+        'status': 'accepted',
+        'message': 'Run has been queued to run again.',
     }, http_status=202)

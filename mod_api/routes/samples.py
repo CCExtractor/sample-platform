@@ -44,6 +44,15 @@ _VALID_SAMPLE_STATUSES = frozenset({
     'pass', 'fail', 'missing_output', 'not_started',
 })
 
+# How many result rows /samples/{id}/history will scan when ?status is set.
+# Status comes from derive_sample_status, which needs the result files and
+# expected outputs, so it can't be pushed into SQL the way branch/platform
+# can. Without a bound the endpoint has to load a sample's entire history to
+# filter it, which is what made it time out on production. Bounded scans are
+# reported with pagination.truncated so a caller can tell a capped page from
+# a complete one.
+_HISTORY_STATUS_SCAN_LIMIT = 1000
+
 
 def _preload_expected_outputs(results):
     """Map regression_test_id -> [RegressionTestOutput] for the given results.
@@ -490,6 +499,86 @@ def _process_history_entries(
     return entries
 
 
+def _build_history_entries(results, status_filter):
+    """Build history entries for exactly ``results``, batching the lookups.
+
+    Every follow-up query here is keyed off the results handed in, so the
+    work scales with that list. Callers must therefore pass the page they
+    intend to return, not the sample's whole history.
+    """
+    if not results:
+        return []
+
+    test_ids = list({r.test_id for r in results})
+
+    all_files = TestResultFile.query.options(
+        joinedload(TestResultFile.regression_test_output)
+        .joinedload(RegressionTestOutput.multiple_files)
+    ).filter(TestResultFile.test_id.in_(test_ids)).all()
+    files_by_result = defaultdict(list)
+    for f in all_files:
+        files_by_result[(f.test_id, f.regression_test_id)].append(f)
+
+    # Preload expected outputs so status matches /summary and /samples.
+    expected_by_rt = _preload_expected_outputs(results)
+
+    # Batch load tests to avoid N+1 in _process_history_entries
+    unique_tests = Test.query.filter(Test.id.in_(test_ids)).all()
+    test_map = {t.id: t for t in unique_tests}
+
+    # Batch compute timestamps for all referenced tests
+    _, timestamps_map = batch_get_run_data(unique_tests)
+
+    return _process_history_entries(
+        results,
+        files_by_result,
+        status_filter,
+        timestamps_map=timestamps_map,
+        test_map=test_map,
+        expected_by_rt=expected_by_rt)
+
+
+def _resolve_history_rt_ids(rt_ids, sample_id):
+    """Narrow a sample's regression tests to the optional ?regression_test_id.
+
+    Without this, ``limit`` counts rows across every regression test on the
+    sample, so a caller asking about one test gets roughly
+    limit / len(rt_ids) runs of it and cannot tell the window was short.
+    """
+    raw = request.args.get('regression_test_id')
+    if raw is None:
+        return rt_ids, None
+
+    try:
+        rt_id = int(raw)
+        if rt_id < 1 or rt_id > 2147483647:
+            raise ValueError('Out of bounds')
+    except (ValueError, TypeError):
+        return None, make_error_response(
+            'validation_error',
+            'regression_test_id must be a positive integer '
+            'between 1 and 2147483647.',
+            details={
+                'fields': {
+                    'regression_test_id': 'Must be a positive integer '
+                    'between 1 and 2147483647.'}},
+            http_status=400,
+        )
+
+    if rt_id not in rt_ids:
+        return None, make_error_response(
+            'validation_error',
+            f'Regression test {rt_id} does not belong to sample {sample_id}.',
+            details={
+                'fields': {
+                    'regression_test_id': 'Must be a regression test of '
+                    'this sample.'}},
+            http_status=400,
+        )
+
+    return [rt_id], None
+
+
 def _apply_history_filters(
         query,
         branch,
@@ -545,6 +634,15 @@ def get_sample_history(
     Show how a sample performed across different runs.
 
     Use failure_signature to tell apart genuine regressions from infra flakes.
+
+    Pass ?regression_test_id to follow a single regression test, so that
+    ``limit`` means that many runs of it rather than that many rows spread
+    across every regression test on the sample.
+
+    ?status is applied after status derivation, which needs result files, so
+    it can't be pushed into SQL. That path scans the most recent
+    _HISTORY_STATUS_SCAN_LIMIT results and sets pagination.truncated when a
+    sample has more history than that.
     """
     sample = Sample.query.options(joinedload(Sample.tags)).filter(
         Sample.id == sample_id).first()
@@ -560,6 +658,10 @@ def get_sample_history(
 
     if not rt_ids:
         return paginated_response([], 0, limit, offset)
+
+    rt_ids, err = _resolve_history_rt_ids(rt_ids, sample_id)
+    if err:
+        return err
 
     # Validate the status filter up front, before any heavy query.
     status_filter = request.args.get('status')
@@ -582,43 +684,35 @@ def get_sample_history(
     if err:
         return err
 
-    results = query.order_by(Test.id.desc()).all()
+    # regression_test_id breaks ties so a row can't shift between pages when
+    # several regression tests share a run.
+    query = query.order_by(Test.id.desc(), TestResult.regression_test_id.asc())
 
-    # Preload TestResultFiles
-    test_ids = list({r.test_id for r in results})
-    all_files = TestResultFile.query.options(
-        joinedload(TestResultFile.regression_test_output)
-        .joinedload(RegressionTestOutput.multiple_files)
-    ).filter(
-        TestResultFile.test_id.in_(test_ids)).all() if test_ids else []
-    files_by_result = defaultdict(list)
-    for f in all_files:
-        files_by_result[(f.test_id, f.regression_test_id)].append(f)
+    if status_filter:
+        # One row past the cap tells us whether the scan was complete.
+        scanned = query.limit(_HISTORY_STATUS_SCAN_LIMIT + 1).all()
+        truncated = len(scanned) > _HISTORY_STATUS_SCAN_LIMIT
+        entries = _build_history_entries(
+            scanned[:_HISTORY_STATUS_SCAN_LIMIT], status_filter)
+        return paginated_response(
+            entries[offset:offset + limit],
+            len(entries),
+            limit,
+            offset,
+            schema=SampleHistoryEntrySchema(),
+            truncated=truncated,
+            extra_meta={'scan_limit': _HISTORY_STATUS_SCAN_LIMIT}
+            if truncated else None,
+        )
 
-    # Preload expected outputs so status matches /summary and /samples.
-    expected_by_rt = _preload_expected_outputs(results)
-
-    # Batch load tests to avoid N+1 in _process_history_entries
-    unique_tests = Test.query.filter(
-        Test.id.in_(test_ids)).all() if test_ids else []
-    test_map = {t.id: t for t in unique_tests}
-
-    # Batch compute timestamps for all referenced tests
-    _, timestamps_map = batch_get_run_data(unique_tests)
-
-    entries = _process_history_entries(
-        results,
-        files_by_result,
-        status_filter,
-        timestamps_map=timestamps_map,
-        test_map=test_map,
-        expected_by_rt=expected_by_rt)
-
-    total = len(entries)
-    paged = entries[offset:offset + limit]
+    # No status filter: the page can be cut in SQL, so everything below it
+    # loads one page worth of rows instead of the sample's whole history.
+    total = query.count()
+    results = query.offset(offset).limit(limit).all()
+    entries = _build_history_entries(results, None)
 
     return paginated_response(
-        paged, total, limit, offset, schema=SampleHistoryEntrySchema()
+        entries, total, limit, offset, schema=SampleHistoryEntrySchema()
     )
 
 

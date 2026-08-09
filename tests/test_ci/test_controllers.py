@@ -1,4 +1,5 @@
 import json
+import os
 import unittest
 from importlib import reload
 from unittest import mock
@@ -2027,9 +2028,10 @@ class TestControllers(BaseTestCase):
     @mock.patch('mod_ci.controllers.g')
     @mock.patch('mod_ci.controllers.iter')
     @mock.patch('mod_ci.controllers.open')
+    @mock.patch('mod_ci.controllers.tempfile')
     @mock.patch('mod_ci.controllers.os')
     @mock.patch('mod_ci.controllers.secure_filename')
-    def test_upload_type_request(self, mock_filename, mock_os, mock_open, mock_iter,
+    def test_upload_type_request(self, mock_filename, mock_os, mock_tempfile, mock_open, mock_iter,
                                  mock_g, mock_rto, mock_result_file, mock_hashlib):
         """Test function upload_type_request."""
         from mod_ci.controllers import upload_type_request
@@ -2046,25 +2048,90 @@ class TestControllers(BaseTestCase):
         }
         mock_iter.return_value = ['chunk']
         mock_os.path.splitext.return_value = "a", "b"
+        mock_tempfile.mkstemp.return_value = (5, '/tmp/TempFiles/unique-b')
 
         upload_type_request(mock_log, 1, MagicMock(), MagicMock(), mock_request)
 
         mock_log.debug.assert_called_once()
         mock_filename.assert_called_once()
-        # 4 calls: temp_dir, temp_path, results_dir, final_path
-        self.assertEqual(4, mock_os.path.join.call_count)
+        # 3 calls: temp_dir, results_dir, final_path. The temp path now comes from mkstemp.
+        self.assertEqual(3, mock_os.path.join.call_count)
         # 2 calls: makedirs for TempFiles and TestResults directories
         self.assertEqual(2, mock_os.makedirs.call_count)
+        mock_tempfile.mkstemp.assert_called_once_with(dir=mock.ANY, suffix="b")
+        mock_os.close.assert_called_once_with(5)
         mock_upload_file.save.assert_called_once()
         mock_open.assert_called_once_with(mock.ANY, "rb")
         mock_os.path.splitext.assert_called_once_with(mock.ANY)
-        mock_os.rename.assert_called_once_with(mock.ANY, mock.ANY)
+        mock_os.replace.assert_called_once_with(mock.ANY, mock.ANY)
         mock_rto.query.filter.assert_called_once_with(mock_rto.id == 1)
         mock_result_file.assert_called_once_with(mock.ANY, 1, mock.ANY, mock.ANY, mock.ANY)
         mock_g.db.add.assert_called_once_with(mock.ANY)
         mock_g.db.commit.assert_called_once_with()
         mock_hashlib.sha256.assert_called_once_with()
         mock_iter.assert_called_once_with(mock.ANY, b"")
+
+    @mock.patch('mod_ci.controllers.TestResultFile')
+    @mock.patch('mod_ci.controllers.RegressionTestOutput')
+    @mock.patch('mod_ci.controllers.g')
+    def test_upload_type_request_uses_unique_temp_path(self, mock_g, mock_rto, mock_result_file):
+        """Two tests uploading the same filename must not share a temp path.
+
+        The uploaded name is derived from the regression test output, so it is identical
+        across concurrent tests. A shared temp path let one upload clobber another's file,
+        which surfaced as HTTP 500s and missing results.
+        """
+        import tempfile as real_tempfile
+
+        from mod_ci.controllers import upload_type_request
+
+        saved_paths = []
+
+        def make_request(content):
+            uploaded = MagicMock()
+            uploaded.filename = 'shared_name.srt'
+            uploaded.save = lambda path: (saved_paths.append(path),
+                                          open(path, 'wb').write(content))
+            request = MagicMock()
+            request.files = {'file': uploaded}
+            request.form = {'test_id': 1, 'test_file_id': 1}
+            return request
+
+        with real_tempfile.TemporaryDirectory() as repo_folder:
+            self.assertTrue(upload_type_request(MagicMock(), 1, repo_folder, MagicMock(),
+                                                make_request(b'output of test one')))
+            self.assertTrue(upload_type_request(MagicMock(), 2, repo_folder, MagicMock(),
+                                                make_request(b'output of test two')))
+
+            self.assertEqual(2, len(saved_paths))
+            self.assertNotEqual(saved_paths[0], saved_paths[1],
+                                "both uploads reused one temp path; concurrent tests will race")
+
+            results = os.listdir(os.path.join(repo_folder, 'TestResults'))
+            self.assertEqual(2, len(results), "each upload should land as its own result file")
+            for name in results:
+                self.assertTrue(name.endswith('.srt'))
+            # Nothing may be left behind in TempFiles.
+            self.assertEqual([], os.listdir(os.path.join(repo_folder, 'TempFiles')))
+
+    @mock.patch('mod_ci.controllers.g')
+    def test_upload_type_request_cleans_temp_file_on_failure(self, mock_g):
+        """A failed upload must not leak its temp file."""
+        import tempfile as real_tempfile
+
+        from mod_ci.controllers import upload_type_request
+
+        uploaded = MagicMock()
+        uploaded.filename = 'broken.srt'
+        uploaded.save = MagicMock(side_effect=OSError("disk went away"))
+        request = MagicMock()
+        request.files = {'file': uploaded}
+        request.form = {'test_id': 1, 'test_file_id': 1}
+
+        with real_tempfile.TemporaryDirectory() as repo_folder:
+            with self.assertRaises(OSError):
+                upload_type_request(MagicMock(), 1, repo_folder, MagicMock(), request)
+            self.assertEqual([], os.listdir(os.path.join(repo_folder, 'TempFiles')))
 
     @mock.patch('mod_ci.controllers.RegressionTest')
     @mock.patch('mod_ci.controllers.TestResult')

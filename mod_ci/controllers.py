@@ -8,6 +8,7 @@ import json
 import os
 import re
 import shutil
+import tempfile
 import time
 import zipfile
 from collections import defaultdict
@@ -2664,20 +2665,36 @@ def upload_type_request(log, test_id, repo_folder, test, request) -> bool:
             return False
         temp_dir = os.path.join(repo_folder, 'TempFiles')
         os.makedirs(temp_dir, exist_ok=True)
-        temp_path = os.path.join(temp_dir, filename)
-        # Save to temporary location
-        uploaded_file.save(temp_path)
-        # Get hash and check if it's already been submitted
-        hash_sha256 = hashlib.sha256()
-        with open(temp_path, "rb") as f:
-            for chunk in iter(lambda: f.read(4096), b""):
-                hash_sha256.update(chunk)
-        file_hash = hash_sha256.hexdigest()
         filename, file_extension = os.path.splitext(filename)
-        results_dir = os.path.join(repo_folder, 'TestResults')
-        os.makedirs(results_dir, exist_ok=True)
-        final_path = os.path.join(results_dir, f'{file_hash}{file_extension}')
-        os.rename(temp_path, final_path)
+        # The uploaded name is derived from the regression test output, so it is identical
+        # for every test running that same regression test. Sharing one path across
+        # concurrent tests races: the second upload overwrites the first, the first rename
+        # moves the file away, and the second rename then fails with FileNotFoundError ->
+        # HTTP 500 -> no TestResultFile row -> the run is displayed as "No output generated
+        # but there should be". Worse, an upload that lands between another test's save and
+        # its hashing makes that test record the wrong hash, silently flipping its verdict.
+        # A unique temp file per upload removes both.
+        temp_fd, temp_path = tempfile.mkstemp(dir=temp_dir, suffix=file_extension)
+        os.close(temp_fd)
+        try:
+            # Save to temporary location
+            uploaded_file.save(temp_path)
+            # Get hash and check if it's already been submitted
+            hash_sha256 = hashlib.sha256()
+            with open(temp_path, "rb") as f:
+                for chunk in iter(lambda: f.read(4096), b""):
+                    hash_sha256.update(chunk)
+            file_hash = hash_sha256.hexdigest()
+            results_dir = os.path.join(repo_folder, 'TestResults')
+            os.makedirs(results_dir, exist_ok=True)
+            final_path = os.path.join(results_dir, f'{file_hash}{file_extension}')
+            # os.replace is atomic and, unlike leaving a stale temp file behind, keeps
+            # TempFiles clean when two uploads hash to the same content.
+            os.replace(temp_path, final_path)
+        finally:
+            # No-op once the replace succeeded; on any failure it stops the temp file leaking.
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
         rto = RegressionTestOutput.query.filter(
             RegressionTestOutput.id == request.form['test_file_id']).first()
         result_file = TestResultFile(test.id, request.form['test_id'], rto.id, rto.correct, file_hash)

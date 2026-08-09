@@ -3294,6 +3294,45 @@ class TestParseGcpError(unittest.TestCase):
         # Should NOT contain raw technical details
         self.assertNotIn("us-central1-a", error_msg)
 
+    def test_parse_gcp_error_zone_resource_exhausted_with_details(self):
+        """Test that the _WITH_DETAILS variant gets the same user-friendly message."""
+        from mod_ci.controllers import parse_gcp_error
+
+        mock_log = MagicMock()
+        result = {
+            'status': 'DONE',
+            'error': {
+                'errors': [{
+                    'code': 'ZONE_RESOURCE_POOL_EXHAUSTED_WITH_DETAILS',
+                    'message': "The zone 'projects/test/zones/us-central1-a' does not have enough "
+                               "resources available to fulfill the request. '(resource type:compute)'."
+                }]
+            }
+        }
+
+        error_msg = parse_gcp_error(result, log=mock_log)
+        self.assertIn("GCP resources temporarily unavailable", error_msg)
+        self.assertIn("retried automatically", error_msg)
+        # Must not fall through to the generic "contact the administrator" message
+        self.assertNotIn("contact the administrator", error_msg)
+        self.assertNotIn("us-central1-a", error_msg)
+
+    def test_zone_resource_exhausted_variants_are_retryable(self):
+        """Both zone-exhaustion codes must be retryable so the test stays pending."""
+        from mod_ci.controllers import is_retryable_gcp_error
+
+        for code in ('ZONE_RESOURCE_POOL_EXHAUSTED', 'ZONE_RESOURCE_POOL_EXHAUSTED_WITH_DETAILS'):
+            with self.subTest(code=code):
+                result = {'error': {'errors': [{'code': code, 'message': 'no capacity'}]}}
+                self.assertTrue(is_retryable_gcp_error(result))
+
+    def test_non_transient_gcp_error_is_not_retryable(self):
+        """A genuine failure must still be marked failed rather than retried forever."""
+        from mod_ci.controllers import is_retryable_gcp_error
+
+        result = {'error': {'errors': [{'code': 'RESOURCE_NOT_FOUND', 'message': 'nope'}]}}
+        self.assertFalse(is_retryable_gcp_error(result))
+
     def test_parse_gcp_error_quota_exceeded(self):
         """Test that QUOTA_EXCEEDED returns user-friendly message."""
         from mod_ci.controllers import parse_gcp_error

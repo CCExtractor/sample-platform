@@ -862,6 +862,16 @@ paths:
         Use failure_signature for flake detection: a stable signature across
         multiple runs on different commits indicates a genuine regression,
         not infrastructure noise.
+
+
+        Entries cover every regression test on the sample, newest run first,
+        so limit counts rows rather than runs. Pass regression_test_id to
+        follow one test, where limit then means that many runs of it.
+
+
+        With status set, the filter runs over a bounded scan of recent
+        results; pagination.truncated is true when the sample has more
+        history than the scan covered, and total then undercounts.
       security:
         - bearerAuth: []
       x-required-scope: runs:read
@@ -869,7 +879,8 @@ paths:
         - $ref: "#/components/parameters/SampleId"
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
-        - $ref: "#/components/parameters/RunStatus"
+        - $ref: "#/components/parameters/RegressionTestIdFilter"
+        - $ref: "#/components/parameters/SampleHistoryStatus"
         - $ref: "#/components/parameters/Branch"
         - $ref: "#/components/parameters/Platform"
         - $ref: "#/components/parameters/CreatedAfter"
@@ -2365,6 +2376,32 @@ components:
       schema:
         type: integer
         minimum: 1
+
+    RegressionTestIdFilter:
+      name: regression_test_id
+      in: query
+      description: >
+        Restrict the history to a single regression test of this sample, so
+        that limit counts runs of that test rather than rows across every
+        regression test on the sample. Must belong to the sample in the path;
+        400 otherwise.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 2147483647
+
+    SampleHistoryStatus:
+      name: status
+      in: query
+      description: >
+        Normalized per-sample status, derived from the result files and the
+        expected outputs of each result. Because it is derived rather than
+        stored, this filter is applied over a bounded scan of the most recent
+        results; see pagination.truncated on the response.
+      schema:
+        type: string
+        enum: [pass, fail, missing_output, not_started]
+        example: fail
 
     UserId:
       name: user_id

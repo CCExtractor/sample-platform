@@ -126,12 +126,20 @@ def safe_db_commit(db, operation_description: str = "database operation") -> boo
         return False
 
 
-# User-friendly messages for known GCP error codes
+_ZONE_EXHAUSTED_MESSAGE = (
+    "GCP resources temporarily unavailable in the configured zone. "
+    "The test will be retried automatically when resources become available."
+)
+
+# User-friendly messages for known GCP error codes.
+#
+# GCP reports zone exhaustion under two codes: the bare ZONE_RESOURCE_POOL_EXHAUSTED and
+# ZONE_RESOURCE_POOL_EXHAUSTED_WITH_DETAILS, which carries the specific resource that ran
+# out. Both mean the same thing to us, and in practice the _WITH_DETAILS variant is the one
+# Compute Engine returns for instance inserts.
 GCP_ERROR_MESSAGES = {
-    'ZONE_RESOURCE_POOL_EXHAUSTED': (
-        "GCP resources temporarily unavailable in the configured zone. "
-        "The test will be retried automatically when resources become available."
-    ),
+    'ZONE_RESOURCE_POOL_EXHAUSTED': _ZONE_EXHAUSTED_MESSAGE,
+    'ZONE_RESOURCE_POOL_EXHAUSTED_WITH_DETAILS': _ZONE_EXHAUSTED_MESSAGE,
     'QUOTA_EXCEEDED': (
         "GCP quota limit reached. "
         "The test will be retried automatically when resources become available."
@@ -145,6 +153,7 @@ GCP_ERROR_MESSAGES = {
 # Tests encountering these errors will remain pending and be picked up on the next cron run.
 GCP_RETRYABLE_ERRORS = {
     'ZONE_RESOURCE_POOL_EXHAUSTED',
+    'ZONE_RESOURCE_POOL_EXHAUSTED_WITH_DETAILS',
     'QUOTA_EXCEEDED',
 }
 

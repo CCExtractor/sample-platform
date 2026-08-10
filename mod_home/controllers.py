@@ -22,7 +22,8 @@ def before_app_request() -> None:
 @template_renderer()
 def index():
     """Render index home page."""
-    last_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first().value
+    last_commit_entry = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
+    last_commit = last_commit_entry.value if last_commit_entry is not None else None
     last_release = CCExtractorVersion.query.order_by(CCExtractorVersion.released.desc()).first()
     test_access = False
     if g.user is not None and g.user.role in [Role.tester, Role.contributor, Role.admin]:

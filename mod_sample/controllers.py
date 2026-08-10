@@ -56,11 +56,13 @@ def display_sample_info(sample) -> Dict[str, Any]:
             # in case no media info present in the sample
             media_info = None
 
-    latest_commit = GeneralData.query.filter(GeneralData.key == 'last_commit').first().value
-    last_release = CCExtractorVersion.query.order_by(CCExtractorVersion.released.desc()).first().commit
+    latest_commit_entry = GeneralData.query.filter(GeneralData.key == 'last_commit').first()
+    latest_commit = latest_commit_entry.value if latest_commit_entry is not None else None
+    last_release_entry = CCExtractorVersion.query.order_by(CCExtractorVersion.released.desc()).first()
+    last_release = last_release_entry.commit if last_release_entry is not None else None
 
-    test_commit = Test.query.filter(Test.commit == latest_commit).first()
-    test_release = Test.query.filter(Test.commit == last_release).first()
+    test_commit = Test.query.filter(Test.commit == latest_commit).first() if latest_commit else None
+    test_release = Test.query.filter(Test.commit == last_release).first() if last_release else None
     regression_tests = RegressionTest.query.filter(RegressionTest.sample_id == sample.id).all()
     status = 'Unknown'
     status_release = 'Unknown'

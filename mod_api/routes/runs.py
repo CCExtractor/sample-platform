@@ -33,6 +33,7 @@ from mod_api.services.status import (batch_get_run_data, derive_run_status,
 from mod_api.utils import get_sort_column, paginated_response, single_response
 from mod_auth.models import Role
 from mod_customized.models import CustomizedTest
+from mod_home.models import CCExtractorVersion
 from mod_regression.models import RegressionTest, RegressionTestOutput
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
                              TestResult, TestResultFile, TestStatus, TestType)
@@ -124,6 +125,20 @@ def _apply_run_filters(query, created_after, created_before):
     commit_sha = request.args.get('commit_sha')
     if commit_sha:
         query = query.filter(Test.commit == commit_sha)
+
+    # A release is recorded as the commit it was cut from, so filtering by
+    # version is the commit filter with one lookup in front of it.
+    ccx_version = request.args.get('ccx_version')
+    if ccx_version:
+        version = CCExtractorVersion.query.filter(
+            CCExtractorVersion.version == ccx_version).first()
+        if version is None:
+            return None, make_error_response(
+                'validation_error',
+                f'Unknown CCExtractor version: {ccx_version}.',
+                http_status=400,
+            )
+        query = query.filter(Test.commit == version.commit)
 
     repository = request.args.get('repository')
     if repository:

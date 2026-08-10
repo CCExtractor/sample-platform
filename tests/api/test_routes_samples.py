@@ -1,3 +1,4 @@
+import json
 from unittest import mock
 
 from flask import g
@@ -6,7 +7,7 @@ from sqlalchemy import event
 from mod_api.middleware.rate_limit import _rate_limit_store
 from mod_regression.models import (Category, InputType, OutputType,
                                    RegressionTest, RegressionTestOutput)
-from mod_sample.models import Sample
+from mod_sample.models import ExtraFile, Sample, Tag
 from mod_test.models import (Test, TestPlatform, TestResult, TestResultFile,
                              TestType)
 from tests.api.base import ApiTestCase
@@ -499,8 +500,9 @@ class TestRoutesSamples(ApiTestCase):
 
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.json['download_url'], 'https://signed.url')
-        resolve.assert_called_once_with(
-            f'TestFiles/{self.sample.filename}')
+        # Spelled out rather than read back off self.sample, which the
+        # request teardown detaches from its session.
+        resolve.assert_called_once_with('TestFiles/test_sha.txt')
 
     @mock.patch('mod_api.routes.samples.resolve_artifact')
     def test_download_sample_local_only_has_no_url(self, resolve):
@@ -532,6 +534,143 @@ class TestRoutesSamples(ApiTestCase):
         res = self.client.get(
             '/api/v1/samples/999999/download',
             headers={'Authorization': f'Bearer {token}'})
+
+        self.assertEqual(res.status_code, 404)
+
+    # ---- tags, sample edits and deletes --------------------------------
+
+    def _admin(self, name):
+        token = self.get_token('samp_admin@local.com', 'adminpass123', name,
+                               scopes=['runs:read', 'runs:write'])
+        return {'Authorization': f'Bearer {token}'}
+
+    def _post(self, path, headers, body):
+        return self.client.post(
+            f'/api/v1{path}', data=json.dumps(body),
+            content_type='application/json', headers=headers)
+
+    def test_create_and_list_tags(self):
+        res = self._post('/tags', self._admin('tag1'),
+                         {'name': 'dvb', 'description': 'DVB subtitles'})
+        self.assertEqual(res.status_code, 201)
+
+        listed = self.client.get('/api/v1/tags', headers=self._admin('tag2'))
+        self.assertEqual(listed.status_code, 200)
+        self.assertIn('dvb', [t['name'] for t in listed.json['data']])
+
+    def test_create_tag_rejects_duplicate(self):
+        self._post('/tags', self._admin('tag3'), {'name': 'dvb'})
+        res = self._post('/tags', self._admin('tag4'), {'name': 'dvb'})
+        self.assertEqual(res.status_code, 409)
+
+    def test_create_tag_requires_admin(self):
+        token = self.get_token('samp_user@local.com', 'userpass123', 'tag5',
+                               scopes=['runs:write'])
+        res = self._post('/tags', {'Authorization': f'Bearer {token}'},
+                         {'name': 'nope'})
+        self.assertEqual(res.status_code, 403)
+
+    def test_update_sample_tags(self):
+        g.db.add(Tag('dvb', 'DVB subtitles'))
+        g.db.commit()
+
+        res = self.client.patch(
+            f'/api/v1/samples/{self.sample_id}',
+            data=json.dumps({'tags': ['dvb']}),
+            content_type='application/json',
+            headers=self._admin('edit1'))
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json['tags'], ['dvb'])
+
+    def test_update_sample_rejects_unknown_tag(self):
+        res = self.client.patch(
+            f'/api/v1/samples/{self.sample_id}',
+            data=json.dumps({'tags': ['nosuchtag']}),
+            content_type='application/json',
+            headers=self._admin('edit2'))
+
+        self.assertEqual(res.status_code, 400)
+
+    def test_update_sample_without_upload_row_rejects_metadata(self):
+        # notes and friends live on the upload row, and this sample has none.
+        res = self.client.patch(
+            f'/api/v1/samples/{self.sample_id}',
+            data=json.dumps({'notes': 'a note'}),
+            content_type='application/json',
+            headers=self._admin('edit3'))
+
+        self.assertEqual(res.status_code, 409)
+
+    def test_delete_sample_in_use_is_refused(self):
+        res = self.client.delete(
+            f'/api/v1/samples/{self.sample_id}',
+            headers=self._admin('del1'))
+
+        self.assertEqual(res.status_code, 409)
+        self.assertEqual(res.json['details']['regression_test_count'], 1)
+
+    def test_delete_unused_sample(self):
+        spare = Sample('spare_sha', 'txt', 'spare')
+        g.db.add(spare)
+        g.db.commit()
+        spare_id = spare.id
+
+        res = self.client.delete(
+            f'/api/v1/samples/{spare_id}', headers=self._admin('del2'))
+
+        self.assertEqual(res.status_code, 200)
+        self.assertIsNone(Sample.query.filter(Sample.id == spare_id).first())
+
+    def test_delete_sample_requires_admin(self):
+        token = self.get_token('samp_user@local.com', 'userpass123', 'del3',
+                               scopes=['runs:write'])
+        res = self.client.delete(
+            f'/api/v1/samples/{self.sample_id}',
+            headers={'Authorization': f'Bearer {token}'})
+
+        self.assertEqual(res.status_code, 403)
+
+    @mock.patch('mod_api.routes.samples.resolve_artifact')
+    def test_download_media_info(self, resolve):
+        resolve.return_value = ('https://signed.url', 'ok')
+        res = self.client.get(
+            f'/api/v1/samples/{self.sample_id}/media-info/download',
+            headers=self._admin('mi1'))
+
+        self.assertEqual(res.status_code, 200)
+        resolve.assert_called_once_with('TestFiles/media/test_sha.xml')
+
+    @mock.patch('mod_api.routes.samples.resolve_artifact')
+    def test_download_extra_file(self, resolve):
+        resolve.return_value = ('https://signed.url', 'ok')
+        extra = ExtraFile(self.sample_id, 'srt', 'subs.srt')
+        g.db.add(extra)
+        g.db.commit()
+        extra_id = extra.id
+
+        res = self.client.get(
+            f'/api/v1/samples/{self.sample_id}/extra-files/{extra_id}'
+            f'/download',
+            headers=self._admin('ex1'))
+
+        self.assertEqual(res.status_code, 200)
+        # ExtraFile.filename is <sample sha>_<id><extension>.
+        resolve.assert_called_once_with(
+            f'TestFiles/extra/test_sha_{extra_id}.srt')
+
+    def test_download_extra_file_of_another_sample_is_not_found(self):
+        other = Sample('other_sha', 'txt', 'other')
+        g.db.add(other)
+        g.db.commit()
+        extra = ExtraFile(other.id, 'srt', 'subs.srt')
+        g.db.add(extra)
+        g.db.commit()
+
+        res = self.client.get(
+            f'/api/v1/samples/{self.sample_id}/extra-files/{extra.id}'
+            f'/download',
+            headers=self._admin('ex2'))
 
         self.assertEqual(res.status_code, 404)
 

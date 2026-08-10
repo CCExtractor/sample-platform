@@ -345,6 +345,13 @@ paths:
         - $ref: "#/components/parameters/RunStatus"
         - $ref: "#/components/parameters/Branch"
         - $ref: "#/components/parameters/CommitSha"
+        - name: ccx_version
+          in: query
+          description: >
+            Filter to the commit a CCExtractor release was cut from.
+          schema:
+            type: string
+            maxLength: 10
         - $ref: "#/components/parameters/Repository"
         - $ref: "#/components/parameters/Platform"
         - $ref: "#/components/parameters/CreatedAfter"
@@ -841,6 +848,113 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Sample"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+    patch:
+      tags: [Samples]
+      summary: Edit a sample's tags and upload metadata
+      operationId: updateSample
+      description: >
+        Notes, parameters, platform and version live on the upload row
+        rather than the sample, so a sample that arrived without one (over
+        FTP, or seeded directly) can only have its tags changed and asking
+        for the rest returns 409. Tags are given by name.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:write
+      x-required-roles: [admin]
+      parameters:
+        - $ref: "#/components/parameters/SampleId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tags:
+                  type: array
+                  maxItems: 50
+                  items:
+                    type: string
+                    maxLength: 64
+                notes:
+                  type: string
+                  maxLength: 1024
+                parameters:
+                  type: string
+                  maxLength: 1024
+                platform:
+                  type: string
+                  enum: [linux, windows, mac, bsd]
+                version:
+                  type: string
+                  maxLength: 10
+      responses:
+        "200":
+          description: Sample updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sample_id:
+                    type: integer
+                  tags:
+                    type: array
+                    items:
+                      type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Samples]
+      summary: Delete a sample, its extra files and its media info
+      operationId: deleteSample
+      description: >
+        Refused while any regression test still points at the sample,
+        because removing the media would leave those tests unable to run and
+        their history describing a sample nobody can fetch.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:write
+      x-required-roles: [admin]
+      parameters:
+        - $ref: "#/components/parameters/SampleId"
+      responses:
+        "200":
+          description: Sample deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sample_id:
+                    type: integer
+                  deleted:
+                    type: boolean
+        "409":
+          $ref: "#/components/responses/Conflict"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -1484,6 +1598,251 @@ paths:
                     type: integer
                   deleted:
                     type: boolean
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /samples/{sample_id}/media-info/download:
+    get:
+      tags: [Samples]
+      summary: Locate the MediaInfo XML written alongside a sample
+      operationId: downloadSampleMediaInfo
+      description: >
+        The parsed tree is already on /samples/{sample_id}/details; this is
+        for anyone who wants the original file MediaInfo produced.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:read
+      parameters:
+        - $ref: "#/components/parameters/SampleId"
+      responses:
+        "200":
+          description: Where the media info file is stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoredFile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /samples/{sample_id}/extra-files/{extra_id}/download:
+    get:
+      tags: [Samples]
+      summary: Locate one of the files uploaded alongside a sample
+      operationId: downloadSampleExtraFile
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:read
+      parameters:
+        - $ref: "#/components/parameters/SampleId"
+        - name: extra_id
+          in: path
+          required: true
+          description: Id of the accompanying file, from the sample details payload
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Where the accompanying file is stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoredFile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /samples/{sample_id}/extra-files/{extra_id}:
+    delete:
+      tags: [Samples]
+      summary: Delete one of the files uploaded alongside a sample
+      operationId: deleteSampleExtraFile
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:write
+      x-required-roles: [admin]
+      parameters:
+        - $ref: "#/components/parameters/SampleId"
+        - name: extra_id
+          in: path
+          required: true
+          description: Id of the accompanying file, from the sample details payload
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Accompanying file deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  deleted:
+                    type: boolean
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /tags:
+    get:
+      tags: [Samples]
+      summary: List the tags a sample can be labelled with
+      operationId: listTags
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:read
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Paginated tags
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Page"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                            name:
+                              type: string
+                            description:
+                              type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Samples]
+      summary: Create a tag
+      operationId: createTag
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:write
+      x-required-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  maxLength: 64
+                description:
+                  type: string
+                  maxLength: 1024
+      responses:
+        "201":
+          description: Tag created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+                  description:
+                    type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /system/about:
+    get:
+      tags: [System]
+      summary: Report the versions this platform runs against
+      operationId: systemAbout
+      description: >
+        The classic about page is static prose. The parts worth reading from
+        a client are the CCExtractor release under test and the commit the
+        platform itself was deployed from.
+      security:
+        - bearerAuth: []
+      x-required-scope: system:read
+      responses:
+        "200":
+          description: Platform and CCExtractor versions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  platform_commit:
+                    type: string
+                    nullable: true
+                  ccextractor_version:
+                    type: string
+                    nullable: true
+                  ccextractor_released:
+                    type: string
+                    nullable: true
+                  last_tested_commit:
+                    type: string
+                    nullable: true
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":

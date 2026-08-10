@@ -11,9 +11,14 @@ POST   /auth/signup          Send a registration link
 POST   /auth/password-reset  Send a password reset link
 POST   /auth/password-reset/complete
                              Set a new password from a reset link
+GET    /auth/me/ftp-credentials
+                             Your own FTP details for the ingest server
 GET    /users                List platform users (admin)
+GET    /users/{id}           One platform user (admin)
 PATCH  /users/{id}           Change a user's role (admin)
 POST   /users/{id}/deactivate  Anonymise an account (admin, or your own)
+POST   /users/{id}/password-reset
+                             Send someone a reset link (admin, or your own)
 
 Signup and reset send the same emails as the classic pages and reuse their
 signed links, so accounts are still created and passwords still set by one
@@ -52,6 +57,31 @@ def _send(to, subject, text):
     if not g.mailer.send_simple_message(
             {'to': to, 'subject': subject, 'text': text}):
         g.log.error(f'could not send "{subject}" to {to}')
+
+
+def _send_reset_link(user):
+    """
+    Email a password reset link to one user.
+
+    The signature and the template are the classic ones, so a link from
+    here and a link from the classic page are interchangeable. What cannot
+    be reused is mod_auth's own send_reset_email: it builds the URL with a
+    relative endpoint, which resolves against whichever blueprint is
+    handling the request and so cannot be built from inside this one.
+    """
+    from mod_auth.controllers import generate_hmac_hash
+    from run import app
+
+    expires = int(time.time()) + _LINK_TTL
+    mac = generate_hmac_hash(
+        app.config.get('HMAC_KEY', ''),
+        f'{user.id}|{expires}|{user.password}')
+    url = url_for('auth.complete_reset', uid=user.id, expires=expires,
+                  mac=mac, _external=True)
+    template = app.jinja_env.get_or_select_template('email/recovery_link.txt')
+    _send(user.email,
+          'CCExtractor CI platform password recovery instructions',
+          template.render(url=url, name=user.name))
 
 
 def _invalid_reset_link():
@@ -373,11 +403,9 @@ def request_password_reset(validated_data=None):
     Silent about whether the address is registered, for the same reason
     signup is.
     """
-    from mod_auth.controllers import send_reset_email
-
     user = User.query.filter_by(email=validated_data['email']).first()
     if user is not None:
-        send_reset_email(user)
+        _send_reset_link(user)
     return single_response({'sent': True}, http_status=202)
 
 
@@ -507,3 +535,69 @@ def deactivate_user(user_id):
 
     g.log.warning(f'user {user.id} deactivated via API by {caller.id}')
     return single_response({'user_id': user.id, 'deactivated': True})
+
+
+@mod_api.route('/users/<user_id>', methods=['GET'])
+@require_roles([Role.admin])
+@require_scope(Scope.TOKENS_MANAGE)
+@validate_path_id('user_id')
+def get_user(user_id):
+    """Return one platform user."""
+    user = User.query.filter(User.id == user_id).first()
+    if user is None:
+        return make_error_response(
+            'not_found', f'User {user_id} not found.', http_status=404)
+    return single_response(_serialize_user(user))
+
+
+@mod_api.route('/users/<user_id>/password-reset', methods=['POST'])
+@validate_path_id('user_id')
+def send_user_password_reset(user_id):
+    """
+    Send a reset link to another account, or to your own.
+
+    Unlike the public /auth/password-reset this names an account rather than
+    an address, so it says plainly when the id is unknown: the caller is
+    already signed in and can list users anyway.
+
+    Scope-free for the same reason deactivation is: asking for a reset on
+    your own account cannot depend on tokens:manage.
+    """
+    caller = g.api_user
+    if caller.role != Role.admin and caller.id != int(user_id):
+        return make_error_response(
+            'forbidden', 'You can only request a reset for your own account.',
+            http_status=403)
+
+    user = User.query.filter(User.id == user_id).first()
+    if user is None:
+        return make_error_response(
+            'not_found', f'User {user_id} not found.', http_status=404)
+
+    _send_reset_link(user)
+
+    g.log.info(f'password reset link sent to user {user.id} by {caller.id}')
+    return single_response({'user_id': user.id, 'sent': True},
+                           http_status=202)
+
+
+@mod_api.route('/auth/me/ftp-credentials', methods=['GET'])
+def get_ftp_credentials():
+    """
+    Return the caller's FTP details, creating them on first ask.
+
+    Only ever the caller's own: these are working credentials, so there is
+    no version of this that reads someone else's. The password is stored in
+    the clear by design (it is random and cannot be chosen), so this is the
+    only place it can come from.
+    """
+    from mod_upload.controllers import retrieve_ftp_credentials
+    from run import config
+
+    credentials = retrieve_ftp_credentials(g.api_user.id)
+    return single_response({
+        'host': config.get('SERVER_NAME', ''),
+        'port': config.get('FTP_PORT', ''),
+        'username': credentials.user_name,
+        'password': credentials.password,
+    })

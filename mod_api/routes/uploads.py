@@ -6,6 +6,7 @@ GET    /queued-samples            Uploads waiting to be described
 GET    /queued-samples/{id}       One queued upload
 POST   /queued-samples/{id}/finalize
                                   Turn a queued upload into a sample
+POST   /queued-samples/{id}/link  Attach one to an existing sample
 DELETE /queued-samples/{id}       Discard a queued upload
 
 Uploading and describing are two steps here for the same reason they are on
@@ -15,6 +16,7 @@ first and the description follows.
 """
 
 import hashlib
+import mimetypes
 import os
 
 import magic
@@ -28,11 +30,12 @@ from mod_api.middleware.validation import (validate_body,
                                            validate_offset_pagination,
                                            validate_path_id)
 from mod_api.models.api_token import Scope
-from mod_api.schemas.uploads import UploadFinalizeSchema
+from mod_api.schemas.uploads import QueueLinkSchema, UploadFinalizeSchema
 from mod_api.utils import paginated_response, safe_resolve, single_response
 from mod_auth.models import Role
 from mod_home.models import CCExtractorVersion
-from mod_sample.models import ForbiddenExtension, ForbiddenMimeType, Sample
+from mod_sample.models import (ExtraFile, ForbiddenExtension,
+                               ForbiddenMimeType, Sample)
 from mod_upload.models import Platform, QueuedSample, Upload
 
 # Enough of the file for libmagic to identify it, matching the classic form.
@@ -76,7 +79,6 @@ def _forbidden_reason(filename, head):
             ForbiddenMimeType.mimetype == mimetype).first() is not None:
         return f"Files of type '{mimetype}' are not accepted."
 
-    import mimetypes
     implied = mimetypes.guess_extension(mimetype)
     if implied and ForbiddenExtension.query.filter(
             ForbiddenExtension.extension == implied.lstrip('.')
@@ -253,6 +255,60 @@ def finalize_queued_sample(queued_id, validated_data=None):
         'sample_id': sample.id,
         'sha': sample.sha,
         'original_name': sample.original_name,
+    }, http_status=201)
+
+
+@mod_api.route('/queued-samples/<queued_id>/link', methods=['POST'])
+@require_scope(Scope.RUNS_WRITE)
+@validate_path_id('queued_id')
+@validate_body(QueueLinkSchema)
+def link_queued_sample(queued_id, validated_data=None):
+    """
+    Attach a queued upload to an existing sample as an extra file.
+
+    Used for the material that belongs with a sample without being one, such
+    as a subtitle track to compare against. The classic page offered this
+    but never carried it out: its confirm step checks permissions and then
+    redirects without touching anything, so this is the behaviour it
+    described rather than the behaviour it had.
+
+    As with finalize, the file moves only after the row is committed, since
+    the stored name is derived from the id the row is given.
+    """
+    queued, err = _get_queued(queued_id)
+    if err:
+        return err
+
+    sample_id = validated_data['sample_id']
+    sample = Sample.query.filter(Sample.id == sample_id).first()
+    if sample is None:
+        return make_error_response(
+            'not_found', f'Sample {sample_id} not found.', http_status=404)
+
+    source = _repo('QueuedFiles', queued.filename)
+    if not os.path.isfile(source):
+        return make_error_response(
+            'conflict',
+            f'The uploaded file for queued sample {queued_id} is missing '
+            f'from storage, so it cannot be linked.',
+            http_status=409)
+
+    extra = ExtraFile(sample.id, queued.extension.lstrip('.'),
+                      queued.original_name)
+    g.db.add(extra)
+    g.db.flush([extra])
+    filename = extra.filename
+    g.db.delete(queued)
+    g.db.commit()
+
+    os.rename(source, _repo('TestFiles', 'extra', filename))
+
+    g.log.info(f'queued sample {queued_id} linked to sample {sample.id} as '
+               f'extra file {extra.id} via API by {g.api_user.id}')
+    return single_response({
+        'id': extra.id,
+        'sample_id': sample.id,
+        'filename': filename,
     }, http_status=201)
 
 

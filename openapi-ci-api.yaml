@@ -2332,6 +2332,145 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /users/{user_id}/password-reset:
+    post:
+      tags: [Auth]
+      summary: Send a reset link to another account, or to your own
+      operationId: sendUserPasswordReset
+      description: >
+        Unlike the public /auth/password-reset this names an account rather
+        than an address, so it says plainly when the id is unknown: the
+        caller is already signed in and can list users anyway. Scope-free
+        for the same reason deactivation is.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "202":
+          description: Reset link sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id:
+                    type: integer
+                  sent:
+                    type: boolean
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /auth/me/ftp-credentials:
+    get:
+      tags: [Uploads]
+      summary: Get your own FTP details for the ingest server
+      operationId: getFtpCredentials
+      description: >
+        Created on first ask and stable afterwards. Only ever the caller's
+        own: these are working credentials, so there is no version of this
+        that reads someone else's. The password is stored in the clear by
+        design, being random and unchangeable, so this is the only place it
+        can come from.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: FTP connection details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  host:
+                    type: string
+                  port:
+                    type: string
+                  username:
+                    type: string
+                  password:
+                    type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /queued-samples/{queued_id}/link:
+    post:
+      tags: [Uploads]
+      summary: Attach a queued upload to an existing sample
+      operationId: linkQueuedSample
+      description: >
+        For material that belongs with a sample without being one, such as a
+        subtitle track to compare against. The classic page offered this but
+        never carried it out: its confirm step checks permissions and then
+        redirects without touching anything, so this is the behaviour it
+        described rather than the behaviour it had.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:write
+      parameters:
+        - name: queued_id
+          in: path
+          required: true
+          description: Id of the queued upload
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sample_id]
+              properties:
+                sample_id:
+                  type: integer
+                  minimum: 1
+      responses:
+        "201":
+          description: Upload attached as an extra file
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  sample_id:
+                    type: integer
+                  filename:
+                    type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
   # PLATFORM CONFIGURATION
 
   /system/maintenance:
@@ -2673,6 +2812,33 @@ paths:
           $ref: "#/components/responses/Error"
 
   /users/{user_id}:
+    get:
+      tags: [Auth]
+      summary: Get one platform user
+      operationId: getUser
+      security:
+        - bearerAuth: []
+      x-required-scope: tokens:manage
+      x-required-roles: [admin]
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: The user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformUser"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
     patch:
       tags: [Users]
       summary: Change a user's role

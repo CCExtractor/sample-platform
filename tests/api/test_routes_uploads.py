@@ -7,7 +7,7 @@ from flask import g
 
 from mod_api.middleware.rate_limit import _rate_limit_store
 from mod_auth.models import Role, User
-from mod_sample.models import ForbiddenExtension, Sample
+from mod_sample.models import ExtraFile, ForbiddenExtension, Sample
 from mod_upload.models import QueuedSample
 from tests.api.base import ApiTestCase
 
@@ -183,4 +183,42 @@ class TestRoutesUploads(ApiTestCase):
 
         self.assertEqual(res.status_code, 200)
         self.assertIsNone(
+            QueuedSample.query.filter(QueuedSample.id == queued_id).first())
+
+    @mock.patch('mod_api.routes.uploads.os.path.isfile', return_value=True)
+    @mock.patch('mod_api.routes.uploads.os.rename')
+    def test_link_attaches_the_upload_to_a_sample(self, rename, _isfile):
+        queued_id = self._queue_row(self.admin_id)
+        target = Sample('target_sha', 'ts', 'target')
+        g.db.add(target)
+        g.db.commit()
+        target_id = target.id
+
+        res = self.client.post(
+            f'/api/v1/queued-samples/{queued_id}/link',
+            data=json.dumps({'sample_id': target_id}),
+            content_type='application/json',
+            headers=self._admin('up12'))
+
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(res.json['sample_id'], target_id)
+        self.assertEqual(
+            ExtraFile.query.filter_by(sample_id=target_id).count(), 1)
+        self.assertIsNone(
+            QueuedSample.query.filter(QueuedSample.id == queued_id).first())
+        self.assertTrue(rename.called)
+
+    @mock.patch('mod_api.routes.uploads.os.path.isfile', return_value=True)
+    def test_link_rejects_an_unknown_sample(self, _isfile):
+        queued_id = self._queue_row(self.admin_id)
+
+        res = self.client.post(
+            f'/api/v1/queued-samples/{queued_id}/link',
+            data=json.dumps({'sample_id': 999999}),
+            content_type='application/json',
+            headers=self._admin('up13'))
+
+        self.assertEqual(res.status_code, 404)
+        # The upload stays queued when the link cannot be made.
+        self.assertIsNotNone(
             QueuedSample.query.filter(QueuedSample.id == queued_id).first())

@@ -27,3 +27,14 @@ class UploadFinalizeSchema(Schema):
         """Reject unknown fields."""
 
         unknown = RAISE
+
+
+class QueueLinkSchema(Schema):
+    """Validates POST /queued-samples/{id}/link bodies."""
+
+    sample_id = fields.Integer(required=True, validate=validate.Range(min=1))
+
+    class Meta:
+        """Reject unknown fields."""
+
+        unknown = RAISE

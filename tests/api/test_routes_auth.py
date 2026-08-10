@@ -488,6 +488,17 @@ class TestRoutesAuth(ApiTestCase):
                          {'email': 'nobody@local.com'})
 
         self.assertEqual(res.status_code, 202)
+        self.assertFalse(post.called)
+
+    @patch('requests.post')
+    def test_password_reset_request_sends_to_a_known_address(self, post):
+        # Exercises the path that actually builds and sends the link, which
+        # an unknown-address test never reaches.
+        res = self._json('post', '/auth/password-reset',
+                         {'email': 'auth_user@local.com'})
+
+        self.assertEqual(res.status_code, 202)
+        self.assertTrue(post.called)
 
     @patch('requests.post')
     def test_password_reset_completes_with_a_valid_link(self, post):
@@ -604,3 +615,46 @@ class TestRoutesAuth(ApiTestCase):
             headers=self._auth(name='acct7'))
 
         self.assertEqual(res.status_code, 403)
+
+    def test_get_single_user(self):
+        res = self.client.get(
+            f'/api/v1/users/{self.user_id}',
+            headers=self._auth('auth_admin@local.com', 'adminpass123',
+                               'one_user', scopes=['tokens:manage']))
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json['user_id'], self.user_id)
+
+    @patch('requests.post')
+    def test_admin_can_send_someone_a_reset_link(self, post):
+        res = self.client.post(
+            f'/api/v1/users/{self.user_id}/password-reset',
+            headers=self._auth('auth_admin@local.com', 'adminpass123',
+                               'reset_other'))
+
+        self.assertEqual(res.status_code, 202)
+        self.assertTrue(post.called)
+
+    @patch('requests.post')
+    def test_reset_link_for_someone_else_needs_admin(self, post):
+        res = self.client.post(
+            f'/api/v1/users/{self.admin.id}/password-reset',
+            headers=self._auth(name='reset_forbidden'))
+
+        self.assertEqual(res.status_code, 403)
+        self.assertFalse(post.called)
+
+    def test_ftp_credentials_are_created_on_first_ask(self):
+        res = self.client.get(
+            '/api/v1/auth/me/ftp-credentials',
+            headers=self._auth(name='ftp1'))
+
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(res.json['username'])
+        self.assertTrue(res.json['password'])
+
+        # Asking twice returns the same pair rather than rotating them.
+        again = self.client.get(
+            '/api/v1/auth/me/ftp-credentials',
+            headers=self._auth(name='ftp2'))
+        self.assertEqual(again.json['username'], res.json['username'])

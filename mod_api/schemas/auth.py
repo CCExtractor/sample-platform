@@ -1,6 +1,6 @@
 """Request/response schemas for the token and user endpoints."""
 
-from marshmallow import RAISE, Schema, fields, validate
+from marshmallow import RAISE, Schema, ValidationError, fields, validate
 
 from mod_api.models.api_token import VALID_SCOPES
 from mod_api.schemas.common import DATETIME_FORMAT
@@ -76,6 +76,70 @@ class RoleUpdateSchema(Schema):
     # Taken from the model so the accepted values follow the Role enum.
     role = fields.String(
         required=True, validate=validate.OneOf(sorted(Role.values())))
+
+    class Meta:
+        """Reject unknown fields."""
+
+        unknown = RAISE
+
+
+class EmailOnlySchema(Schema):
+    """Validates the signup and password reset request bodies."""
+
+    email = fields.Email(required=True)
+
+    class Meta:
+        """Reject unknown fields."""
+
+        unknown = RAISE
+
+
+def valid_password(value):
+    """
+    Check a password against the configured length bounds.
+
+    Written as a validator rather than a pre-built Length, because the
+    bounds come from config and reading those while the schema class is
+    being defined would import the app mid-blueprint-setup. The classic
+    forms read the same two keys, so the rules cannot drift apart.
+    """
+    from run import config
+
+    low = int(config.get('MIN_PWD_LEN', 10))
+    high = int(config.get('MAX_PWD_LEN', 500))
+    if not low <= len(value) <= high:
+        raise ValidationError(
+            f'Password must be between {low} and {high} characters.')
+
+
+class PasswordResetCompleteSchema(Schema):
+    """Validates POST /auth/password-reset/complete bodies."""
+
+    user_id = fields.Integer(required=True, validate=validate.Range(min=1))
+    expires = fields.Integer(required=True)
+    mac = fields.String(
+        required=True, validate=validate.Length(min=1, max=128))
+    password = fields.String(required=True, validate=valid_password)
+
+    class Meta:
+        """Reject unknown fields."""
+
+        unknown = RAISE
+
+
+class AccountUpdateSchema(Schema):
+    """
+    Validates PATCH /auth/me bodies; every field optional.
+
+    current_password is demanded alongside any change to the credentials
+    themselves, so a leaked token cannot quietly become a stolen account.
+    """
+
+    name = fields.String(validate=validate.Length(min=1, max=50))
+    email = fields.Email()
+    new_password = fields.String(validate=valid_password)
+    current_password = fields.String(
+        validate=validate.Length(min=1, max=500))
 
     class Meta:
         """Reject unknown fields."""

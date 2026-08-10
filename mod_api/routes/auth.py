@@ -1,16 +1,29 @@
 """
-Token lifecycle, caller identity, and admin user management.
+Token lifecycle, caller identity, account and admin user management.
 
 POST   /auth/tokens          Authenticate with email/password, get a token
 GET    /auth/tokens          List tokens (admin-only; ?all=true for all users)
 DELETE /auth/tokens/current   Revoke the token you're currently using
 DELETE /auth/tokens/{id}      Revoke a specific token by ID
 GET    /auth/me              Identity, role and scopes behind the token
+PATCH  /auth/me              Change your own name, email or password
+POST   /auth/signup          Send a registration link
+POST   /auth/password-reset  Send a password reset link
+POST   /auth/password-reset/complete
+                             Set a new password from a reset link
 GET    /users                List platform users (admin)
 PATCH  /users/{id}           Change a user's role (admin)
+POST   /users/{id}/deactivate  Anonymise an account (admin, or your own)
+
+Signup and reset send the same emails as the classic pages and reuse their
+signed links, so accounts are still created and passwords still set by one
+implementation rather than two.
 """
 
-from flask import g, request
+import hmac
+import time
+
+from flask import g, request, url_for
 from passlib.apps import custom_app_context as pwd_context
 from sqlalchemy.exc import IntegrityError
 
@@ -21,12 +34,37 @@ from mod_api.middleware.validation import (validate_body,
                                            validate_offset_pagination,
                                            validate_path_id)
 from mod_api.models.api_token import DEFAULT_SCOPES, ApiToken, Scope
-from mod_api.schemas.auth import (ApiTokenItemSchema, AuthTokenSchema,
+from mod_api.schemas.auth import (AccountUpdateSchema, ApiTokenItemSchema,
+                                  AuthTokenSchema, EmailOnlySchema,
+                                  PasswordResetCompleteSchema,
                                   RoleUpdateSchema, TokenCreateRequestSchema)
 from mod_api.utils import paginated_response, single_response
 from mod_auth.models import Role, User
 
 _DUMMY_HASH = pwd_context.hash('__dummy__')
+
+# Signup and reset links last a day, matching the classic pages.
+_LINK_TTL = 86400
+
+
+def _send(to, subject, text):
+    """Send one email, logging rather than failing when the mailer says no."""
+    if not g.mailer.send_simple_message(
+            {'to': to, 'subject': subject, 'text': text}):
+        g.log.error(f'could not send "{subject}" to {to}')
+
+
+def _invalid_reset_link():
+    """
+    Build the single reply every bad reset link gets.
+
+    Expired, unknown user and bad signature deliberately share one message:
+    telling them apart would confirm which accounts exist.
+    """
+    return make_error_response(
+        'invalid_link',
+        'This reset link is invalid or has expired. Request a new one.',
+        http_status=400)
 
 
 @mod_api.route('/auth/tokens', methods=['POST'])
@@ -288,3 +326,184 @@ def update_user_role(user_id, validated_data=None):
     g.log.info(f'user {user.id} role {previous_role} -> {user.role.value} '
                f'by admin {g.api_user.id}')
     return single_response(_serialize_user(user))
+
+
+@mod_api.route('/auth/signup', methods=['POST'])
+@validate_body(EmailOnlySchema)
+def signup(validated_data=None):
+    """
+    Send a registration link to an email address.
+
+    Answers the same way whether or not the address is already registered,
+    because a different reply here would tell an anonymous caller who has an
+    account. The link lands on the classic completion page, which is where
+    the account is actually created: two places able to mint accounts is a
+    surface worth not having.
+    """
+    from mod_auth.controllers import generate_hmac_hash
+    from run import app
+
+    email = validated_data['email']
+    existing = User.query.filter_by(email=email).first()
+
+    if existing is None:
+        expires = int(time.time()) + _LINK_TTL
+        mac = generate_hmac_hash(
+            app.config.get('HMAC_KEY', ''), f'{email}|{expires}')
+        url = url_for('auth.complete_signup', email=email, expires=expires,
+                      mac=mac, _external=True)
+        template = 'email/registration_email.txt'
+        message = app.jinja_env.get_or_select_template(template).render(url=url)
+    else:
+        url = url_for('auth.reset', _external=True)
+        template = 'email/registration_existing.txt'
+        message = app.jinja_env.get_or_select_template(template).render(
+            url=url, name=existing.name)
+
+    _send(email, 'CCExtractor CI platform registration', message)
+    return single_response({'sent': True}, http_status=202)
+
+
+@mod_api.route('/auth/password-reset', methods=['POST'])
+@validate_body(EmailOnlySchema)
+def request_password_reset(validated_data=None):
+    """
+    Send a password reset link.
+
+    Silent about whether the address is registered, for the same reason
+    signup is.
+    """
+    from mod_auth.controllers import send_reset_email
+
+    user = User.query.filter_by(email=validated_data['email']).first()
+    if user is not None:
+        send_reset_email(user)
+    return single_response({'sent': True}, http_status=202)
+
+
+@mod_api.route('/auth/password-reset/complete', methods=['POST'])
+@validate_body(PasswordResetCompleteSchema)
+def complete_password_reset(validated_data=None):
+    """
+    Set a new password using a link from the reset email.
+
+    The signature covers the current password hash, so a link stops working
+    the moment it is used or the password changes by any other route. The
+    caller is not signed in here: they still have to authenticate, which
+    proves the new password arrived intact.
+    """
+    from mod_auth.controllers import generate_hmac_hash
+    from run import app
+
+    data = validated_data
+    if int(time.time()) > data['expires']:
+        return _invalid_reset_link()
+
+    user = User.query.filter_by(id=data['user_id']).first()
+    if user is None:
+        return _invalid_reset_link()
+
+    expected = generate_hmac_hash(
+        app.config.get('HMAC_KEY', ''),
+        f"{data['user_id']}|{data['expires']}|{user.password}")
+    if not hmac.compare_digest(expected, data['mac']):
+        return _invalid_reset_link()
+
+    user.password = User.generate_hash(data['password'])
+    g.db.commit()
+
+    template = app.jinja_env.get_or_select_template('email/password_reset.txt')
+    _send(user.email, 'CCExtractor CI platform password reset',
+          template.render(name=user.name))
+
+    g.log.info(f'password reset completed via API for user {user.id}')
+    return single_response({'user_id': user.id, 'password_changed': True})
+
+
+@mod_api.route('/auth/me', methods=['PATCH'])
+@validate_body(AccountUpdateSchema)
+def update_account(validated_data=None):
+    """
+    Change your own name, email or password.
+
+    Touching the email or the password needs the current one as well: the
+    bearer token proves the request came from a signed-in session, not that
+    the person sending it knows the account's own credentials.
+    """
+    data = validated_data
+    if not data or set(data) == {'current_password'}:
+        return make_error_response(
+            'validation_error', 'No fields to update.', http_status=400)
+
+    user = g.api_user
+    sensitive = {'email', 'new_password'} & set(data)
+    if sensitive:
+        current = data.get('current_password')
+        if not current or not user.is_password_valid(current):
+            return make_error_response(
+                'forbidden',
+                'current_password is required and must match to change '
+                'your email or password.',
+                http_status=403)
+
+    if 'email' in data and data['email'] != user.email:
+        if User.query.filter_by(email=data['email']).first() is not None:
+            return make_error_response(
+                'conflict', 'That email is already in use.', http_status=409)
+        user.email = data['email']
+
+    if 'name' in data:
+        user.name = data['name']
+    if 'new_password' in data:
+        user.password = User.generate_hash(data['new_password'])
+
+    try:
+        g.db.commit()
+    except IntegrityError:
+        # name and email are both unique, so a race lands here.
+        g.db.rollback()
+        return make_error_response(
+            'conflict', 'That name or email is already in use.',
+            http_status=409)
+
+    g.log.info(f'user {user.id} updated their own account: '
+               f'{sorted(k for k in data if k != "current_password")}')
+    return single_response(_serialize_user(user))
+
+
+@mod_api.route('/users/<user_id>/deactivate', methods=['POST'])
+@validate_path_id('user_id')
+def deactivate_user(user_id):
+    """
+    Anonymise an account and lock it out.
+
+    The row stays so the uploads and runs it owns keep an author, which is
+    why this scrubs the identity instead of deleting. Open to admins and to
+    the account's owner, matching the classic page.
+
+    Scope-free for the same reason revoking your own token is: closing your
+    own account cannot depend on tokens:manage, which no role below admin is
+    ever allowed to hold. Ownership is checked below instead.
+
+    The caller's tokens are not revoked here: an admin deactivating someone
+    else must keep working, and a user deactivating themselves can no longer
+    sign in to mint another once the current one expires.
+    """
+    caller = g.api_user
+    if caller.role != Role.admin and caller.id != int(user_id):
+        return make_error_response(
+            'forbidden', 'You can only deactivate your own account.',
+            http_status=403)
+
+    user = User.query.filter(User.id == user_id).first()
+    if user is None:
+        return make_error_response(
+            'not_found', f'User {user_id} not found.', http_status=404)
+
+    user.name = f'Anonymous {user.id}'
+    user.email = f'unknown{user.id}@ccextractor.org'
+    user.password = User.generate_hash(User.create_random_password(16))
+    g.db.commit()
+
+    g.log.warning(f'user {user.id} deactivated via API by {caller.id}')
+    return single_response({'user_id': user.id, 'deactivated': True})

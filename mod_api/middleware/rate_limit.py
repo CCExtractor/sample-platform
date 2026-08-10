@@ -60,9 +60,20 @@ def _get_client_ip():
     return request.remote_addr
 
 
+# Endpoints reached without a token, so there is nothing to key on but the
+# address. All of them either hand out credentials or send mail to an address
+# the caller names, which is worth rationing tightly.
+_UNAUTHENTICATED_ENDPOINTS = frozenset([
+    'api.create_token',
+    'api.signup',
+    'api.request_password_reset',
+    'api.complete_password_reset',
+])
+
+
 def _get_rate_limit_key():
     """Build the rate-limit bucket key for this request."""
-    if request.endpoint == 'api.create_token':
+    if request.endpoint in _UNAUTHENTICATED_ENDPOINTS:
         return f'ip:{_get_client_ip()}'
     token = getattr(g, 'api_token', None)
     if token:
@@ -72,7 +83,7 @@ def _get_rate_limit_key():
 
 def _get_limits():
     """Return (max_requests, window_seconds) for the current endpoint."""
-    if request.endpoint == 'api.create_token':
+    if request.endpoint in _UNAUTHENTICATED_ENDPOINTS:
         return 5, 900
     if request.method in ('POST', 'DELETE', 'PUT', 'PATCH'):
         return 20, 60

@@ -4,6 +4,7 @@ System, health, queue, artifact, and platform configuration routes.
 GET    /system/health                        Health check (unauthenticated)
 GET    /system/queue                         Queue status — active + queued runs
 GET    /runs/{id}/artifacts                  Run artifacts from GCS + local
+GET    /system/about                         Versions this platform runs against
 GET    /system/maintenance                   Maintenance state per platform
 PATCH  /system/maintenance/{platform}        Pause or resume a platform
 GET    /system/blocked-users                 CI users blocked from triggering
@@ -45,6 +46,7 @@ from mod_api.services.storage import (get_log_file_path,
 from mod_api.utils import paginated_response, safe_resolve, single_response
 from mod_auth.models import Role
 from mod_ci.models import BlockedUsers, MaintenanceMode
+from mod_home.models import CCExtractorVersion, GeneralData
 from mod_sample.models import ForbiddenExtension
 from mod_test.models import (Test, TestPlatform, TestProgress, TestResultFile,
                              TestStatus)
@@ -366,6 +368,33 @@ def list_artifacts(run_id, limit=50, offset=0):
             a['download_url'] = url
 
     return paginated_response(paged, total, limit, offset)
+
+
+@mod_api.route('/system/about', methods=['GET'])
+@require_scope(Scope.SYSTEM_READ)
+def system_about():
+    """
+    Report the versions this platform is running against.
+
+    The classic about page is static prose. The parts of it worth reading
+    from a client are the CCExtractor release under test and the commit the
+    platform itself was deployed from, so those are what this returns.
+    """
+    from run import app
+
+    latest = CCExtractorVersion.query.order_by(
+        CCExtractorVersion.released.desc()).first()
+    last_commit = GeneralData.query.filter(
+        GeneralData.key == 'last_commit').first()
+
+    return single_response({
+        'platform_commit': app.config.get('BUILD_COMMIT'),
+        'ccextractor_version': latest.version if latest else None,
+        'ccextractor_released': (
+            latest.released.isoformat()
+            if latest and latest.released else None),
+        'last_tested_commit': last_commit.value if last_commit else None,
+    })
 
 
 def _maintenance_entry(platform, row):

@@ -1,35 +1,50 @@
 """
 Sample and regression test routes.
 
-GET /runs/{id}/samples              Per-run regression test results
-GET /runs/{id}/samples/{sid}        Single result in a run
-GET /samples                        Media sample catalog
-GET /samples/{id}                   Single media sample
-GET /samples/{id}/details           Upload metadata, extra files, media info
-GET /samples/{id}/download          Where the media file lives in storage
-GET /samples/{id}/history           Cross-run history for a sample
-GET /regression-tests               Regression test definitions
+GET    /runs/{id}/samples           Per-run regression test results
+GET    /runs/{id}/samples/{sid}     Single result in a run
+GET    /samples                     Media sample catalog
+GET    /samples/{id}                Single media sample
+PATCH  /samples/{id}                Edit tags and upload metadata
+DELETE /samples/{id}                Delete a sample no test uses
+GET    /samples/{id}/details        Upload metadata, extra files, media info
+GET    /samples/{id}/download       Where the media file lives in storage
+GET    /samples/{id}/media-info/download
+                                    Where the MediaInfo XML lives
+GET    /samples/{id}/extra-files/{eid}/download
+                                    Where an accompanying file lives
+DELETE /samples/{id}/extra-files/{eid}
+                                    Delete an accompanying file
+GET    /samples/{id}/history        Cross-run history for a sample
+GET    /tags                        Tags a sample can be labelled with
+POST   /tags                        Create a tag
+GET    /regression-tests            Regression test definitions
 """
 
+import os
 from collections import defaultdict
 
 from flask import g, request
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload, selectinload
 
 from mod_api import mod_api
-from mod_api.middleware.auth import require_scope
+from mod_api.middleware.auth import require_roles, require_scope
 from mod_api.middleware.error_handler import make_error_response
-from mod_api.middleware.validation import (validate_date_range,
+from mod_api.middleware.validation import (validate_body, validate_date_range,
                                            validate_offset_pagination,
                                            validate_path_id)
 from mod_api.models.api_token import Scope
-from mod_api.schemas.samples import SampleHistoryEntrySchema
+from mod_api.schemas.samples import (SampleHistoryEntrySchema,
+                                     SampleUpdateSchema, TagCreateSchema)
 from mod_api.services.status import (batch_get_run_data, derive_output_status,
                                      derive_sample_status, get_run_timestamps,
                                      is_dummy_row)
 from mod_api.services.storage import resolve_artifact
-from mod_api.utils import paginated_response, single_response
+from mod_api.utils import paginated_response, safe_resolve, single_response
+from mod_auth.models import Role
+from mod_home.models import CCExtractorVersion
 from mod_regression.models import (Category, RegressionTest,
                                    RegressionTestOutput)
 from mod_sample.media_info_parser import (InvalidMediaInfoError,
@@ -37,7 +52,7 @@ from mod_sample.media_info_parser import (InvalidMediaInfoError,
 from mod_sample.models import ExtraFile, Sample, Tag
 from mod_test.models import (Test, TestPlatform, TestProgress, TestResult,
                              TestResultFile)
-from mod_upload.models import Upload
+from mod_upload.models import Platform, Upload
 
 # Valid per-sample status values accepted by the ?status filter. Limited to the
 # statuses derive_sample_status can actually emit, so filtering can't silently
@@ -478,6 +493,266 @@ def download_sample(sample_id):
         'download_url': url,
         'storage_status': status,
     })
+
+
+@mod_api.route('/tags', methods=['GET'])
+@require_scope(Scope.RUNS_READ)
+@validate_offset_pagination()
+def list_tags(limit=50, offset=0):
+    """List the tags a sample can be labelled with, alphabetically."""
+    query = Tag.query.order_by(Tag.name.asc())
+    total = query.count()
+    rows = query.offset(offset).limit(limit).all()
+    return paginated_response(
+        [{'id': t.id, 'name': t.name, 'description': t.description or ''}
+         for t in rows], total, limit, offset)
+
+
+@mod_api.route('/tags', methods=['POST'])
+@require_roles([Role.admin])
+@require_scope(Scope.RUNS_WRITE)
+@validate_body(TagCreateSchema)
+def create_tag(validated_data=None):
+    """Create a tag. Names are unique, so a duplicate is a 409."""
+    name = validated_data['name']
+    if Tag.query.filter(Tag.name == name).first() is not None:
+        return make_error_response(
+            'conflict', f"Tag '{name}' already exists.", http_status=409)
+
+    tag = Tag(name, validated_data['description'])
+    g.db.add(tag)
+    try:
+        g.db.commit()
+    except IntegrityError:
+        # name is unique, so a request that raced the check lands here.
+        g.db.rollback()
+        return make_error_response(
+            'conflict', f"Tag '{name}' already exists.", http_status=409)
+
+    g.log.info(f'tag {tag.id} created via API by {g.api_user.id}')
+    return single_response(
+        {'id': tag.id, 'name': tag.name, 'description': tag.description or ''},
+        http_status=201)
+
+
+@mod_api.route('/samples/<sample_id>', methods=['PATCH'])
+@require_roles([Role.admin])
+@require_scope(Scope.RUNS_WRITE)
+@validate_path_id('sample_id')
+@validate_body(SampleUpdateSchema)
+def update_sample(sample_id, validated_data=None):
+    """
+    Edit a sample's tags and the upload metadata recorded with it.
+
+    Notes, parameters, platform and version live on the upload row rather
+    than the sample, so a sample that arrived without one (over FTP, or
+    seeded directly) can only have its tags changed.
+    """
+    sample = Sample.query.filter(Sample.id == sample_id).first()
+    if sample is None:
+        return make_error_response(
+            'not_found', f'Sample {sample_id} not found.', http_status=404)
+
+    data = validated_data
+    if not data:
+        return make_error_response(
+            'validation_error', 'No fields to update.', http_status=400)
+
+    if 'tags' in data:
+        rows = Tag.query.filter(Tag.name.in_(data['tags'])).all()
+        found = {t.name for t in rows}
+        unknown = [n for n in data['tags'] if n not in found]
+        if unknown:
+            return make_error_response(
+                'validation_error',
+                f"Unknown tags: {', '.join(unknown)}",
+                details={'fields': {'tags': unknown}},
+                http_status=400,
+            )
+        sample.tags = rows
+
+    upload_fields = {'notes', 'parameters', 'platform', 'version'}
+    requested = upload_fields & set(data)
+    if requested:
+        upload = Upload.query.filter(Upload.sample_id == sample.id).first()
+        if upload is None:
+            return make_error_response(
+                'conflict',
+                f'Sample {sample_id} has no upload record, so '
+                f"{', '.join(sorted(requested))} cannot be set on it.",
+                http_status=409,
+            )
+        if 'notes' in data:
+            upload.notes = data['notes']
+        if 'parameters' in data:
+            upload.parameters = data['parameters']
+        if 'platform' in data:
+            upload.platform = Platform.from_string(data['platform'])
+        if 'version' in data:
+            version = CCExtractorVersion.query.filter(
+                CCExtractorVersion.version == data['version']).first()
+            if version is None:
+                return make_error_response(
+                    'validation_error',
+                    f"Unknown CCExtractor version: {data['version']}",
+                    http_status=400)
+            upload.version_id = version.id
+
+    g.db.commit()
+
+    g.log.info(f'sample {sample.id} updated via API by {g.api_user.id}: '
+               f'{sorted(data.keys())}')
+    return single_response({
+        'sample_id': sample.id,
+        'tags': [t.name for t in sample.tags],
+    })
+
+
+def _remove_local(relative_path):
+    """
+    Delete a file under the sample repository, tolerating its absence.
+
+    In production the repository is a gcsfuse mount, so this removes the
+    stored object too. A path that no longer exists is not an error: the
+    row is going either way, and refusing would leave the database holding
+    a sample whose files are already gone.
+    """
+    from run import config
+
+    root = config.get('SAMPLE_REPOSITORY', '')
+    path = safe_resolve(root, relative_path)
+    if path is None:
+        g.log.warning(f'refusing to delete path outside the repository: '
+                      f'{relative_path}')
+        return
+    try:
+        os.remove(path)
+    except OSError as e:
+        g.log.warning(f'could not delete {relative_path}: {e}')
+
+
+@mod_api.route('/samples/<sample_id>', methods=['DELETE'])
+@require_roles([Role.admin])
+@require_scope(Scope.RUNS_WRITE)
+@validate_path_id('sample_id')
+def delete_sample(sample_id):
+    """
+    Delete a sample, its extra files and its media info.
+
+    Refused while any regression test still points at it, because removing
+    the media would leave those tests unable to run and their history
+    describing a sample nobody can fetch. Detach or delete the tests first.
+    """
+    sample = Sample.query.options(joinedload(Sample.extra_files)).filter(
+        Sample.id == sample_id).first()
+    if sample is None:
+        return make_error_response(
+            'not_found', f'Sample {sample_id} not found.', http_status=404)
+
+    test_count = RegressionTest.query.filter_by(sample_id=sample.id).count()
+    if test_count:
+        return make_error_response(
+            'conflict',
+            f'Sample {sample_id} is used by {test_count} regression '
+            f'test(s). Delete those first.',
+            details={'regression_test_count': test_count},
+            http_status=409,
+        )
+
+    for extra in sample.extra_files:
+        _remove_local(f'TestFiles/extra/{extra.filename}')
+    _remove_local(f'TestFiles/media/{sample.sha}.xml')
+    _remove_local(f'TestFiles/{sample.filename}')
+
+    g.db.delete(sample)
+    g.db.commit()
+
+    g.log.warning(f'sample {sample_id} deleted via API by {g.api_user.id}')
+    return single_response({'sample_id': int(sample_id), 'deleted': True})
+
+
+@mod_api.route(
+    '/samples/<sample_id>/extra-files/<int:extra_id>', methods=['DELETE'])
+@require_roles([Role.admin])
+@require_scope(Scope.RUNS_WRITE)
+@validate_path_id('sample_id')
+def delete_extra_file(sample_id, extra_id):
+    """Delete one of the files uploaded alongside a sample."""
+    extra, err = _get_extra_file(sample_id, extra_id)
+    if err:
+        return err
+
+    _remove_local(f'TestFiles/extra/{extra.filename}')
+    g.db.delete(extra)
+    g.db.commit()
+
+    g.log.warning(f'extra file {extra_id} of sample {sample_id} deleted via '
+                  f'API by {g.api_user.id}')
+    return single_response({'id': extra_id, 'deleted': True})
+
+
+def _located(sample_id, relative_path, filename, missing_message):
+    """Report where one of a sample's files is, in the download shape."""
+    url, status = resolve_artifact(relative_path)
+    if status == 'missing':
+        return make_error_response(
+            'not_found', missing_message, http_status=404)
+    return single_response({
+        'sample_id': sample_id,
+        'filename': filename,
+        'download_url': url,
+        'storage_status': status,
+    })
+
+
+@mod_api.route('/samples/<sample_id>/media-info/download', methods=['GET'])
+@require_scope(Scope.RUNS_READ)
+@validate_path_id('sample_id')
+def download_media_info(sample_id):
+    """
+    Locate the MediaInfo XML written alongside a sample.
+
+    The parsed tree is already on /samples/{id}/details; this is for anyone
+    who wants the original file MediaInfo produced.
+    """
+    sample = Sample.query.filter(Sample.id == sample_id).first()
+    if sample is None:
+        return make_error_response(
+            'not_found', f'Sample {sample_id} not found.', http_status=404)
+
+    name = f'{sample.sha}.xml'
+    return _located(
+        sample.id, f'TestFiles/media/{name}', name,
+        f'No media info stored for sample {sample_id}.')
+
+
+def _get_extra_file(sample_id, extra_id):
+    """Look up one extra file, matched against the sample that owns it."""
+    extra = ExtraFile.query.filter_by(
+        id=extra_id, sample_id=sample_id).first()
+    if extra is None:
+        return None, make_error_response(
+            'not_found',
+            f'Extra file {extra_id} not found on sample {sample_id}.',
+            http_status=404)
+    return extra, None
+
+
+@mod_api.route(
+    '/samples/<sample_id>/extra-files/<int:extra_id>/download',
+    methods=['GET']
+)
+@require_scope(Scope.RUNS_READ)
+@validate_path_id('sample_id')
+def download_extra_file(sample_id, extra_id):
+    """Locate one of the files uploaded alongside a sample."""
+    extra, err = _get_extra_file(sample_id, extra_id)
+    if err:
+        return err
+
+    return _located(
+        int(sample_id), f'TestFiles/extra/{extra.filename}', extra.filename,
+        f'Extra file {extra_id} is not present in storage.')
 
 
 def _get_history_failure_signature(result, result_files, status):

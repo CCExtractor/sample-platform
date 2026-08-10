@@ -2063,6 +2063,275 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /samples/upload:
+    post:
+      tags: [Uploads]
+      summary: Upload a media file into the queue
+      operationId: uploadSample
+      description: >
+        Uploading and describing are two steps, as on the classic pages: the
+        transfer is slow and the metadata needs a CCExtractor version the
+        uploader may have to look up, so the bytes are banked first. The file
+        is hashed as it is written, and content already in the library or the
+        queue is refused with 409. Extension and mime type are checked
+        against the forbidden lists.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:write
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Upload queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  sha:
+                    type: string
+                  extension:
+                    type: string
+                  original_name:
+                    type: string
+                  user_id:
+                    type: integer
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "413":
+          description: File larger than the configured upload limit
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /queued-samples:
+    get:
+      tags: [Uploads]
+      summary: List uploads waiting to be described
+      operationId: listQueuedSamples
+      description: >
+        Admins see the whole queue; everyone else sees only their own
+        uploads.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:read
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Paginated queued uploads
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Page"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      sha:
+                        type: string
+                      extension:
+                        type: string
+                      original_name:
+                        type: string
+                      user_id:
+                        type: integer
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /queued-samples/{queued_id}:
+    get:
+      tags: [Uploads]
+      summary: Get one queued upload
+      operationId: getQueuedSample
+      description: >
+        Someone else's upload reads as absent rather than forbidden, so an
+        id cannot be used to find out what others have queued.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:read
+      parameters:
+        - name: queued_id
+          in: path
+          required: true
+          description: Id of the queued upload
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: The queued upload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  sha:
+                    type: string
+                  extension:
+                    type: string
+                  original_name:
+                    type: string
+                  user_id:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Uploads]
+      summary: Discard a queued upload
+      operationId: deleteQueuedSample
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:write
+      parameters:
+        - name: queued_id
+          in: path
+          required: true
+          description: Id of the queued upload
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Queued upload discarded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  deleted:
+                    type: boolean
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /queued-samples/{queued_id}/finalize:
+    post:
+      tags: [Uploads]
+      summary: Turn a queued upload into a sample
+      operationId: finalizeQueuedSample
+      description: >
+        The file only moves into TestFiles once the rows are committed, so a
+        failure part way through leaves the upload in the queue to retry
+        rather than a sample row pointing at a file that was never placed.
+        Reporting the sample as a GitHub issue stays on the classic page.
+      security:
+        - bearerAuth: []
+      x-required-scope: runs:write
+      parameters:
+        - name: queued_id
+          in: path
+          required: true
+          description: Id of the queued upload
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version, platform]
+              properties:
+                version:
+                  type: string
+                  maxLength: 10
+                  description: CCExtractor release the sample was produced with
+                platform:
+                  type: string
+                  enum: [linux, windows, mac, bsd]
+                parameters:
+                  type: string
+                  maxLength: 1024
+                notes:
+                  type: string
+                  maxLength: 1024
+      responses:
+        "201":
+          description: Sample created from the upload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sample_id:
+                    type: integer
+                  sha:
+                    type: string
+                  original_name:
+                    type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
   # PLATFORM CONFIGURATION
 
   /system/maintenance:

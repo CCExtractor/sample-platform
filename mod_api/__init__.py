@@ -43,3 +43,4 @@ from mod_api.routes import results as results_routes  # noqa: E402, F401
 from mod_api.routes import runs as runs_routes  # noqa: E402, F401
 from mod_api.routes import samples as samples_routes  # noqa: E402, F401
 from mod_api.routes import system as system_routes  # noqa: E402, F401
+from mod_api.routes import uploads as uploads_routes  # noqa: E402, F401

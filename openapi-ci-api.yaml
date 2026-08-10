@@ -297,6 +297,128 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /auth/signup:
+    post:
+      tags: [Auth]
+      summary: Send a registration link to an email address
+      operationId: signup
+      description: >
+        Answers the same way whether or not the address is already
+        registered, because a different reply would tell an anonymous caller
+        who has an account. The link lands on the classic completion page,
+        which is where the account is actually created. Unauthenticated and
+        limited to 5 requests per 15 minutes per IP.
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        "202":
+          description: Accepted; an email has been sent if appropriate
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sent:
+                    type: boolean
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /auth/password-reset:
+    post:
+      tags: [Auth]
+      summary: Send a password reset link
+      operationId: requestPasswordReset
+      description: >
+        Silent about whether the address is registered, for the same reason
+        signup is. Unauthenticated and limited per IP.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        "202":
+          description: Accepted; an email has been sent if appropriate
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sent:
+                    type: boolean
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /auth/password-reset/complete:
+    post:
+      tags: [Auth]
+      summary: Set a new password using a link from the reset email
+      operationId: completePasswordReset
+      description: >
+        The signature covers the current password hash, so a link stops
+        working the moment it is used or the password changes by any other
+        route. Expired, unknown and forged links share one reply.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, expires, mac, password]
+              properties:
+                user_id:
+                  type: integer
+                  minimum: 1
+                expires:
+                  type: integer
+                mac:
+                  type: string
+                  maxLength: 128
+                password:
+                  type: string
+      responses:
+        "200":
+          description: Password changed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id:
+                    type: integer
+                  password_changed:
+                    type: boolean
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
   /auth/me:
     get:
       tags: [Auth]
@@ -326,6 +448,55 @@ paths:
           $ref: "#/components/responses/Error"
 
   # RUNS
+    patch:
+      tags: [Auth]
+      summary: Change your own name, email or password
+      operationId: updateAccount
+      description: >
+        Touching the email or the password needs the current one as well:
+        the bearer token proves the request came from a signed-in session,
+        not that the sender knows the account's own credentials.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 50
+                email:
+                  type: string
+                  format: email
+                new_password:
+                  type: string
+                current_password:
+                  type: string
+      responses:
+        "200":
+          description: Account updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformUser"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
 
   /runs:
     get:
@@ -1843,6 +2014,44 @@ paths:
                   last_tested_commit:
                     type: string
                     nullable: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /users/{user_id}/deactivate:
+    post:
+      tags: [Auth]
+      summary: Anonymise an account and lock it out
+      operationId: deactivateUser
+      description: >
+        The row stays so the uploads and runs it owns keep an author, which
+        is why this scrubs the identity instead of deleting. Open to admins
+        and to the account's owner. Scope-free for the same reason revoking
+        your own token is: closing your own account cannot depend on
+        tokens:manage, which no role below admin may hold.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: Account deactivated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id:
+                    type: integer
+                  deactivated:
+                    type: boolean
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":

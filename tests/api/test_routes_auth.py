@@ -1,4 +1,5 @@
 import json
+import time
 from unittest.mock import patch
 
 from flask import g
@@ -452,3 +453,154 @@ class TestRoutesAuth(ApiTestCase):
         res = self._patch_user(self._admin_token('usr_404'), 999999,
                                {'role': 'user'})
         self.assertEqual(res.status_code, 404)
+
+    # ---- account: signup, reset, self-service, deactivate --------------
+
+    def _json(self, method, path, body, headers=None):
+        return getattr(self.client, method)(
+            f'/api/v1{path}', data=json.dumps(body),
+            content_type='application/json', headers=headers or {})
+
+    @patch('requests.post')
+    def test_signup_sends_a_link(self, post):
+        res = self._json('post', '/auth/signup',
+                         {'email': 'brand_new@local.com'})
+
+        self.assertEqual(res.status_code, 202)
+        self.assertTrue(post.called)
+
+    @patch('requests.post')
+    def test_signup_is_silent_about_existing_accounts(self, post):
+        known = self._json('post', '/auth/signup',
+                           {'email': 'auth_user@local.com'})
+        _rate_limit_store.clear()
+        unknown = self._json('post', '/auth/signup',
+                             {'email': 'nobody@local.com'})
+
+        # Same status and body either way, or the reply becomes a way to
+        # ask whether an address has an account.
+        self.assertEqual(known.status_code, unknown.status_code)
+        self.assertEqual(known.json, unknown.json)
+
+    @patch('requests.post')
+    def test_password_reset_request_is_silent_about_unknown_email(self, post):
+        res = self._json('post', '/auth/password-reset',
+                         {'email': 'nobody@local.com'})
+
+        self.assertEqual(res.status_code, 202)
+
+    @patch('requests.post')
+    def test_password_reset_completes_with_a_valid_link(self, post):
+        from mod_auth.controllers import generate_hmac_hash
+        from run import app
+
+        expires = int(time.time()) + 600
+        content = f'{self.user_id}|{expires}|{self.user.password}'
+        mac = generate_hmac_hash(app.config.get('HMAC_KEY', ''), content)
+
+        res = self._json('post', '/auth/password-reset/complete', {
+            'user_id': self.user_id,
+            'expires': expires,
+            'mac': mac,
+            'password': 'a-brand-new-password',
+        })
+
+        self.assertEqual(res.status_code, 200)
+        changed = User.query.filter_by(id=self.user_id).first()
+        self.assertTrue(changed.is_password_valid('a-brand-new-password'))
+
+    def test_password_reset_rejects_a_forged_mac(self):
+        res = self._json('post', '/auth/password-reset/complete', {
+            'user_id': self.user_id,
+            'expires': int(time.time()) + 600,
+            'mac': 'not-the-real-signature',
+            'password': 'a-brand-new-password',
+        })
+
+        self.assertEqual(res.status_code, 400)
+        unchanged = User.query.filter_by(id=self.user_id).first()
+        self.assertTrue(unchanged.is_password_valid('userpass123'))
+
+    def test_password_reset_rejects_an_expired_link(self):
+        from mod_auth.controllers import generate_hmac_hash
+        from run import app
+
+        expires = int(time.time()) - 1
+        content = f'{self.user_id}|{expires}|{self.user.password}'
+        mac = generate_hmac_hash(app.config.get('HMAC_KEY', ''), content)
+
+        res = self._json('post', '/auth/password-reset/complete', {
+            'user_id': self.user_id,
+            'expires': expires,
+            'mac': mac,
+            'password': 'a-brand-new-password',
+        })
+
+        self.assertEqual(res.status_code, 400)
+
+    def _auth(self, email='auth_user@local.com', pwd='userpass123',
+              name='acct', scopes=None):
+        # get_token returns the response in this class, not the token.
+        token = self.get_token(email, pwd, name, scopes=scopes).json['token']
+        return {'Authorization': f'Bearer {token}'}
+
+    def test_update_own_name(self):
+        res = self._json('patch', '/auth/me', {'name': 'Renamed'},
+                         self._auth(name='acct1'))
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json['name'], 'Renamed')
+
+    def test_changing_password_requires_the_current_one(self):
+        res = self._json('patch', '/auth/me',
+                         {'new_password': 'something-else-entirely'},
+                         self._auth(name='acct2'))
+
+        self.assertEqual(res.status_code, 403)
+
+    def test_change_password_with_the_current_one(self):
+        res = self._json('patch', '/auth/me', {
+            'current_password': 'userpass123',
+            'new_password': 'something-else-entirely',
+        }, self._auth(name='acct3'))
+
+        self.assertEqual(res.status_code, 200)
+        changed = User.query.filter_by(id=self.user_id).first()
+        self.assertTrue(changed.is_password_valid('something-else-entirely'))
+
+    def test_change_email_to_one_already_taken(self):
+        res = self._json('patch', '/auth/me', {
+            'current_password': 'userpass123',
+            'email': 'auth_admin@local.com',
+        }, self._auth(name='acct4'))
+
+        self.assertEqual(res.status_code, 409)
+
+    def test_deactivate_own_account(self):
+        # A plain contributor can never hold tokens:manage, so closing your
+        # own account has to work without it.
+        res = self.client.post(
+            f'/api/v1/users/{self.user_id}/deactivate',
+            headers=self._auth(name='acct5'))
+
+        self.assertEqual(res.status_code, 200)
+        gone = User.query.filter_by(id=self.user_id).first()
+        self.assertEqual(gone.name, f'Anonymous {self.user_id}')
+
+    def test_deactivate_someone_else_needs_admin(self):
+        res = self.client.post(
+            f'/api/v1/users/{self.user_id}/deactivate',
+            headers=self._auth('auth_admin@local.com', 'adminpass123',
+                               'acct6'))
+
+        self.assertEqual(res.status_code, 200)
+        gone = User.query.filter_by(id=self.user_id).first()
+        self.assertEqual(gone.name, f'Anonymous {self.user_id}')
+        self.assertFalse(gone.is_password_valid('userpass123'))
+
+    def test_deactivate_requires_admin_or_ownership(self):
+        res = self.client.post(
+            f'/api/v1/users/{self.admin.id}/deactivate',
+            headers=self._auth(name='acct7'))
+
+        self.assertEqual(res.status_code, 403)

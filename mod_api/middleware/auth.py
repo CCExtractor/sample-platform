@@ -24,6 +24,11 @@ _AUTH_FAILED_MSG = 'Bearer token is missing, expired, or invalid.'
 _PUBLIC_ENDPOINTS = frozenset([
     'api.create_token',       # POST /auth/tokens (uses email/password body)
     'api.system_health',      # GET /system/health (uptime monitoring)
+    # Account recovery: nobody holds a token at this point, which is the
+    # whole reason for asking. These are limited per IP instead.
+    'api.signup',
+    'api.request_password_reset',
+    'api.complete_password_reset',
 ])
 
 

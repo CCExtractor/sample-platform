@@ -535,6 +535,65 @@ def create_tag(validated_data=None):
         http_status=201)
 
 
+#: Sample edit fields that live on the upload row rather than the sample.
+_UPLOAD_FIELDS = frozenset(['notes', 'parameters', 'platform', 'version'])
+
+
+def _apply_tags(sample, names):
+    """
+    Replace a sample's tags, matching them by name.
+
+    Returns an error response when a name is not a tag, so one typo rejects
+    the whole request instead of silently dropping a label.
+    """
+    rows = Tag.query.filter(Tag.name.in_(names)).all()
+    found = {t.name for t in rows}
+    unknown = [n for n in names if n not in found]
+    if unknown:
+        return make_error_response(
+            'validation_error',
+            f"Unknown tags: {', '.join(unknown)}",
+            details={'fields': {'tags': unknown}},
+            http_status=400,
+        )
+    sample.tags = rows
+    return None
+
+
+def _apply_upload_fields(sample_id, data, requested):
+    """
+    Write the parts of a sample edit that belong to its upload row.
+
+    Returns an error response when there is no upload row to write to, or
+    when the version named is not one the platform knows.
+    """
+    upload = Upload.query.filter(Upload.sample_id == sample_id).first()
+    if upload is None:
+        return make_error_response(
+            'conflict',
+            f'Sample {sample_id} has no upload record, so '
+            f"{', '.join(sorted(requested))} cannot be set on it.",
+            http_status=409,
+        )
+
+    if 'notes' in data:
+        upload.notes = data['notes']
+    if 'parameters' in data:
+        upload.parameters = data['parameters']
+    if 'platform' in data:
+        upload.platform = Platform.from_string(data['platform'])
+    if 'version' in data:
+        version = CCExtractorVersion.query.filter(
+            CCExtractorVersion.version == data['version']).first()
+        if version is None:
+            return make_error_response(
+                'validation_error',
+                f"Unknown CCExtractor version: {data['version']}",
+                http_status=400)
+        upload.version_id = version.id
+    return None
+
+
 @mod_api.route('/samples/<sample_id>', methods=['PATCH'])
 @require_roles([Role.admin])
 @require_scope(Scope.RUNS_WRITE)
@@ -559,44 +618,15 @@ def update_sample(sample_id, validated_data=None):
             'validation_error', 'No fields to update.', http_status=400)
 
     if 'tags' in data:
-        rows = Tag.query.filter(Tag.name.in_(data['tags'])).all()
-        found = {t.name for t in rows}
-        unknown = [n for n in data['tags'] if n not in found]
-        if unknown:
-            return make_error_response(
-                'validation_error',
-                f"Unknown tags: {', '.join(unknown)}",
-                details={'fields': {'tags': unknown}},
-                http_status=400,
-            )
-        sample.tags = rows
+        err = _apply_tags(sample, data['tags'])
+        if err:
+            return err
 
-    upload_fields = {'notes', 'parameters', 'platform', 'version'}
-    requested = upload_fields & set(data)
+    requested = _UPLOAD_FIELDS & set(data)
     if requested:
-        upload = Upload.query.filter(Upload.sample_id == sample.id).first()
-        if upload is None:
-            return make_error_response(
-                'conflict',
-                f'Sample {sample_id} has no upload record, so '
-                f"{', '.join(sorted(requested))} cannot be set on it.",
-                http_status=409,
-            )
-        if 'notes' in data:
-            upload.notes = data['notes']
-        if 'parameters' in data:
-            upload.parameters = data['parameters']
-        if 'platform' in data:
-            upload.platform = Platform.from_string(data['platform'])
-        if 'version' in data:
-            version = CCExtractorVersion.query.filter(
-                CCExtractorVersion.version == data['version']).first()
-            if version is None:
-                return make_error_response(
-                    'validation_error',
-                    f"Unknown CCExtractor version: {data['version']}",
-                    http_status=400)
-            upload.version_id = version.id
+        err = _apply_upload_fields(sample.id, data, requested)
+        if err:
+            return err
 
     g.db.commit()
 

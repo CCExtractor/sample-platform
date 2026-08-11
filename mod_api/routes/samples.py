@@ -483,11 +483,41 @@ def _process_history_entries(
             'status': status,
             'platform': test.platform.value,
             'branch': test.branch,
-            'commit_sha': test.commit,
-            'tested_at': timestamps.get('completed_at') or timestamps.get('started_at'),
+            'tested_at': (
+                timestamps.get('completed_at')
+                or timestamps.get('started_at')
+            ),
             'failure_signature': failure_sig,
         })
     return entries
+
+
+def _build_history_entries(results, status_filter=None):
+    test_ids = list({r.test_id for r in results})
+    all_files = TestResultFile.query.options(
+        joinedload(TestResultFile.regression_test_output)
+        .joinedload(RegressionTestOutput.multiple_files)
+    ).filter(
+        TestResultFile.test_id.in_(test_ids)).all() if test_ids else []
+    files_by_result = defaultdict(list)
+    for f in all_files:
+        files_by_result[(f.test_id, f.regression_test_id)].append(f)
+
+    expected_by_rt = _preload_expected_outputs(results)
+
+    unique_tests = Test.query.filter(
+        Test.id.in_(test_ids)).all() if test_ids else []
+    test_map = {t.id: t for t in unique_tests}
+
+    _, timestamps_map = batch_get_run_data(unique_tests)
+
+    return _process_history_entries(
+        results,
+        files_by_result,
+        status_filter,
+        timestamps_map=timestamps_map,
+        test_map=test_map,
+        expected_by_rt=expected_by_rt)
 
 
 def _apply_history_filters(
@@ -561,6 +591,23 @@ def get_sample_history(
     if not rt_ids:
         return paginated_response([], 0, limit, offset)
 
+    rt_id_param = request.args.get('regression_test_id')
+    if rt_id_param is not None:
+        try:
+            rt_id_value = int(rt_id_param)
+            if rt_id_value < 1 or rt_id_value > 2147483647:
+                raise ValueError("Out of bounds")
+        except (ValueError, TypeError):
+            return make_error_response(
+                'validation_error',
+                'regression_test_id must be a positive integer '
+                'between 1 and 2147483647.',
+                http_status=400,
+            )
+        if rt_id_value not in rt_ids:
+            return paginated_response([], 0, limit, offset)
+        rt_ids = [rt_id_value]
+
     # Validate the status filter up front, before any heavy query.
     status_filter = request.args.get('status')
     if status_filter and status_filter not in _VALID_SAMPLE_STATUSES:
@@ -582,40 +629,16 @@ def get_sample_history(
     if err:
         return err
 
-    results = query.order_by(Test.id.desc()).all()
-
-    # Preload TestResultFiles
-    test_ids = list({r.test_id for r in results})
-    all_files = TestResultFile.query.options(
-        joinedload(TestResultFile.regression_test_output)
-        .joinedload(RegressionTestOutput.multiple_files)
-    ).filter(
-        TestResultFile.test_id.in_(test_ids)).all() if test_ids else []
-    files_by_result = defaultdict(list)
-    for f in all_files:
-        files_by_result[(f.test_id, f.regression_test_id)].append(f)
-
-    # Preload expected outputs so status matches /summary and /samples.
-    expected_by_rt = _preload_expected_outputs(results)
-
-    # Batch load tests to avoid N+1 in _process_history_entries
-    unique_tests = Test.query.filter(
-        Test.id.in_(test_ids)).all() if test_ids else []
-    test_map = {t.id: t for t in unique_tests}
-
-    # Batch compute timestamps for all referenced tests
-    _, timestamps_map = batch_get_run_data(unique_tests)
-
-    entries = _process_history_entries(
-        results,
-        files_by_result,
-        status_filter,
-        timestamps_map=timestamps_map,
-        test_map=test_map,
-        expected_by_rt=expected_by_rt)
-
-    total = len(entries)
-    paged = entries[offset:offset + limit]
+    if not status_filter:
+        total = query.count()
+        results = query.order_by(Test.id.desc()) \
+            .offset(offset).limit(limit).all()
+        paged = _build_history_entries(results, None)
+    else:
+        results = query.order_by(Test.id.desc()).all()
+        entries = _build_history_entries(results, status_filter)
+        total = len(entries)
+        paged = entries[offset:offset + limit]
 
     return paginated_response(
         paged, total, limit, offset, schema=SampleHistoryEntrySchema()

@@ -18,6 +18,9 @@ GITHUB_CLIENT_KEY = ''
 INSTALL_FOLDER = '/path/to/installation'
 SAMPLE_REPOSITORY = '/path/to/samples'
 SESSION_COOKIE_PATH = '/'
+# Where the web console is served, if one is. Password reset links point
+# there when it is set, and at these pages when it is not.
+CONSOLE_URL = ''
 FTP_PORT = 21
 MAX_CONTENT_LENGTH = 512 * 1024 * 1024
 MIN_PWD_LEN = 10

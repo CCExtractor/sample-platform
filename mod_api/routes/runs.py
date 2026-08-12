@@ -710,7 +710,9 @@ def restart_run(run_id):
     the run's owner, which suits a shared CI where a stuck VM blocks
     everybody.
     """
-    test = Test.query.filter(Test.id == run_id).first()
+    # Locked the way cancel locks, so two restarts arriving together do not
+    # both go clearing the same results.
+    test = Test.query.with_for_update().filter(Test.id == run_id).first()
     if test is None:
         return make_error_response(
             'not_found',

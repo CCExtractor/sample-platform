@@ -689,13 +689,19 @@ def delete_sample(sample_id):
             http_status=409,
         )
 
-    for extra in sample.extra_files:
-        _remove_local(f'TestFiles/extra/{extra.filename}')
-    _remove_local(f'TestFiles/media/{sample.sha}.xml')
-    _remove_local(f'TestFiles/{sample.filename}')
+    # Read the paths off the row before it goes, then unlink only once the
+    # delete is committed: the same order finalize uses, so a failed commit
+    # cannot leave a sample row pointing at media that is already gone.
+    paths = [f'TestFiles/extra/{extra.filename}' for extra in
+             sample.extra_files]
+    paths.append(f'TestFiles/media/{sample.sha}.xml')
+    paths.append(f'TestFiles/{sample.filename}')
 
     g.db.delete(sample)
     g.db.commit()
+
+    for path in paths:
+        _remove_local(path)
 
     g.log.warning(f'sample {sample_id} deleted via API by {g.api_user.id}')
     return single_response({'sample_id': int(sample_id), 'deleted': True})

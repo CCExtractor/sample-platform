@@ -70,6 +70,12 @@ def _send_reset_link(user):
     be reused is mod_auth's own send_reset_email: it builds the URL with a
     relative endpoint, which resolves against whichever blueprint is
     handling the request and so cannot be built from inside this one.
+
+    Where CONSOLE_URL names a web console, the link points there instead,
+    so somebody who started in the console is not handed to a second site
+    to finish. The console posts the same three values back to
+    /auth/password-reset/complete, so the link means the same thing either
+    way. Unset, which is every existing install, nothing changes.
     """
     from mod_auth.controllers import generate_hmac_hash
     from run import app
@@ -78,8 +84,13 @@ def _send_reset_link(user):
     mac = generate_hmac_hash(
         app.config.get('HMAC_KEY', ''),
         f'{user.id}|{expires}|{user.password}')
-    url = url_for('auth.complete_reset', uid=user.id, expires=expires,
-                  mac=mac, _external=True)
+    console = app.config.get('CONSOLE_URL', '')
+    if console:
+        url = (f"{console.rstrip('/')}/reset"
+               f'?uid={user.id}&expires={expires}&mac={mac}')
+    else:
+        url = url_for('auth.complete_reset', uid=user.id, expires=expires,
+                      mac=mac, _external=True)
     template = app.jinja_env.get_or_select_template('email/recovery_link.txt')
     _send(user.email,
           'CCExtractor CI platform password recovery instructions',

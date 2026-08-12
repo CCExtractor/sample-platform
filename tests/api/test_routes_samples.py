@@ -622,6 +622,32 @@ class TestRoutesSamples(ApiTestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIsNone(Sample.query.filter(Sample.id == spare_id).first())
 
+    @mock.patch('mod_api.routes.samples._remove_local')
+    def test_delete_sample_unlinks_its_files_after_the_row(self, remove):
+        spare = Sample('spare2_sha', 'txt', 'spare2')
+        g.db.add(spare)
+        g.db.flush([spare])
+        g.db.add(ExtraFile(spare.id, 'srt', 'companion'))
+        g.db.commit()
+        spare_id = spare.id
+
+        # Record whether the row had already gone at each unlink: nothing
+        # may be removed from disk until the delete is committed.
+        row_gone = []
+        remove.side_effect = lambda path: row_gone.append(
+            Sample.query.filter(Sample.id == spare_id).first() is None)
+
+        res = self.client.delete(
+            f'/api/v1/samples/{spare_id}', headers=self._admin('del4'))
+
+        self.assertEqual(res.status_code, 200)
+        paths = [call.args[0] for call in remove.call_args_list]
+        # The media file, its media info, and the file uploaded alongside it.
+        self.assertEqual(len(paths), 3)
+        self.assertTrue(any('TestFiles/extra/' in p for p in paths))
+        self.assertTrue(any(p.endswith('.xml') for p in paths))
+        self.assertTrue(all(row_gone))
+
     def test_delete_sample_requires_admin(self):
         token = self.get_token('samp_user@local.com', 'userpass123', 'del3',
                                scopes=['runs:write'])

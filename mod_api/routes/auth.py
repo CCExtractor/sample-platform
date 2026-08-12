@@ -526,9 +526,13 @@ def deactivate_user(user_id):
     own account cannot depend on tokens:manage, which no role below admin is
     ever allowed to hold. Ownership is checked below instead.
 
-    The caller's tokens are not revoked here: an admin deactivating someone
-    else must keep working, and a user deactivating themselves can no longer
-    sign in to mint another once the current one expires.
+    The account's own tokens are revoked as part of this. Scrambling the
+    password only stops new ones being minted, and an admin reaching for
+    this because somebody is abusing the platform means to end the access
+    they already have, not to leave it running for up to thirty days.
+
+    Tokens belonging to the caller are untouched unless they are the same
+    account, so an admin doing this to somebody else keeps working.
     """
     caller = g.api_user
     if caller.role != Role.admin and caller.id != int(user_id):
@@ -544,10 +548,21 @@ def deactivate_user(user_id):
     user.name = f'Anonymous {user.id}'
     user.email = f'unknown{user.id}@ccextractor.org'
     user.password = User.generate_hash(User.create_random_password(16))
+
+    revoked = 0
+    for token in ApiToken.query.filter(ApiToken.user_id == user.id).all():
+        if not token.is_revoked:
+            token.revoke()
+            revoked += 1
     g.db.commit()
 
-    g.log.warning(f'user {user.id} deactivated via API by {caller.id}')
-    return single_response({'user_id': user.id, 'deactivated': True})
+    g.log.warning(f'user {user.id} deactivated via API by {caller.id}, '
+                  f'{revoked} token(s) revoked')
+    return single_response({
+        'user_id': user.id,
+        'deactivated': True,
+        'tokens_revoked': revoked,
+    })
 
 
 @mod_api.route('/users/<user_id>', methods=['GET'])
@@ -595,6 +610,7 @@ def send_user_password_reset(user_id):
 
 
 @mod_api.route('/auth/me/ftp-credentials', methods=['GET'])
+@require_scope(Scope.RUNS_WRITE)
 def get_ftp_credentials():
     """
     Return the caller's FTP details, creating them on first ask.
@@ -603,6 +619,11 @@ def get_ftp_credentials():
     no version of this that reads someone else's. The password is stored in
     the clear by design (it is random and cannot be chosen), so this is the
     only place it can come from.
+
+    Behind runs:write rather than open to any token, unlike the rest of
+    /auth/me: FTP is another way to upload a sample, so a token narrowed to
+    reading has no business fetching a working credential for it. Every
+    role holds runs:write, so this narrows tokens without narrowing people.
     """
     from mod_upload.controllers import retrieve_ftp_credentials
     from run import config

@@ -643,6 +643,44 @@ class TestRoutesAuth(ApiTestCase):
 
         self.assertEqual(res.status_code, 403)
 
+    def test_deactivation_revokes_the_accounts_tokens(self):
+        # A token the account already holds, minted before anyone reaches
+        # for deactivation.
+        victim = self._auth(name='doomed')
+
+        res = self.client.post(
+            f'/api/v1/users/{self.user_id}/deactivate',
+            headers=self._auth('auth_admin@local.com', 'adminpass123',
+                               'deact_admin'))
+
+        self.assertEqual(res.status_code, 200)
+        self.assertGreaterEqual(res.json['tokens_revoked'], 1)
+        self.assertTrue(all(
+            t.is_revoked for t in
+            ApiToken.query.filter(ApiToken.user_id == self.user_id).all()))
+        # And the token stops working straight away, not at its expiry.
+        after = self.client.get('/api/v1/auth/me', headers=victim)
+        self.assertEqual(after.status_code, 401)
+
+    def test_deactivating_someone_else_leaves_the_admin_working(self):
+        admin_headers = self._auth('auth_admin@local.com', 'adminpass123',
+                                   'deact_admin2')
+
+        self.client.post(f'/api/v1/users/{self.user_id}/deactivate',
+                         headers=admin_headers)
+
+        still_fine = self.client.get('/api/v1/auth/me', headers=admin_headers)
+        self.assertEqual(still_fine.status_code, 200)
+
+    def test_ftp_credentials_need_a_write_scope(self):
+        # A working credential for the ingest server is not something a
+        # read-only token should be able to fetch.
+        res = self.client.get(
+            '/api/v1/auth/me/ftp-credentials',
+            headers=self._auth(name='ftp_ro', scopes=['results:read']))
+
+        self.assertEqual(res.status_code, 403)
+
     def test_get_single_user(self):
         res = self.client.get(
             f'/api/v1/users/{self.user_id}',
@@ -672,9 +710,11 @@ class TestRoutesAuth(ApiTestCase):
         self.assertFalse(post.called)
 
     def test_ftp_credentials_are_created_on_first_ask(self):
+        # Asked for with the scope an uploader would hold; the default set
+        # is read-only and is refused, which the test below covers.
         res = self.client.get(
             '/api/v1/auth/me/ftp-credentials',
-            headers=self._auth(name='ftp1'))
+            headers=self._auth(name='ftp1', scopes=['runs:write']))
 
         self.assertEqual(res.status_code, 200)
         self.assertTrue(res.json['username'])
@@ -683,7 +723,7 @@ class TestRoutesAuth(ApiTestCase):
         # Asking twice returns the same pair rather than rotating them.
         again = self.client.get(
             '/api/v1/auth/me/ftp-credentials',
-            headers=self._auth(name='ftp2'))
+            headers=self._auth(name='ftp2', scopes=['runs:write']))
         self.assertEqual(again.json['username'], res.json['username'])
 
     def test_github_link_reports_status_without_the_token(self):

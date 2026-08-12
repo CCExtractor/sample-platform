@@ -18,6 +18,7 @@ first and the description follows.
 import hashlib
 import mimetypes
 import os
+from uuid import uuid4
 
 import magic
 from flask import g, request
@@ -31,7 +32,7 @@ from mod_api.middleware.validation import (validate_body,
                                            validate_path_id)
 from mod_api.models.api_token import Scope
 from mod_api.schemas.uploads import QueueLinkSchema, UploadFinalizeSchema
-from mod_api.utils import paginated_response, safe_resolve, single_response
+from mod_api.utils import paginated_response, single_response
 from mod_auth.models import Role
 from mod_home.models import CCExtractorVersion
 from mod_sample.models import (ExtraFile, ForbiddenExtension,
@@ -110,10 +111,17 @@ def upload_sample():
             http_status=400)
 
     filename = secure_filename(uploaded.filename)
-    temp_path = safe_resolve(_repo('TempFiles'), filename)
-    if temp_path is None:
+    if not filename:
+        # secure_filename empties a name made only of dots, separators or
+        # whitespace, and an empty name resolves to TempFiles itself.
         return make_error_response(
             'validation_error', 'Unusable file name.', http_status=400)
+
+    # The staging name belongs to this upload alone rather than to the
+    # caller's file name: two clients sending the same name at the same
+    # time would otherwise write into one file and produce a hash that
+    # describes neither.
+    temp_path = _repo('TempFiles', f'api-{uuid4().hex}')
 
     head = uploaded.stream.read(_SNIFF_BYTES)
     uploaded.stream.seek(0)

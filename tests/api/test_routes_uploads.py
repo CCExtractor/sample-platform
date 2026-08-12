@@ -73,6 +73,34 @@ class TestRoutesUploads(ApiTestCase):
         self.assertIsNotNone(
             QueuedSample.query.filter(QueuedSample.sha == SHA).first())
 
+    def test_upload_rejects_an_unusable_file_name(self):
+        # secure_filename empties this one, and an empty name used to
+        # resolve to the TempFiles directory and fail on open().
+        res = self._upload(self._admin('up2b'), name='...')
+
+        self.assertEqual(res.status_code, 400)
+        self.assertIsNone(
+            QueuedSample.query.filter(QueuedSample.sha == SHA).first())
+
+    @mock.patch('mod_api.routes.uploads.os.rename')
+    @mock.patch('mod_api.routes.uploads.open', new_callable=mock.mock_open)
+    def test_uploads_of_one_name_stage_to_separate_files(self, _open, _rename):
+        # Same file name twice: the staging paths have to differ, or
+        # concurrent uploads write into each other.
+        first = self._upload(self._admin('up2c'), name='clash.ts')
+        second = self._upload(self._bystander('up2d'), name='clash.ts',
+                              content=CONTENT + b'different')
+
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(second.status_code, 201)
+
+        staged = [call.args[0] for call in _open.call_args_list]
+        self.assertEqual(len(staged), 2)
+        self.assertNotEqual(staged[0], staged[1])
+        # And neither is named after what the caller sent.
+        for path in staged:
+            self.assertNotIn('clash', path)
+
     @mock.patch('mod_api.routes.uploads.os.remove')
     @mock.patch('mod_api.routes.uploads.open', new_callable=mock.mock_open)
     def test_upload_rejects_content_already_in_the_library(

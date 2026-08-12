@@ -658,3 +658,44 @@ class TestRoutesAuth(ApiTestCase):
             '/api/v1/auth/me/ftp-credentials',
             headers=self._auth(name='ftp2'))
         self.assertEqual(again.json['username'], res.json['username'])
+
+    def test_github_link_reports_status_without_the_token(self):
+        user = User.query.filter(User.id == self.user_id).first()
+        user.github_token = 'gho_secret_value'
+        user.github_login = 'someone'
+        g.db.commit()
+
+        res = self.client.get(
+            '/api/v1/auth/me/github', headers=self._auth(name='gh1'))
+
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(res.json['linked'])
+        self.assertEqual(res.json['github_login'], 'someone')
+        # The stored token must never travel back out, under any key.
+        self.assertNotIn('gho_secret_value', res.get_data(as_text=True))
+        # The URL to start a connection carries nothing secret either.
+        self.assertIn('github.com/login/oauth/authorize',
+                      res.json['authorize_url'])
+        self.assertNotIn('client_secret', res.json['authorize_url'])
+
+    def test_github_unlink_forgets_the_connection(self):
+        user = User.query.filter(User.id == self.user_id).first()
+        user.github_token = 'gho_secret_value'
+        user.github_login = 'someone'
+        g.db.commit()
+
+        res = self.client.delete(
+            '/api/v1/auth/me/github', headers=self._auth(name='gh2'))
+
+        self.assertEqual(res.status_code, 200)
+        self.assertFalse(res.json['linked'])
+
+        user = User.query.filter(User.id == self.user_id).first()
+        self.assertIsNone(user.github_token)
+        self.assertIsNone(user.github_login)
+
+    def test_github_endpoints_need_a_token(self):
+        self.assertEqual(self.client.get('/api/v1/auth/me/github').status_code,
+                         401)
+        self.assertEqual(
+            self.client.delete('/api/v1/auth/me/github').status_code, 401)

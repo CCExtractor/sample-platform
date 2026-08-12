@@ -2042,7 +2042,7 @@ paths:
         - $ref: "#/components/parameters/UserId"
       responses:
         "200":
-          description: Account deactivated
+          description: Account deactivated and its own tokens revoked
           content:
             application/json:
               schema:
@@ -2052,6 +2052,13 @@ paths:
                     type: integer
                   deactivated:
                     type: boolean
+                  tokens_revoked:
+                    type: integer
+                    description: >
+                      How many of the account's tokens were still live and
+                      have now been revoked. Scrambling the password only
+                      stops new ones being minted, so the ones already
+                      issued are ended here as well.
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":

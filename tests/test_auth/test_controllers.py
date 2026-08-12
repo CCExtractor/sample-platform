@@ -273,8 +273,15 @@ class TestGitHubFunctions(BaseTestCase):
         mock_g.db.commit.assert_called_once()
         mock_g.log.error.assert_not_called()
 
-    def test_github_redirect(self):
+    @mock.patch('requests.Session.post')
+    def test_github_redirect(self, mock_post):
         """Test editing account where GitHub token is not null."""
+        # The stored token sends manage() through github_token_validity,
+        # which asks GitHub whether it is still good. Answer that here so
+        # the test does not depend on reaching api.github.com: CI has no
+        # client id to ask with, and an intercepted TLS handshake on the
+        # runner fails the whole suite.
+        mock_post.return_value = MockResponse({}, 404)
         self.create_user_with_role(
             self.user.name, self.user.email, self.user.password, Role.admin, self.user.github_token)
         with self.app.test_client() as c:

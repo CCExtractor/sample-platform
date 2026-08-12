@@ -13,6 +13,8 @@ POST   /auth/password-reset/complete
                              Set a new password from a reset link
 GET    /auth/me/ftp-credentials
                              Your own FTP details for the ingest server
+GET    /auth/me/github       Whether your account is connected to GitHub
+DELETE /auth/me/github       Forget this platform's copy of that connection
 GET    /users                List platform users (admin)
 GET    /users/{id}           One platform user (admin)
 PATCH  /users/{id}           Change a user's role (admin)
@@ -601,3 +603,49 @@ def get_ftp_credentials():
         'username': credentials.user_name,
         'password': credentials.password,
     })
+
+
+@mod_api.route('/auth/me/github', methods=['GET'])
+def get_github_link():
+    """
+    Say whether the caller's account is connected to GitHub.
+
+    Connecting is a browser redirect, so this hands back the URL to send
+    somebody to rather than performing it. Trading the code GitHub returns
+    for a token stays on the classic callback: that needs the client
+    secret and the redirect registered with GitHub, and one place holding
+    those is better than two.
+
+    The stored token is never part of this response. The URL carries only
+    the client id and the scope asked for, both of which are public.
+    """
+    from run import config
+
+    user = g.api_user
+    client_id = config.get('GITHUB_CLIENT_ID', '')
+    return single_response({
+        'linked': user.github_token is not None,
+        'github_login': user.github_login,
+        'authorize_url': (
+            'https://github.com/login/oauth/authorize'
+            f'?client_id={client_id}&scope=public_repo'),
+    })
+
+
+@mod_api.route('/auth/me/github', methods=['DELETE'])
+def unlink_github():
+    """
+    Forget this platform's copy of the caller's GitHub connection.
+
+    Only ever the caller's own, like the FTP details above. This drops the
+    token the platform holds; the authorisation itself is withdrawn from
+    GitHub's own applications page, which is the only place that can
+    really end it.
+    """
+    user = g.api_user
+    user.github_token = None
+    user.github_login = None
+    g.db.commit()
+
+    g.log.info(f'user {user.id} disconnected GitHub via API')
+    return single_response({'linked': False, 'github_login': None})

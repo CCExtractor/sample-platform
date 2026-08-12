@@ -501,6 +501,33 @@ class TestRoutesAuth(ApiTestCase):
         self.assertTrue(post.called)
 
     @patch('requests.post')
+    def test_reset_link_points_at_these_pages_without_a_console(self, post):
+        from run import app
+
+        with patch.dict(app.config, {'CONSOLE_URL': ''}):
+            self._json('post', '/auth/password-reset',
+                       {'email': 'auth_user@local.com'})
+
+        body = str(post.call_args)
+        self.assertIn('/account/reset/', body)
+
+    @patch('requests.post')
+    def test_reset_link_points_at_the_console_when_one_is_configured(
+            self, post):
+        from run import app
+
+        with patch.dict(app.config,
+                        {'CONSOLE_URL': 'https://console.example.org/'}):
+            self._json('post', '/auth/password-reset',
+                       {'email': 'auth_user@local.com'})
+
+        body = str(post.call_args)
+        # One slash, and the three values the console posts back.
+        self.assertIn('https://console.example.org/reset?uid=', body)
+        self.assertIn('expires=', body)
+        self.assertIn('mac=', body)
+
+    @patch('requests.post')
     def test_password_reset_completes_with_a_valid_link(self, post):
         from mod_auth.controllers import generate_hmac_hash
         from run import app

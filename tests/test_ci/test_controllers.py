@@ -291,6 +291,83 @@ class TestControllers(BaseTestCase):
         mock_g.db.commit.assert_called_once()
         mock_create_instance.assert_called_once()
 
+    @mock.patch('mod_ci.controllers.wait_for_operation')
+    @mock.patch('mod_ci.controllers.create_instance')
+    @mock.patch('mod_ci.controllers.save_xml_to_file')
+    @mock.patch('builtins.open', new_callable=mock.mock_open())
+    @mock.patch('mod_ci.controllers.g')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('mod_ci.controllers.GcpInstance')
+    def test_start_test_compares_against_approved_baseline(self, mock_gcp_instance, mock_test_progress,
+                                                           mock_g, mock_open_file, mock_save_xml,
+                                                           mock_create_instance, mock_wait_for_operation):
+        """The file a test is compared against must be the approved baseline (issue #1173).
+
+        It used to be the previous run's own output whenever that run had recorded a
+        mismatch, which let a behavioural change promote itself to the reference.
+        Fixture ``TestResultFile(2, 2, 2, "sample_out2", "out2")`` is exactly that case:
+        a recorded ``got`` of ``out2`` for the output whose approved baseline is
+        ``sample_out2``.
+        """
+        import zipfile
+
+        import requests
+        from github.Artifact import Artifact
+
+        from mod_ci.controllers import Artifact_names, start_test
+
+        mock_gcp_instance.query.filter.return_value.first.return_value = None
+        mock_test_progress.query.filter.return_value.first.return_value = None
+
+        test = Test.query.first()
+        repository = MagicMock()
+
+        artifact = MagicMock(Artifact)
+        artifact.name = Artifact_names.linux if test.platform == TestPlatform.linux else Artifact_names.windows
+        artifact.workflow_run.head_sha = test.commit
+
+        class mock_zip:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def extractall(*args, **kwargs):
+                return None
+
+        repository.get_artifacts.return_value = [artifact]
+        response = requests.models.Response()
+        response.status_code = 200
+        requests.get = MagicMock(return_value=response)
+        zipfile.ZipFile = MagicMock(return_value=mock_zip())
+
+        create_mock_db_query(mock_g)
+        mock_create_instance.return_value = {'name': 'op-1', 'status': 'RUNNING'}
+        mock_wait_for_operation.return_value = {'status': 'DONE'}
+
+        start_test(mock.ANY, self.app, mock_g.db, repository, test, mock.ANY)
+
+        self.assertTrue(mock_save_xml.called, "start_test wrote no test definition XML")
+
+        correct_texts = []
+        for call in mock_save_xml.call_args_list:
+            for correct in call.args[0].iter('correct'):
+                correct_texts.append(correct.text)
+
+        self.assertTrue(correct_texts, "no <correct> elements were emitted")
+
+        # The approved baselines, and nothing derived from a previous run's output.
+        expected = {rto.filename_correct for rto in RegressionTestOutput.query.all()}
+        for text in correct_texts:
+            self.assertIn(text, expected,
+                          f"compared against {text!r}, which is not an approved baseline")
+
+        stored_got = 'out2' + RegressionTestOutput.query.filter(
+            RegressionTestOutput.id == 2).first().correct_extension
+        self.assertNotIn(stored_got, correct_texts,
+                         "a previous run's recorded output was used as the comparison target")
+
     @mock.patch('github.Github.get_repo')
     @mock.patch('mod_ci.controllers.start_test')
     @mock.patch('mod_ci.controllers.get_compute_service_object')

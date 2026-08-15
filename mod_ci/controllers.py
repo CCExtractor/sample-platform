@@ -1001,12 +1001,6 @@ def start_test(compute, app, db, repository: Repository.Repository, test, bot_to
     Path(base_folder).mkdir(parents=True, exist_ok=True)
 
     categories = Category.query.order_by(Category.id.desc()).all()
-    commit_name = 'fetch_commit_' + test.platform.value
-    commit_hash = GeneralData.query.filter(GeneralData.key == commit_name).first().value
-    last_commit = Test.query.filter(and_(Test.commit == commit_hash, Test.platform == test.platform)).first()
-
-    if last_commit is not None:
-        log.debug(f"[{gcp_instance_name}] We will compare against the results of test {last_commit.id}")
 
     regression_ids = test.get_customized_regressiontests()
 
@@ -1039,25 +1033,18 @@ def start_test(compute, app, db, repository: Repository.Repository, test, bot_to
             output_node = etree.SubElement(entry, 'output')
             output_node.text = regression_test.output_type.value
             compare = etree.SubElement(entry, 'compare')
-            last_files = TestResultFile.query.filter(and_(
-                TestResultFile.test_id == last_commit.id,
-                TestResultFile.regression_test_id == regression_test.id
-            )).subquery()
 
             for output_file in regression_test.output_files:
                 ignore_file = str(output_file.ignore).lower()
                 file_node = etree.SubElement(compare, 'file', ignore=ignore_file, id=str(output_file.id))
-                last_commit_files = db.query(last_files.c.got).filter(and_(
-                    last_files.c.regression_test_output_id == output_file.id,
-                    last_files.c.got.isnot(None)
-                )).first()
                 correct = etree.SubElement(file_node, 'correct')
                 # Need a path that is relative to the folder we provide inside the CI environment.
-                if last_commit_files is None:
-                    log.debug(f"Selecting original file for RT #{regression_test.id} ({category.name})")
-                    correct.text = output_file.filename_correct
-                else:
-                    correct.text = output_file.create_correct_filename(last_commit_files[0])
+                # Always the approved baseline. This used to fall back to the previous run's own
+                # output whenever that run had recorded a mismatch, which made the reference roll
+                # forward on its own: a behavioural change was flagged once and then silently
+                # adopted, and because a passing run records no output, the run after that fell
+                # back here again and the same test failed anew. See issue #1173.
+                correct.text = output_file.filename_correct
 
                 expected = etree.SubElement(file_node, 'expected')
                 expected.text = output_file.filename_expected(regression_test.sample.sha)

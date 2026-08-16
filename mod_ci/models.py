@@ -170,12 +170,37 @@ class Status:
 
 
 @dataclass
+class ReferenceComparison:
+    """How a run's results read against one other run.
+
+    The verdict a test carries is absolute -- it matched the approved output or
+    it did not. This says what that verdict means *relative to somewhere else*,
+    which is what tells a reviewer whether a failure is theirs.
+    """
+
+    # what this reference is, for the reader: "master", "closest ancestor"
+    label: str
+    # the run being compared against, or None when there is nothing to compare to
+    run: Optional[Test]
+    # regression tests per verdict, keyed by the constants in mod_ci.comparison
+    tests: Dict[str, List[RegressionTest]]
+    # how many tests fell in each verdict
+    counts: Dict[str, int]
+    # set when this reference resolved to the same run as an earlier one
+    duplicate_of: Optional[str] = None
+
+
+@dataclass
 class PrCommentInfo:
     """Contains info about a test run that is useful for displaying a PR comment."""
 
     # info about successes and failures for each category
     category_stats: List[CategoryTestInfo]
-    extra_failed_tests: List[RegressionTest]
-    fixed_tests: List[RegressionTest]
-    common_failed_tests: List[RegressionTest]
-    last_test_master: Test
+    # the verdict, and the only thing pass/fail is decided on: tests whose
+    # output did not match the approved file
+    failed_tests: List[RegressionTest]
+    passed_count: int
+    total_count: int
+    # the same failures described against other runs, in reading order
+    comparisons: List[ReferenceComparison]
+    last_test_master: Optional[Test]

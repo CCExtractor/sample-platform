@@ -98,9 +98,7 @@ class TestControllers(BaseTestCase):
         test: Test = Test.query.get(TEST_RUN_ID)
         comment_info = get_info_for_pr_comment(test)
         # we got a valid variant, so should still pass
-        self.assertEqual(comment_info.common_failed_tests, [])
-        self.assertEqual(comment_info.extra_failed_tests, [])
-        self.assertEqual(comment_info.fixed_tests, [])
+        self.assertEqual(comment_info.failed_tests, [])
         for stats in comment_info.category_stats:
             # make sure the stats for the category confirm that everything passed too
             self.assertEqual(stats.success, stats.total)
@@ -486,12 +484,19 @@ class TestControllers(BaseTestCase):
 
         # Comment on test that fails some/all regression tests
         test = Test.query.get(2)
-        comment_pr(test)
+        status = comment_pr(test)
         pull_request.get_issue_comments.assert_called_with()
         args, kwargs = pull_request.create_issue_comment.call_args
         message = kwargs['body']
-        if "passed" not in message:
-            assert False, "Message not Correct"
+
+        # Test 2's fixtures record a mismatch for one regression test, so the
+        # comment has to report that verdict. The previous assertion only looked
+        # for the word "passed", which the failure copy also contained -- it
+        # would have held whatever the comment said.
+        self.assertIn('matched the approved output', message)
+        self.assertIn('do not match the approved output', message)
+        self.assertNotIn('All tests passed', message)
+        self.assertEqual(status, Status.FAILURE)
 
     @mock.patch('mod_test.controllers.get_test_results')
     @mock.patch('github.Github')
@@ -517,6 +522,92 @@ class TestControllers(BaseTestCase):
         message = kwargs['body']
         if regression_test.command not in message:
             assert False, "Message not Correct"
+
+    @mock.patch('mod_ci.controllers.get_info_for_pr_comment')
+    @mock.patch('mod_ci.controllers.Github')
+    def test_comment_pr_gives_the_report_a_repository_to_walk(self, mock_github, mock_info):
+        """The ancestor comparison needs GitHub, so the handle must reach the report.
+
+        Building the report before opening the client silently drops that
+        comparison in production while every test still passes, because the
+        fixtures have no ancestor run either way.
+        """
+        from mod_ci.controllers import comment_pr
+        from mod_test.models import Test
+
+        mock_info.return_value = MagicMock(failed_tests=[])
+        comment_pr(Test.query.get(2))
+
+        self.assertTrue(mock_info.called)
+        args, kwargs = mock_info.call_args
+        repository = kwargs.get('repository', args[1] if len(args) > 1 else None)
+        self.assertIsNotNone(repository, "the report was built without a repository")
+
+    def test_find_ancestor_run_prefers_the_nearest_ancestor_with_records(self):
+        """The comparison point is where the branch was cut from, not the tip of master.
+
+        Master moves while a branch is open. Comparing against its tip charges
+        the branch for everything that landed meanwhile, which is what made a
+        three-line PR look like it broke 45 tests.
+        """
+        from mod_ci.controllers import find_ancestor_run
+        from mod_test.models import (Test, TestPlatform, TestProgress,
+                                     TestStatus, TestType)
+
+        near = Test(TestPlatform.linux, TestType.commit, 1, 'master', 'sha_near')
+        far = Test(TestPlatform.linux, TestType.commit, 1, 'master', 'sha_far')
+        g.db.add_all([near, far])
+        g.db.commit()
+        g.db.add_all([TestProgress(near.id, TestStatus.completed, 'done'),
+                      TestProgress(far.id, TestStatus.completed, 'done')])
+        g.db.commit()
+
+        repository = MagicMock()
+        repository.get_pull.return_value.base.sha = 'sha_tip'
+        repository.get_commits.return_value = [MagicMock(sha=sha) for sha in
+                                               ('sha_tip', 'sha_near', 'sha_far')]
+
+        subject = Test.query.get(1)
+        self.assertEqual(find_ancestor_run(repository, subject).id, near.id)
+
+    def test_find_ancestor_run_ignores_runs_that_never_completed(self):
+        """A run that never finished has nothing to compare against."""
+        from mod_ci.controllers import find_ancestor_run
+        from mod_test.models import (Test, TestPlatform, TestProgress,
+                                     TestStatus, TestType)
+
+        unfinished = Test(TestPlatform.linux, TestType.commit, 1, 'master', 'sha_unfinished')
+        completed = Test(TestPlatform.linux, TestType.commit, 1, 'master', 'sha_completed')
+        g.db.add_all([unfinished, completed])
+        g.db.commit()
+        g.db.add_all([TestProgress(unfinished.id, TestStatus.testing, 'still going'),
+                      TestProgress(completed.id, TestStatus.completed, 'done')])
+        g.db.commit()
+
+        repository = MagicMock()
+        repository.get_pull.return_value.base.sha = 'sha_tip'
+        repository.get_commits.return_value = [MagicMock(sha=sha) for sha in
+                                               ('sha_unfinished', 'sha_completed')]
+
+        subject = Test.query.get(1)
+        self.assertEqual(find_ancestor_run(repository, subject).id, completed.id)
+
+    def test_find_ancestor_run_survives_github_being_unavailable(self):
+        """A missing comparison must not cost the whole comment."""
+        from mod_ci.controllers import find_ancestor_run
+        from mod_test.models import Test
+
+        repository = MagicMock()
+        repository.get_pull.side_effect = Exception('GitHub is having a moment')
+
+        self.assertIsNone(find_ancestor_run(repository, Test.query.get(1)))
+
+    def test_find_ancestor_run_without_a_repository_is_none(self):
+        """Callers that have no GitHub handle get no ancestor, not a crash."""
+        from mod_ci.controllers import find_ancestor_run
+        from mod_test.models import Test
+
+        self.assertIsNone(find_ancestor_run(None, Test.query.get(1)))
 
     def test_get_running_instances(self):
         """Test get_running_instances function."""

@@ -28,7 +28,8 @@ from mod_api.schemas.runs import (ProgressEventSchema, RunCreateRequestSchema,
                                   RunSchema, RunSummarySchema)
 from mod_api.services.error_service import derive_errors_for_run
 from mod_api.services.status import (batch_get_run_data, derive_run_status,
-                                     derive_sample_status)
+                                     derive_sample_status,
+                                     expected_regression_ids)
 from mod_api.utils import get_sort_column, paginated_response, single_response
 from mod_auth.models import Role
 from mod_customized.models import CustomizedTest
@@ -434,16 +435,13 @@ def get_run(run_id):
 def _run_regression_ids(test):
     """Regression test IDs that belong to this run.
 
-    Uses the customized selection when present; otherwise falls back to
-    every ACTIVE regression test, mirroring create_run's default. (The
-    model's get_customized_regressiontests() falls back to all tests
-    including inactive ones, which inflates total_samples/skipped_count
-    with tests the run could never execute.)
+    Delegates to expected_regression_ids so summary totals and run-status
+    completeness checks share one rule. (The model's
+    get_customized_regressiontests() falls back to all tests including
+    inactive ones, which inflates total_samples/skipped_count with tests
+    the run could never execute.)
     """
-    if test.customized_tests:
-        return [ct.regression_id for ct in test.customized_tests]
-    return [rt.id for rt in
-            RegressionTest.query.filter_by(active=True).all()]
+    return expected_regression_ids(test)
 
 
 def _aggregate_run_statistics(

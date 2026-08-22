@@ -17,13 +17,25 @@ Things to watch out for:
 """
 
 from collections import defaultdict
-from typing import List, Optional
+from typing import List, Optional, Set
 
 from sqlalchemy.orm import joinedload
 
-from mod_regression.models import RegressionTestOutput
+from mod_regression.models import RegressionTest, RegressionTestOutput
 from mod_test.models import (Test, TestProgress, TestResult, TestResultFile,
                              TestStatus)
+
+
+def expected_regression_ids(test: Test) -> List[int]:
+    """Regression test IDs this run was configured to execute.
+
+    Uses the customized selection when present; otherwise every ACTIVE
+    regression test — same rule as create_run / run summary totals.
+    """
+    if test.customized_tests:
+        return [ct.regression_id for ct in test.customized_tests]
+    return [rt.id for rt in
+            RegressionTest.query.filter_by(active=True).all()]
 
 
 def derive_run_status(test: Test) -> str:
@@ -160,12 +172,20 @@ def _check_completed_run_status(
         t_id,
         results_by_test,
         files_by_test_and_rt,
-        expected_outputs_by_rt):
+        expected_outputs_by_rt,
+        expected_rt_ids: Optional[Set[int]] = None):
     results = results_by_test.get(t_id, [])
     if not results:
         # A run marked completed that produced zero TestResult rows is not
         # a pass — the worker finished without reporting anything.
         return 'error'
+    # Samples with no TestResult row are invisible to the loop below. If the
+    # run was configured for more samples than it reported, treat it as an
+    # error (same class as zero results) so a green fragment cannot pass.
+    if expected_rt_ids is not None:
+        reported_ids = {r.regression_test_id for r in results}
+        if not expected_rt_ids.issubset(reported_ids):
+            return 'error'
     for r in results:
         r_files = files_by_test_and_rt.get((t_id, r.regression_test_id), [])
         expected = expected_outputs_by_rt.get(
@@ -181,7 +201,8 @@ def _compute_run_status(
         results_by_test,
         files_by_test_and_rt,
         t_id,
-        expected_outputs_by_rt=None):
+        expected_outputs_by_rt=None,
+        expected_rt_ids: Optional[Set[int]] = None):
     if not t_prog:
         return 'queued'
 
@@ -196,7 +217,8 @@ def _compute_run_status(
             t_id,
             results_by_test,
             files_by_test_and_rt,
-            expected_outputs_by_rt)
+            expected_outputs_by_rt,
+            expected_rt_ids=expected_rt_ids)
     return 'incomplete'
 
 
@@ -254,6 +276,19 @@ def batch_get_run_data(tests: list) -> tuple:
         for rto in all_expected:
             expected_outputs_by_rt[rto.regression_id].append(rto)
 
+    # Expected sample set per run (customized selection or all active RTs)
+    active_rt_ids = {
+        rt.id for rt in RegressionTest.query.filter_by(active=True).all()
+    }
+    expected_rt_ids_by_test = {}
+    for t in tests:
+        if t.customized_tests:
+            expected_rt_ids_by_test[t.id] = {
+                ct.regression_id for ct in t.customized_tests
+            }
+        else:
+            expected_rt_ids_by_test[t.id] = active_rt_ids
+
     statuses = {}
     timestamps_dict = {}
 
@@ -262,6 +297,7 @@ def batch_get_run_data(tests: list) -> tuple:
         timestamps_dict[t.id] = _compute_run_timestamps(t_prog)
         statuses[t.id] = _compute_run_status(
             t_prog, results_by_test, files_by_test_and_rt, t.id,
-            expected_outputs_by_rt=expected_outputs_by_rt)
+            expected_outputs_by_rt=expected_outputs_by_rt,
+            expected_rt_ids=expected_rt_ids_by_test[t.id])
 
     return statuses, timestamps_dict

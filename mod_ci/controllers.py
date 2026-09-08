@@ -305,6 +305,19 @@ def is_valid_commit_hash(commit: Optional[str]) -> bool:
 
 
 GIT_COMMIT_LOG_RE = re.compile(r'Git commit:\s*([0-9a-fA-F]{7,40})')
+# Keep enough overlap that ``Git commit:`` plus a 40-char SHA cannot be split
+# across two chunks without appearing in the next window.
+GIT_COMMIT_CHUNK_SIZE = 65536
+GIT_COMMIT_OVERLAP = 64
+
+
+def _sha_from_git_commit_match(text: str) -> Optional[str]:
+    """Return a valid SHA from a ``Git commit:`` line in ``text``, if any."""
+    match = GIT_COMMIT_LOG_RE.search(text)
+    if not match:
+        return None
+    sha = match.group(1)
+    return sha if is_valid_commit_hash(sha) else None
 
 
 def parse_git_commit_from_logs(text: Optional[str]) -> Optional[str]:
@@ -323,11 +336,52 @@ def parse_git_commit_from_logs(text: Optional[str]) -> Optional[str]:
     """
     if not text:
         return None
-    match = GIT_COMMIT_LOG_RE.search(text)
-    if not match:
+    return _sha_from_git_commit_match(text)
+
+
+def parse_git_commit_from_log_stream(handle, chunk_size: int = GIT_COMMIT_CHUNK_SIZE) -> Optional[str]:
+    """
+    Scan a log stream in chunks and stop as soon as ``Git commit:`` is found.
+
+    :param handle: Readable text stream
+    :type handle: Any
+    :param chunk_size: Chars to read per batch
+    :type chunk_size: int
+    :return: A valid commit hash if found, otherwise None
+    :rtype: Optional[str]
+    """
+    remainder = ''
+    while True:
+        chunk = handle.read(chunk_size)
+        if not chunk:
+            return _sha_from_git_commit_match(remainder) if remainder else None
+        window = remainder + chunk
+        sha = _sha_from_git_commit_match(window)
+        if sha:
+            return sha
+        if len(window) > GIT_COMMIT_OVERLAP:
+            remainder = window[-GIT_COMMIT_OVERLAP:]
+        else:
+            remainder = window
+
+
+def parse_git_commit_from_log_file(log_path: str,
+                                   chunk_size: int = GIT_COMMIT_CHUNK_SIZE) -> Optional[str]:
+    """
+    Extract ``Git commit:`` from a log file without loading it all at once.
+
+    :param log_path: Path to the uploaded log file
+    :type log_path: str
+    :param chunk_size: Chars to read per batch
+    :type chunk_size: int
+    :return: A valid commit hash if found, otherwise None
+    :rtype: Optional[str]
+    """
+    try:
+        with open(log_path, encoding='utf-8', errors='replace') as handle:
+            return parse_git_commit_from_log_stream(handle, chunk_size=chunk_size)
+    except OSError:
         return None
-    sha = match.group(1)
-    return sha if is_valid_commit_hash(sha) else None
 
 
 def _merge_commit_from_pr(pr, payload_pr: Optional[dict] = None) -> Optional[str]:
@@ -345,12 +399,7 @@ def _merge_commit_from_pr(pr, payload_pr: Optional[dict] = None) -> Optional[str
 
 def _record_built_commit_from_log(log, test, log_path: str) -> None:
     """Update Test.built_commit from a ``Git commit:`` line in uploaded logs."""
-    try:
-        with open(log_path, encoding='utf-8', errors='replace') as handle:
-            text = handle.read()
-    except OSError:
-        return
-    sha = parse_git_commit_from_logs(text)
+    sha = parse_git_commit_from_log_file(log_path)
     if not sha or test.built_commit == sha:
         return
     test.built_commit = sha

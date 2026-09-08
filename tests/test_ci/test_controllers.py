@@ -10,6 +10,7 @@ from flask import g
 from mod_auth.models import Role
 from mod_ci.controllers import (Workflow_builds, get_info_for_pr_comment,
                                 is_valid_commit_hash, mark_test_failed,
+                                parse_git_commit_from_log_stream,
                                 parse_git_commit_from_logs,
                                 progress_type_request, retry_with_backoff,
                                 safe_db_commit, start_platforms)
@@ -2919,6 +2920,36 @@ class TestControllers(BaseTestCase):
         self.assertEqual(parse_git_commit_from_logs(log_text), 'e98f1a2f81')
         self.assertIsNone(parse_git_commit_from_logs('no version banner here'))
         self.assertIsNone(parse_git_commit_from_logs(''))
+
+    def test_parse_git_commit_from_log_stream_stops_after_match(self):
+        """Do not keep reading a large log after Git commit is found."""
+        from io import StringIO
+
+        banner = 'Git commit: e98f1a2f81\n'
+        rest = 'x' * 200000
+        stream = StringIO(banner + rest)
+        original_read = stream.read
+        read_sizes = []
+
+        def counting_read(size=-1):
+            read_sizes.append(size)
+            return original_read(size)
+
+        stream.read = counting_read
+        self.assertEqual(
+            parse_git_commit_from_log_stream(stream, chunk_size=64),
+            'e98f1a2f81')
+        self.assertEqual(len(read_sizes), 1)
+        self.assertEqual(stream.tell(), 64)
+
+    def test_parse_git_commit_from_log_stream_spans_chunks(self):
+        """Find Git commit even when the line is split across read batches."""
+        from io import StringIO
+
+        text = 'prefix Git commit: e98f1a2f81 suffix'
+        self.assertEqual(
+            parse_git_commit_from_log_stream(StringIO(text), chunk_size=8),
+            'e98f1a2f81')
 
     @mock.patch('mod_ci.controllers.add_test_entry')
     @mock.patch('github.Github.get_repo')

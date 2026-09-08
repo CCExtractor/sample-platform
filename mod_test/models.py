@@ -115,12 +115,14 @@ class Test(Base):
     fork = relationship('Fork', uselist=False, back_populates='tests')
     branch = Column(Text(), nullable=False)
     commit = Column(String(64), nullable=False)
+    built_commit = Column(String(64), nullable=True)
     pr_nr = Column(Integer(), nullable=False, default=0)
     customized_tests = relationship('CustomizedTest', back_populates='test')
     progress = relationship('TestProgress', back_populates='test', order_by='TestProgress.id')
     results = relationship('TestResult', back_populates='test')
 
-    def __init__(self, platform, test_type, fork_id, branch, commit, pr_nr=0, token=None) -> None:
+    def __init__(self, platform, test_type, fork_id, branch, commit, pr_nr=0, token=None,
+                 built_commit=None) -> None:
         """
         Parametrized constructor for the Test model.
 
@@ -138,12 +140,15 @@ class Test(Base):
         :type pr_nr: int
         :param token: The value of the 'token' field of Test model (None by default)
         :type token: str
+        :param built_commit: SHA of the commit that was actually built/tested
+        :type built_commit: str
         """
         self.platform = platform
         self.test_type = test_type
         self.fork_id = fork_id
         self.branch = branch
         self.commit = commit
+        self.built_commit = built_commit
         self.pr_nr = pr_nr
         if token is None:
             # Auto-generate token

@@ -304,6 +304,60 @@ def is_valid_commit_hash(commit: Optional[str]) -> bool:
         return False
 
 
+GIT_COMMIT_LOG_RE = re.compile(r'Git commit:\s*([0-9a-fA-F]{7,40})')
+
+
+def parse_git_commit_from_logs(text: Optional[str]) -> Optional[str]:
+    """
+    Extract the SHA the binary reports from uploaded VM logs.
+
+    GitHub Actions builds the PR merge ref, not the PR head. The tested
+    binary prints ``Git commit: <sha>``. That line is the ground truth for
+    what was actually compiled, as opposed to ``Test.commit`` which stores
+    the PR head SHA from the webhook.
+
+    :param text: Log file contents
+    :type text: Optional[str]
+    :return: A valid commit hash if found, otherwise None
+    :rtype: Optional[str]
+    """
+    if not text:
+        return None
+    match = GIT_COMMIT_LOG_RE.search(text)
+    if not match:
+        return None
+    sha = match.group(1)
+    return sha if is_valid_commit_hash(sha) else None
+
+
+def _merge_commit_from_pr(pr, payload_pr: Optional[dict] = None) -> Optional[str]:
+    """Return GitHub's test-merge SHA for a PR, if GitHub has computed one."""
+    candidates = []
+    if pr is not None:
+        candidates.append(getattr(pr, 'merge_commit_sha', None))
+    if payload_pr:
+        candidates.append(payload_pr.get('merge_commit_sha'))
+    for sha in candidates:
+        if is_valid_commit_hash(sha):
+            return sha.strip()
+    return None
+
+
+def _record_built_commit_from_log(log, test, log_path: str) -> None:
+    """Update Test.built_commit from a ``Git commit:`` line in uploaded logs."""
+    try:
+        with open(log_path, encoding='utf-8', errors='replace') as handle:
+            text = handle.read()
+    except OSError:
+        return
+    sha = parse_git_commit_from_logs(text)
+    if not sha or test.built_commit == sha:
+        return
+    test.built_commit = sha
+    safe_db_commit(g.db, f"recording built commit {sha} for test {test.id}")
+    log.debug(f"Recorded built commit {sha} for test {test.id}")
+
+
 # Maximum number of artifacts to search through when looking for a specific commit
 # GitHub keeps artifacts for 90 days by default, so this should be enough
 MAX_ARTIFACTS_TO_SEARCH = 500
@@ -1649,7 +1703,7 @@ def save_xml_to_file(xml_node, folder_name, file_name) -> None:
     )
 
 
-def add_test_entry(db, commit, test_type, branch="master", pr_nr=0) -> None:
+def add_test_entry(db, commit, test_type, branch="master", pr_nr=0, built_commit=None) -> None:
     """
     Add test details entry into Test model for each platform.
 
@@ -1665,6 +1719,8 @@ def add_test_entry(db, commit, test_type, branch="master", pr_nr=0) -> None:
     :type branch: str
     :param pr_nr: Pull Request number, if applicable.
     :type pr_nr: int
+    :param built_commit: SHA that CI actually built (PR merge ref), if known.
+    :type built_commit: Optional[str]
     :return: Nothing
     :rtype: None
     """
@@ -1676,6 +1732,10 @@ def add_test_entry(db, commit, test_type, branch="master", pr_nr=0) -> None:
         log.error(f"Invalid commit hash '{commit}' - skipping test entry creation")
         return
 
+    if built_commit is not None and not is_valid_commit_hash(built_commit):
+        log.warning(f"Ignoring invalid built_commit '{built_commit}'")
+        built_commit = None
+
     fork_url = f"%/{g.github['repository_owner']}/{g.github['repository']}.git"
     fork = Fork.query.filter(Fork.github.like(fork_url)).first()
 
@@ -1683,9 +1743,11 @@ def add_test_entry(db, commit, test_type, branch="master", pr_nr=0) -> None:
         log.debug('pull request test type detected')
         branch = "pull_request"
 
-    linux_test = Test(TestPlatform.linux, test_type, fork.id, branch, commit, pr_nr)
+    linux_test = Test(TestPlatform.linux, test_type, fork.id, branch, commit, pr_nr,
+                      built_commit=built_commit)
     db.add(linux_test)
-    windows_test = Test(TestPlatform.windows, test_type, fork.id, branch, commit, pr_nr)
+    windows_test = Test(TestPlatform.windows, test_type, fork.id, branch, commit, pr_nr,
+                        built_commit=built_commit)
     db.add(windows_test)
     if not safe_db_commit(db, f"adding test entries for commit {commit[:7]}"):
         log.error(f"Failed to add test entries for commit {commit}")
@@ -1999,7 +2061,9 @@ def start_ci():
                 try:
                     pr = retry_with_backoff(lambda: repository.get_pull(number=pr_nr))
                     if pr.mergeable is not False:
-                        add_test_entry(g.db, commit_hash, TestType.pull_request, pr_nr=pr_nr)
+                        built_commit = _merge_commit_from_pr(pr, payload.get('pull_request'))
+                        add_test_entry(g.db, commit_hash, TestType.pull_request, pr_nr=pr_nr,
+                                       built_commit=built_commit)
                 except GithubException as e:
                     g.log.error(f"Failed to get PR {pr_nr} after retries: {e}")
 
@@ -2627,6 +2691,7 @@ def upload_log_type_request(log, test_id, repo_folder, test, request) -> bool:
 
         os.rename(temp_path, final_path)
         log.debug("Stored log file")
+        _record_built_commit_from_log(log, test, final_path)
         return True
 
     return False

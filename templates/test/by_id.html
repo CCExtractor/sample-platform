@@ -31,7 +31,7 @@
                             <td>{{ test.test_type.description }}</td>
                             <td>
                             {% if test.test_type == TestType.pull_request %}
-                                <a href="{{ test.github_link }}" target="_blank">{{ test.pr_nr }}</a> (Commit {{ test.commit[:7] }})
+                                <a href="{{ test.github_link }}" target="_blank">{{ test.pr_nr }}</a> (PR head {{ test.commit[:7] }}{% if test.built_commit and test.built_commit != test.commit %}, tested as {{ test.built_commit[:7] }}{% endif %})
                             {% elif test.test_type == TestType.commit %}
                                 <a href="{{ test.github_link }}" target="_blank">{{ test.commit[:7] }}</a> (Branch {{ test.branch }})
                             {% endif %}

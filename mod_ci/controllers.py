@@ -392,7 +392,7 @@ def _merge_commit_from_pr(pr, payload_pr: Optional[dict] = None) -> Optional[str
     if payload_pr:
         candidates.append(payload_pr.get('merge_commit_sha'))
     for sha in candidates:
-        if is_valid_commit_hash(sha):
+        if isinstance(sha, str) and is_valid_commit_hash(sha):
             return sha.strip()
     return None
 

@@ -17,7 +17,8 @@ from mod_customized.models import CustomizedTest
 from mod_home.models import CCExtractorVersion, GeneralData
 from mod_regression.models import (RegressionTest, RegressionTestOutput,
                                    RegressionTestOutputFiles)
-from mod_test.models import Test, TestPlatform, TestResultFile, TestType
+from mod_test.models import (Test, TestPlatform, TestProgress, TestResultFile,
+                             TestStatus, TestType)
 from tests.base import (BaseTestCase, MockResponse, create_mock_db_query,
                         create_mock_regression_test, empty_github_token,
                         generate_git_api_header, generate_signature,
@@ -2114,6 +2115,88 @@ class TestControllers(BaseTestCase):
         mock_update_build_badge.assert_called_once()
         mock_get_compute_service_object.assert_called()
         self.assertTrue(response)
+
+    def test_progress_step_terminal_guard_compares_int_to_enum(self):
+        """progress_step returns ints; the terminal guard compares them to enums.
+
+        This is the comparison used in progress_type_request:
+        last_status in [TestStatus.completed, TestStatus.canceled]
+        """
+        completed_step = TestStatus.progress_step(TestStatus.completed)
+        canceled_step = TestStatus.progress_step(TestStatus.canceled)
+        terminal_enums = [TestStatus.completed, TestStatus.canceled]
+
+        self.assertEqual(completed_step, 2)
+        self.assertEqual(canceled_step, -1)
+        self.assertIsInstance(completed_step, int)
+        self.assertIsInstance(canceled_step, int)
+        # Guard as written: an int is never a member of that enum list.
+        self.assertNotIn(completed_step, terminal_enums)
+        self.assertNotIn(canceled_step, terminal_enums)
+
+    def test_progress_type_request_rejects_update_after_completed(self):
+        """A completed run must reject a later progress update.
+
+        Reproduction: if the int-vs-enum guard is live, this returns True
+        and appends a second completed row instead of False.
+        """
+        from run import log
+
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.tester)
+        self.create_forktest("own-fork-commit", TestPlatform.linux, regression_tests=[2])
+        test = Test.query.filter(Test.id == 3).first()
+        g.db.add(TestProgress(test.id, TestStatus.completed, 'already done'))
+        g.db.commit()
+        g.db.refresh(test)
+
+        request = MagicMock()
+        request.form = {'status': 'completed', 'message': 'Ran all tests again'}
+        progress_before = len(test.progress)
+
+        with empty_github_token():
+            response = progress_type_request(log, test, test.id, request)
+
+        g.db.refresh(test)
+        rows = TestProgress.query.filter_by(test_id=test.id).order_by(TestProgress.id).all()
+        statuses = [p.status.value for p in rows]
+        self.assertFalse(
+            response,
+            f'completed should be terminal; got return={response!r} progress={statuses}')
+        self.assertEqual(len(rows), progress_before)
+        self.assertEqual(rows[-1].status, TestStatus.completed)
+
+    def test_progress_type_request_rejects_update_after_canceled(self):
+        """A canceled run must reject a later completed progress update.
+
+        Reproduction: if the int-vs-enum guard is live, this returns True
+        and appends a completed row after canceled.
+        """
+        from run import log
+
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.tester)
+        self.create_forktest("own-fork-commit", TestPlatform.linux, regression_tests=[2])
+        test = Test.query.filter(Test.id == 3).first()
+        g.db.add(TestProgress(test.id, TestStatus.canceled, 'Canceled by admin'))
+        g.db.commit()
+        g.db.refresh(test)
+
+        request = MagicMock()
+        request.form = {'status': 'completed', 'message': 'Ran all tests'}
+        progress_before = len(test.progress)
+
+        with empty_github_token():
+            response = progress_type_request(log, test, test.id, request)
+
+        g.db.refresh(test)
+        rows = TestProgress.query.filter_by(test_id=test.id).order_by(TestProgress.id).all()
+        statuses = [p.status.value for p in rows]
+        self.assertFalse(
+            response,
+            f'canceled should be terminal; got return={response!r} progress={statuses}')
+        self.assertEqual(len(rows), progress_before)
+        self.assertEqual(rows[-1].status, TestStatus.canceled)
 
     @mock.patch('mod_ci.controllers.g')
     @mock.patch('mod_ci.controllers.TestResultFile')

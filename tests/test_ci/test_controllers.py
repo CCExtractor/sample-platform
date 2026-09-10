@@ -10,6 +10,8 @@ from flask import g
 from mod_auth.models import Role
 from mod_ci.controllers import (Workflow_builds, get_info_for_pr_comment,
                                 is_valid_commit_hash, mark_test_failed,
+                                parse_git_commit_from_log_stream,
+                                parse_git_commit_from_logs,
                                 progress_type_request, retry_with_backoff,
                                 safe_db_commit, start_platforms)
 from mod_ci.models import BlockedUsers
@@ -1009,6 +1011,42 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_ci.controllers.BlockedUsers')
     @mock.patch('github.Github.get_repo')
+    @mock.patch('mod_ci.controllers.add_test_entry')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_pr_opened_records_merge_commit(
+            self, mock_request, mock_add_test_entry, mock_repo, mock_blocked):
+        """PR webhook stores GitHub's merge SHA as built_commit, not as commit."""
+        mock_blocked.query.filter.return_value.first.return_value = None
+        head_sha = '6e1e22a3b8abcdef6e1e22a3b8abcdef6e1e22a3'
+        merge_sha = 'e98f1a2f81abcdefe98f1a2f81abcdefe98f1a2f'
+        mock_pr = MagicMock()
+        mock_pr.mergeable = True
+        mock_pr.merge_commit_sha = merge_sha
+        mock_repo.return_value.get_pull.return_value = mock_pr
+
+        data = {
+            'action': 'opened',
+            'pull_request': {
+                'number': 1234,
+                'head': {'sha': head_sha},
+                'merge_commit_sha': merge_sha,
+                'user': {'id': 'test'},
+                'draft': False,
+            },
+        }
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'pull_request'))
+
+        self.assertEqual(response.data, b'{"msg": "EOL"}')
+        mock_add_test_entry.assert_called_once()
+        args, kwargs = mock_add_test_entry.call_args
+        self.assertEqual(args[1], head_sha)
+        self.assertEqual(kwargs.get('built_commit'), merge_sha)
+
+    @mock.patch('mod_ci.controllers.BlockedUsers')
+    @mock.patch('github.Github.get_repo')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_pr_invalid_action(self, mock_request, mock_repo, mock_blocked):
         """Test webhook triggered with pull_request event with an invalid action."""
@@ -1657,6 +1695,20 @@ class TestControllers(BaseTestCase):
         mock_safe_commit.assert_called_once()
         mock_log.error.assert_called()
 
+    def test_add_test_entry_stores_built_commit(self):
+        """PR tests keep head SHA in commit and merge SHA in built_commit."""
+        from mod_ci.controllers import add_test_entry
+
+        head = '6e1e22a3b8abcdef6e1e22a3b8abcdef6e1e22a3'
+        merge = 'e98f1a2f81abcdefe98f1a2f81abcdefe98f1a2f'
+        add_test_entry(g.db, head, TestType.pull_request, pr_nr=42, built_commit=merge)
+        tests = Test.query.filter(Test.commit == head).all()
+        self.assertGreaterEqual(len(tests), 2)
+        for entry in tests:
+            self.assertEqual(entry.commit, head)
+            self.assertEqual(entry.built_commit, merge)
+            self.assertEqual(entry.pr_nr, 42)
+
     @mock.patch('mod_ci.controllers.delete_instance')
     @mock.patch('mod_ci.controllers.safe_db_commit')
     @mock.patch('mod_ci.controllers.is_instance_testing')
@@ -2171,6 +2223,42 @@ class TestControllers(BaseTestCase):
         self.assertEqual(2, mock_os.path.join.call_count)
         mock_uploadfile.save.assert_called_once()
         mock_os.rename.assert_called_once()
+
+    def test_logupload_records_built_commit_from_git_commit_line(self):
+        """Log upload parses the binary's Git commit line as built_commit."""
+        import shutil
+        import tempfile
+
+        from mod_ci.controllers import upload_log_type_request
+
+        head = '6e1e22a3b8abcdef6e1e22a3b8abcdef6e1e22a3'
+        test = Test(TestPlatform.linux, TestType.pull_request, 1, 'pull_request', head, 1)
+        g.db.add(test)
+        g.db.commit()
+
+        repo_folder = tempfile.mkdtemp()
+        os.makedirs(os.path.join(repo_folder, 'TempFiles'))
+        os.makedirs(os.path.join(repo_folder, 'LogFiles'))
+        try:
+            mock_request = MagicMock()
+            uploaded = MagicMock()
+            uploaded.filename = 'log.txt'
+
+            def save(path):
+                with open(path, 'w', encoding='utf-8') as handle:
+                    handle.write('CCExtractor 0.95\nGit commit: e98f1a2f81\n')
+
+            uploaded.save.side_effect = save
+            mock_request.files = {'file': uploaded}
+            mock_log = MagicMock()
+
+            self.assertTrue(
+                upload_log_type_request(mock_log, test.id, repo_folder, test, mock_request))
+            g.db.refresh(test)
+            self.assertEqual(test.commit, head)
+            self.assertEqual(test.built_commit, 'e98f1a2f81')
+        finally:
+            shutil.rmtree(repo_folder)
 
     @mock.patch('mod_ci.controllers.secure_filename')
     def test_upload_type_request_empty(self, mock_filename):
@@ -2821,6 +2909,47 @@ class TestControllers(BaseTestCase):
         self.assertFalse(is_valid_commit_hash('1978060bf7d2edd119736ba3ba88341f3bec33231'))
         # 50 characters - way too long
         self.assertFalse(is_valid_commit_hash('1978060bf7d2edd119736ba3ba88341f3bec332312345678'))
+
+    def test_parse_git_commit_from_logs(self):
+        """Parse the SHA the binary reports, matching Sample Platform run 9490."""
+        log_text = (
+            "Compiled with:\n"
+            "Git commit: e98f1a2f81\n"
+            "Version: 0.95\n"
+        )
+        self.assertEqual(parse_git_commit_from_logs(log_text), 'e98f1a2f81')
+        self.assertIsNone(parse_git_commit_from_logs('no version banner here'))
+        self.assertIsNone(parse_git_commit_from_logs(''))
+
+    def test_parse_git_commit_from_log_stream_stops_after_match(self):
+        """Do not keep reading a large log after Git commit is found."""
+        from io import StringIO
+
+        banner = 'Git commit: e98f1a2f81\n'
+        rest = 'x' * 200000
+        stream = StringIO(banner + rest)
+        original_read = stream.read
+        read_sizes = []
+
+        def counting_read(size=-1):
+            read_sizes.append(size)
+            return original_read(size)
+
+        stream.read = counting_read
+        self.assertEqual(
+            parse_git_commit_from_log_stream(stream, chunk_size=64),
+            'e98f1a2f81')
+        self.assertEqual(len(read_sizes), 1)
+        self.assertEqual(stream.tell(), 64)
+
+    def test_parse_git_commit_from_log_stream_spans_chunks(self):
+        """Find Git commit even when the line is split across read batches."""
+        from io import StringIO
+
+        text = 'prefix Git commit: e98f1a2f81 suffix'
+        self.assertEqual(
+            parse_git_commit_from_log_stream(StringIO(text), chunk_size=8),
+            'e98f1a2f81')
 
     @mock.patch('mod_ci.controllers.add_test_entry')
     @mock.patch('github.Github.get_repo')

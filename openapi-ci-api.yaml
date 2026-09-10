@@ -4250,6 +4250,17 @@ components:
         commit_sha:
           type: string
           pattern: '^[a-fA-F0-9]{40}$'
+          description: >
+            Recorded trigger SHA. For pull requests this is the PR head, which
+            GitHub Actions does not build when testing merge refs.
+        built_commit_sha:
+          type: string
+          pattern: '^[a-fA-F0-9]{7,40}$'
+          nullable: true
+          description: >
+            SHA that was actually compiled and tested, when it differs from
+            commit_sha. For PRs this is GitHub's merge commit and/or the
+            `Git commit:` line from VM logs. Null when unknown or identical.
         pr_number:
           type: integer
           minimum: 1

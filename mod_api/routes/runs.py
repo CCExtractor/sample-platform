@@ -57,6 +57,7 @@ def _batch_serialize(tests, statuses=None, timestamps=None):
             'repository': t.fork.github_name if t.fork else 'unknown',
             'branch': t.branch,
             'commit_sha': t.commit,
+            'built_commit_sha': t.built_commit,
             'pr_number': t.pr_nr if t.pr_nr and t.pr_nr > 0 else None,
             'created_at': timestamps.get(t.id, {}).get('created_at'),
             'queued_at': timestamps.get(t.id, {}).get('queued_at'),

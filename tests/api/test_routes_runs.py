@@ -166,13 +166,15 @@ class TestRoutesRuns(ApiTestCase):
         token = self.get_token('runs_user@local.com',
                                'userpass123', 't5b', scopes=['runs:read'])
         run = Test.query.filter(Test.id == self.test_id).one()
-        run.built_commit = 'e98f1a2f81'
+        expected_commit = run.commit
+        expected_built_commit = 'e98f1a2f81'
+        run.built_commit = expected_built_commit
         g.db.commit()
         res = self.client.get(
             f'/api/v1/runs/{self.test_id}', headers={'Authorization': f'Bearer {token}'})
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(res.json['commit_sha'], run.commit)
-        self.assertEqual(res.json['built_commit_sha'], 'e98f1a2f81')
+        self.assertEqual(res.json['commit_sha'], expected_commit)
+        self.assertEqual(res.json['built_commit_sha'], expected_built_commit)
 
     def test_get_run_summary(self):
         token = self.get_token('runs_user@local.com',

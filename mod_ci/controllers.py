@@ -2383,10 +2383,13 @@ def progress_type_request(log, test, test_id, request) -> bool:
     message = request.form['message']
 
     if len(test.progress) != 0:
-        last_status = TestStatus.progress_step(test.progress[-1].status)
-
-        if last_status in [TestStatus.completed, TestStatus.canceled]:
+        last_progress_status = test.progress[-1].status
+        # Compare enum to enum. progress_step() returns an int index, which
+        # never matches TestStatus.completed / TestStatus.canceled.
+        if last_progress_status in [TestStatus.completed, TestStatus.canceled]:
             return False
+
+        last_status = TestStatus.progress_step(last_progress_status)
 
         if last_status > current_status:
             status = TestStatus.canceled  # type: ignore

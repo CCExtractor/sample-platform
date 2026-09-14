@@ -240,6 +240,9 @@ GITHUB_CLIENT_KEY = '${github_client_secret_key}'
 INSTALL_FOLDER = '${root_dir}'
 SAMPLE_REPOSITORY = '${sample_repository}'
 SESSION_COOKIE_PATH = '/'
+# Where the web console is served. Recovery emails link here instead of the
+# classic pages when it is set; leave empty to keep the old behaviour.
+CONSOLE_URL = 'https://${config_server_name}/app'
 FTP_PORT = $ftp_port
 MAX_CONTENT_LENGTH = $max_content_length
 MIN_PWD_LEN = $min_pwd_len

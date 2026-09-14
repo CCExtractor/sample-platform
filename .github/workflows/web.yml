@@ -1,0 +1,34 @@
+name: Web console
+
+# Only runs when the console changes; the Python checks in main.yml are
+# unaffected by anything under web/.
+on:
+  push:
+    branches: [master]
+    paths: ['web/**', '.github/workflows/web.yml']
+  pull_request:
+    paths: ['web/**', '.github/workflows/web.yml']
+
+defaults:
+  run:
+    working-directory: web
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      # --ignore-scripts: nothing here needs a lifecycle script, and not
+      # running them stops a compromised dependency executing during
+      # install.
+      - run: npm ci --ignore-scripts
+      - run: npm run lint
+      # The local binary, not npx, which would fetch on demand.
+      - run: ./node_modules/.bin/tsc -b
+      - run: npm run build:app
+      - run: npm audit --audit-level=high

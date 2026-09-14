@@ -10,3 +10,11 @@ updates:
   reviewers:
   - canihavesomecoffee
   - thealphadollar
+- package-ecosystem: npm
+  directory: "/web"
+  schedule:
+    interval: weekly
+  open-pull-requests-limit: 5
+  groups:
+    minor-and-patch:
+      update-types: ["minor", "patch"]

@@ -91,6 +91,38 @@ jobs:
               sudo systemctl reload platform
             fi
 
+      # The console is a static build, so it is compiled here and only the
+      # output is shipped; the VM needs no Node toolchain. This runs after
+      # the code deploy so the target directory exists.
+      - name: Build web console
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Compile console
+        working-directory: web
+        run: |
+          npm ci --ignore-scripts
+          npm run build:app
+
+      - name: Ship console
+        uses: appleboy/scp-action@917f8b81dfc1ccd331fef9e2d61bdc6c8be94634  # v0.1.7
+        with:
+          host: ${{ vars.PLATFORM_DOMAIN }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.SSH_KEY_PRIVATE }}
+          port: 22
+          # Lands at <INSTALL_FOLDER>/web/app/, which is what the nginx
+          # root expects: the directory name has to match the /app/ URL.
+          source: "web/dist/**"
+          target: ${{ env.INSTALL_FOLDER }}/web/app
+          strip_components: 2
+          overwrite: true
+
       - name: Verify deployment
         id: health_check
         uses: appleboy/ssh-action@823bd89e131d8d508129f9443cad5855e9ba96f0  # v1.2.4

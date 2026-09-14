@@ -10,6 +10,7 @@ from flask import g
 from mod_auth.models import Role
 from mod_ci.controllers import (Workflow_builds, get_info_for_pr_comment,
                                 is_valid_commit_hash, mark_test_failed,
+                                parse_git_commit_from_log_file,
                                 parse_git_commit_from_log_stream,
                                 parse_git_commit_from_logs,
                                 progress_type_request, retry_with_backoff,
@@ -2205,9 +2206,10 @@ class TestControllers(BaseTestCase):
         mock_log.debug.assert_called_once()
         mock_filename.assert_called_once()
 
+    @mock.patch('mod_ci.controllers._record_built_commit_from_log')
     @mock.patch('mod_ci.controllers.os')
     @mock.patch('mod_ci.controllers.secure_filename')
-    def test_logupload_type_request(self, mock_filename, mock_os):
+    def test_logupload_type_request(self, mock_filename, mock_os, mock_record):
         """Test function logupload_type_request."""
         from mod_ci.controllers import upload_log_type_request
 
@@ -2223,6 +2225,7 @@ class TestControllers(BaseTestCase):
         self.assertEqual(2, mock_os.path.join.call_count)
         mock_uploadfile.save.assert_called_once()
         mock_os.rename.assert_called_once()
+        mock_record.assert_called_once()
 
     def test_logupload_records_built_commit_from_git_commit_line(self):
         """Log upload parses the binary's Git commit line as built_commit."""
@@ -2950,6 +2953,10 @@ class TestControllers(BaseTestCase):
         self.assertEqual(
             parse_git_commit_from_log_stream(StringIO(text), chunk_size=8),
             'e98f1a2f81')
+
+    def test_parse_git_commit_from_log_file_ignores_non_string_path(self):
+        """Refuse mocked paths so open() cannot close stdout as a file descriptor."""
+        self.assertIsNone(parse_git_commit_from_log_file(MagicMock()))
 
     @mock.patch('mod_ci.controllers.add_test_entry')
     @mock.patch('github.Github.get_repo')

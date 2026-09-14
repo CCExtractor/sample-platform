@@ -377,10 +377,14 @@ def parse_git_commit_from_log_file(log_path: str,
     :return: A valid commit hash if found, otherwise None
     :rtype: Optional[str]
     """
+    # Refuse non-strings: open() can treat objects with __index__ as fds
+    # and close stdout/stderr if a mocked path leaks in.
+    if not isinstance(log_path, str):
+        return None
     try:
         with open(log_path, encoding='utf-8', errors='replace') as handle:
             return parse_git_commit_from_log_stream(handle, chunk_size=chunk_size)
-    except OSError:
+    except (OSError, ValueError, TypeError):
         return None
 
 

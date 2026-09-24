@@ -53,3 +53,9 @@ monkeytype.sqlite3
 
 # Test related data
 temp/
+
+# MCP & Claude sensitive files (do NOT commit tokens)
+.claude/
+*.env
+mcp-*.log
+ecosystem.config.js

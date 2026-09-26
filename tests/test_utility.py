@@ -48,3 +48,28 @@ class TestUtility(BaseTestCase):
         mock_is_github_ip.assert_called_once()
         self.assertEqual(mock_abort.call_count, 7)
         self.assertEqual(response, "Test Success")
+
+    def test_is_valid_signature_accepts_sha1_and_sha256(self):
+        """Test that signatures made with the hashes GitHub uses are accepted."""
+        import hashlib
+        import hmac
+
+        from utility import is_valid_signature
+
+        data = b'{"zen": "Keep it logically awesome."}'
+        for name in ('sha1', 'sha256'):
+            digest = hmac.new(b'secret', msg=data, digestmod=getattr(hashlib, name)).hexdigest()
+            self.assertTrue(is_valid_signature(f'{name}={digest}', data, 'secret'))
+            self.assertFalse(is_valid_signature(f'{name}={digest}', data, 'other-secret'))
+
+    def test_is_valid_signature_rejects_malformed_headers(self):
+        """Test that malformed or unexpected signature headers are rejected instead of raising."""
+        import hashlib
+        import hmac
+
+        from utility import is_valid_signature
+
+        data = b'{}'
+        md5_digest = hmac.new(b'secret', msg=data, digestmod=hashlib.md5).hexdigest()
+        for header in (None, '', 'sha1', 'new=abc', 'unknown=abc', 'sha1=\u00e9', f'md5={md5_digest}'):
+            self.assertFalse(is_valid_signature(header, data, 'secret'), header)

@@ -240,9 +240,8 @@ def generate_signature(data, private_key):
     """
     import hashlib
     import hmac
-    algorithm = hashlib.__dict__.get('sha1')
     encoded_key = bytes(private_key, 'latin-1')
-    mac = hmac.new(encoded_key, msg=data, digestmod=algorithm)
+    mac = hmac.new(encoded_key, msg=data, digestmod=hashlib.sha256)
     return mac.hexdigest()
 
 
@@ -252,12 +251,12 @@ def generate_git_api_header(event, sig):
 
     :param event: Name of the event type that triggered the delivery.
     :param sig: The HMAC hex digest of the response body. The HMAC hex digest is generated
-                using the sha1 hash function and the secret as the HMAC key.
+                using the sha256 hash function and the secret as the HMAC key.
     """
     return Headers([
         ('X-GitHub-Event', event),
         ('X-GitHub-Delivery', "72d3162e-cc78-11e3-81ab-4c9367dc0958"),
-        ('X-Hub-Signature', f"sha1={sig}"),
+        ('X-Hub-Signature-256', f"sha256={sig}"),
         ('User-Agent', "GitHub-Hookshot/044aadd"),
         ('Content-Type', "application/json"),
         ('Content-Length', 6615)

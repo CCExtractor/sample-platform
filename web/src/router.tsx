@@ -140,7 +140,13 @@ const routeTree = rootRoute.addChildren([
   adminRoute,
 ]);
 
-export const router = createRouter({ routeTree });
+// Served under /app/ in production, so routes are matched below that
+// prefix. A relative base (the demo build) is served from the root.
+const base = import.meta.env.BASE_URL;
+export const router = createRouter({
+  routeTree,
+  basepath: base.startsWith("/") ? base : "/",
+});
 
 declare module "@tanstack/react-router" {
   interface Register {

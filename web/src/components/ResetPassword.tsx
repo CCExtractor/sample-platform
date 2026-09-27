@@ -1,6 +1,6 @@
 import { KeyRound, Loader2 } from "lucide-react";
 import { motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,29 +15,25 @@ import { asset } from "@/lib/utils";
  * signed link: they are handed straight back to the API, which is what
  * checks them. Nothing here can decide whether a link is good.
  */
+// Read from the URL rather than the router: the link is built by the
+// platform's email template, and lands here under either history mode.
+function readResetLink(): { uid: number; expires: number; mac: string } | null {
+  const raw = window.location.href;
+  const query = raw.slice(raw.indexOf("?") + 1);
+  const q = new URLSearchParams(raw.includes("?") ? query : "");
+  const uid = Number(q.get("uid"));
+  const expires = Number(q.get("expires"));
+  const mac = q.get("mac");
+  return uid && expires && mac ? { uid, expires, mac } : null;
+}
+
 export function ResetPassword() {
-  const [params, setParams] = useState<{
-    uid: number;
-    expires: number;
-    mac: string;
-  } | null>(null);
+  const [params] = useState(readResetLink);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
-
-  // Read from the URL rather than the router: the link is built by the
-  // platform's email template, and lands here under either history mode.
-  useEffect(() => {
-    const raw = window.location.href;
-    const query = raw.slice(raw.indexOf("?") + 1);
-    const q = new URLSearchParams(raw.includes("?") ? query : "");
-    const uid = Number(q.get("uid"));
-    const expires = Number(q.get("expires"));
-    const mac = q.get("mac");
-    if (uid && expires && mac) setParams({ uid, expires, mac });
-  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();

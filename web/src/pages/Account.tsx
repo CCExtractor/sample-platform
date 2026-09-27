@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { ExternalLink, GitBranch, KeyRound, Loader2, UserRound, UserX } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm";
@@ -61,11 +61,14 @@ function ProfileSection({ name, email }: Readonly<{ name: string; email: string 
   const [saved, setSaved] = useState(false);
 
   // The query refetches after a save, so pick the server's values back up
-  // rather than leaving whatever was typed sitting in the inputs.
-  useEffect(() => {
+  // rather than leaving whatever was typed sitting in the inputs. Done while
+  // rendering, not in an effect, so the stale values never paint.
+  const [synced, setSynced] = useState({ name, email });
+  if (synced.name !== name || synced.email !== email) {
+    setSynced({ name, email });
     setDraftName(name);
     setDraftEmail(email);
-  }, [name, email]);
+  }
 
   const emailChanged = draftEmail !== email;
   const nameChanged = draftName !== name;
@@ -279,18 +282,19 @@ function GithubSection() {
                 {busy && <Loader2 className="animate-spin" />} Disconnect
               </Button>
             ) : (
-              <a href={data.authorize_url} target="_blank" rel="noreferrer">
+              <a href="/account/manage" target="_blank" rel="noreferrer">
                 <Button size="sm" variant="secondary">
                   <ExternalLink /> Connect to GitHub
                 </Button>
               </a>
             )}
-            {/* The redirect finishes on the classic site, so this page will
-                not know about it until it is loaded again. */}
+            {/* GitHub's callback is registered to the classic site and reads
+                its own sign-in, so the link is made there. This page will not
+                know about it until it is loaded again. */}
             <p className="mt-2 text-[11px] text-faint">
               {data.linked
                 ? "Disconnecting only forgets the platform's copy. Withdraw the authorisation itself from your GitHub applications page."
-                : "GitHub opens in a new tab. Reload this page once you are done there."}
+                : "Opens your account on the classic site in a new tab, where GitHub is connected. Reload this page once you are done there."}
             </p>
           </>
         )}

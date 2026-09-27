@@ -72,7 +72,7 @@ def request_from_github(abort_code: int = 418) -> Callable:
                 g.log.warning(f"Unauthorized attempt by IP {request_ip}")
                 abort(abort_code)
 
-            for header in ['X-GitHub-Event', 'X-GitHub-Delivery', 'X-Hub-Signature', 'User-Agent']:
+            for header in ['X-GitHub-Event', 'X-GitHub-Delivery', 'X-Hub-Signature-256', 'User-Agent']:
                 if header not in request.headers:
                     g.log.critical(f"{header} not in headers!")
                     abort(abort_code)
@@ -149,34 +149,30 @@ def get_cached_web_hook_blocks() -> List[str]:
     return cached_web_hook_blocks
 
 
-#: Hash algorithms GitHub signs web hook payloads with.
-SIGNATURE_ALGORITHMS = {'sha1': hashlib.sha1, 'sha256': hashlib.sha256}
-
-
 def is_valid_signature(x_hub_signature, data, private_key):
     """
     Re-check if the GitHub hook request got valid signature.
 
-    :param x_hub_signature: Signature to check, e.g. ``sha1=<hex digest>``
+    :param x_hub_signature: Value of the ``X-Hub-Signature-256`` header,
+        e.g. ``sha256=<hex digest>``
     :type x_hub_signature: str
     :param data: Signature's data
     :type data: bytearray
     :param private_key: Signature's token
     :type private_key: str
-    :return: False if the signature is missing, malformed, uses a hash
-        GitHub does not sign with, or does not match.
+    :return: False if the signature is missing, malformed, not SHA-256,
+        or does not match.
     :rtype: bool
     """
     if not x_hub_signature:
         return False
 
     hash_algorithm, separator, github_signature = x_hub_signature.partition('=')
-    algorithm = SIGNATURE_ALGORITHMS.get(hash_algorithm)
-    if not separator or algorithm is None:
+    if not separator or hash_algorithm != 'sha256':
         return False
 
     encoded_key = bytes(private_key, 'latin-1')
-    mac = hmac.new(encoded_key, msg=data, digestmod=algorithm)
+    mac = hmac.new(encoded_key, msg=data, digestmod=hashlib.sha256)
 
     # Compare bytes: compare_digest raises TypeError on non-ASCII str input.
     return hmac.compare_digest(mac.hexdigest().encode(), github_signature.encode('utf-8', 'replace'))

@@ -20,6 +20,7 @@ from mod_auth.forms import (AccountForm, CompleteResetForm, CompleteSignupForm,
                             DeactivationForm, LoginForm, ResetForm,
                             RoleChangeForm, SignupForm)
 from mod_auth.models import Role, User
+from utility import HTTP_TIMEOUT
 
 mod_auth = Blueprint('auth', __name__)
 
@@ -139,7 +140,7 @@ def github_token_validity(token: str):
     url = f'https://api.github.com/applications/{github_client_id}/token'
     session = requests.Session()
     session.auth = (github_client_id, github_client_secret)
-    response = session.post(url, json={"access_token": token})
+    response = session.post(url, json={"access_token": token}, timeout=HTTP_TIMEOUT)
 
     return response.status_code == 200
 
@@ -182,7 +183,7 @@ def fetch_username_from_token(user=None) -> Any:
     session = requests.Session()
     session.auth = (user.email, user.github_token)
     try:
-        response = session.get(url, timeout=(3.05, 10))
+        response = session.get(url, timeout=HTTP_TIMEOUT)
         data = response.json()
         return data.get('login')
     except Exception as e:
@@ -209,7 +210,7 @@ def github_callback():
             'code': request.args['code']
         }
         headers = {'Accept': 'application/json'}
-        r = requests.post(url, params=payload, headers=headers)
+        r = requests.post(url, params=payload, headers=headers, timeout=HTTP_TIMEOUT)
         response = r.json()
 
         if 'access_token' in response:

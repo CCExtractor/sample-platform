@@ -42,7 +42,8 @@ class Mailer:
         """
         data['from'] = self.sender
         try:
-            return requests.post(f"{self.api_url}/messages", auth=self.auth, data=data)
+            return requests.post(f"{self.api_url}/messages", auth=self.auth, data=data,
+                                 timeout=(3.05, 10))
         except (requests.HTTPError, requests.ConnectionError):
             traceback.print_exc()
             raise FailedToSendMail

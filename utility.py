@@ -15,6 +15,9 @@ from google.auth.exceptions import GoogleAuthError
 
 ROOT_DIR = path.dirname(path.abspath(__file__))
 
+# Connect, read. Same tuple already used by fetch_username_from_token.
+HTTP_TIMEOUT = (3.05, 10)
+
 
 def serve_file_download(file_name, file_folder, file_sub_folder='') -> werkzeug.wrappers.response.Response:
     """
@@ -138,7 +141,8 @@ def get_cached_web_hook_blocks() -> List[str]:
         client_id = config.get('GITHUB_CLIENT_ID', '')
         client_secret = config.get('GITHUB_CLIENT_KEY', '')
         meta_json = requests.get(
-            'https://api.github.com/meta', auth=(client_id, client_secret)).json()
+            'https://api.github.com/meta', auth=(client_id, client_secret),
+            timeout=HTTP_TIMEOUT).json()
         try:
             cached_web_hook_blocks = meta_json['hooks']
             # We successfully fetched the IPs so we reset the clock

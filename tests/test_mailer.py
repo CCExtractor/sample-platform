@@ -38,4 +38,5 @@ class TestMailer(unittest.TestCase):
 
             mock_post.assert_called_once_with("%s/messages" % mailer.api_url,
                                               auth=mailer.auth,
-                                              data=expected_data)
+                                              data=expected_data,
+                                              timeout=(3.05, 10))

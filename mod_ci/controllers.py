@@ -2043,7 +2043,7 @@ def start_ci():
             g.log.debug('server ping successful')
             return json.dumps({'msg': 'Hi!'})
 
-        x_hub_signature = request.headers.get('X-Hub-Signature')
+        x_hub_signature = request.headers.get('X-Hub-Signature-256')
 
         if not is_valid_signature(x_hub_signature, request.data, g.github['ci_key']):
             g.log.warning(f'CI signature failed: {x_hub_signature}')

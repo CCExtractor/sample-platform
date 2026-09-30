@@ -1,0 +1,9 @@
+﻿1
+00:00:05,956 --> 00:00:07,955
+CCextractor Start crdit Testing
+
+2
+00:00:13,913 --> 00:00:15,080
+>> WHICH OF THESE STORIES WILL  
+YOU BE TALKING ABOUT TRO        
+

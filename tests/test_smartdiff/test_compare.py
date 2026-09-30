@@ -1,0 +1,161 @@
+"""Tests for the semantic subtitle comparison / classifier."""
+
+import unittest
+
+from mod_test.smartdiff.compare import smart_diff
+
+
+def _srt(cues):
+    """
+    Build SubRip text from (start_ms, end_ms, text) tuples.
+
+    :param cues: Iterable of (start_ms, end_ms, text) tuples.
+    :type cues: list
+    :return: SubRip-formatted string.
+    :rtype: str
+    """
+    def stamp(ms):
+        h, ms = divmod(ms, 3600000)
+        m, ms = divmod(ms, 60000)
+        s, ms = divmod(ms, 1000)
+        return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
+
+    blocks = []
+    for i, (start, end, text) in enumerate(cues, start=1):
+        blocks.append(f"{i}\n{stamp(start)} --> {stamp(end)}\n{text}\n")
+    return "\n".join(blocks)
+
+
+_BASE = [(1000, 4000, "Hello world"), (5000, 8000, "Second line")]
+_BASE_CAPS = [(1000, 4000, "HELLO WORLD"), (5000, 8000, "SECOND LINE")]
+
+
+class SmartDiffTests(unittest.TestCase):
+    """Classifying the kind of difference between two outputs."""
+
+    def test_identical(self):
+        """Equal outputs classify as identical."""
+        result = smart_diff(_srt(_BASE), _srt(_BASE))
+        self.assertEqual(result["kind"], "identical")
+
+    def test_timing_shift_reports_offset(self):
+        """A constant timing offset is reported as timing_shift with offset_ms."""
+        shifted = [(s + 500, e + 500, t) for s, e, t in _BASE]
+        result = smart_diff(_srt(_BASE), _srt(shifted))
+        self.assertEqual(result["kind"], "timing_shift")
+        self.assertEqual(result["offset_ms"], 500)
+
+    def test_text_change_only(self):
+        """Same timing, different text classifies as text_change."""
+        changed = [(1000, 4000, "Hello world"), (5000, 8000, "DIFFERENT")]
+        result = smart_diff(_srt(_BASE), _srt(changed))
+        self.assertEqual(result["kind"], "text_change")
+
+    def test_missing_cues(self):
+        """Fewer cues than expected classifies as missing_cues."""
+        result = smart_diff(_srt(_BASE), _srt(_BASE[:1]))
+        self.assertEqual(result["kind"], "missing_cues")
+        self.assertEqual((result["expected_cues"], result["actual_cues"]), (2, 1))
+
+    def test_extra_cues(self):
+        """More cues than expected classifies as extra_cues."""
+        more = _BASE + [(9000, 10000, "Third line")]
+        result = smart_diff(_srt(_BASE), _srt(more))
+        self.assertEqual(result["kind"], "extra_cues")
+
+    def test_mixed_when_text_and_count_differ(self):
+        """Both text changes and a count mismatch classify as mixed."""
+        other = [(1000, 4000, "CHANGED"), (5000, 8000, "Second line"),
+                 (9000, 10000, "Third")]
+        result = smart_diff(_srt(_BASE), _srt(other))
+        self.assertEqual(result["kind"], "mixed")
+
+    def test_works_on_webvtt_via_autodetect(self):
+        """smart_diff auto-detects WebVTT and still classifies a timing shift."""
+        base = "WEBVTT\n\n00:00:01.000 --> 00:00:04.000\nHello\n"
+        shifted = "WEBVTT\n\n00:00:01.250 --> 00:00:04.250\nHello\n"
+        result = smart_diff(base, shifted)
+        self.assertEqual(result["kind"], "timing_shift")
+        self.assertEqual(result["offset_ms"], 250)
+
+    def test_whitespace_padding_only(self):
+        """Trailing CEA-608 padding differences are flagged as cosmetic, not text."""
+        padded = [(1000, 4000, "HELLO WORLD   "), (5000, 8000, "SECOND LINE  ")]
+        result = smart_diff(_srt(_BASE_CAPS), _srt(padded))
+        self.assertEqual(result["kind"], "whitespace_change")
+
+    def test_formatting_tags_only(self):
+        """A styling-tags-only difference is flagged as formatting, not text."""
+        styled = [(1000, 4000, "<i>Hello world</i>"), (5000, 8000, "Second line")]
+        result = smart_diff(_srt(_BASE), _srt(styled))
+        self.assertEqual(result["kind"], "formatting_change")
+
+    def test_timing_drift_growing_offset(self):
+        """A growing (not constant) timing offset classifies as timing_drift."""
+        base = [(1000, 2000, "A"), (5000, 6000, "B"), (9000, 10000, "C")]
+        drifted = [(1000, 2000, "A"), (5040, 6040, "B"), (9080, 10080, "C")]
+        result = smart_diff(_srt(base), _srt(drifted))
+        self.assertEqual(result["kind"], "timing_drift")
+
+    def test_split_cues_same_text_more_cues(self):
+        """One cue rendered as two (same words) classifies as split_cues."""
+        one = [(1000, 4000, "hello world")]
+        two = [(1000, 2000, "hello"), (2000, 4000, "world")]
+        result = smart_diff(_srt(one), _srt(two))
+        self.assertEqual(result["kind"], "split_cues")
+
+    def test_merged_cues_same_text_fewer_cues(self):
+        """Two cues collapsed into one (same words) classifies as merged_cues."""
+        two = [(1000, 2000, "hello"), (2000, 4000, "world")]
+        one = [(1000, 4000, "hello world")]
+        result = smart_diff(_srt(two), _srt(one))
+        self.assertEqual(result["kind"], "merged_cues")
+
+    def test_changes_list_text_detail(self):
+        """A text change lists which cue changed, with expected/actual snippets."""
+        changed = [(1000, 4000, "Hello world"), (5000, 8000, "DIFFERENT")]
+        result = smart_diff(_srt(_BASE), _srt(changed))
+        changes = result["changes"]
+        self.assertEqual(len(changes), 1)
+        self.assertEqual(changes[0]["cue"], 2)
+        self.assertEqual(changes[0]["kind"], "text")
+        self.assertEqual(changes[0]["actual"], "DIFFERENT")
+
+    def test_changes_list_timing_offsets(self):
+        """A timing shift lists a per-cue offset for each cue."""
+        shifted = [(s + 500, e + 500, t) for s, e, t in _BASE]
+        result = smart_diff(_srt(_BASE), _srt(shifted))
+        self.assertTrue(all(c["offset_ms"] == 500 for c in result["changes"]))
+
+    def test_identical_has_no_changes(self):
+        """An identical result carries no changes list."""
+        self.assertNotIn("changes", smart_diff(_srt(_BASE), _srt(_BASE)))
+
+    def test_no_cues_and_differ_is_unsupported_not_identical(self):
+        """Two different non-subtitle outputs (no cues) are not called identical."""
+        result = smart_diff("plain transcript one", "plain transcript two")
+        self.assertEqual(result["kind"], "unsupported")
+
+    def test_no_cues_but_equal_is_identical(self):
+        """Two equal cue-less outputs are still identical."""
+        self.assertEqual(smart_diff("same text", "same text")["kind"], "identical")
+
+    def test_text_change_with_shift_records_per_cue_offset(self):
+        """A combined text change + timing shift keeps the per-cue offset in changes."""
+        base = [(1000, 2000, "A"), (5000, 6000, "B")]
+        other = [(1500, 2500, "X"), (5500, 6500, "Y")]
+        result = smart_diff(_srt(base), _srt(other))
+        self.assertEqual(result["kind"], "text_change")
+        self.assertNotIn("aligned", result["summary"])
+        self.assertTrue(all(c["offset_ms"] == 500 for c in result["changes"]))
+
+    def test_encoding_change_non_ascii_only(self):
+        """A charset difference (accents only, e.g. -latin1) is flagged as encoding."""
+        accented = [(1000, 4000, "Voilà"), (5000, 8000, "naïve café")]
+        folded = [(1000, 4000, "Voila"), (5000, 8000, "naive cafe")]
+        result = smart_diff(_srt(accented), _srt(folded))
+        self.assertEqual(result["kind"], "encoding_change")
+
+
+if __name__ == "__main__":
+    unittest.main()

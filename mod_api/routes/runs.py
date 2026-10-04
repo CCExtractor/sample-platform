@@ -33,6 +33,7 @@ from mod_api.services.status import (batch_get_run_data, derive_run_status,
                                      expected_regression_ids)
 from mod_api.utils import get_sort_column, paginated_response, single_response
 from mod_auth.models import Role
+from mod_ci.models import GcpInstance
 from mod_customized.models import CustomizedTest
 from mod_home.models import CCExtractorVersion
 from mod_regression.models import RegressionTest, RegressionTestOutput
@@ -700,9 +701,10 @@ def restart_run(run_id):
     """
     Queue a finished or stuck run to be executed again.
 
-    Clearing the results and the progress trail is what makes the run
-    eligible again, because CI picks up tests that have no progress
-    recorded. The run keeps its id, so existing links stay valid, and the
+    Clearing the results, the progress trail, and any GcpInstance row is
+    what makes the run eligible again. CI skips tests that still have a
+    GcpInstance, so a stuck or running restart would otherwise never be
+    re-queued. The run keeps its id, so existing links stay valid, and the
     old results are replaced rather than kept alongside the new ones.
 
     Like cancel, this is open to anyone holding runs:write rather than to
@@ -724,6 +726,8 @@ def restart_run(run_id):
         TestResult.test_id == test.id).delete(synchronize_session=False)
     TestProgress.query.filter(
         TestProgress.test_id == test.id).delete(synchronize_session=False)
+    GcpInstance.query.filter(
+        GcpInstance.test_id == test.id).delete(synchronize_session=False)
     g.db.commit()
 
     g.log.info(f'run {run_id} restarted via API by {g.api_user.id}')

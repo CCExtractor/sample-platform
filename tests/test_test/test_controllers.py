@@ -3,6 +3,7 @@ from unittest import mock
 from werkzeug.exceptions import Forbidden, NotFound
 
 from mod_auth.models import Role
+from mod_ci.models import GcpInstance
 from mod_regression.models import RegressionTest
 from mod_test.models import (Test, TestPlatform, TestProgress, TestResult,
                              TestResultFile, TestStatus)
@@ -65,12 +66,16 @@ class TestControllers(BaseTestCase):
             self.user.name, self.user.email, self.user.password, Role.tester)
         self.create_forktest("own-fork-commit", TestPlatform.linux, regression_tests=[2])
         self.create_completed_regression_t_entries(3, [2])
+        from flask import g
+        g.db.add(GcpInstance('linux-3', 3))
+        g.db.commit()
         with self.app.test_client() as c:
             response = c.post(
                 '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
             response = c.get('/test/restart_test/3')
             test = Test.query.filter(Test.id == 3).first()
             self.assertEqual(test.finished, False)
+            self.assertEqual(GcpInstance.query.filter_by(test_id=3).count(), 0)
 
     def test_restart_fails_on_no_permission(self):
         """Test failed test restart because of no permission."""

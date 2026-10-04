@@ -359,7 +359,7 @@ def generate_diff(test_id: int, regression_test_id: int, output_id: int, to_view
         path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'TestResults')
 
         request_xhr_key = request.headers.get('X-Requested-With')
-        if (request_xhr_key == 'XMLHttpRequest' or request.accept_mimetypes['application/json']) and to_view == 1:
+        if (request_xhr_key == 'XMLHttpRequest' or request.accept_mimetypes.accept_json) and to_view == 1:
             return result.generate_html_diff(path)
         elif to_view == 0:
             diff_html_text = result.generate_html_diff(path, to_view=False)

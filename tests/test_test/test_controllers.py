@@ -191,7 +191,7 @@ class TestControllers(BaseTestCase):
         """Try to generate diff when test file not present."""
         from mod_test.controllers import generate_diff
 
-        mock_request.accept_mimetypes.best = 'application/json'
+        mock_request.accept_mimetypes.accept_json = True
         mock_test_result_file.query.filter.return_value.first.return_value = None
 
         with self.assertRaises(NotFound):
@@ -203,7 +203,7 @@ class TestControllers(BaseTestCase):
         """Test to generate diff."""
         from mod_test.controllers import generate_diff
 
-        mock_request.accept_mimetypes.best = 'application/json'
+        mock_request.accept_mimetypes.accept_json = True
 
         response = generate_diff(1, 1, 1)
 
@@ -217,7 +217,7 @@ class TestControllers(BaseTestCase):
         """Test to download generated diff."""
         from mod_test.controllers import generate_diff
 
-        mock_request.accept_mimetypes.best = 'application/json'
+        mock_request.accept_mimetypes.accept_json = True
 
         response = generate_diff(1, 1, 1, to_view=0)
 

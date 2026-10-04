@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 from flask import g
 
+from mod_ci.models import GcpInstance
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
                              TestResult, TestResultFile, TestStatus, TestType)
 from tests.api.base import ApiTestCase
@@ -217,6 +218,8 @@ class TestRoutesRuns(ApiTestCase):
     def test_restart_run(self):
         token = self.get_token('runs_admin@local.com', 'adminpass123',
                                'restart1', scopes=['runs:write'])
+        g.db.add(GcpInstance(f'linux-{self.test_id}', self.test_id))
+        g.db.commit()
         res = self.client.post(
             f'/api/v1/runs/{self.test_id}/restart',
             headers={'Authorization': f'Bearer {token}'})
@@ -228,6 +231,9 @@ class TestRoutesRuns(ApiTestCase):
             TestProgress.query.filter_by(test_id=self.test_id).count(), 0)
         self.assertEqual(
             TestResult.query.filter_by(test_id=self.test_id).count(), 0)
+        # A leftover GcpInstance would keep cron from re-queuing the run.
+        self.assertEqual(
+            GcpInstance.query.filter_by(test_id=self.test_id).count(), 0)
 
     def test_restart_run_not_found(self):
         token = self.get_token('runs_admin@local.com', 'adminpass123',

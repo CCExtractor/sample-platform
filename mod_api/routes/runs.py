@@ -591,7 +591,7 @@ def get_run_progress(run_id, limit=50, offset=0):
                 f'Invalid status filter: {status_filter}.',
                 details={
                     'fields': {
-                        'status': 'Must be one of: queued, preparation, testing, completed, canceled, error.'}},
+                        'status': f'Must be one of: {", ".join(TestStatus.values())}.'}},
                 http_status=400,
             )
 

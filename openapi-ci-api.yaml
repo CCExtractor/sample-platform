@@ -276,6 +276,7 @@ paths:
           schema:
             type: integer
             minimum: 1
+            maximum: 2147483647
       responses:
         "204":
           description: Token revoked successfully.
@@ -397,9 +398,15 @@ paths:
                   type: integer
                 mac:
                   type: string
+                  minLength: 1
                   maxLength: 128
                 password:
                   type: string
+                  minLength: 10
+                  maxLength: 500
+                  description: >
+                    Length bounds come from the MIN_PWD_LEN and MAX_PWD_LEN
+                    settings; 10 and 500 are the shipped defaults.
       responses:
         "200":
           description: Password changed
@@ -467,14 +474,22 @@ paths:
               properties:
                 name:
                   type: string
+                  minLength: 1
                   maxLength: 50
                 email:
                   type: string
                   format: email
                 new_password:
                   type: string
+                  minLength: 10
+                  maxLength: 500
+                  description: >
+                    Length bounds come from the MIN_PWD_LEN and MAX_PWD_LEN
+                    settings; 10 and 500 are the shipped defaults.
                 current_password:
                   type: string
+                  minLength: 1
+                  maxLength: 500
       responses:
         "200":
           description: Account updated
@@ -519,7 +534,8 @@ paths:
         - name: ccx_version
           in: query
           description: >
-            Filter to the commit a CCExtractor release was cut from.
+            Filter to the commit a CCExtractor release was cut from. A version
+            the platform does not know returns 400.
           schema:
             type: string
             maxLength: 10
@@ -688,9 +704,13 @@ paths:
         - $ref: "#/components/parameters/Offset"
         - name: status
           in: query
+          description: >
+            Filter progress events by the status the CI worker recorded. A
+            queued run has no progress events yet, so queued is not a valid
+            filter here. Any other value returns 400.
           schema:
             type: string
-            enum: [queued, preparation, testing, completed, canceled]
+            enum: [preparation, testing, completed, canceled]
       responses:
         "200":
           description: Paginated progress events
@@ -855,9 +875,12 @@ paths:
         - $ref: "#/components/parameters/Offset"
         - name: status
           in: query
+          description: >
+            Filter by derived per-sample status. Only the statuses the API can
+            derive for a sample are accepted; any other value returns 400.
           schema:
             type: string
-            enum: [pass, fail, skipped, missing_output, running, not_started]
+            enum: [pass, fail, missing_output, not_started]
         - name: name
           in: query
           schema:
@@ -1057,6 +1080,7 @@ paths:
                   maxItems: 50
                   items:
                     type: string
+                    minLength: 1
                     maxLength: 64
                 notes:
                   type: string
@@ -1069,6 +1093,7 @@ paths:
                   enum: [linux, windows, mac, bsd]
                 version:
                   type: string
+                  minLength: 1
                   maxLength: 10
       responses:
         "200":
@@ -1298,6 +1323,7 @@ paths:
           schema:
             type: integer
             minimum: 1
+            maximum: 2147483647
       responses:
         "200":
           description: Paginated regression test definitions
@@ -1660,6 +1686,7 @@ paths:
           schema:
             type: integer
             minimum: 1
+            maximum: 2147483647
       responses:
         "200":
           description: Where the variant file is stored
@@ -1756,6 +1783,7 @@ paths:
           schema:
             type: integer
             minimum: 1
+            maximum: 2147483647
       responses:
         "200":
           description: Variant removed
@@ -1828,6 +1856,7 @@ paths:
           schema:
             type: integer
             minimum: 1
+            maximum: 2147483647
       responses:
         "200":
           description: Where the accompanying file is stored
@@ -1864,6 +1893,7 @@ paths:
           schema:
             type: integer
             minimum: 1
+            maximum: 2147483647
       responses:
         "200":
           description: Accompanying file deleted
@@ -1949,6 +1979,7 @@ paths:
               properties:
                 name:
                   type: string
+                  minLength: 1
                   maxLength: 64
                 description:
                   type: string
@@ -2202,6 +2233,7 @@ paths:
           schema:
             type: integer
             minimum: 1
+            maximum: 2147483647
       responses:
         "200":
           description: The queued upload
@@ -2245,6 +2277,7 @@ paths:
           schema:
             type: integer
             minimum: 1
+            maximum: 2147483647
       responses:
         "200":
           description: Queued upload discarded
@@ -2289,6 +2322,7 @@ paths:
           schema:
             type: integer
             minimum: 1
+            maximum: 2147483647
       requestBody:
         required: true
         content:
@@ -2299,6 +2333,7 @@ paths:
               properties:
                 version:
                   type: string
+                  minLength: 1
                   maxLength: 10
                   description: CCExtractor release the sample was produced with
                 platform:
@@ -2502,6 +2537,7 @@ paths:
           schema:
             type: integer
             minimum: 1
+            maximum: 2147483647
       requestBody:
         required: true
         content:
@@ -3564,7 +3600,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [build_log, sample_output, expected_output, diff, media_info, binary, coredump, combined_stdout]
+            enum: [build_log, sample_output, expected_output, actual_output, diff, media_info, binary, coredump, combined_stdout]
       responses:
         "200":
           description: Paginated run artifacts
@@ -3669,6 +3705,7 @@ components:
       schema:
         type: integer
         minimum: 1
+        maximum: 2147483647
 
     SampleId:
       name: sample_id
@@ -3678,6 +3715,7 @@ components:
       schema:
         type: integer
         minimum: 1
+        maximum: 2147483647
 
     RegressionTestId:
       name: regression_test_id
@@ -3687,6 +3725,7 @@ components:
       schema:
         type: integer
         minimum: 1
+        maximum: 2147483647
 
     RegressionTestIdFilter:
       name: regression_test_id
@@ -3722,6 +3761,7 @@ components:
       schema:
         type: integer
         minimum: 1
+        maximum: 2147483647
 
     CategoryId:
       name: category_id
@@ -3731,6 +3771,7 @@ components:
       schema:
         type: integer
         minimum: 1
+        maximum: 2147483647
 
     BlockedUserId:
       name: user_id
@@ -3740,6 +3781,7 @@ components:
       schema:
         type: integer
         minimum: 1
+        maximum: 2147483647
 
     PlatformPath:
       name: platform
@@ -3763,14 +3805,16 @@ components:
       name: status
       in: query
       description: >
-        Normalized run status. Derived from TestProgress rows and TestResult
-        outcomes. The underlying TestStatus model stores only preparation,
-        testing, completed, and canceled (where canceled covers both canceled
-        and error). This enum is the normalized API contract.
+        Filter by normalized run status. Only statuses that map directly to
+        the latest TestProgress row can be filtered on: queued, running, and
+        canceled. The outcome statuses (pass, fail, error, incomplete) are not
+        stored in the database; they are computed per request from every
+        sample's TestResult rows once the run has completed, so they cannot
+        be used as a filter. Any other value returns 400.
       schema:
         type: string
-        enum: [queued, running, pass, fail, canceled, incomplete]
-        example: pass
+        enum: [queued, running, canceled]
+        example: running
 
     Branch:
       name: branch
@@ -3838,6 +3882,7 @@ components:
       schema:
         type: integer
         minimum: 1
+        maximum: 2147483647
 
     OutputId:
       name: output_id
@@ -3847,6 +3892,7 @@ components:
       schema:
         type: integer
         minimum: 1
+        maximum: 2147483647
 
     Format:
       name: format
@@ -4228,11 +4274,13 @@ components:
           minimum: 1
         status:
           type: string
-          enum: [queued, running, pass, fail, canceled, incomplete]
+          enum: [queued, running, pass, fail, canceled, incomplete, error]
           description: >
             Normalized status. Derived from TestProgress rows and TestResult
             outcomes. status=canceled covers both explicit cancellation and
             infrastructure error (the underlying model conflates them).
+            status=error means the run was marked completed but reported no
+            results, or fewer samples than it was configured to run.
         platform:
           type: string
           enum: [linux, windows]
@@ -4297,7 +4345,7 @@ components:
           minimum: 1
         status:
           type: string
-          enum: [queued, running, pass, fail, canceled, incomplete]
+          enum: [queued, running, pass, fail, canceled, incomplete, error]
           description: >
             Overall run status at the time the summary was generated.
             Same derivation as Run.status.
@@ -4362,7 +4410,7 @@ components:
           description: ID of the run this action targets.
         action:
           type: string
-          enum: [cancel]
+          enum: [cancel, restart]
         status:
           type: string
           enum: [accepted, rejected, no_op]
@@ -4628,7 +4676,7 @@ components:
           enum: [admin, contributor, tester, user]
         scopes:
           type: array
-          maxItems: 6
+          maxItems: 7
           items:
             type: string
             maxLength: 50

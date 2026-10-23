@@ -712,6 +712,7 @@ def delete_sample(sample_id):
 @require_roles([Role.admin])
 @require_scope(Scope.RUNS_WRITE)
 @validate_path_id('sample_id')
+@validate_path_id('extra_id')
 def delete_extra_file(sample_id, extra_id):
     """Delete one of the files uploaded alongside a sample."""
     extra, err = _get_extra_file(sample_id, extra_id)
@@ -780,6 +781,7 @@ def _get_extra_file(sample_id, extra_id):
 )
 @require_scope(Scope.RUNS_READ)
 @validate_path_id('sample_id')
+@validate_path_id('extra_id')
 def download_extra_file(sample_id, extra_id):
     """Locate one of the files uploaded alongside a sample."""
     extra, err = _get_extra_file(sample_id, extra_id)

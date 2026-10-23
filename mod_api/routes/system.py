@@ -512,6 +512,7 @@ def create_blocked_user(validated_data=None):
 @mod_api.route('/system/blocked-users/<int:user_id>', methods=['DELETE'])
 @require_roles([Role.admin])
 @require_scope(Scope.SYSTEM_WRITE)
+@validate_path_id('user_id')
 def delete_blocked_user(user_id):
     """Unblock a GitHub account."""
     row = BlockedUsers.query.filter(BlockedUsers.user_id == user_id).first()

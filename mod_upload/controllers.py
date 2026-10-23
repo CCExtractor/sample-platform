@@ -27,6 +27,7 @@ from mod_upload.forms import (DeleteQueuedSampleForm, FinishQueuedSampleForm,
                               UploadForm)
 from mod_upload.models import (FTPCredentials, Platform, QueuedSample, Upload,
                                UploadLog)
+from utility import HTTP_TIMEOUT
 
 mod_upload = Blueprint('upload', __name__)
 
@@ -103,7 +104,7 @@ def make_github_issue(title, body=None, labels=None) -> Any:
     issue = {'title': title,
              'body': body,
              'labels': labels}
-    r = session.post(url, json.dumps(issue))
+    r = session.post(url, json.dumps(issue), timeout=HTTP_TIMEOUT)
 
     if r.status_code == 201:
         g.log.info("new GitHub issue created")

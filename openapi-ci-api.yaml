@@ -3763,14 +3763,16 @@ components:
       name: status
       in: query
       description: >
-        Normalized run status. Derived from TestProgress rows and TestResult
-        outcomes. The underlying TestStatus model stores only preparation,
-        testing, completed, and canceled (where canceled covers both canceled
-        and error). This enum is the normalized API contract.
+        Filter by normalized run status. Only statuses that map directly to
+        the latest TestProgress row can be filtered on: queued, running, and
+        canceled. The outcome statuses (pass, fail, error, incomplete) are not
+        stored in the database; they are computed per request from every
+        sample's TestResult rows once the run has completed, so they cannot
+        be used as a filter. Any other value returns 400.
       schema:
         type: string
-        enum: [queued, running, pass, fail, canceled, incomplete]
-        example: pass
+        enum: [queued, running, canceled]
+        example: running
 
     Branch:
       name: branch
@@ -4228,11 +4230,13 @@ components:
           minimum: 1
         status:
           type: string
-          enum: [queued, running, pass, fail, canceled, incomplete]
+          enum: [queued, running, pass, fail, canceled, incomplete, error]
           description: >
             Normalized status. Derived from TestProgress rows and TestResult
             outcomes. status=canceled covers both explicit cancellation and
             infrastructure error (the underlying model conflates them).
+            status=error means the run was marked completed but reported no
+            results, or fewer samples than it was configured to run.
         platform:
           type: string
           enum: [linux, windows]
@@ -4297,7 +4301,7 @@ components:
           minimum: 1
         status:
           type: string
-          enum: [queued, running, pass, fail, canceled, incomplete]
+          enum: [queued, running, pass, fail, canceled, incomplete, error]
           description: >
             Overall run status at the time the summary was generated.
             Same derivation as Run.status.

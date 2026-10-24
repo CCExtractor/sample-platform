@@ -11,7 +11,7 @@ npm install
 npm run dev          # http://localhost:5173, API proxied to the backend
 ```
 
-`npm run lint` and `npx tsc -b` are what CI checks.
+`npm run lint`, `npx tsc -b`, and `npm test` are what CI checks.
 
 ## Building for the platform
 

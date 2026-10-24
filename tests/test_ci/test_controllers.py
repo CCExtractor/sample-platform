@@ -171,6 +171,27 @@ class TestControllers(BaseTestCase):
         mock_delete_expired_instances.assert_called_once()
         mock_get_compute_service_object.assert_called_once()
 
+    @mock.patch('mod_ci.controllers.start_test')
+    @mock.patch('mod_ci.controllers.get_compute_service_object')
+    @mock.patch('mod_ci.controllers.delete_expired_instances')
+    @mock.patch('run.log')
+    def test_start_platforms_continues_after_a_test_fails_to_start(self, mock_log, mock_delete_expired_instances,
+                                                                   mock_get_compute_service_object, mock_start_test):
+        """Test that a test failing to start doesn't stop the tests after it or the other platform."""
+        commit = "1978060bf7d2edd119736ba3ba88341f3bec3323"
+        queued = [Test(TestPlatform.linux, TestType.commit, 1, "master", commit),
+                  Test(TestPlatform.linux, TestType.commit, 1, "master", commit),
+                  Test(TestPlatform.windows, TestType.commit, 1, "master", commit)]
+        g.db.add_all(queued)
+        g.db.commit()
+        queued_ids = [test.id for test in queued]
+        mock_start_test.side_effect = [OSError(5, 'Input/output error'), None, None]
+
+        start_platforms(mock.ANY)
+
+        self.assertEqual(queued_ids, [call.args[4].id for call in mock_start_test.call_args_list])
+        mock_log.exception.assert_called_once()
+
     @mock.patch('run.log')
     @mock.patch('mod_ci.controllers.MaintenanceMode')
     def test_gcp_instance_maintenance_mode(self, mock_maintenance, mock_log):

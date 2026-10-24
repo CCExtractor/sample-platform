@@ -719,7 +719,12 @@ def gcp_instance(app, db, platform, repository, delay) -> None:
             except Exception as e:
                 log.error(f"Unexpected error checking PR status for test {test.id}: {e}")
                 continue
-        start_test(compute, app, db, repository, test, github_config['bot_token'])
+        try:
+            start_test(compute, app, db, repository, test, github_config['bot_token'])
+        except Exception:
+            # One test that can't be started (e.g. its files under vm_data raising OSError) must not
+            # stop the tests queued after it, or the other platform. It stays pending and is retried.
+            log.exception(f"[{platform}] Test {test.id}: could not be started, will retry on next cron run")
 
 
 def get_compute_service_object() -> googleapiclient.discovery.Resource:

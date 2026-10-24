@@ -48,3 +48,38 @@ class TestUtility(BaseTestCase):
         mock_is_github_ip.assert_called_once()
         self.assertEqual(mock_abort.call_count, 7)
         self.assertEqual(response, "Test Success")
+
+    def test_is_valid_signature(self):
+        """Test is_valid_signature with valid and invalid inputs."""
+        import hashlib
+        import hmac
+        from utility import is_valid_signature
+
+        key = "secret_key_123"
+        payload = b'{"ref": "refs/heads/master"}'
+        mac = hmac.new(b"secret_key_123", payload, hashlib.sha256)
+        valid_header = f"sha256={mac.hexdigest()}"
+
+        # Valid signature with bytes and str payload
+        self.assertTrue(is_valid_signature(valid_header, payload, key))
+        self.assertTrue(
+            is_valid_signature(valid_header, payload.decode(), key))
+
+        # Invalid signatures / tamper
+        self.assertFalse(is_valid_signature("sha256=wrong", payload, key))
+
+        # Missing or invalid signature formats
+        self.assertFalse(is_valid_signature(None, payload, key))
+        self.assertFalse(is_valid_signature("", payload, key))
+        self.assertFalse(is_valid_signature(12345, payload, key))
+        self.assertFalse(is_valid_signature("no_equal_sign", payload, key))
+
+        # Unknown or non-callable algorithms
+        self.assertFalse(is_valid_signature("unknown=1234", payload, key))
+        self.assertFalse(is_valid_signature("__dict__=1234", payload, key))
+        self.assertFalse(
+            is_valid_signature("algorithms_guaranteed=1", payload, key))
+
+        # None data or key
+        self.assertFalse(is_valid_signature(valid_header, None, key))
+        self.assertFalse(is_valid_signature(valid_header, payload, None))

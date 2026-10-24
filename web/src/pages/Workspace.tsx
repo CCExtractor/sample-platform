@@ -391,7 +391,8 @@ function Detail({ test }: Readonly<{ test: RegressionTest }>) {
             <div className="flex items-center gap-4 rounded-xl border bg-muted/30 p-3.5">
               <Sparkline results={liveResults} className="gap-1 [&>span]:w-2" />
               <span className="text-[11px] text-faint">
-                {passN} pass · {liveResults.length - passN} fail · runs that included this test
+                {passN} pass · {liveResults.length - passN} fail · every run of this test,
+                PR runs included
               </span>
             </div>
           ) : (
@@ -432,6 +433,9 @@ function Detail({ test }: Readonly<{ test: RegressionTest }>) {
                             )}
                           />
                           <code className="text-faint">run {h.run_id}</code>
+                          {h.branch !== "master" && (
+                            <span className="text-[10px] uppercase text-faint">pr</span>
+                          )}
                           <span
                             className={cn(
                               "ml-auto",

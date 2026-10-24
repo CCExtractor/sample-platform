@@ -98,8 +98,17 @@ async function fetchAll<T>(path: string, cap = 500): Promise<T[]> {
 
 /* ---------------- live queries ---------------- */
 
-/** How many past runs the sparklines and the average runtime look back over. */
-const HISTORY_RUNS = 6;
+/** How many master commits the sparklines and the average runtime look back over. */
+const HISTORY_COMMITS = 6;
+
+/**
+ * Pushes to master on the main repository. PR runs are stored on the branch
+ * "pull_request" and fork pushes under their own repository, so this is what
+ * "the health of a test" means. Not exposed by the API, hence spelled out
+ * here as RunNew does.
+ */
+const MASTER_RUNS =
+  "/runs?branch=master&repository=CCExtractor/ccextractor&limit=40&sort=-created_at";
 
 interface TestHistory {
   recent_results: SparkResult[];
@@ -116,19 +125,38 @@ function sparkResultOf(status: string): SparkResult {
   return "skip";
 }
 
-/** Collect one test's results and runtimes across the runs that covered it. */
-function foldRunRows(perRun: RunSampleRow[][]) {
+/** One commit's result per test: a failure on either platform wins, then a pass. */
+function commitResults(rows: RunSampleRow[]): Map<number, SparkResult> {
+  const results = new Map<number, SparkResult>();
+  for (const row of rows) {
+    const now = sparkResultOf(row.status);
+    const seen = results.get(row.regression_test_id);
+    if (seen !== "fail" && (now === "fail" || seen !== "pass")) {
+      results.set(row.regression_test_id, now);
+    }
+  }
+  return results;
+}
+
+/**
+ * Collect each test's results and runtimes, one point per commit, oldest
+ * first. A test fails a commit if it failed on either platform: otherwise a
+ * Linux-only failure reads as passing whenever the Windows run happens to
+ * have the higher id.
+ */
+export function foldCommitRows(perCommit: RunSampleRow[][]) {
   const history = new Map<number, TestHistory>();
   const runtimes = new Map<number, number[]>();
 
-  for (const row of perRun.flat()) {
-    const entry = history.get(row.regression_test_id) ?? {
-      recent_results: [],
-      avg_runtime_ms: null,
-    };
-    entry.recent_results.push(sparkResultOf(row.status));
-    history.set(row.regression_test_id, entry);
+  for (const rows of perCommit) {
+    for (const [id, result] of commitResults(rows)) {
+      const entry = history.get(id) ?? { recent_results: [], avg_runtime_ms: null };
+      entry.recent_results.push(result);
+      history.set(id, entry);
+    }
+  }
 
+  for (const row of perCommit.flat()) {
     if (row.runtime_ms != null) {
       runtimes.set(row.regression_test_id, [
         ...(runtimes.get(row.regression_test_id) ?? []),
@@ -147,36 +175,43 @@ function foldRunRows(perRun: RunSampleRow[][]) {
 }
 
 /**
- * Per-test result history, assembled from recent runs.
+ * Per-test result history over the last few finished master commits.
  *
  * There is no per-test history endpoint, but /runs/{id}/samples already
  * returns every test's status and runtime for one run, so reading a handful
  * of runs and transposing them costs a few requests rather than one per
- * test. Only commit runs count: a PR run failing says something about the
- * pull request, not about the health of the test.
+ * test. Master runs are fetched on their own: picking them out of the
+ * shared "latest runs" list found none whenever PR runs filled it. Only
+ * finished runs count, since a queued or stuck one has no results yet.
  */
 export function useTestHistory() {
-  const { data: runs = [] } = useRuns();
-  const runIds = runs
-    .filter((r) => r.test_type === "commit")
-    .slice(0, HISTORY_RUNS)
-    .flatMap((r) => r.platforms.map((p) => p.run_id))
-    .toSorted((a, b) => a - b);
-
   return useQuery({
-    queryKey: ["test-history", runIds],
-    enabled: runIds.length > 0,
+    queryKey: ["test-history"],
     staleTime: 60_000,
-    queryFn: async () =>
-      foldRunRows(
+    queryFn: async () => {
+      const res = await apiGet<Envelope<LiveRun>>(MASTER_RUNS);
+      const finished = res.data.filter((r) => r.status === "pass" || r.status === "fail");
+      const commits = [...new Set(finished.map((r) => r.commit_sha))]
+        .slice(0, HISTORY_COMMITS)
+        .reverse();
+      return foldCommitRows(
         await Promise.all(
-          runIds.map((id) => fetchAll<RunSampleRow>(`/runs/${id}/samples`, 400)),
+          commits.map(async (sha) =>
+            (
+              await Promise.all(
+                finished
+                  .filter((r) => r.commit_sha === sha)
+                  .map((r) => fetchAll<RunSampleRow>(`/runs/${r.run_id}/samples`, 400)),
+              )
+            ).flat(),
+          ),
         ),
-      ),
+      );
+    },
   });
 }
 
-interface RunSampleRow {
+export interface RunSampleRow {
   regression_test_id: number;
   status: string;
   runtime_ms: number | null;

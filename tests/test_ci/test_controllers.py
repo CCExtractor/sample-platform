@@ -238,6 +238,19 @@ class TestControllers(BaseTestCase):
         mock_delete_expired_instances.assert_not_called()
         mock_get_compute_service_object.assert_not_called()
 
+    @mock.patch('mod_ci.controllers.start_platforms')
+    @mock.patch('run.log')
+    def test_cron_job_skips_while_previous_run_holds_lock(self, mock_log, mock_start_platforms):
+        """Test cron does nothing while a previous cron run still holds the lock."""
+        import fcntl
+
+        from mod_ci.cron import LOCK_FILE, cron
+        with open(LOCK_FILE, 'w') as held:
+            fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            cron()
+        mock_start_platforms.assert_not_called()
+        mock_log.warning.assert_called_once_with('Previous cron run is still in progress, skipping this one.')
+
     @mock.patch.dict('run.config', {'GITHUB_TOKEN': '', 'GITHUB_OWNER': 'test', 'GITHUB_REPOSITORY': 'test'})
     @mock.patch('run.log')
     def test_cron_job_empty_token(self, mock_log):

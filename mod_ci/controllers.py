@@ -2640,7 +2640,7 @@ def progress_type_request(log, test, test_id, request) -> bool:
             finished_tests = select(TestProgress.test_id).filter(
                 and_(
                     TestProgress.status.in_([TestStatus.canceled, TestStatus.completed]),
-                    TestProgress.test_id.in_(platform_tests.select())
+                    TestProgress.test_id.in_(platform_tests)
                 )
             )
             times = g.db.query(

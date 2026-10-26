@@ -5,4 +5,4 @@ isort==9.0.2
 mypy==2.4.0
 Flask-Testing==0.8.1
 nose2-cov==1.0a4
-coverage==7.16.2
+coverage==7.17.0

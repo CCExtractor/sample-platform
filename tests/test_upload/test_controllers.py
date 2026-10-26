@@ -11,6 +11,23 @@ from mod_upload.models import QueuedSample
 from tests.base import BaseTestCase, MockResponse
 
 
+class TestMakeGithubIssue(BaseTestCase):
+    """Test GitHub issue creation HTTP timeout."""
+
+    @mock.patch('mod_upload.controllers.g')
+    @mock.patch('requests.Session.post')
+    def test_make_github_issue_passes_timeout(self, mock_post, mock_g):
+        """make_github_issue must not hang if GitHub never responds."""
+        mock_post.return_value = MockResponse({'number': 1}, 201)
+
+        from mod_upload.controllers import make_github_issue
+
+        make_github_issue('title', body='body', labels=['bug'])
+
+        mock_post.assert_called_once()
+        self.assertEqual(mock_post.call_args.kwargs.get('timeout'), (3.05, 10))
+
+
 class TestControllers(BaseTestCase):
     """Test upload-related cases."""
 

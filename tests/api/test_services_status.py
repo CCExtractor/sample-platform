@@ -5,6 +5,7 @@ from flask import g
 from mod_api.services.status import (derive_output_status, derive_run_status,
                                      derive_sample_status, get_run_timestamps,
                                      is_dummy_row)
+from mod_customized.models import CustomizedTest
 from mod_regression.models import RegressionTestOutput
 from mod_regression.models import \
     RegressionTestOutputFiles as RegressionTestMultipleFiles
@@ -24,6 +25,12 @@ class TestServicesStatus(ApiTestCase):
         g.db.add(self.test_obj)
         g.db.commit()
 
+    def _limit_run_to_regression(self, regression_id):
+        """Scope this run to one sample so partial-suite fixtures stay valid."""
+        g.db.add(CustomizedTest(self.test_obj.id, regression_id))
+        g.db.commit()
+        g.db.refresh(self.test_obj)
+
     def test_derive_run_status_queued(self):
         self.assertEqual(derive_run_status(self.test_obj), 'queued')
 
@@ -34,6 +41,7 @@ class TestServicesStatus(ApiTestCase):
         self.assertEqual(derive_run_status(self.test_obj), 'running')
 
     def test_derive_run_status_pass(self):
+        self._limit_run_to_regression(1)
         tp = TestProgress(self.test_obj.id, TestStatus.completed, 'done')
         # A passing result: exit code matches and the expected output for
         # regression test 1 was produced and matched (got=None).
@@ -51,7 +59,18 @@ class TestServicesStatus(ApiTestCase):
         g.db.commit()
         self.assertEqual(derive_run_status(self.test_obj), 'error')
 
+    def test_derive_run_status_completed_partial_results_is_error(self):
+        # Base fixtures seed two active regression tests. Completing with a
+        # result for only one of them must not report pass (#1177).
+        tp = TestProgress(self.test_obj.id, TestStatus.completed, 'done')
+        tr = TestResult(self.test_obj.id, 1, 100, 0, 0)
+        rf = TestResultFile(self.test_obj.id, 1, 1, 'sample_out1')
+        g.db.add_all([tp, tr, rf])
+        g.db.commit()
+        self.assertEqual(derive_run_status(self.test_obj), 'error')
+
     def test_derive_run_status_fail(self):
+        self._limit_run_to_regression(1)
         tp = TestProgress(self.test_obj.id, TestStatus.completed, 'done')
         # runtime 100, exit_code 1, expected 0
         tr = TestResult(self.test_obj.id, 1, 100, 1, 0)

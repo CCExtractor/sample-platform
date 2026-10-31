@@ -29,9 +29,11 @@ from mod_api.schemas.runs import (ProgressEventSchema, RunCreateRequestSchema,
                                   RunSchema, RunSummarySchema)
 from mod_api.services.error_service import derive_errors_for_run
 from mod_api.services.status import (batch_get_run_data, derive_run_status,
-                                     derive_sample_status)
+                                     derive_sample_status,
+                                     expected_regression_ids)
 from mod_api.utils import get_sort_column, paginated_response, single_response
 from mod_auth.models import Role
+from mod_ci.models import GcpInstance
 from mod_customized.models import CustomizedTest
 from mod_home.models import CCExtractorVersion
 from mod_regression.models import RegressionTest, RegressionTestOutput
@@ -56,6 +58,7 @@ def _batch_serialize(tests, statuses=None, timestamps=None):
             'repository': t.fork.github_name if t.fork else 'unknown',
             'branch': t.branch,
             'commit_sha': t.commit,
+            'built_commit_sha': t.built_commit,
             'pr_number': t.pr_nr if t.pr_nr and t.pr_nr > 0 else None,
             'created_at': timestamps.get(t.id, {}).get('created_at'),
             'queued_at': timestamps.get(t.id, {}).get('queued_at'),
@@ -450,16 +453,13 @@ def get_run(run_id):
 def _run_regression_ids(test):
     """Regression test IDs that belong to this run.
 
-    Uses the customized selection when present; otherwise falls back to
-    every ACTIVE regression test, mirroring create_run's default. (The
-    model's get_customized_regressiontests() falls back to all tests
-    including inactive ones, which inflates total_samples/skipped_count
-    with tests the run could never execute.)
+    Delegates to expected_regression_ids so summary totals and run-status
+    completeness checks share one rule. (The model's
+    get_customized_regressiontests() falls back to all tests including
+    inactive ones, which inflates total_samples/skipped_count with tests
+    the run could never execute.)
     """
-    if test.customized_tests:
-        return [ct.regression_id for ct in test.customized_tests]
-    return [rt.id for rt in
-            RegressionTest.query.filter_by(active=True).all()]
+    return expected_regression_ids(test)
 
 
 def _aggregate_run_statistics(
@@ -701,9 +701,10 @@ def restart_run(run_id):
     """
     Queue a finished or stuck run to be executed again.
 
-    Clearing the results and the progress trail is what makes the run
-    eligible again, because CI picks up tests that have no progress
-    recorded. The run keeps its id, so existing links stay valid, and the
+    Clearing the results, the progress trail, and any GcpInstance row is
+    what makes the run eligible again. CI skips tests that still have a
+    GcpInstance, so a stuck or running restart would otherwise never be
+    re-queued. The run keeps its id, so existing links stay valid, and the
     old results are replaced rather than kept alongside the new ones.
 
     Like cancel, this is open to anyone holding runs:write rather than to
@@ -725,6 +726,8 @@ def restart_run(run_id):
         TestResult.test_id == test.id).delete(synchronize_session=False)
     TestProgress.query.filter(
         TestProgress.test_id == test.id).delete(synchronize_session=False)
+    GcpInstance.query.filter(
+        GcpInstance.test_id == test.id).delete(synchronize_session=False)
     g.db.commit()
 
     g.log.info(f'run {run_id} restarted via API by {g.api_user.id}')

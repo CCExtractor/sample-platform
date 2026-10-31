@@ -10,6 +10,9 @@ from flask import g
 from mod_auth.models import Role
 from mod_ci.controllers import (Workflow_builds, get_info_for_pr_comment,
                                 is_valid_commit_hash, mark_test_failed,
+                                parse_git_commit_from_log_file,
+                                parse_git_commit_from_log_stream,
+                                parse_git_commit_from_logs,
                                 progress_type_request, retry_with_backoff,
                                 safe_db_commit, start_platforms)
 from mod_ci.models import BlockedUsers
@@ -17,7 +20,8 @@ from mod_customized.models import CustomizedTest
 from mod_home.models import CCExtractorVersion, GeneralData
 from mod_regression.models import (RegressionTest, RegressionTestOutput,
                                    RegressionTestOutputFiles)
-from mod_test.models import Test, TestPlatform, TestResultFile, TestType
+from mod_test.models import (Test, TestPlatform, TestProgress, TestResultFile,
+                             TestStatus, TestType)
 from tests.base import (BaseTestCase, MockResponse, create_mock_db_query,
                         create_mock_regression_test, empty_github_token,
                         generate_git_api_header, generate_signature,
@@ -167,6 +171,27 @@ class TestControllers(BaseTestCase):
         mock_delete_expired_instances.assert_called_once()
         mock_get_compute_service_object.assert_called_once()
 
+    @mock.patch('mod_ci.controllers.start_test')
+    @mock.patch('mod_ci.controllers.get_compute_service_object')
+    @mock.patch('mod_ci.controllers.delete_expired_instances')
+    @mock.patch('run.log')
+    def test_start_platforms_continues_after_a_test_fails_to_start(self, mock_log, mock_delete_expired_instances,
+                                                                   mock_get_compute_service_object, mock_start_test):
+        """Test that a test failing to start doesn't stop the tests after it or the other platform."""
+        commit = "1978060bf7d2edd119736ba3ba88341f3bec3323"
+        queued = [Test(TestPlatform.linux, TestType.commit, 1, "master", commit),
+                  Test(TestPlatform.linux, TestType.commit, 1, "master", commit),
+                  Test(TestPlatform.windows, TestType.commit, 1, "master", commit)]
+        g.db.add_all(queued)
+        g.db.commit()
+        queued_ids = [test.id for test in queued]
+        mock_start_test.side_effect = [OSError(5, 'Input/output error'), None, None]
+
+        start_platforms(mock.ANY)
+
+        self.assertEqual(queued_ids, [call.args[4].id for call in mock_start_test.call_args_list])
+        mock_log.exception.assert_called_once()
+
     @mock.patch('run.log')
     @mock.patch('mod_ci.controllers.MaintenanceMode')
     def test_gcp_instance_maintenance_mode(self, mock_maintenance, mock_log):
@@ -212,6 +237,19 @@ class TestControllers(BaseTestCase):
         cron(testing=True)
         mock_delete_expired_instances.assert_not_called()
         mock_get_compute_service_object.assert_not_called()
+
+    @mock.patch('mod_ci.controllers.start_platforms')
+    @mock.patch('run.log')
+    def test_cron_job_skips_while_previous_run_holds_lock(self, mock_log, mock_start_platforms):
+        """Test cron does nothing while a previous cron run still holds the lock."""
+        import fcntl
+
+        from mod_ci.cron import LOCK_FILE, cron
+        with open(LOCK_FILE, 'w') as held:
+            fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            cron()
+        mock_start_platforms.assert_not_called()
+        mock_log.warning.assert_called_once_with('Previous cron run is still in progress, skipping this one.')
 
     @mock.patch.dict('run.config', {'GITHUB_TOKEN': '', 'GITHUB_OWNER': 'test', 'GITHUB_REPOSITORY': 'test'})
     @mock.patch('run.log')
@@ -1009,6 +1047,42 @@ class TestControllers(BaseTestCase):
 
     @mock.patch('mod_ci.controllers.BlockedUsers')
     @mock.patch('github.Github.get_repo')
+    @mock.patch('mod_ci.controllers.add_test_entry')
+    @mock.patch('requests.get', side_effect=mock_api_request_github)
+    def test_webhook_pr_opened_records_merge_commit(
+            self, mock_request, mock_add_test_entry, mock_repo, mock_blocked):
+        """PR webhook stores GitHub's merge SHA as built_commit, not as commit."""
+        mock_blocked.query.filter.return_value.first.return_value = None
+        head_sha = '6e1e22a3b8abcdef6e1e22a3b8abcdef6e1e22a3'
+        merge_sha = 'e98f1a2f81abcdefe98f1a2f81abcdefe98f1a2f'
+        mock_pr = MagicMock()
+        mock_pr.mergeable = True
+        mock_pr.merge_commit_sha = merge_sha
+        mock_repo.return_value.get_pull.return_value = mock_pr
+
+        data = {
+            'action': 'opened',
+            'pull_request': {
+                'number': 1234,
+                'head': {'sha': head_sha},
+                'merge_commit_sha': merge_sha,
+                'user': {'id': 'test'},
+                'draft': False,
+            },
+        }
+        with self.app.test_client() as c:
+            response = c.post(
+                '/start-ci', environ_overrides=WSGI_ENVIRONMENT,
+                data=json.dumps(data), headers=self.generate_header(data, 'pull_request'))
+
+        self.assertEqual(response.data, b'{"msg": "EOL"}')
+        mock_add_test_entry.assert_called_once()
+        args, kwargs = mock_add_test_entry.call_args
+        self.assertEqual(args[1], head_sha)
+        self.assertEqual(kwargs.get('built_commit'), merge_sha)
+
+    @mock.patch('mod_ci.controllers.BlockedUsers')
+    @mock.patch('github.Github.get_repo')
     @mock.patch('requests.get', side_effect=mock_api_request_github)
     def test_webhook_pr_invalid_action(self, mock_request, mock_repo, mock_blocked):
         """Test webhook triggered with pull_request event with an invalid action."""
@@ -1657,6 +1731,20 @@ class TestControllers(BaseTestCase):
         mock_safe_commit.assert_called_once()
         mock_log.error.assert_called()
 
+    def test_add_test_entry_stores_built_commit(self):
+        """PR tests keep head SHA in commit and merge SHA in built_commit."""
+        from mod_ci.controllers import add_test_entry
+
+        head = '6e1e22a3b8abcdef6e1e22a3b8abcdef6e1e22a3'
+        merge = 'e98f1a2f81abcdefe98f1a2f81abcdefe98f1a2f'
+        add_test_entry(g.db, head, TestType.pull_request, pr_nr=42, built_commit=merge)
+        tests = Test.query.filter(Test.commit == head).all()
+        self.assertGreaterEqual(len(tests), 2)
+        for entry in tests:
+            self.assertEqual(entry.commit, head)
+            self.assertEqual(entry.built_commit, merge)
+            self.assertEqual(entry.pr_nr, 42)
+
     @mock.patch('mod_ci.controllers.delete_instance')
     @mock.patch('mod_ci.controllers.safe_db_commit')
     @mock.patch('mod_ci.controllers.is_instance_testing')
@@ -2115,6 +2203,88 @@ class TestControllers(BaseTestCase):
         mock_get_compute_service_object.assert_called()
         self.assertTrue(response)
 
+    def test_progress_step_terminal_guard_compares_int_to_enum(self):
+        """progress_step returns ints; the terminal guard compares them to enums.
+
+        This is the comparison used in progress_type_request:
+        last_status in [TestStatus.completed, TestStatus.canceled]
+        """
+        completed_step = TestStatus.progress_step(TestStatus.completed)
+        canceled_step = TestStatus.progress_step(TestStatus.canceled)
+        terminal_enums = [TestStatus.completed, TestStatus.canceled]
+
+        self.assertEqual(completed_step, 2)
+        self.assertEqual(canceled_step, -1)
+        self.assertIsInstance(completed_step, int)
+        self.assertIsInstance(canceled_step, int)
+        # Guard as written: an int is never a member of that enum list.
+        self.assertNotIn(completed_step, terminal_enums)
+        self.assertNotIn(canceled_step, terminal_enums)
+
+    def test_progress_type_request_rejects_update_after_completed(self):
+        """A completed run must reject a later progress update.
+
+        Reproduction: if the int-vs-enum guard is live, this returns True
+        and appends a second completed row instead of False.
+        """
+        from run import log
+
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.tester)
+        self.create_forktest("own-fork-commit", TestPlatform.linux, regression_tests=[2])
+        test = Test.query.filter(Test.id == 3).first()
+        g.db.add(TestProgress(test.id, TestStatus.completed, 'already done'))
+        g.db.commit()
+        g.db.refresh(test)
+
+        request = MagicMock()
+        request.form = {'status': 'completed', 'message': 'Ran all tests again'}
+        progress_before = len(test.progress)
+
+        with empty_github_token():
+            response = progress_type_request(log, test, test.id, request)
+
+        g.db.refresh(test)
+        rows = TestProgress.query.filter_by(test_id=test.id).order_by(TestProgress.id).all()
+        statuses = [p.status.value for p in rows]
+        self.assertFalse(
+            response,
+            f'completed should be terminal; got return={response!r} progress={statuses}')
+        self.assertEqual(len(rows), progress_before)
+        self.assertEqual(rows[-1].status, TestStatus.completed)
+
+    def test_progress_type_request_rejects_update_after_canceled(self):
+        """A canceled run must reject a later completed progress update.
+
+        Reproduction: if the int-vs-enum guard is live, this returns True
+        and appends a completed row after canceled.
+        """
+        from run import log
+
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.tester)
+        self.create_forktest("own-fork-commit", TestPlatform.linux, regression_tests=[2])
+        test = Test.query.filter(Test.id == 3).first()
+        g.db.add(TestProgress(test.id, TestStatus.canceled, 'Canceled by admin'))
+        g.db.commit()
+        g.db.refresh(test)
+
+        request = MagicMock()
+        request.form = {'status': 'completed', 'message': 'Ran all tests'}
+        progress_before = len(test.progress)
+
+        with empty_github_token():
+            response = progress_type_request(log, test, test.id, request)
+
+        g.db.refresh(test)
+        rows = TestProgress.query.filter_by(test_id=test.id).order_by(TestProgress.id).all()
+        statuses = [p.status.value for p in rows]
+        self.assertFalse(
+            response,
+            f'canceled should be terminal; got return={response!r} progress={statuses}')
+        self.assertEqual(len(rows), progress_before)
+        self.assertEqual(rows[-1].status, TestStatus.canceled)
+
     @mock.patch('mod_ci.controllers.g')
     @mock.patch('mod_ci.controllers.TestResultFile')
     @mock.patch('mod_ci.controllers.RegressionTestOutput')
@@ -2153,9 +2323,10 @@ class TestControllers(BaseTestCase):
         mock_log.debug.assert_called_once()
         mock_filename.assert_called_once()
 
+    @mock.patch('mod_ci.controllers._record_built_commit_from_log')
     @mock.patch('mod_ci.controllers.os')
     @mock.patch('mod_ci.controllers.secure_filename')
-    def test_logupload_type_request(self, mock_filename, mock_os):
+    def test_logupload_type_request(self, mock_filename, mock_os, mock_record):
         """Test function logupload_type_request."""
         from mod_ci.controllers import upload_log_type_request
 
@@ -2171,6 +2342,43 @@ class TestControllers(BaseTestCase):
         self.assertEqual(2, mock_os.path.join.call_count)
         mock_uploadfile.save.assert_called_once()
         mock_os.rename.assert_called_once()
+        mock_record.assert_called_once()
+
+    def test_logupload_records_built_commit_from_git_commit_line(self):
+        """Log upload parses the binary's Git commit line as built_commit."""
+        import shutil
+        import tempfile
+
+        from mod_ci.controllers import upload_log_type_request
+
+        head = '6e1e22a3b8abcdef6e1e22a3b8abcdef6e1e22a3'
+        test = Test(TestPlatform.linux, TestType.pull_request, 1, 'pull_request', head, 1)
+        g.db.add(test)
+        g.db.commit()
+
+        repo_folder = tempfile.mkdtemp()
+        os.makedirs(os.path.join(repo_folder, 'TempFiles'))
+        os.makedirs(os.path.join(repo_folder, 'LogFiles'))
+        try:
+            mock_request = MagicMock()
+            uploaded = MagicMock()
+            uploaded.filename = 'log.txt'
+
+            def save(path):
+                with open(path, 'w', encoding='utf-8') as handle:
+                    handle.write('CCExtractor 0.95\nGit commit: e98f1a2f81\n')
+
+            uploaded.save.side_effect = save
+            mock_request.files = {'file': uploaded}
+            mock_log = MagicMock()
+
+            self.assertTrue(
+                upload_log_type_request(mock_log, test.id, repo_folder, test, mock_request))
+            g.db.refresh(test)
+            self.assertEqual(test.commit, head)
+            self.assertEqual(test.built_commit, 'e98f1a2f81')
+        finally:
+            shutil.rmtree(repo_folder)
 
     @mock.patch('mod_ci.controllers.secure_filename')
     def test_upload_type_request_empty(self, mock_filename):
@@ -2821,6 +3029,51 @@ class TestControllers(BaseTestCase):
         self.assertFalse(is_valid_commit_hash('1978060bf7d2edd119736ba3ba88341f3bec33231'))
         # 50 characters - way too long
         self.assertFalse(is_valid_commit_hash('1978060bf7d2edd119736ba3ba88341f3bec332312345678'))
+
+    def test_parse_git_commit_from_logs(self):
+        """Parse the SHA the binary reports, matching Sample Platform run 9490."""
+        log_text = (
+            "Compiled with:\n"
+            "Git commit: e98f1a2f81\n"
+            "Version: 0.95\n"
+        )
+        self.assertEqual(parse_git_commit_from_logs(log_text), 'e98f1a2f81')
+        self.assertIsNone(parse_git_commit_from_logs('no version banner here'))
+        self.assertIsNone(parse_git_commit_from_logs(''))
+
+    def test_parse_git_commit_from_log_stream_stops_after_match(self):
+        """Do not keep reading a large log after Git commit is found."""
+        from io import StringIO
+
+        banner = 'Git commit: e98f1a2f81\n'
+        rest = 'x' * 200000
+        stream = StringIO(banner + rest)
+        original_read = stream.read
+        read_sizes = []
+
+        def counting_read(size=-1):
+            read_sizes.append(size)
+            return original_read(size)
+
+        stream.read = counting_read
+        self.assertEqual(
+            parse_git_commit_from_log_stream(stream, chunk_size=64),
+            'e98f1a2f81')
+        self.assertEqual(len(read_sizes), 1)
+        self.assertEqual(stream.tell(), 64)
+
+    def test_parse_git_commit_from_log_stream_spans_chunks(self):
+        """Find Git commit even when the line is split across read batches."""
+        from io import StringIO
+
+        text = 'prefix Git commit: e98f1a2f81 suffix'
+        self.assertEqual(
+            parse_git_commit_from_log_stream(StringIO(text), chunk_size=8),
+            'e98f1a2f81')
+
+    def test_parse_git_commit_from_log_file_ignores_non_string_path(self):
+        """Refuse mocked paths so open() cannot close stdout as a file descriptor."""
+        self.assertIsNone(parse_git_commit_from_log_file(MagicMock()))
 
     @mock.patch('mod_ci.controllers.add_test_entry')
     @mock.patch('github.Github.get_repo')

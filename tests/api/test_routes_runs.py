@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 from flask import g
 
+from mod_ci.models import GcpInstance
 from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
                              TestResult, TestResultFile, TestStatus, TestType)
 from tests.api.base import ApiTestCase
@@ -160,6 +161,21 @@ class TestRoutesRuns(ApiTestCase):
             f'/api/v1/runs/{self.test_id}', headers={'Authorization': f'Bearer {token}'})
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.json['run_id'], self.test_id)
+        self.assertIn('built_commit_sha', res.json)
+
+    def test_get_run_includes_built_commit_sha(self):
+        token = self.get_token('runs_user@local.com',
+                               'userpass123', 't5b', scopes=['runs:read'])
+        run = Test.query.filter(Test.id == self.test_id).one()
+        expected_commit = run.commit
+        expected_built_commit = 'e98f1a2f81'
+        run.built_commit = expected_built_commit
+        g.db.commit()
+        res = self.client.get(
+            f'/api/v1/runs/{self.test_id}', headers={'Authorization': f'Bearer {token}'})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json['commit_sha'], expected_commit)
+        self.assertEqual(res.json['built_commit_sha'], expected_built_commit)
 
     def test_get_run_summary(self):
         token = self.get_token('runs_user@local.com',
@@ -202,6 +218,8 @@ class TestRoutesRuns(ApiTestCase):
     def test_restart_run(self):
         token = self.get_token('runs_admin@local.com', 'adminpass123',
                                'restart1', scopes=['runs:write'])
+        g.db.add(GcpInstance(f'linux-{self.test_id}', self.test_id))
+        g.db.commit()
         res = self.client.post(
             f'/api/v1/runs/{self.test_id}/restart',
             headers={'Authorization': f'Bearer {token}'})
@@ -213,6 +231,9 @@ class TestRoutesRuns(ApiTestCase):
             TestProgress.query.filter_by(test_id=self.test_id).count(), 0)
         self.assertEqual(
             TestResult.query.filter_by(test_id=self.test_id).count(), 0)
+        # A leftover GcpInstance would keep cron from re-queuing the run.
+        self.assertEqual(
+            GcpInstance.query.filter_by(test_id=self.test_id).count(), 0)
 
     def test_restart_run_not_found(self):
         token = self.get_token('runs_admin@local.com', 'adminpass123',

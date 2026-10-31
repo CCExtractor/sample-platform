@@ -10,7 +10,8 @@ from typing import Callable, List, Union
 
 import requests
 import werkzeug
-from flask import abort, g, redirect, request
+from flask import abort, g, redirect, request, send_file
+from google.auth.exceptions import GoogleAuthError
 
 ROOT_DIR = path.dirname(path.abspath(__file__))
 
@@ -18,6 +19,11 @@ ROOT_DIR = path.dirname(path.abspath(__file__))
 def serve_file_download(file_name, file_folder, file_sub_folder='') -> werkzeug.wrappers.response.Response:
     """
     Serve file download by redirecting using Signed Download URLs.
+
+    Falls back to the copy in the sample repository when the service account
+    does not authenticate, which is the case in the Docker development stack:
+    there the credentials are generated locally and ``/repository`` is a plain
+    volume rather than a gcsfuse mount backed by a bucket.
 
     :param file_name: name of the file
     :type file_name: str
@@ -31,15 +37,25 @@ def serve_file_download(file_name, file_folder, file_sub_folder='') -> werkzeug.
     from run import config, storage_client_bucket
 
     file_path = path.join(file_folder, file_sub_folder, file_name)
-    blob = storage_client_bucket.blob(file_path)
-    blob.content_disposition = f'attachment; filename="{file_name}"'
-    blob.patch()
-    url = blob.generate_signed_url(
-        version="v4",
-        expiration=timedelta(minutes=config.get('GCS_SIGNED_URL_EXPIRY_LIMIT', '')),
-        method="GET",
-    )
-    return redirect(url)
+
+    try:
+        blob = storage_client_bucket.blob(file_path)
+        blob.content_disposition = f'attachment; filename="{file_name}"'
+        blob.patch()
+        url = blob.generate_signed_url(
+            version="v4",
+            expiration=timedelta(minutes=config.get('GCS_SIGNED_URL_EXPIRY_LIMIT', '')),
+            method="GET",
+        )
+        return redirect(url)
+    except GoogleAuthError:
+        # Only raised when the token exchange itself fails, so a working
+        # service account never lands here and a Cloud Storage outage still
+        # surfaces in production instead of being served a stale local copy.
+        local_path = path.join(config.get('SAMPLE_REPOSITORY', ''), file_path)
+        if path.isfile(local_path):
+            return send_file(local_path, as_attachment=True, download_name=file_name)
+        return abort(404)
 
 
 def request_from_github(abort_code: int = 418) -> Callable:
@@ -56,7 +72,7 @@ def request_from_github(abort_code: int = 418) -> Callable:
                 g.log.warning(f"Unauthorized attempt by IP {request_ip}")
                 abort(abort_code)
 
-            for header in ['X-GitHub-Event', 'X-GitHub-Delivery', 'X-Hub-Signature', 'User-Agent']:
+            for header in ['X-GitHub-Event', 'X-GitHub-Delivery', 'X-Hub-Signature-256', 'User-Agent']:
                 if header not in request.headers:
                     g.log.critical(f"{header} not in headers!")
                     abort(abort_code)
@@ -137,16 +153,26 @@ def is_valid_signature(x_hub_signature, data, private_key):
     """
     Re-check if the GitHub hook request got valid signature.
 
-    :param x_hub_signature: Signature to check
+    :param x_hub_signature: Value of the ``X-Hub-Signature-256`` header,
+        e.g. ``sha256=<hex digest>``
     :type x_hub_signature: str
     :param data: Signature's data
     :type data: bytearray
     :param private_key: Signature's token
     :type private_key: str
+    :return: False if the signature is missing, malformed, not SHA-256,
+        or does not match.
+    :rtype: bool
     """
-    hash_algorithm, github_signature = x_hub_signature.split('=', 1)
-    algorithm = hashlib.__dict__.get(hash_algorithm)
-    encoded_key = bytes(private_key, 'latin-1')
-    mac = hmac.new(encoded_key, msg=data, digestmod=algorithm)
+    if not x_hub_signature:
+        return False
 
-    return hmac.compare_digest(mac.hexdigest(), github_signature)
+    hash_algorithm, separator, github_signature = x_hub_signature.partition('=')
+    if not separator or hash_algorithm != 'sha256':
+        return False
+
+    encoded_key = bytes(private_key, 'latin-1')
+    mac = hmac.new(encoded_key, msg=data, digestmod=hashlib.sha256)
+
+    # Compare bytes: compare_digest raises TypeError on non-ASCII str input.
+    return hmac.compare_digest(mac.hexdigest().encode(), github_signature.encode('utf-8', 'replace'))

@@ -26,6 +26,7 @@ class RunSchema(Schema):
     repository = fields.String(required=True)
     branch = fields.String(allow_none=True)
     commit_sha = fields.String(required=True)
+    built_commit_sha = fields.String(allow_none=True, dump_default=None)
     pr_number = fields.Integer(allow_none=True, load_default=None)
     created_at = fields.DateTime(allow_none=True, format=DATETIME_FORMAT)
     queued_at = fields.DateTime(allow_none=True, format=DATETIME_FORMAT)

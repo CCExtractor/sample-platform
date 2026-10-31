@@ -12,6 +12,7 @@ from decorators import template_renderer
 from exceptions import TestNotFoundException
 from mod_auth.controllers import check_access_rights, login_required
 from mod_auth.models import Role
+from mod_ci.models import GcpInstance
 from mod_customized.models import TestFork
 from mod_home.models import CCExtractorVersion, GeneralData
 from mod_regression.models import (Category, RegressionTestOutput,
@@ -358,7 +359,7 @@ def generate_diff(test_id: int, regression_test_id: int, output_id: int, to_view
         path = os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'TestResults')
 
         request_xhr_key = request.headers.get('X-Requested-With')
-        if (request_xhr_key == 'XMLHttpRequest' or request.accept_mimetypes['application/json']) and to_view == 1:
+        if (request_xhr_key == 'XMLHttpRequest' or request.accept_mimetypes.accept_json) and to_view == 1:
             return result.generate_html_diff(path)
         elif to_view == 0:
             diff_html_text = result.generate_html_diff(path, to_view=False)
@@ -422,6 +423,7 @@ def restart_test(test_id):
     TestResultFile.query.filter(TestResultFile.test_id == test.id).delete()
     TestResult.query.filter(TestResult.test_id == test.id).delete()
     TestProgress.query.filter(TestProgress.test_id == test.id).delete()
+    GcpInstance.query.filter(GcpInstance.test_id == test.id).delete()
     g.db.commit()
     g.log.info(f"test with id: {test_id} restarted")
     return redirect(url_for('.by_id', test_id=test.id))

@@ -1,0 +1,142 @@
+@import "@fontsource-variable/inter";
+@import "@fontsource/jetbrains-mono";
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* CCExtractor palette — lifted from ccextractor.org (Compose theme as
+   deployed): green accent rgb(52,199,89) / rgb(48,209,88), light #fff +
+   haze #f2f5f7, dark rgb(28,28,30) + bubble rgb(36,36,38). */
+:root {
+  --background: #f7f9fa;
+  --foreground: #141010;
+  --card: #ffffff;
+  --card-foreground: #141010;
+  --muted: #f2f5f7;
+  --muted-foreground: #5c6670;
+  --faint: #96a0aa;
+  --border: #e7ebee;
+  --border-strong: #d8dee3;
+  --primary: rgb(40 167 74);
+  --primary-hover: rgb(34 145 64);
+  --primary-foreground: #ffffff;
+  --accent: #e8f7ec;
+  --accent-foreground: rgb(28 122 53);
+  --destructive: #d64550;
+  --success: rgb(40 167 74);
+  --warning: #b8860b;
+  --ring: rgb(52 199 89 / 0.35);
+  --shadow-card: 0 1px 2px rgb(20 16 16 / 0.04), 0 0 0 1px rgb(20 16 16 / 0.04);
+  --shadow-pop: 0 8px 32px rgb(20 16 16 / 0.12), 0 0 0 1px rgb(20 16 16 / 0.05);
+}
+
+.dark {
+  --background: rgb(28 28 30);
+  --foreground: #eeeeee;
+  --card: rgb(36 36 38);
+  --card-foreground: #eeeeee;
+  --muted: rgb(46 46 49);
+  --muted-foreground: #a3a8ad;
+  --faint: #71767b;
+  --border: rgb(56 56 60);
+  --border-strong: rgb(72 72 76);
+  --primary: rgb(48 209 88);
+  --primary-hover: rgb(74 222 110);
+  --primary-foreground: rgb(20 26 21);
+  --accent: rgb(38 58 44);
+  --accent-foreground: rgb(120 224 148);
+  --destructive: #e5707c;
+  --success: rgb(48 209 88);
+  --warning: #d2a24c;
+  --ring: rgb(48 209 88 / 0.4);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 0 0 1px rgb(255 255 255 / 0.04);
+  --shadow-pop: 0 8px 32px rgb(0 0 0 / 0.5), 0 0 0 1px rgb(255 255 255 / 0.06);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-faint: var(--faint);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-ring: var(--ring);
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", monospace;
+  --shadow-card: var(--shadow-card);
+  --shadow-pop: var(--shadow-pop);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    color-scheme: light;
+    /* The type scale is authored in px, so there is no root font size to
+       raise — zoom scales the whole layout instead. Panes below size off
+       percentage heights rather than 100vh, which would keep measuring the
+       unzoomed viewport and overflow by exactly this factor. */
+    zoom: 1.15;
+    height: 100%;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    letter-spacing: -0.006em;
+    font-feature-settings: "cv11", "ss01", "tnum";
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: var(--color-accent);
+    color: var(--color-accent-foreground);
+  }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border-strong);
+    border-radius: 8px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-track { background: transparent; }
+}
+
+/* Plain selectors rather than @utility with nesting: neither of these is
+   ever used behind a variant prefix, so they need no variant support, and
+   this form is readable by tooling that does not know Tailwind's at-rules. */
+@layer components {
+  .card-hover {
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+  .card-hover:hover {
+    border-color: var(--color-border-strong);
+    box-shadow: var(--shadow-pop);
+  }
+
+  .press {
+    transition: transform 100ms ease;
+  }
+  .press:active {
+    transform: scale(0.98);
+  }
+}

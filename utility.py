@@ -156,13 +156,42 @@ def is_valid_signature(x_hub_signature, data, private_key):
     :param x_hub_signature: Signature to check
     :type x_hub_signature: str
     :param data: Signature's data
-    :type data: bytearray
+    :type data: bytearray or bytes or str
     :param private_key: Signature's token
-    :type private_key: str
+    :type private_key: str or bytes
     """
-    hash_algorithm, github_signature = x_hub_signature.split('=', 1)
-    algorithm = hashlib.__dict__.get(hash_algorithm)
-    encoded_key = bytes(private_key, 'latin-1')
-    mac = hmac.new(encoded_key, msg=data, digestmod=algorithm)
+    if not x_hub_signature or not isinstance(x_hub_signature, str):
+        return False
 
-    return hmac.compare_digest(mac.hexdigest(), github_signature)
+    if '=' not in x_hub_signature:
+        return False
+
+    hash_algorithm, github_signature = x_hub_signature.split('=', 1)
+    hash_algorithm = hash_algorithm.lower()
+
+    if hash_algorithm not in hashlib.algorithms_available:
+        return False
+
+    algorithm = getattr(hashlib, hash_algorithm, None)
+    if not callable(algorithm):
+        return False
+
+    if private_key is None:
+        return False
+    if isinstance(private_key, str):
+        encoded_key = private_key.encode('latin-1')
+    elif isinstance(private_key, (bytes, bytearray)):
+        encoded_key = bytes(private_key)
+    else:
+        return False
+
+    if data is None:
+        return False
+    if isinstance(data, str):
+        data = data.encode('utf-8')
+
+    try:
+        mac = hmac.new(encoded_key, msg=data, digestmod=algorithm)
+        return hmac.compare_digest(mac.hexdigest(), github_signature)
+    except (ValueError, TypeError):
+        return False

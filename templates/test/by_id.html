@@ -149,14 +149,14 @@
                                                             {% if file.got is none or no_error.found-%}
                                                                 Fail
                                                             {% else %}
-                                                                <a href="#" class="diff_link" data-test="{{ file.test_id }}" data-regression="{{ file.regression_test_id }}" data-output="{{ file.regression_test_output_id }}">Fail</a>
+                                                                <a href="#" class="diff_link" data-test="{{ file.test_id }}" data-regression="{{ file.regression_test_id }}" data-output="{{ file.regression_test_output_id }}">Fail</a><hr style="margin:5px 0;border:0;border-top:1px solid #777;width:44px" /><a href="#" class="smart_diff_link" data-test="{{ file.test_id }}" data-regression="{{ file.regression_test_id }}" data-output="{{ file.regression_test_output_id }}">Smart</a>
                                                             {%- endif %}
                                                         {% elif file.got == "error" %}
                                                             No output generated but there should be
                                                         {% elif file.got is none or no_error.found or (test.result and test.result.exit_code != 0) -%}
                                                             Pass
                                                         {% else %}
-                                                            <a href="#" class="diff_link" data-test="{{ file.test_id }}" data-regression="{{ file.regression_test_id }}" data-output="{{ file.regression_test_output_id }}">Fail</a>
+                                                            <a href="#" class="diff_link" data-test="{{ file.test_id }}" data-regression="{{ file.regression_test_id }}" data-output="{{ file.regression_test_output_id }}">Fail</a><hr style="margin:5px 0;border:0;border-top:1px solid #777;width:44px" /><a href="#" class="smart_diff_link" data-test="{{ file.test_id }}" data-regression="{{ file.regression_test_id }}" data-output="{{ file.regression_test_output_id }}">Smart</a>
                                                         {%- endif %}
                                                         {% if not loop.last %}<br />{% endif %}
                                                     {% else %}
@@ -291,6 +291,42 @@
                         '</a>, only first 50 shown here.';
                     reveal.innerHTML +=
                         '<button class="close-button" data-close aria-label="Cancel" type="button">' +
+                        '   <span aria-hidden="true">&times;</span>' +
+                        '</button>';
+                    document.body.appendChild(reveal);
+                    popup = new Foundation.Reveal($('#'+id));
+                    popup.open();
+                });
+            });
+            $('.smart_diff_link').on('click', function(){
+                // Fetch the semantic (smart) diff classification and show a summary.
+                var url = '{{ url_for('test.smart_diff_view', test_id='_0_', regression_test_id='_1_', output_id='_2_') }}';
+                url = url.replace('_0_', $(this).data('test')).replace('_1_', $(this).data('regression')).replace('_2_', $(this).data('output'));
+
+                $.getJSON(url).done(function(resp){
+                    var id, reveal, popup;
+
+                    reveal = document.createElement('div');
+                    id = 'smart-diff-popup-'+(new Date()).getTime();
+                    reveal.setAttribute('id', id);
+                    reveal.setAttribute('class', 'reveal');
+                    reveal.setAttribute('data-reveal', '');
+                    reveal.innerHTML =
+                        '<h4>Smart diff</h4>' +
+                        '<p><span class="label">' + (resp.kind || 'unknown') + '</span></p>' +
+                        '<p>' + (resp.summary || '') + '</p>';
+                    if (resp.changes && resp.changes.length) {
+                        var items = resp.changes.map(function(c){
+                            var d = 'Cue ' + c.cue + ': ' + c.kind;
+                            if (c.offset_ms !== undefined) { d += ' (' + (c.offset_ms > 0 ? '+' : '') + c.offset_ms + ' ms)'; }
+                            if (c.expected !== undefined) { d += ' — expected “' + c.expected + '”, got “' + c.actual + '”'; }
+                            return '<li>' + $('<div>').text(d).html() + '</li>';
+                        }).join('');
+                        reveal.innerHTML += '<ul class="smart-changes">' + items + '</ul>';
+                        if (resp.changes_truncated) { reveal.innerHTML += '<p><em>… more changes not shown.</em></p>'; }
+                    }
+                    reveal.innerHTML +=
+                        '<button class="close-button" data-close aria-label="Close" type="button">' +
                         '   <span aria-hidden="true">&times;</span>' +
                         '</button>';
                     document.body.appendChild(reveal);

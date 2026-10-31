@@ -1,7 +1,7 @@
 """add_xmltv_regression_test
 
 Revision ID: eb7303e132c0
-Revises: c8f3a2b1d4e5
+Revises: e7c9b4a2d1f0
 Create Date: 2026-01-06 21:43:46.009899
 
 """
@@ -10,7 +10,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = 'eb7303e132c0'
-down_revision = 'c8f3a2b1d4e5'
+down_revision = 'e7c9b4a2d1f0'
 branch_labels = None
 depends_on = None
 

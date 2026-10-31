@@ -109,6 +109,50 @@ class TestControllers(BaseTestCase):
             response = c.get('/test/stop_test/1')
             self.assert403(response)
 
+    def test_restart_nonexistent_test_as_admin(self):
+        """Test restart of a nonexistent test as admin returns 404."""
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.get('/test/restart_test/99999')
+            self.assertEqual(response.status_code, 404)
+            self.assert_template_used('test/test_not_found.html')
+
+    def test_restart_nonexistent_test_as_tester(self):
+        """Test restart of a nonexistent test as tester returns 404."""
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.tester)
+        with self.app.test_client() as c:
+            c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.get('/test/restart_test/99999')
+            self.assertEqual(response.status_code, 404)
+            self.assert_template_used('test/test_not_found.html')
+
+    def test_stop_nonexistent_test_as_admin(self):
+        """Test stop of a nonexistent test as admin returns 404."""
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.admin)
+        with self.app.test_client() as c:
+            c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.get('/test/stop_test/99999')
+            self.assertEqual(response.status_code, 404)
+            self.assert_template_used('test/test_not_found.html')
+
+    def test_stop_nonexistent_test_as_tester(self):
+        """Test stop of a nonexistent test as tester returns 404."""
+        self.create_user_with_role(
+            self.user.name, self.user.email, self.user.password, Role.tester)
+        with self.app.test_client() as c:
+            c.post(
+                '/account/login', data=self.create_login_form_data(self.user.email, self.user.password))
+            response = c.get('/test/stop_test/99999')
+            self.assertEqual(response.status_code, 404)
+            self.assert_template_used('test/test_not_found.html')
+
     def test_get_json_data_throw_not_found_error(self):
         """Test if get_json_data throws Error 404."""
         response = self.app.test_client().get('/test/get_json_data/99999')

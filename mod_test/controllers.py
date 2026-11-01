@@ -416,6 +416,10 @@ def restart_test(test_id):
     :type test_id: int
     """
     test = Test.query.filter(Test.id == test_id).first()
+    if test is None:
+        g.log.error(f"test with id: {test_id} not found!")
+        raise TestNotFoundException(f"Test with id {test_id} does not exist")
+
     test_fork = TestFork.query.filter(TestFork.user_id == g.user.id, TestFork.test_id == test_id).first()
     if not g.user.is_admin and test_fork is None:
         g.log.warning(f"user with id: {g.user.id} tried to access restricted endpoint")
@@ -441,6 +445,10 @@ def stop_test(test_id):
     :type test_id: int
     """
     test = Test.query.filter(Test.id == test_id).first()
+    if test is None:
+        g.log.error(f"test with id: {test_id} not found!")
+        raise TestNotFoundException(f"Test with id {test_id} does not exist")
+
     test_fork = TestFork.query.filter(TestFork.user_id == g.user.id, TestFork.test_id == test_id).first()
     if not g.user.is_admin and test_fork is None:
         g.log.warning(f"user with id: {g.user.id} tried to access restricted endpoint")

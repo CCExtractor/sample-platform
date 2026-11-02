@@ -9,7 +9,7 @@ pyIsEmail==2.0.1
 GitPython==3.2.1
 xmltodict==1.0.4
 lxml==6.1.3
-pytz==2026.5
+pytz==2026.6
 tzlocal==5.4.5
 markdown2==2.5.5
 flask-migrate==4.1.0

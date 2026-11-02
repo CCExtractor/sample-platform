@@ -159,7 +159,7 @@ describe("useSamples mapping", () => {
 });
 
 describe("useRegressionTests", () => {
-  it("joins sample SHA and ignores PR runs when folding history", async () => {
+  it("joins sample SHA and treats a Linux-only failure as failing the commit", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
@@ -195,7 +195,7 @@ describe("useRegressionTests", () => {
             pagination: { total: 1, next_offset: null },
           });
         }
-        if (url.includes("/runs/31/samples")) {
+        if (url.includes("/runs/32/samples")) {
           return jsonResponse(200, {
             data: [{ regression_test_id: 7, status: "pass", runtime_ms: 10 }],
             pagination: { total: 1, next_offset: null },
@@ -216,10 +216,35 @@ describe("useRegressionTests", () => {
             pagination: { total: 1, next_offset: null },
           });
         }
+        // History asks for master runs on their own so PR traffic cannot
+        // empty the sparkline (sample-platform#1246).
+        if (url.includes("branch=master")) {
+          return jsonResponse(200, {
+            data: [
+              liveRun({
+                run_id: 30,
+                platform: "linux",
+                status: "fail",
+                test_type: "commit",
+              }),
+              liveRun({
+                run_id: 32,
+                platform: "windows",
+                status: "pass",
+                test_type: "commit",
+              }),
+              liveRun({
+                run_id: 40,
+                platform: "linux",
+                status: "queued",
+                test_type: "commit",
+              }),
+            ],
+          });
+        }
         if (url.includes("/api/v1/runs?")) {
           return jsonResponse(200, {
             data: [
-              liveRun({ run_id: 30, test_type: "commit", platform: "linux" }),
               liveRun({
                 run_id: 31,
                 test_type: "pr",
@@ -238,9 +263,8 @@ describe("useRegressionTests", () => {
     await waitFor(() => expect(result.current.data).toHaveLength(1));
     expect(result.current.data[0].sample_sha).toBe("deadbeef");
     expect(result.current.data[0].id).toBe(7);
-    // PR run 31 must not contribute: only the commit failure is history.
     await waitFor(() => expect(result.current.data[0].recent_results).toEqual(["fail"]));
-    expect(result.current.data[0].avg_runtime_ms).toBe(100);
+    expect(result.current.data[0].avg_runtime_ms).toBe(55);
     unmount();
   });
 });

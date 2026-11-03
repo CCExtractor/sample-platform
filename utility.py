@@ -157,22 +157,39 @@ def is_valid_signature(x_hub_signature, data, private_key):
         e.g. ``sha256=<hex digest>``
     :type x_hub_signature: str
     :param data: Signature's data
-    :type data: bytearray
+    :type data: bytearray or bytes or str
     :param private_key: Signature's token
-    :type private_key: str
+    :type private_key: str or bytes
     :return: False if the signature is missing, malformed, not SHA-256,
         or does not match.
     :rtype: bool
     """
-    if not x_hub_signature:
+    if not x_hub_signature or not isinstance(x_hub_signature, str):
         return False
 
     hash_algorithm, separator, github_signature = x_hub_signature.partition('=')
     if not separator or hash_algorithm != 'sha256':
         return False
 
-    encoded_key = bytes(private_key, 'latin-1')
-    mac = hmac.new(encoded_key, msg=data, digestmod=hashlib.sha256)
+    if private_key is None:
+        return False
+    if isinstance(private_key, str):
+        encoded_key = private_key.encode('latin-1')
+    elif isinstance(private_key, (bytes, bytearray)):
+        encoded_key = bytes(private_key)
+    else:
+        return False
 
-    # Compare bytes: compare_digest raises TypeError on non-ASCII str input.
-    return hmac.compare_digest(mac.hexdigest().encode(), github_signature.encode('utf-8', 'replace'))
+    if data is None:
+        return False
+    if isinstance(data, str):
+        data = data.encode('utf-8')
+    elif not isinstance(data, (bytes, bytearray)):
+        return False
+
+    try:
+        mac = hmac.new(encoded_key, msg=data, digestmod=hashlib.sha256)
+        # Compare bytes: compare_digest raises TypeError on non-ASCII str input.
+        return hmac.compare_digest(mac.hexdigest().encode(), github_signature.encode('utf-8', 'replace'))
+    except (ValueError, TypeError):
+        return False

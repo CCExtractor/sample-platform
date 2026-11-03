@@ -73,3 +73,30 @@ class TestUtility(BaseTestCase):
         for header in (None, '', 'sha256', 'new=abc', 'unknown=abc', 'sha256=\u00e9',
                        f'md5={md5_digest}', f'sha1={sha1_digest}'):
             self.assertFalse(is_valid_signature(header, data, 'secret'), header)
+
+    def test_is_valid_signature_robustness(self):
+        """Test is_valid_signature against non-string headers, str payloads, bytes keys, and None inputs."""
+        import hashlib
+        import hmac
+
+        from utility import is_valid_signature
+
+        key = "secret_key_123"
+        payload = b'{"ref": "refs/heads/master"}'
+        mac = hmac.new(b"secret_key_123", payload, hashlib.sha256)
+        valid_header = f"sha256={mac.hexdigest()}"
+
+        # Valid signature with str payload and bytes key
+        self.assertTrue(
+            is_valid_signature(valid_header, payload.decode(), key))
+        self.assertTrue(
+            is_valid_signature(valid_header, payload, b"secret_key_123"))
+
+        # Non-string header
+        self.assertFalse(is_valid_signature(12345, payload, key))
+
+        # None or invalid data or key
+        self.assertFalse(is_valid_signature(valid_header, None, key))
+        self.assertFalse(is_valid_signature(valid_header, payload, None))
+        self.assertFalse(is_valid_signature(valid_header, payload, 12345))
+        self.assertFalse(is_valid_signature(valid_header, 12345, key))

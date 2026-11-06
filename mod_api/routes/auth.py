@@ -267,6 +267,7 @@ def list_tokens(limit=50, offset=0):
 
 
 @mod_api.route('/auth/tokens/<int:token_id>', methods=['DELETE'])
+@validate_path_id('token_id')
 def revoke_specific_token(token_id):
     """
     Revoke a token by its numeric ID.

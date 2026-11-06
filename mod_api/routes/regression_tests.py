@@ -156,6 +156,7 @@ def _located(filename):
 )
 @require_scope(Scope.RUNS_READ)
 @validate_path_id('regression_test_id')
+@validate_path_id('output_id')
 def download_output(regression_test_id, output_id):
     """Locate the baseline a regression test is expected to reproduce."""
     output, err = _get_output(regression_test_id, output_id)
@@ -171,6 +172,8 @@ def download_output(regression_test_id, output_id):
 )
 @require_scope(Scope.RUNS_READ)
 @validate_path_id('regression_test_id')
+@validate_path_id('output_id')
+@validate_path_id('variant_id')
 def download_variant(regression_test_id, output_id, variant_id):
     """Locate one of the alternative outputs accepted for a baseline."""
     output, err = _get_output(regression_test_id, output_id)
@@ -195,6 +198,7 @@ def download_variant(regression_test_id, output_id, variant_id):
 @require_roles([Role.contributor, Role.admin])
 @require_scope(Scope.RUNS_WRITE)
 @validate_path_id('regression_test_id')
+@validate_path_id('output_id')
 @validate_body(VariantCreateSchema)
 def create_variant(regression_test_id, output_id, validated_data=None):
     """
@@ -236,6 +240,8 @@ def create_variant(regression_test_id, output_id, validated_data=None):
 @require_roles([Role.contributor, Role.admin])
 @require_scope(Scope.RUNS_WRITE)
 @validate_path_id('regression_test_id')
+@validate_path_id('output_id')
+@validate_path_id('variant_id')
 def delete_variant(regression_test_id, output_id, variant_id):
     """Stop accepting one alternative output for a baseline."""
     output, err = _get_output(regression_test_id, output_id)

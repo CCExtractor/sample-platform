@@ -8,6 +8,7 @@ exists, storage_status is 'degraded'. When neither exists, it's 'missing'.
 
 import logging
 import os
+import tempfile
 from datetime import timedelta
 from typing import Optional, Tuple
 
@@ -75,3 +76,49 @@ def get_test_results_base_path() -> str:
     """Return the base directory where TestResults files are stored."""
     from run import config
     return os.path.join(config.get('SAMPLE_REPOSITORY', ''), 'TestResults')
+
+
+def combined_stdout_relative_path(run_id: int) -> str:
+    """GCS / SAMPLE_REPOSITORY path of a run's combined VM stdout log."""
+    return f'test_artifacts/{int(run_id)}/combined_stdout.log'
+
+
+def get_combined_stdout_path(run_id: int) -> Optional[str]:
+    """
+    Absolute path to combined_stdout.log for this run, or None.
+
+    Prefers the local SAMPLE_REPOSITORY copy. If that is missing and GCS
+    has the blob, download it to a temp file (caller must delete it).
+    """
+    from run import config, storage_client_bucket
+
+    relative = combined_stdout_relative_path(run_id)
+    sample_repo = config.get('SAMPLE_REPOSITORY', '')
+    if not sample_repo:
+        local_path = ''
+        local_exists = False
+    else:
+        local_path = os.path.join(sample_repo, relative)
+        real_base = os.path.realpath(sample_repo)
+        real_path = os.path.realpath(local_path)
+        if not (real_path.startswith(real_base + os.sep) or real_path == real_base):
+            return None
+        local_exists = os.path.isfile(local_path)
+
+    if local_exists:
+        return local_path
+
+    if not storage_client_bucket:
+        return None
+
+    try:
+        blob = storage_client_bucket.blob(relative)
+        if not blob.exists():
+            return None
+        fd, tmp_path = tempfile.mkstemp(prefix=f'console-{run_id}-', suffix='.log')
+        os.close(fd)
+        blob.download_to_filename(tmp_path)
+        return tmp_path
+    except Exception as e:
+        logger.warning(f"Failed to fetch combined_stdout for run {run_id}: {e}")
+        return None

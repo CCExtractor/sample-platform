@@ -10,7 +10,8 @@ from mod_auth.models import Role, User
 from mod_ci.models import BlockedUsers, MaintenanceMode
 from mod_regression.models import RegressionTestOutput
 from mod_sample.models import ForbiddenExtension
-from mod_test.models import Fork, Test, TestPlatform, TestResultFile, TestType
+from mod_test.models import (Fork, Test, TestPlatform, TestProgress,
+                             TestResultFile, TestStatus, TestType)
 from tests.api.base import ApiTestCase
 
 
@@ -376,3 +377,131 @@ class TestRoutesPlatformConfig(ApiTestCase):
         res = self.client.delete('/api/v1/system/forbidden-extensions/mkv',
                                  headers=self._admin())
         self.assertEqual(res.status_code, 404)
+
+
+class TestConsoleDiff(ApiTestCase):
+    """Diagnostic GET /runs/{id}/console-diff. Does not change CI verdicts."""
+
+    def setUp(self):
+        super().setUp()
+        self.test_dir = tempfile.TemporaryDirectory()
+        self.dir_path = self.test_dir.name
+        self.setup_run_data('con')
+        self.prev = self.test_obj
+        self.curr = Test(TestPlatform.linux, TestType.commit,
+                         self.fork.id, 'master', 'commit_b')
+        g.db.add(self.curr)
+        g.db.commit()
+        g.db.add(TestProgress(self.prev.id, TestStatus.completed, 'done'))
+        g.db.add(TestProgress(self.curr.id, TestStatus.completed, 'done'))
+        g.db.commit()
+        _rate_limit_store.clear()
+
+    def tearDown(self):
+        self.test_dir.cleanup()
+        super().tearDown()
+
+    def _token(self, name='con_tok', scopes=None):
+        return self.get_token(
+            'con_user@local.com', 'userpass123', name,
+            scopes=scopes or ['results:read'])
+
+    def _write_stdout(self, run_id, content):
+        folder = os.path.join(self.dir_path, 'test_artifacts', str(run_id))
+        os.makedirs(folder, exist_ok=True)
+        path = os.path.join(folder, 'combined_stdout.log')
+        with open(path, 'w', encoding='utf-8') as handle:
+            handle.write(content)
+        return path
+
+    def _get(self, run_id, token, query=''):
+        with patch('run.storage_client_bucket', None), patch.dict(
+                'run.config', {'SAMPLE_REPOSITORY': self.dir_path}):
+            return self.client.get(
+                f'/api/v1/runs/{run_id}/console-diff{query}',
+                headers={'Authorization': f'Bearer {token}'})
+
+    def test_unified_diff_against_previous_completed(self):
+        self._write_stdout(self.prev.id, 'line1\nold\n')
+        self._write_stdout(self.curr.id, 'line1\nnew\n')
+        res = self._get(self.curr.id, self._token())
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json['kind'], 'console')
+        self.assertEqual(res.json['format'], 'unified')
+        self.assertEqual(res.json['run_id'], self.curr.id)
+        self.assertEqual(res.json['against_run_id'], self.prev.id)
+        self.assertIn('-old', res.json['content'])
+        self.assertIn('+new', res.json['content'])
+
+    def test_identical_logs(self):
+        self._write_stdout(self.prev.id, 'same\n')
+        self._write_stdout(self.curr.id, 'same\n')
+        res = self._get(self.curr.id, self._token('id'), '?format=structured')
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json['status'], 'identical')
+        self.assertEqual(res.json['summary']['changed_hunks'], 0)
+
+    def test_explicit_against(self):
+        other = Test(TestPlatform.linux, TestType.commit,
+                     self.fork.id, 'master', 'commit_c')
+        g.db.add(other)
+        g.db.commit()
+        self._write_stdout(other.id, 'aaa\n')
+        self._write_stdout(self.curr.id, 'bbb\n')
+        res = self._get(
+            self.curr.id, self._token('ex'), f'?against={other.id}')
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json['against_run_id'], other.id)
+        self.assertIn('-aaa', res.json['content'])
+
+    def test_no_previous_completed_run(self):
+        lone = Test(TestPlatform.windows, TestType.commit,
+                    self.fork.id, 'master', 'win_only')
+        g.db.add(lone)
+        g.db.commit()
+        g.db.add(TestProgress(lone.id, TestStatus.completed, 'done'))
+        g.db.commit()
+        self._write_stdout(lone.id, 'win\n')
+        res = self._get(lone.id, self._token('lone'))
+        self.assertEqual(res.status_code, 404)
+
+    def test_missing_stdout(self):
+        res = self._get(self.curr.id, self._token('miss'))
+        self.assertEqual(res.status_code, 404)
+
+    def test_invalid_format(self):
+        self._write_stdout(self.prev.id, 'a\n')
+        self._write_stdout(self.curr.id, 'b\n')
+        res = self._get(self.curr.id, self._token('fmt'), '?format=html')
+        self.assertEqual(res.status_code, 400)
+
+    def test_against_self_rejected(self):
+        res = self._get(
+            self.curr.id, self._token('self'), f'?against={self.curr.id}')
+        self.assertEqual(res.status_code, 400)
+
+    def test_against_not_an_int(self):
+        res = self._get(self.curr.id, self._token('nan'), '?against=nope')
+        self.assertEqual(res.status_code, 400)
+
+    def test_requires_results_read(self):
+        token = self.get_token(
+            'con_user@local.com', 'userpass123', 'noscope',
+            scopes=['runs:read'])
+        res = self._get(self.curr.id, token)
+        self.assertEqual(res.status_code, 403)
+
+    def test_run_not_found(self):
+        res = self._get(999999, self._token('nf'))
+        self.assertEqual(res.status_code, 404)
+
+    def test_file_too_large(self):
+        self._write_stdout(self.prev.id, 'ok\n')
+        huge = os.path.join(
+            self.dir_path, 'test_artifacts', str(self.curr.id))
+        os.makedirs(huge, exist_ok=True)
+        path = os.path.join(huge, 'combined_stdout.log')
+        with open(path, 'wb') as handle:
+            handle.write(b'x' * (10 * 1024 * 1024 + 1))
+        res = self._get(self.curr.id, self._token('big'))
+        self.assertEqual(res.status_code, 422)

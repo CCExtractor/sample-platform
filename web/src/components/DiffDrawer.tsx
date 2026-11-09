@@ -3,17 +3,30 @@ import { Download, FileText, PlayCircle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AnimatedSheet, SheetDescription, SheetTitle } from "@/components/ui/sheet";
-import { fetchDiff, outputText, sampleFile } from "@/lib/api";
+import { fetchConsoleDiff, fetchDiff, outputText, sampleFile } from "@/lib/api";
 import { clock, cuesToVtt, parseCues, type Cue } from "@/lib/cues";
 import { cn } from "@/lib/utils";
 
-export interface DiffTarget {
+export interface OutputDiffTarget {
+  kind?: "output";
   runId: number;
   sampleId: number;
   regressionId: number;
   outputId: number;
   command: string;
   sampleName: string;
+}
+
+export interface ConsoleDiffTarget {
+  kind: "console";
+  runId: number;
+  against?: number;
+}
+
+export type DiffTarget = OutputDiffTarget | ConsoleDiffTarget;
+
+function isConsole(target: DiffTarget): target is ConsoleDiffTarget {
+  return target.kind === "console";
 }
 
 type View = "diff" | "playback";
@@ -49,27 +62,35 @@ export function DiffDrawer({
         <div className="flex h-full flex-col">
           <div className="border-b px-6 py-4">
             <SheetTitle className="text-[15px] font-semibold tracking-tight">
-              Test #{target.regressionId}
+              {isConsole(target) ? "Combined stdout" : `Test #${target.regressionId}`}
             </SheetTitle>
             <SheetDescription className="mt-0.5 truncate font-mono text-[11px] text-faint">
-              {target.command} · {target.sampleName} · run {target.runId}
+              {isConsole(target)
+                ? `run ${target.runId} vs previous completed run on this platform`
+                : `${target.command} · ${target.sampleName} · run ${target.runId}`}
             </SheetDescription>
-            <div className="mt-3 flex gap-1">
-              <ViewTab
-                icon={FileText}
-                label="Diff"
-                on={view === "diff"}
-                go={() => setView("diff")}
-              />
-              <ViewTab
-                icon={PlayCircle}
-                label="Playback"
-                on={view === "playback"}
-                go={() => setView("playback")}
-              />
-            </div>
+            {!isConsole(target) && (
+              <div className="mt-3 flex gap-1">
+                <ViewTab
+                  icon={FileText}
+                  label="Diff"
+                  on={view === "diff"}
+                  go={() => setView("diff")}
+                />
+                <ViewTab
+                  icon={PlayCircle}
+                  label="Playback"
+                  on={view === "playback"}
+                  go={() => setView("playback")}
+                />
+              </div>
+            )}
           </div>
-          {view === "diff" ? <DiffPane target={target} /> : <PlaybackPane target={target} />}
+          {isConsole(target) || view === "diff" ? (
+            <DiffPane target={target} />
+          ) : (
+            <PlaybackPane target={target} />
+          )}
         </div>
       )}
     </AnimatedSheet>
@@ -108,11 +129,19 @@ function numbered(lines: string[]): { id: string; line: string }[] {
 }
 
 function DiffPane({ target }: Readonly<{ target: DiffTarget }>) {
+  const consoleTarget = isConsole(target);
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["diff", target.runId, target.regressionId, target.outputId],
+    queryKey: consoleTarget
+      ? ["console-diff", target.runId, target.against ?? null]
+      : ["diff", target.runId, target.regressionId, target.outputId],
     staleTime: Infinity,
     retry: false,
-    queryFn: () => fetchDiff(target),
+    queryFn: () => {
+      if (isConsole(target)) {
+        return fetchConsoleDiff(target.runId, target.against);
+      }
+      return fetchDiff(target);
+    },
   });
 
   return (
@@ -120,8 +149,10 @@ function DiffPane({ target }: Readonly<{ target: DiffTarget }>) {
       {isLoading && <Skeleton rows={8} />}
       {isError && (
         <Notice>
-          {error instanceof Error ? error.message : "Could not load diff"} — the output
-          file for this result isn't present in storage.
+          {error instanceof Error ? error.message : "Could not load diff"}
+          {isConsole(target)
+            ? " — combined stdout may be missing for this run or the previous one."
+            : " — the output file for this result isn't present in storage."}
         </Notice>
       )}
       {data && (
@@ -162,7 +193,7 @@ function DiffPane({ target }: Readonly<{ target: DiffTarget }>) {
  * worked. When it cannot play, the two tracks are still worth reading side by
  * side, and the sample is one click away for a local player.
  */
-function PlaybackPane({ target }: Readonly<{ target: DiffTarget }>) {
+function PlaybackPane({ target }: Readonly<{ target: OutputDiffTarget }>) {
   const video = useRef<HTMLVideoElement>(null);
   const [at, setAt] = useState(0);
   // The element's own error code, kept rather than a boolean: a container no
@@ -246,7 +277,7 @@ function PlaybackPane({ target }: Readonly<{ target: DiffTarget }>) {
   );
 }
 
-function useOutput(target: DiffTarget, which: "expected" | "actual") {
+function useOutput(target: OutputDiffTarget, which: "expected" | "actual") {
   return useQuery({
     queryKey: ["output-text", target.runId, target.regressionId, target.outputId, which],
     staleTime: Infinity,

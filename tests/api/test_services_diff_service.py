@@ -2,7 +2,8 @@ import os
 import tempfile
 
 from mod_api.services.diff_service import (_compute_hunks, compute_diff,
-                                           file_sha256, read_lines)
+                                           compute_log_diff, file_sha256,
+                                           read_lines, read_log_lines)
 from tests.api.base import ApiTestCase
 
 
@@ -124,3 +125,18 @@ class TestDiffService(ApiTestCase):
 
         self.assertIsNone(file_sha256(
             os.path.join(self.dir_path, "nonexistent.txt")))
+
+    def test_compute_log_diff_outside_test_results(self):
+        path1 = self.create_file("console_a.log", "a\nb\n")
+        path2 = self.create_file("console_b.log", "a\nc\n")
+        diff = compute_log_diff(path1, path2)
+        self.assertEqual(diff["status"], "different")
+        self.assertEqual(diff["summary"]["added_lines"], 1)
+        self.assertEqual(diff["summary"]["removed_lines"], 1)
+
+    def test_read_log_lines_too_large(self):
+        path = os.path.join(self.dir_path, "huge.log")
+        with open(path, "wb") as handle:
+            handle.write(b"y" * 50)
+        with self.assertRaises(ValueError):
+            read_log_lines(path, max_size_bytes=10)

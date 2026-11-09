@@ -218,3 +218,67 @@ def file_sha256(file_path: str) -> Optional[str]:
         return sha.hexdigest()
     except (OSError, IOError):
         return None
+
+
+def read_log_lines(file_path: str, max_size_bytes: int = 10 * 1024 * 1024) -> List[str]:
+    """Read a console log for diagnostic diffs (not TestResults-bound)."""
+    file_size = os.path.getsize(file_path)
+    if file_size > max_size_bytes:
+        raise ValueError(
+            f"File too large ({file_size} bytes > {max_size_bytes} limit)")
+    try:
+        with open(file_path, encoding='utf8') as f:
+            return [line.rstrip('\n\r') for line in f.readlines()]
+    except UnicodeDecodeError:
+        with open(file_path, encoding='cp1252', errors='replace') as f:
+            return [line.rstrip('\n\r') for line in f.readlines()]
+
+
+def compute_log_diff(
+    previous_path: str,
+    current_path: str,
+    context_lines: int = 3,
+    max_hunks: int = 500,
+) -> Dict[str, Any]:
+    """Structured diff of two combined_stdout logs. Does not affect CI verdicts."""
+    context_lines = max(1, min(context_lines, 50))
+
+    if not os.path.isfile(previous_path):
+        return {
+            'status': 'missing_expected',
+            'summary': {'added_lines': 0, 'removed_lines': 0, 'changed_hunks': 0},
+            'hunks': [],
+        }
+
+    if not os.path.isfile(current_path):
+        return {
+            'status': 'missing_actual',
+            'summary': {'added_lines': 0, 'removed_lines': 0, 'changed_hunks': 0},
+            'hunks': [],
+        }
+
+    previous_lines = read_log_lines(previous_path)
+    current_lines = read_log_lines(current_path)
+
+    if previous_lines == current_lines:
+        return {
+            'status': 'identical',
+            'summary': {'added_lines': 0, 'removed_lines': 0, 'changed_hunks': 0},
+            'hunks': [],
+        }
+
+    hunks = _compute_hunks(previous_lines, current_lines, context_lines, max_hunks)
+    added = sum(
+        1 for h in hunks for line in h['lines'] if line['kind'] == 'added')
+    removed = sum(
+        1 for h in hunks for line in h['lines'] if line['kind'] == 'removed')
+
+    return {
+        'status': 'different',
+        'summary': {
+            'added_lines': added,
+            'removed_lines': removed,
+            'changed_hunks': len(hunks),
+        },
+        'hunks': hunks,
+    }

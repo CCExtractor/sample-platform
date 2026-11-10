@@ -502,7 +502,15 @@ function ArtifactsSection({
           <SubLabel>Run files</SubLabel>
           <div className="grid gap-2 sm:grid-cols-2">
             {runFiles.map((a) => (
-              <RunFileCard key={a.artifact_id} a={a} />
+              <RunFileCard
+                key={a.artifact_id}
+                a={a}
+                onConsoleDiff={
+                  a.type === "combined_stdout"
+                    ? () => setDiff({ kind: "console", runId })
+                    : undefined
+                }
+              />
             ))}
           </div>
         </div>
@@ -644,7 +652,10 @@ function LogDownload({ runId, filename }: Readonly<{ runId: number; filename: st
   );
 }
 
-function RunFileCard({ a }: Readonly<{ a: RunArtifact }>) {
+function RunFileCard({
+  a,
+  onConsoleDiff,
+}: Readonly<{ a: RunArtifact; onConsoleDiff?: () => void }>) {
   const Icon = RUN_FILE_ICON[a.type] ?? FileText;
   const viaLogEndpoint =
     a.type === "build_log" && a.storage_status === "ok" && !httpsUrl(a.download_url);
@@ -664,11 +675,21 @@ function RunFileCard({ a }: Readonly<{ a: RunArtifact }>) {
           {(a.size_bytes / 1024).toFixed(0)} KB
         </span>
       )}
-      {viaLogEndpoint ? (
-        <LogDownload runId={a.run_id} filename={a.filename} />
-      ) : (
-        <FileStatus a={a} />
-      )}
+      <div className="flex shrink-0 items-center gap-2">
+        {onConsoleDiff && (
+          <button
+            onClick={onConsoleDiff}
+            className="cursor-pointer text-[11px] font-medium text-primary hover:underline"
+          >
+            View diff
+          </button>
+        )}
+        {viaLogEndpoint ? (
+          <LogDownload runId={a.run_id} filename={a.filename} />
+        ) : (
+          <FileStatus a={a} />
+        )}
+      </div>
     </div>
   );
 }

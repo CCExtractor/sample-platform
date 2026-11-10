@@ -855,6 +855,18 @@ export async function fetchDiff(args: {
   );
 }
 
+/** Diagnostic unified diff of combined VM stdout vs another run. */
+export async function fetchConsoleDiff(
+  runId: number,
+  against?: number,
+): Promise<{ content: string; against_run_id: number }> {
+  const qs = new URLSearchParams({ format: "unified" });
+  if (against != null) qs.set("against", String(against));
+  return apiGet<{ content: string; against_run_id: number }>(
+    `/runs/${runId}/console-diff?${qs}`,
+  );
+}
+
 /**
  * One side of a failing comparison as text.
  *

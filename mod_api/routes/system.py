@@ -4,6 +4,7 @@ System, health, queue, artifact, and platform configuration routes.
 GET    /system/health                        Health check (unauthenticated)
 GET    /system/queue                         Queue status — active + queued runs
 GET    /runs/{id}/artifacts                  Run artifacts from GCS + local
+GET    /runs/{id}/console-diff               Diagnostic stdout vs previous run
 GET    /system/about                         Versions this platform runs against
 GET    /system/maintenance                   Maintenance state per platform
 PATCH  /system/maintenance/{platform}        Pause or resume a platform
@@ -20,11 +21,13 @@ CI accepts work at all. Reads additionally need system:read and writes
 system:write, so a token can be narrowed further than the role allows.
 """
 
+import difflib
 import os
+import tempfile
 from datetime import datetime, timezone
 
 from flask import g, jsonify, request
-from sqlalchemy import text
+from sqlalchemy import func, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 
@@ -39,8 +42,10 @@ from mod_api.schemas.common import DATETIME_FORMAT
 from mod_api.schemas.system import (BlockedUserCreateSchema,
                                     ForbiddenExtensionCreateSchema,
                                     MaintenanceUpdateSchema)
+from mod_api.services.diff_service import compute_log_diff, read_log_lines
 from mod_api.services.status import batch_get_run_data, is_dummy_row
-from mod_api.services.storage import (get_log_file_path,
+from mod_api.services.storage import (get_combined_stdout_path,
+                                      get_log_file_path,
                                       get_test_results_base_path,
                                       resolve_artifact)
 from mod_api.utils import paginated_response, safe_resolve, single_response
@@ -368,6 +373,148 @@ def list_artifacts(run_id, limit=50, offset=0):
             a['download_url'] = url
 
     return paginated_response(paged, total, limit, offset)
+
+
+MAX_CONSOLE_DIFF_BYTES = 10 * 1024 * 1024
+UNIFIED_DIFF_LINE_CAP = 10000
+
+
+def _unlink_if_temp(path):
+    """Delete GCS downloads from get_combined_stdout_path, not local repo copies."""
+    if not path:
+        return
+    name = os.path.basename(path)
+    if not (name.startswith('console-') and name.endswith('.log')):
+        return
+    try:
+        temp_root = os.path.realpath(tempfile.gettempdir())
+        real = os.path.realpath(path)
+        if real == temp_root or real.startswith(temp_root + os.sep):
+            os.unlink(real)
+    except OSError:
+        pass
+
+
+def _previous_completed_run(test):
+    """Most recent completed run on the same platform with a lower id."""
+    latest = g.db.query(
+        TestProgress.test_id,
+        func.max(TestProgress.id).label('max_id'),
+    ).group_by(TestProgress.test_id).subquery()
+    return (
+        g.db.query(Test)
+        .join(latest, latest.c.test_id == Test.id)
+        .join(TestProgress, TestProgress.id == latest.c.max_id)
+        .filter(
+            Test.platform == test.platform,
+            Test.id < test.id,
+            TestProgress.status == TestStatus.completed,
+        )
+        .order_by(Test.id.desc())
+        .first()
+    )
+
+
+@mod_api.route('/runs/<run_id>/console-diff', methods=['GET'])
+@require_scope(Scope.RESULTS_READ)
+@validate_path_id('run_id')
+def get_console_diff(run_id):
+    """
+    Diagnostic unified/structured diff of combined VM stdout vs another run.
+
+    Default comparison is the previous completed run on the same platform.
+    This does not change CI pass/fail or goldens — stdout is a whole-run log.
+    """
+    test = Test.query.filter(Test.id == run_id).first()
+    if test is None:
+        return make_error_response(
+            'not_found', f'Run {run_id} not found.', http_status=404)
+
+    format_type = request.args.get('format', 'unified')
+    if format_type not in ('unified', 'structured'):
+        return make_error_response(
+            'validation_error',
+            'format must be unified or structured.',
+            http_status=400)
+
+    against_raw = request.args.get('against')
+    if against_raw is None or against_raw == '':
+        against_run = _previous_completed_run(test)
+        if against_run is None:
+            return make_error_response(
+                'not_found',
+                'No previous completed run on this platform to compare against.',
+                http_status=404)
+    else:
+        try:
+            against_id = int(against_raw)
+        except (TypeError, ValueError):
+            return make_error_response(
+                'validation_error', 'against must be an integer run id.',
+                http_status=400)
+        if against_id == run_id:
+            return make_error_response(
+                'validation_error', 'against must be a different run.',
+                http_status=400)
+        against_run = Test.query.filter(Test.id == against_id).first()
+        if against_run is None:
+            return make_error_response(
+                'not_found', f'Run {against_id} not found.', http_status=404)
+
+    current_path = get_combined_stdout_path(run_id)
+    previous_path = get_combined_stdout_path(against_run.id)
+    try:
+        if current_path is None:
+            return make_error_response(
+                'not_found',
+                f'combined_stdout.log for run {run_id} is not in storage.',
+                http_status=404)
+        if previous_path is None:
+            return make_error_response(
+                'not_found',
+                f'combined_stdout.log for run {against_run.id} is not in storage.',
+                http_status=404)
+
+        ids = {
+            'run_id': run_id,
+            'against_run_id': against_run.id,
+            'kind': 'console',
+        }
+
+        try:
+            if format_type == 'unified':
+                previous_lines = read_log_lines(
+                    previous_path, MAX_CONSOLE_DIFF_BYTES)
+                current_lines = read_log_lines(
+                    current_path, MAX_CONSOLE_DIFF_BYTES)
+                differ = list(difflib.unified_diff(
+                    previous_lines,
+                    current_lines,
+                    fromfile=f'run {against_run.id}',
+                    tofile=f'run {run_id}',
+                    lineterm='',
+                ))
+                if len(differ) > UNIFIED_DIFF_LINE_CAP:
+                    differ = differ[:UNIFIED_DIFF_LINE_CAP]
+                    differ.append('... Diff truncated due to length ...')
+                return single_response({
+                    **ids,
+                    'format': 'unified',
+                    'content': '\n'.join(differ),
+                })
+
+            context_lines = request.args.get('context_lines', 3, type=int)
+            diff_result = compute_log_diff(
+                previous_path, current_path, context_lines=context_lines)
+            diff_result.update(ids)
+            diff_result['format'] = 'structured'
+            return single_response(diff_result)
+        except ValueError as exc:
+            return make_error_response(
+                'unprocessable', str(exc), http_status=422)
+    finally:
+        _unlink_if_temp(current_path)
+        _unlink_if_temp(previous_path)
 
 
 @mod_api.route('/system/about', methods=['GET'])

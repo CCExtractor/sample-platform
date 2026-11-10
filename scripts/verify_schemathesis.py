@@ -452,6 +452,18 @@ def test_artifacts_list(case, auth_token):
     _call_safe(case)
 
 
+_console_diff_schema = _full_schema.include(
+    path="/runs/{run_id}/console-diff", method="GET"
+)
+
+
+@_console_diff_schema.parametrize()
+def test_console_diff(case, auth_token):
+    """GET /runs/{run_id}/console-diff — fuzz diagnostic stdout diffs."""
+    _set_auth(case, auth_token)
+    _call_safe(case)
+
+
 # --- Errors & Logs -------------------------------------------------
 
 _errors_schema = _full_schema.include(

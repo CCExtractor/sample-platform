@@ -3592,6 +3592,83 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /runs/{run_id}/console-diff:
+    get:
+      tags: [System]
+      summary: Diagnostic diff of combined stdout vs another run
+      operationId: getConsoleDiff
+      description: >
+        Compare this run's combined_stdout.log to another run's copy.
+        Default `against` is the previous completed run on the same platform.
+        This is a diagnostic view only and does not change CI pass/fail.
+      security:
+        - bearerAuth: []
+      x-required-scope: results:read
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - name: against
+          in: query
+          description: Run id to compare against. Defaults to previous completed same-platform run.
+          schema:
+            type: integer
+            minimum: 1
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [unified, structured]
+            default: unified
+        - name: context_lines
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 3
+      responses:
+        "200":
+          description: Diagnostic console log diff
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  run_id:
+                    type: integer
+                  against_run_id:
+                    type: integer
+                  kind:
+                    type: string
+                    enum: [console]
+                  format:
+                    type: string
+                    enum: [unified, structured]
+                  content:
+                    type: string
+                  status:
+                    type: string
+                  summary:
+                    type: object
+                  hunks:
+                    type: array
+                    items:
+                      type: object
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+
 #
 # COMPONENTS
 #

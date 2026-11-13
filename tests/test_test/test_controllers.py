@@ -315,3 +315,17 @@ class TestControllers(BaseTestCase):
         self.assertEqual(response, mock_serve())
         mock_test.query.filter.assert_called_once()
         mock_os.path.isfile.assert_called_once()
+
+    def test_by_platform_no_commit_hash(self):
+        """Test by_platform raises TestNotFoundException when no commit hash in GeneralData."""
+        from flask import g
+
+        from mod_home.models import GeneralData
+        from mod_test.controllers import TestNotFoundException, by_platform
+
+        GeneralData.query.delete()
+        g.db.commit()
+
+        with self.app.test_request_context():
+            with self.assertRaises(TestNotFoundException):
+                by_platform('linux')

@@ -30,3 +30,19 @@ class TestControllers(BaseTestCase):
             self.assertEqual(response.status_code, 200)
             self.assert_context('test_access', True)
             self.assert_template_used('home/index.html')
+
+    def test_root_without_general_data(self):
+        """Test the access of the home page when GeneralData and CCExtractorVersion are empty."""
+        from flask import g
+
+        from mod_home.models import CCExtractorVersion, GeneralData
+
+        GeneralData.query.delete()
+        CCExtractorVersion.query.delete()
+        g.db.commit()
+
+        response = self.app.test_client().get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assert_context('ccx_latest_commit', None)
+        self.assert_context('ccx_last_release', None)
+        self.assert_template_used('home/index.html')

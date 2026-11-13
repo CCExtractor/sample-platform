@@ -257,11 +257,7 @@ def process_id(upload_id):
                         gh = Github(auth=Auth.Token(github_token))
                         repository = gh.get_repo(f"{config['GITHUB_OWNER']}/{config['GITHUB_REPOSITORY']}")
                         response = repository.get_contents(".github/ISSUE_TEMPLATE.md")
-                        encoded_data = response['content']
-                        if response['encoding'] == 'base64':
-                            data = base64.b64decode(encoded_data).decode()
-                        else:
-                            log.critical(f"Could not get GitHub issue template, invalid data encoding")
+                        data = response.decoded_content.decode('utf-8')
 
                         version = CCExtractorVersion.query.filter(CCExtractorVersion.id == form.version.data).first()
                         data = data.replace("**X.X**", version.version)

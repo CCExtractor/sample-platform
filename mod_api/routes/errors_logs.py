@@ -183,8 +183,8 @@ def get_run_logs(run_id, limit=100, cursor=None):
 @require_scope(Scope.SYSTEM_READ)
 @validate_path_id('run_id')
 @validate_path_id('sample_id')
-@validate_offset_pagination()
-def get_sample_logs(run_id, sample_id, limit=50, offset=0):
+@validate_cursor_pagination()
+def get_sample_logs(run_id, sample_id, limit=50, cursor=None):
     """Per-sample logs aren't available yet — the CI worker doesn't support them."""
     return make_error_response(
         'not_found',

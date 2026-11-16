@@ -5,7 +5,9 @@ from importlib import reload
 from unittest import mock
 from unittest.mock import MagicMock
 
+import httplib2
 from flask import g
+from googleapiclient.errors import HttpError
 
 from mod_auth.models import Role
 from mod_ci.controllers import (Workflow_builds, get_info_for_pr_comment,
@@ -3951,6 +3953,105 @@ class TestParseGcpError(unittest.TestCase):
         mock_log.error.assert_called_once()
 
 
+def make_http_error(status, reason=None, message='Request failed', content=None):
+    """Build the HttpError googleapiclient raises when the Compute API rejects a request."""
+    if content is None:
+        error = {'code': status, 'message': message}
+        if reason is not None:
+            error['errors'] = [{'message': message, 'domain': 'global', 'reason': reason}]
+        content = json.dumps({'error': error}).encode('utf-8')
+    return HttpError(httplib2.Response({'status': status}), content)
+
+
+class TestGcpErrorFromHttpError(unittest.TestCase):
+    """Tests for gcp_error_from_http_error, which maps an HttpError onto a GCP error response."""
+
+    def test_quota_exceeded_is_retryable(self):
+        """A 403 quotaExceeded maps to QUOTA_EXCEEDED, which is retried."""
+        from mod_ci.controllers import (gcp_error_from_http_error,
+                                        get_gcp_error_code,
+                                        is_retryable_gcp_error)
+
+        result = gcp_error_from_http_error(
+            make_http_error(403, 'quotaExceeded', "Quota 'CPUS' exceeded. Limit: 24.0 in region us-central1."))
+
+        self.assertEqual(get_gcp_error_code(result), 'QUOTA_EXCEEDED')
+        self.assertTrue(is_retryable_gcp_error(result))
+        self.assertEqual(result['httpErrorStatusCode'], 403)
+        self.assertEqual(result['error']['errors'][0]['message'],
+                         "Quota 'CPUS' exceeded. Limit: 24.0 in region us-central1.")
+
+    def test_rate_limit_is_retryable(self):
+        """A 403 rateLimitExceeded maps to RATE_LIMIT_EXCEEDED, which is retried."""
+        from mod_ci.controllers import (gcp_error_from_http_error,
+                                        get_gcp_error_code,
+                                        is_retryable_gcp_error)
+
+        result = gcp_error_from_http_error(make_http_error(403, 'rateLimitExceeded'))
+
+        self.assertEqual(get_gcp_error_code(result), 'RATE_LIMIT_EXCEEDED')
+        self.assertTrue(is_retryable_gcp_error(result))
+
+    def test_not_found_is_permanent(self):
+        """A 404 notFound (for example a missing image family) is not retried."""
+        from mod_ci.controllers import (gcp_error_from_http_error,
+                                        get_gcp_error_code,
+                                        is_retryable_gcp_error)
+
+        result = gcp_error_from_http_error(make_http_error(404, 'notFound', "The resource was not found"))
+
+        self.assertEqual(get_gcp_error_code(result), 'RESOURCE_NOT_FOUND')
+        self.assertFalse(is_retryable_gcp_error(result))
+
+    def test_unknown_reason_is_kept_and_permanent(self):
+        """A reason with no known equivalent is passed through as the code and is not retried."""
+        from mod_ci.controllers import (gcp_error_from_http_error,
+                                        get_gcp_error_code,
+                                        is_retryable_gcp_error,
+                                        parse_gcp_error)
+
+        result = gcp_error_from_http_error(make_http_error(400, 'invalid', "Invalid value for field 'machineType'"))
+
+        self.assertEqual(get_gcp_error_code(result), 'invalid')
+        self.assertFalse(is_retryable_gcp_error(result))
+        message = parse_gcp_error(result, log=MagicMock())
+        self.assertEqual(message, "VM creation failed (invalid). Please contact the administrator.")
+        self.assertNotIn('machineType', message)
+
+    def test_server_error_is_retryable_whatever_the_reason(self):
+        """A 5xx is retried even when its reason has no known equivalent."""
+        from mod_ci.controllers import (gcp_error_from_http_error,
+                                        get_gcp_error_code,
+                                        is_retryable_gcp_error)
+
+        result = gcp_error_from_http_error(make_http_error(503, 'serviceUnavailable'))
+
+        self.assertEqual(get_gcp_error_code(result), 'BACKEND_ERROR')
+        self.assertTrue(is_retryable_gcp_error(result))
+
+    def test_too_many_requests_without_json_body(self):
+        """A 429 with a body that is not JSON is still recognised as a retryable rate limit."""
+        from mod_ci.controllers import (gcp_error_from_http_error,
+                                        get_gcp_error_code,
+                                        is_retryable_gcp_error)
+
+        result = gcp_error_from_http_error(make_http_error(429, content=b'<html>Too Many Requests</html>'))
+
+        self.assertEqual(get_gcp_error_code(result), 'RATE_LIMIT_EXCEEDED')
+        self.assertTrue(is_retryable_gcp_error(result))
+
+    def test_permanent_error_without_json_body(self):
+        """A 4xx with no JSON body falls back to an HTTP_<status> code and is not retried."""
+        from mod_ci.controllers import (gcp_error_from_http_error,
+                                        get_gcp_error_code,
+                                        is_retryable_gcp_error)
+
+        result = gcp_error_from_http_error(make_http_error(400, content=b'Bad Request'))
+
+        self.assertEqual(get_gcp_error_code(result), 'HTTP_400')
+        self.assertFalse(is_retryable_gcp_error(result))
+
+
 class TestDiagnoseMissingArtifact(BaseTestCase):
     """Test the _diagnose_missing_artifact function and retry behavior."""
 
@@ -4811,3 +4912,136 @@ class TestVMCreationVerification(BaseTestCase):
         start_test(MagicMock(), self.app, mock_g.db, MagicMock(), Test.query.first(), "token")
 
         mock_g.db.add.assert_called_once()
+
+    @mock.patch('run.log')
+    @mock.patch('mod_ci.controllers.mark_test_failed')
+    @mock.patch('mod_ci.controllers.wait_for_operation')
+    @mock.patch('mod_ci.controllers.create_instance')
+    @mock.patch('mod_ci.controllers.find_artifact_for_commit')
+    @mock.patch('mod_ci.controllers.requests.get')
+    @mock.patch('mod_ci.controllers.zipfile.ZipFile')
+    @mock.patch('builtins.open', new_callable=mock.mock_open())
+    @mock.patch('mod_ci.controllers.g')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('mod_ci.controllers.GcpInstance')
+    def test_start_test_http_error_quota_exceeded_retries(
+            self, mock_gcp_instance, mock_test_progress, mock_g, mock_open_file,
+            mock_zipfile, mock_requests_get, mock_find_artifact,
+            mock_create_instance, mock_wait_for_operation, mock_mark_failed, mock_log):
+        """A quota HttpError raised by create_instance leaves the test pending for retry.
+
+        The Compute API raises HttpError for a rejected insert instead of returning an
+        error in the operation, so start_test must catch it rather than let it escape.
+        """
+        from mod_ci.controllers import start_test
+
+        self._setup_start_test_mocks(mock_g, mock_gcp_instance, mock_test_progress,
+                                     mock_find_artifact, mock_requests_get, mock_zipfile)
+        mock_create_instance.side_effect = make_http_error(403, 'quotaExceeded', "Quota 'CPUS' exceeded.")
+
+        start_test(MagicMock(), self.app, mock_g.db, MagicMock(), Test.query.first(), "token")
+
+        mock_create_instance.assert_called_once()
+        mock_mark_failed.assert_not_called()
+        mock_wait_for_operation.assert_not_called()
+        mock_g.db.add.assert_not_called()
+
+    @mock.patch('run.log')
+    @mock.patch('mod_ci.controllers.mark_test_failed')
+    @mock.patch('mod_ci.controllers.wait_for_operation')
+    @mock.patch('mod_ci.controllers.create_instance')
+    @mock.patch('mod_ci.controllers.find_artifact_for_commit')
+    @mock.patch('mod_ci.controllers.requests.get')
+    @mock.patch('mod_ci.controllers.zipfile.ZipFile')
+    @mock.patch('builtins.open', new_callable=mock.mock_open())
+    @mock.patch('mod_ci.controllers.g')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('mod_ci.controllers.GcpInstance')
+    def test_start_test_http_error_server_error_retries(
+            self, mock_gcp_instance, mock_test_progress, mock_g, mock_open_file,
+            mock_zipfile, mock_requests_get, mock_find_artifact,
+            mock_create_instance, mock_wait_for_operation, mock_mark_failed, mock_log):
+        """A 503 HttpError raised by create_instance leaves the test pending for retry."""
+        from mod_ci.controllers import start_test
+
+        self._setup_start_test_mocks(mock_g, mock_gcp_instance, mock_test_progress,
+                                     mock_find_artifact, mock_requests_get, mock_zipfile)
+        mock_create_instance.side_effect = make_http_error(503, 'backendError', 'Backend Error')
+
+        start_test(MagicMock(), self.app, mock_g.db, MagicMock(), Test.query.first(), "token")
+
+        mock_mark_failed.assert_not_called()
+        mock_wait_for_operation.assert_not_called()
+        mock_g.db.add.assert_not_called()
+
+    @mock.patch('run.log')
+    @mock.patch('mod_ci.controllers.mark_test_failed')
+    @mock.patch('mod_ci.controllers.wait_for_operation')
+    @mock.patch('mod_ci.controllers.create_instance')
+    @mock.patch('mod_ci.controllers.find_artifact_for_commit')
+    @mock.patch('mod_ci.controllers.requests.get')
+    @mock.patch('mod_ci.controllers.zipfile.ZipFile')
+    @mock.patch('builtins.open', new_callable=mock.mock_open())
+    @mock.patch('mod_ci.controllers.g')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('mod_ci.controllers.GcpInstance')
+    def test_start_test_http_error_permanent_marks_failed(
+            self, mock_gcp_instance, mock_test_progress, mock_g, mock_open_file,
+            mock_zipfile, mock_requests_get, mock_find_artifact,
+            mock_create_instance, mock_wait_for_operation, mock_mark_failed, mock_log):
+        """A permanent HttpError raised by create_instance marks the test as failed.
+
+        Before the fix this escaped to gcp_instance(), which logged it and retried the
+        test on every cron run, so it never left the queue and never reported a failure.
+        """
+        from mod_ci.controllers import start_test
+
+        self._setup_start_test_mocks(mock_g, mock_gcp_instance, mock_test_progress,
+                                     mock_find_artifact, mock_requests_get, mock_zipfile)
+        mock_create_instance.side_effect = make_http_error(
+            404, 'notFound', "The resource 'projects/test/global/images/family/ci-linux' was not found")
+        test = Test.query.first()
+
+        start_test(MagicMock(), self.app, mock_g.db, MagicMock(), test, "token")
+
+        mock_mark_failed.assert_called_once()
+        self.assertIs(mock_mark_failed.call_args.args[1], test)
+        self.assertEqual(mock_mark_failed.call_args.args[3],
+                         "Required GCP resource not found. Please contact the administrator.")
+        mock_wait_for_operation.assert_not_called()
+        mock_g.db.add.assert_not_called()
+
+    @mock.patch('run.log')
+    @mock.patch('mod_ci.controllers.mark_test_failed')
+    @mock.patch('mod_ci.controllers.wait_for_operation')
+    @mock.patch('mod_ci.controllers.find_artifact_for_commit')
+    @mock.patch('mod_ci.controllers.requests.get')
+    @mock.patch('mod_ci.controllers.zipfile.ZipFile')
+    @mock.patch('builtins.open', new_callable=mock.mock_open())
+    @mock.patch('mod_ci.controllers.g')
+    @mock.patch('mod_ci.controllers.TestProgress')
+    @mock.patch('mod_ci.controllers.GcpInstance')
+    def test_start_test_catches_http_error_from_instances_insert(
+            self, mock_gcp_instance, mock_test_progress, mock_g, mock_open_file,
+            mock_zipfile, mock_requests_get, mock_find_artifact,
+            mock_wait_for_operation, mock_mark_failed, mock_log):
+        """An HttpError from compute.instances().insert().execute() is handled in start_test.
+
+        create_instance is not mocked here, so the error comes from the real call path.
+        """
+        from mod_ci.controllers import start_test
+
+        self._setup_start_test_mocks(mock_g, mock_gcp_instance, mock_test_progress,
+                                     mock_find_artifact, mock_requests_get, mock_zipfile)
+        compute = MagicMock()
+        compute.instances.return_value.insert.return_value.execute.side_effect = make_http_error(
+            400, 'invalid', "Invalid value for field 'resource.machineType'")
+
+        start_test(compute, self.app, mock_g.db, MagicMock(), Test.query.first(), "token")
+
+        compute.instances.return_value.insert.return_value.execute.assert_called_once()
+        mock_mark_failed.assert_called_once()
+        self.assertEqual(mock_mark_failed.call_args.args[3],
+                         "VM creation failed (invalid). Please contact the administrator.")
+        mock_wait_for_operation.assert_not_called()
+        mock_g.db.add.assert_not_called()

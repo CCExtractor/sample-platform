@@ -27,7 +27,8 @@ class TestUtility(BaseTestCase):
 
         cached_web_hook_blocks = get_cached_web_hook_blocks()
 
-        mock_get.assert_called_once()
+        mock_get.assert_called_once_with(
+            'https://api.github.com/meta', auth=mock.ANY, timeout=(3.05, 10))
         mock_critical.assert_called_once_with("Failed to retrieve hook IP's from GitHub! API returned {}")
 
     @mock.patch('flask.g.log')

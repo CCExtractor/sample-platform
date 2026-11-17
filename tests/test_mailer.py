@@ -2,6 +2,7 @@ import unittest
 from unittest import mock
 
 from mailer import Mailer
+from utility import HTTP_TIMEOUT
 
 
 class TestMailer(unittest.TestCase):
@@ -38,4 +39,5 @@ class TestMailer(unittest.TestCase):
 
             mock_post.assert_called_once_with("%s/messages" % mailer.api_url,
                                               auth=mailer.auth,
-                                              data=expected_data)
+                                              data=expected_data,
+                                              timeout=HTTP_TIMEOUT)

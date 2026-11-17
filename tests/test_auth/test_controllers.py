@@ -252,6 +252,7 @@ class TestGitHubFunctions(BaseTestCase):
 
         self.assertEqual(response.status_code, 302)
         mock_post.assert_called_once()
+        self.assertEqual(mock_post.call_args.kwargs.get('timeout'), (3.05, 10))
         mock_user_model.query.filter.assert_called_once()
         mock_g.db.commit.assert_not_called()
         mock_g.log.error.assert_called_once_with("GitHub didn't return an access token")
@@ -306,6 +307,8 @@ class Miscellaneous(BaseTestCase):
         mock_post.return_value = MockResponse({}, 404)
         res = github_token_validity('token')
         self.assertEqual(res, False)
+        mock_post.assert_called_once()
+        self.assertEqual(mock_post.call_args.kwargs.get('timeout'), (3.05, 10))
 
 
 class ManageAccount(BaseTestCase):

@@ -77,10 +77,20 @@ class TestControllers(BaseTestCase):
             g.db.commit()
             response = c.post('/account/login', data=self.create_login_form_data(
                 self.user.email, self.user.password))
-            mock_github.return_value.get_repo.return_value.get_contents = mock.MagicMock(return_value={
-                "content": base64.b64encode("test".encode("ascii")).decode("ascii"),
-                "encoding": 'base64'
-            })
+            from github.ContentFile import ContentFile
+            template_bytes = b"## Template\n**X.X**\n`-autoprogram`\n**Video links**\n"
+            content_file = ContentFile(
+                requester=mock.MagicMock(),
+                headers={},
+                attributes={
+                    'content': base64.b64encode(template_bytes).decode('ascii'),
+                    'encoding': 'base64'
+                },
+                completed=True
+            )
+            mock_github.return_value.get_repo.return_value.get_contents = mock.MagicMock(
+                return_value=content_file
+            )
             mock_post.return_value = MockResponse({'number': 1, 'title': 'test', 'user': {'login': 'test'},
                                                    'created_at': '2023-03-08T13:25:00Z', 'state': 'open'}, 201)
             response = c.post(url_for('upload.process_id', upload_id=1),

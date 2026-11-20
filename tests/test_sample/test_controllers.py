@@ -40,6 +40,27 @@ class TestControllers(BaseTestCase):
         self.assertIn('Last release: Pass', str(response.data))
 
     @mock.patch('mod_sample.media_info_parser.MediaInfoFetcher')
+    def test_sample_info_without_commit_or_release(self, mock_media):
+        """Test sample info page when GeneralData and CCExtractorVersion are empty."""
+        from flask import g
+
+        import mod_sample.controllers
+        from mod_home.models import CCExtractorVersion, GeneralData
+
+        GeneralData.query.delete()
+        CCExtractorVersion.query.delete()
+        g.db.commit()
+
+        reload(mod_sample.controllers)
+        response = self.app.test_client().get('/sample/sample1')
+        self.assertEqual(response.status_code, 200)
+        self.assert_template_used('sample/sample_info.html')
+        self.assert_context('latest_commit', 'Unknown')
+        self.assert_context('latest_commit_test', None)
+        self.assert_context('latest_release', 'Unknown')
+        self.assert_context('latest_release_test', None)
+
+    @mock.patch('mod_sample.media_info_parser.MediaInfoFetcher')
     def test_sample_fail(self, mock_media):
         """Test the access and data of the failed sample info page."""
         version = CCExtractorVersion('1.3', '2015-02-27T19:35:32Z', 'abcdefgh')

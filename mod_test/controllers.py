@@ -315,7 +315,11 @@ def latest_commit_info(platform):
         g.log.critical(f"platform {platform} is not supported!")
         abort(404)
     # Look up the hash of the latest commit
-    commit_hash = GeneralData.query.filter(GeneralData.key == 'fetch_commit_' + platform.value).first().value
+    commit_entry = GeneralData.query.filter(GeneralData.key == 'fetch_commit_' + platform.value).first()
+    if commit_entry is None:
+        g.log.error(f"no commit hash found for platform {str(platform)}")
+        raise TestNotFoundException(f"There is no commit hash available for {str(platform)}")
+    commit_hash = commit_entry.value
     test = Test.query.filter(Test.commit == commit_hash, Test.platform == platform).first()
 
     if test is None:

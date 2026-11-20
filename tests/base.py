@@ -146,16 +146,19 @@ def mock_decorator(f):
 def generate_keys():
     """Generate CSRF session and secret keys."""
     from utility import ROOT_DIR
-    secret_csrf_path = f"{os.path.join(ROOT_DIR, '')}secret_csrf"
-    secret_key_path = f"{os.path.join(ROOT_DIR, '')}secret_key"
+    secret_csrf_path = os.path.join(ROOT_DIR, 'secret_csrf')
+    secret_key_path = os.path.join(ROOT_DIR, 'secret_key')
     if not os.path.exists(secret_csrf_path):
-        secret_csrf_cmd = f"head -c 24 /dev/urandom > {secret_csrf_path}"
-        os.system(secret_csrf_cmd)
+        with open(secret_csrf_path, 'wb') as f:
+            f.write(os.urandom(24))
     if not os.path.exists(secret_key_path):
-        secret_key_cmd = f"head -c 24 /dev/urandom > {secret_key_path}"
-        os.system(secret_key_cmd)
+        with open(secret_key_path, 'wb') as f:
+            f.write(os.urandom(24))
 
-    open(f"{os.path.join(ROOT_DIR, '')}parse.py", 'w+')
+    parse_path = os.path.join(ROOT_DIR, 'parse.py')
+    if not os.path.exists(parse_path):
+        with open(parse_path, 'w') as f:
+            pass
 
     return {'secret_csrf_path': secret_csrf_path, 'secret_key_path': secret_key_path}
 

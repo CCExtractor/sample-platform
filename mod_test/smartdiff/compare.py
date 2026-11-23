@@ -1,6 +1,7 @@
 """Semantic comparison of subtitle outputs: classify *how* two results differ."""
 
-from typing import Dict, List, Optional
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Tuple
 
 from mod_test.smartdiff.normalize import classify_text_pair, plain
 from mod_test.smartdiff.parsing import parse_subtitles
@@ -8,6 +9,12 @@ from mod_test.smartdiff.srt import Cue
 
 #: Cap on the number of per-cue change entries returned in a result.
 _MAX_CHANGES = 25
+
+#: Text categories that count as cosmetic (the cue's words are unchanged).
+_COSMETIC = ('formatting', 'whitespace', 'encoding')
+
+#: A classification: (kind, summary, offset_ms).
+_Verdict = Tuple[str, str, Optional[int]]
 
 
 def _result(kind: str, summary: str, n_exp: int, n_act: int,
@@ -81,6 +88,173 @@ def _snippet(text: str, limit: int = 80) -> str:
     return flat if len(flat) <= limit else flat[:limit] + '…'
 
 
+@dataclass
+class _Tally:
+    """Per-category counts and timing deltas collected over position-aligned cues."""
+
+    text: int = 0
+    formatting: int = 0
+    whitespace: int = 0
+    encoding: int = 0
+    raw_matches: bool = True
+    timing_deltas: List[int] = field(default_factory=list)
+    changes: List[Dict[str, object]] = field(default_factory=list)
+
+    @property
+    def cosmetic(self) -> int:
+        """Total cues that differ only cosmetically (formatting/whitespace/encoding)."""
+        return self.formatting + self.whitespace + self.encoding
+
+
+def _change_entry(position: int, category: str, delta: int,
+                  expected_cue: Cue, actual_cue: Cue) -> Optional[Dict[str, object]]:
+    """
+    Describe one cue's change, or return None when the cue is unchanged.
+
+    :param position: 1-based cue position.
+    :type position: int
+    :param category: The text classification from ``classify_text_pair``.
+    :type category: str
+    :param delta: Start-time offset (actual minus expected) in ms.
+    :type delta: int
+    :param expected_cue: The expected cue.
+    :type expected_cue: Cue
+    :param actual_cue: The actual cue.
+    :type actual_cue: Cue
+    :return: The change entry, or None.
+    :rtype: Optional[Dict[str, object]]
+    """
+    if category == 'match' and delta == 0:
+        return None
+    entry: Dict[str, object] = {
+        'cue': position,
+        'kind': category if category != 'match' else 'timing',
+    }
+    if category == 'text':
+        entry['expected'] = _snippet(expected_cue.text)
+        entry['actual'] = _snippet(actual_cue.text)
+    if delta != 0:
+        entry['offset_ms'] = delta
+    return entry
+
+
+def _tally(exp: List[Cue], act: List[Cue]) -> _Tally:
+    """
+    Classify every position-aligned cue pair and collect the counts.
+
+    :param exp: Expected cues.
+    :type exp: List[Cue]
+    :param act: Actual cues.
+    :type act: List[Cue]
+    :return: The collected tally.
+    :rtype: _Tally
+    """
+    tally = _Tally()
+    for position, (expected_cue, actual_cue) in enumerate(zip(exp, act), start=1):
+        category = classify_text_pair(expected_cue.text, actual_cue.text)
+        delta = actual_cue.start_ms - expected_cue.start_ms
+        if category != 'match':
+            tally.raw_matches = False
+        if category == 'text':
+            tally.text += 1
+        else:
+            if category in _COSMETIC:
+                setattr(tally, category, getattr(tally, category) + 1)
+            tally.timing_deltas.append(delta)
+        entry = _change_entry(position, category, delta, expected_cue, actual_cue)
+        if entry is not None:
+            tally.changes.append(entry)
+    return tally
+
+
+def _classify_aligned(tally: _Tally, n_exp: int) -> Optional[_Verdict]:
+    """
+    Classify equal-count outputs whose cues differ only in timing, if any.
+
+    :param tally: The collected tally.
+    :type tally: _Tally
+    :param n_exp: Number of expected cues.
+    :type n_exp: int
+    :return: (kind, summary, offset_ms), or None if not a pure timing case.
+    :rtype: Optional[_Verdict]
+    """
+    deltas = tally.timing_deltas
+    if tally.raw_matches and all(delta == 0 for delta in deltas):
+        return 'identical', 'Outputs are identical.', None
+    if tally.text or tally.cosmetic:
+        return None
+    if len(set(deltas)) == 1 and deltas[0] != 0:
+        offset = deltas[0]
+        direction = 'late' if offset > 0 else 'early'
+        return ('timing_shift',
+                f'All {n_exp} cues match but are {abs(offset)} ms {direction}.', offset)
+    if len(set(deltas)) > 1 and _monotonic(deltas):
+        return ('timing_drift',
+                f'Timing drifts from {deltas[0]:+d} ms to {deltas[-1]:+d} ms '
+                f'across {n_exp} cues.', None)
+    return None
+
+
+def _classify_count_mismatch(exp: List[Cue], act: List[Cue],
+                             tally: _Tally) -> Optional[_Verdict]:
+    """
+    Classify outputs with different cue counts as split/merged/missing/extra.
+
+    :param exp: Expected cues.
+    :type exp: List[Cue]
+    :param act: Actual cues.
+    :type act: List[Cue]
+    :param tally: The collected tally.
+    :type tally: _Tally
+    :return: (kind, summary, None), or None if no single kind fits.
+    :rtype: Optional[_Verdict]
+    """
+    n_exp, n_act = len(exp), len(act)
+    exp_content = _content(exp)
+    if exp_content and exp_content == _content(act):
+        if n_act > n_exp:
+            return ('split_cues',
+                    f'Same text, but cues were split: expected {n_exp}, got {n_act}.', None)
+        return ('merged_cues',
+                f'Same text, but cues were merged: expected {n_exp}, got {n_act}.', None)
+    if tally.text:
+        return None
+    if n_act < n_exp:
+        return ('missing_cues',
+                f'{n_exp - n_act} of {n_exp} cues are missing from the output.', None)
+    return ('extra_cues',
+            f'Output has {n_act - n_exp} extra cues ({n_act} vs {n_exp} expected).', None)
+
+
+def _classify_content(tally: _Tally, n_exp: int) -> Optional[_Verdict]:
+    """
+    Classify equal-count, untimed-shift outputs by the one kind of text change.
+
+    :param tally: The collected tally.
+    :type tally: _Tally
+    :param n_exp: Number of expected cues.
+    :type n_exp: int
+    :return: (kind, summary, None), or None if the changes are mixed.
+    :rtype: Optional[_Verdict]
+    """
+    if any(delta != 0 for delta in tally.timing_deltas):
+        return None
+    if tally.text:
+        return 'text_change', f'{tally.text} of {n_exp} cues differ in text.', None
+    only = {
+        'encoding': (tally.encoding, 'encoding_change',
+                     'differ only in character encoding (non-ASCII/accented characters)'),
+        'formatting': (tally.formatting, 'formatting_change',
+                       'differ only in formatting (tags/entities), not text'),
+        'whitespace': (tally.whitespace, 'whitespace_change',
+                       'differ only in trailing whitespace/padding'),
+    }
+    for count, kind, phrase in only.values():
+        if count and count == tally.cosmetic:
+            return kind, f'{count} of {n_exp} cues {phrase}.', None
+    return None
+
+
 def smart_diff(expected: str, actual: str,
                fmt: Optional[str] = None) -> Dict[str, object]:
     """
@@ -116,127 +290,21 @@ def smart_diff(expected: str, actual: str,
             'unsupported',
             'No subtitle cues to compare (unsupported format); see the raw diff.',
             0, 0)
-    count_mismatch = n_exp != n_act
 
-    text_changes = 0
-    formatting_changes = 0
-    whitespace_changes = 0
-    encoding_changes = 0
-    raw_matches = True
-    timing_deltas: List[int] = []
-    changes: List[Dict[str, object]] = []
-    for position, (expected_cue, actual_cue) in enumerate(zip(exp, act), start=1):
-        category = classify_text_pair(expected_cue.text, actual_cue.text)
-        delta = actual_cue.start_ms - expected_cue.start_ms
-        if category != 'match':
-            raw_matches = False
-        if category == 'text':
-            text_changes += 1
-        else:
-            if category == 'formatting':
-                formatting_changes += 1
-            elif category == 'whitespace':
-                whitespace_changes += 1
-            elif category == 'encoding':
-                encoding_changes += 1
-            timing_deltas.append(delta)
-        if category != 'match' or delta != 0:
-            entry: Dict[str, object] = {
-                'cue': position,
-                'kind': category if category != 'match' else 'timing',
-            }
-            if category == 'text':
-                entry['expected'] = _snippet(expected_cue.text)
-                entry['actual'] = _snippet(actual_cue.text)
-            if delta != 0:
-                entry['offset_ms'] = delta
-            changes.append(entry)
+    tally = _tally(exp, act)
+    if n_exp != n_act:
+        verdict = _classify_count_mismatch(exp, act, tally)
+    else:
+        verdict = _classify_aligned(tally, n_exp) or _classify_content(tally, n_exp)
+    if verdict is None:
+        verdict = ('mixed',
+                   f'Mixed differences across {min(n_exp, n_act)} compared cues; '
+                   f'expected {n_exp}, got {n_act}.', None)
 
-    no_timing_move = all(delta == 0 for delta in timing_deltas)
-    uniform_shift = bool(timing_deltas) and len(set(timing_deltas)) == 1
-    varying_timing = len(set(timing_deltas)) > 1
-    drifting = varying_timing and _monotonic(timing_deltas)
-    cosmetic_changes = formatting_changes + whitespace_changes + encoding_changes
-    fully_aligned = text_changes == 0 and cosmetic_changes == 0
-
-    def _finish(kind: str, summary: str, exp_count: int, act_count: int,
-                offset_ms: Optional[int] = None) -> Dict[str, object]:
-        """Attach the (capped) per-cue change list to a classification result."""
-        out = _result(kind, summary, exp_count, act_count, offset_ms)
-        if changes:
-            out['changes'] = changes[:_MAX_CHANGES]
-            if len(changes) > _MAX_CHANGES:
-                out['changes_truncated'] = True
-        return out
-
-    if not count_mismatch and raw_matches and no_timing_move:
-        return _finish('identical', 'Outputs are identical.', n_exp, n_act)
-
-    if not count_mismatch and fully_aligned and uniform_shift and timing_deltas[0] != 0:
-        offset = timing_deltas[0]
-        direction = 'late' if offset > 0 else 'early'
-        return _finish(
-            'timing_shift',
-            f'All {n_exp} cues match but are {abs(offset)} ms {direction}.',
-            n_exp, n_act, offset_ms=offset)
-
-    if not count_mismatch and fully_aligned and drifting:
-        first, last = timing_deltas[0], timing_deltas[-1]
-        return _finish(
-            'timing_drift',
-            f'Timing drifts from {first:+d} ms to {last:+d} ms across {n_exp} cues.',
-            n_exp, n_act)
-
-    if count_mismatch:
-        exp_content = _content(exp)
-        if exp_content and exp_content == _content(act):
-            if n_act > n_exp:
-                return _finish(
-                    'split_cues',
-                    f'Same text, but cues were split: expected {n_exp}, got {n_act}.',
-                    n_exp, n_act)
-            return _finish(
-                'merged_cues',
-                f'Same text, but cues were merged: expected {n_exp}, got {n_act}.',
-                n_exp, n_act)
-        if text_changes == 0:
-            if n_act < n_exp:
-                return _finish(
-                    'missing_cues',
-                    f'{n_exp - n_act} of {n_exp} cues are missing from the output.',
-                    n_exp, n_act)
-            return _finish(
-                'extra_cues',
-                f'Output has {n_act - n_exp} extra cues ({n_act} vs {n_exp} expected).',
-                n_exp, n_act)
-
-    if not count_mismatch and no_timing_move:
-        if text_changes > 0:
-            return _finish(
-                'text_change',
-                f'{text_changes} of {n_exp} cues differ in text.',
-                n_exp, n_act)
-        if encoding_changes > 0 and formatting_changes == 0 and whitespace_changes == 0:
-            return _finish(
-                'encoding_change',
-                f'{encoding_changes} of {n_exp} cues differ only in character '
-                f'encoding (non-ASCII/accented characters).',
-                n_exp, n_act)
-        if formatting_changes > 0 and whitespace_changes == 0 and encoding_changes == 0:
-            return _finish(
-                'formatting_change',
-                f'{formatting_changes} of {n_exp} cues differ only in formatting '
-                f'(tags/entities), not text.',
-                n_exp, n_act)
-        if whitespace_changes > 0 and formatting_changes == 0 and encoding_changes == 0:
-            return _finish(
-                'whitespace_change',
-                f'{whitespace_changes} of {n_exp} cues differ only in trailing '
-                f'whitespace/padding.',
-                n_exp, n_act)
-
-    return _finish(
-        'mixed',
-        f'Mixed differences across {min(n_exp, n_act)} compared cues; '
-        f'expected {n_exp}, got {n_act}.',
-        n_exp, n_act)
+    kind, summary, offset_ms = verdict
+    out = _result(kind, summary, n_exp, n_act, offset_ms)
+    if tally.changes:
+        out['changes'] = tally.changes[:_MAX_CHANGES]
+        if len(tally.changes) > _MAX_CHANGES:
+            out['changes_truncated'] = True
+    return out

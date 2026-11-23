@@ -313,8 +313,8 @@
                     reveal.setAttribute('data-reveal', '');
                     reveal.innerHTML =
                         '<h4>Smart diff</h4>' +
-                        '<p><span class="label">' + (resp.kind || 'unknown') + '</span></p>' +
-                        '<p>' + (resp.summary || '') + '</p>';
+                        '<p><span class="label">' + $('<div>').text(resp.kind || 'unknown').html() + '</span></p>' +
+                        '<p>' + $('<div>').text(resp.summary || '').html() + '</p>';
                     if (resp.changes && resp.changes.length) {
                         var items = resp.changes.map(function(c){
                             var d = 'Cue ' + c.cue + ': ' + c.kind;

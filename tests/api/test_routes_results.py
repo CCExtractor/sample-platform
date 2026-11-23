@@ -211,6 +211,111 @@ class TestRoutesResults(ApiTestCase):
             self.assertEqual(res.status_code, 200)
             self.assertEqual(res.json['status'], 'identical')
 
+    def _smart_diff(self, expected, actual, ext='.srt', token_name='t_smart'):
+        """Write both outputs, then fetch the diff with format=smart."""
+        self.reg_out.correct_extension = ext
+        g.db.commit()
+        for name, body in (('expected_hash', expected), ('actual_hash', actual)):
+            with open(os.path.join(self.test_results_dir, name + ext), 'wb') as f:
+                f.write(body)
+
+        with patch.dict('run.config', {'SAMPLE_REPOSITORY': self.dir_path}):
+            token = self.get_token(
+                'res_user@local.com', 'userpass123', token_name, scopes=['results:read'])
+            return self.client.get(
+                f'/api/v1/runs/{self.test_id}/samples/1/regression-tests/{self.reg_test_id}'
+                f'/outputs/{self.reg_out_id}/diff?format=smart',
+                headers={'Authorization': f'Bearer {token}'})
+
+    def test_get_diff_smart_timing_shift(self):
+        expected = b'1\n00:00:01,000 --> 00:00:02,000\nHello\n\n2\n00:00:03,000 --> 00:00:04,000\nWorld\n'
+        actual = b'1\n00:00:01,500 --> 00:00:02,500\nHello\n\n2\n00:00:03,500 --> 00:00:04,500\nWorld\n'
+        res = self._smart_diff(expected, actual)
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json['format'], 'smart')
+        self.assertEqual(res.json['kind'], 'timing_shift')
+        self.assertEqual(res.json['offset_ms'], 500)
+        self.assertEqual(res.json['expected_cues'], 2)
+        self.assertEqual(res.json['regression_id'], self.reg_test_id)
+        self.assertEqual(len(res.json['changes']), 2)
+
+    def test_get_diff_smart_text_change(self):
+        expected = b'1\n00:00:01,000 --> 00:00:02,000\nHello there\n'
+        actual = b'1\n00:00:01,000 --> 00:00:02,000\nGoodbye\n'
+        res = self._smart_diff(expected, actual, token_name='t_smart_text')
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json['kind'], 'text_change')
+        self.assertEqual(res.json['changes'], [
+            {'cue': 1, 'kind': 'text', 'expected': 'Hello there', 'actual': 'Goodbye'}])
+
+    def test_get_diff_smart_webvtt(self):
+        expected = b'WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nHello\n'
+        actual = b'WEBVTT\n\n00:00:01.000 --> 00:00:02.000\n<i>Hello</i>\n'
+        res = self._smart_diff(expected, actual, ext='.vtt', token_name='t_smart_vtt')
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json['kind'], 'formatting_change')
+
+    def test_get_diff_smart_plain_text_is_unsupported(self):
+        res = self._smart_diff(b'one\ntwo\n', b'one\nthree\n', ext='.txt',
+                               token_name='t_smart_txt')
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json['kind'], 'unsupported')
+
+    def test_get_diff_smart_identical_when_got_is_none(self):
+        self.result_file.got = None
+        g.db.commit()
+
+        with patch.dict('run.config', {'SAMPLE_REPOSITORY': self.dir_path}):
+            token = self.get_token(
+                'res_user@local.com', 'userpass123', 't_smart_none', scopes=['results:read'])
+            res = self.client.get(
+                f'/api/v1/runs/{self.test_id}/samples/1/regression-tests/{self.reg_test_id}'
+                f'/outputs/{self.reg_out_id}/diff?format=smart',
+                headers={'Authorization': f'Bearer {token}'})
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json['format'], 'smart')
+        self.assertEqual(res.json['kind'], 'identical')
+
+    def test_get_diff_smart_missing_actual_file(self):
+        self.reg_out.correct_extension = '.srt'
+        g.db.commit()
+        with open(os.path.join(self.test_results_dir, 'expected_hash.srt'), 'wb') as f:
+            f.write(b'1\n00:00:01,000 --> 00:00:02,000\nHello\n')
+
+        with patch.dict('run.config', {'SAMPLE_REPOSITORY': self.dir_path}):
+            token = self.get_token(
+                'res_user@local.com', 'userpass123', 't_smart_gone', scopes=['results:read'])
+            res = self.client.get(
+                f'/api/v1/runs/{self.test_id}/samples/1/regression-tests/{self.reg_test_id}'
+                f'/outputs/{self.reg_out_id}/diff?format=smart',
+                headers={'Authorization': f'Bearer {token}'})
+
+        self.assertEqual(res.status_code, 404)
+
+    def test_get_diff_smart_requires_results_scope(self):
+        with patch.dict('run.config', {'SAMPLE_REPOSITORY': self.dir_path}):
+            token = self.get_token(
+                'res_user@local.com', 'userpass123', 't_smart_scope', scopes=['runs:read'])
+            res = self.client.get(
+                f'/api/v1/runs/{self.test_id}/samples/1/regression-tests/{self.reg_test_id}'
+                f'/outputs/{self.reg_out_id}/diff?format=smart',
+                headers={'Authorization': f'Bearer {token}'})
+
+        self.assertEqual(res.status_code, 403)
+
+    def test_missing_diff_body_smart_for_missing_output(self):
+        from mod_api.routes.results import _missing_diff_body
+
+        body = _missing_diff_body('missing_actual', 'smart', {'run_id': 1})
+        self.assertEqual(body['kind'], 'missing_output')
+        self.assertEqual(body['format'], 'smart')
+        self.assertEqual(body['run_id'], 1)
+
     def test_create_baseline_approval(self):
         token = self.get_token('res_admin@local.com',
                                'adminpass123', 't6', scopes=['baselines:write'])

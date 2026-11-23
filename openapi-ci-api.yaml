@@ -3075,22 +3075,28 @@ paths:
           in: query
           schema:
             type: string
-            enum: [structured, unified]
+            enum: [structured, unified, smart]
             default: structured
+          description: >
+            `smart` classifies how a SubRip or WebVTT output differs from its
+            baseline (timing shift or drift, cosmetic-only changes, text
+            changes, split/merged/missing/extra cues) instead of listing lines.
       responses:
         "200":
-          description: Structured or unified diff
+          description: Structured, unified or smart diff
           content:
             application/json:
               schema:
                 oneOf:
                   - $ref: "#/components/schemas/Diff"
                   - $ref: "#/components/schemas/UnifiedDiff"
+                  - $ref: "#/components/schemas/SmartDiff"
                 discriminator:
                   propertyName: format
                   mapping:
                     structured: "#/components/schemas/Diff"
                     unified: "#/components/schemas/UnifiedDiff"
+                    smart: "#/components/schemas/SmartDiff"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -5184,6 +5190,69 @@ components:
           type: string
           description: Raw unified diff text.
           maxLength: 524288
+
+    SmartDiff:
+      type: object
+      required: [run_id, sample_id, regression_id, output_id, format, kind, summary,
+                 expected_cues, actual_cues]
+      properties:
+        run_id:
+          type: integer
+        sample_id:
+          type: integer
+        regression_id:
+          type: integer
+        output_id:
+          type: integer
+        format:
+          type: string
+          enum: [smart]
+        kind:
+          type: string
+          enum: [identical, timing_shift, timing_drift, text_change, formatting_change,
+                 whitespace_change, encoding_change, split_cues, merged_cues,
+                 missing_cues, extra_cues, unsupported, mixed, missing_output]
+          description: >
+            How the output differs. `unsupported` means no cues could be parsed
+            (for example a plain .txt transcript); use the unified diff instead.
+        summary:
+          type: string
+          description: One-line explanation, readable by a person or an agent.
+        expected_cues:
+          type: integer
+          minimum: 0
+        actual_cues:
+          type: integer
+          minimum: 0
+        offset_ms:
+          type: integer
+          description: Constant offset of every cue, present only for `timing_shift`.
+        changes:
+          type: array
+          maxItems: 25
+          description: Per-cue changes, capped at 25.
+          items:
+            type: object
+            required: [cue, kind]
+            properties:
+              cue:
+                type: integer
+                minimum: 1
+                description: 1-based cue position.
+              kind:
+                type: string
+                enum: [timing, text, formatting, whitespace, encoding]
+              offset_ms:
+                type: integer
+              expected:
+                type: string
+                maxLength: 81
+              actual:
+                type: string
+                maxLength: 81
+        changes_truncated:
+          type: boolean
+          description: True when more than 25 cues changed.
 
     BaselineApprovalRequest:
       type: object

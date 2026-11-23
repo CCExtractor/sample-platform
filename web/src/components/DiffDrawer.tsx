@@ -1,9 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
-import { Download, FileText, PlayCircle } from "lucide-react";
+import { Download, FileText, PlayCircle, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { Badge } from "@/components/ui/badge";
 import { AnimatedSheet, SheetDescription, SheetTitle } from "@/components/ui/sheet";
-import { fetchConsoleDiff, fetchDiff, outputText, sampleFile } from "@/lib/api";
+import {
+  fetchConsoleDiff,
+  fetchDiff,
+  fetchSmartDiff,
+  outputText,
+  sampleFile,
+  type SmartChange,
+  type SmartDiff,
+} from "@/lib/api";
 import { clock, cuesToVtt, parseCues, type Cue } from "@/lib/cues";
 import { cn } from "@/lib/utils";
 
@@ -29,7 +38,7 @@ function isConsole(target: DiffTarget): target is ConsoleDiffTarget {
   return target.kind === "console";
 }
 
-type View = "diff" | "playback";
+type View = "diff" | "smart" | "playback";
 
 /** MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED — nothing here can decode the file. */
 const MEDIA_ERR_SRC_NOT_SUPPORTED = 4;
@@ -78,6 +87,12 @@ export function DiffDrawer({
                   go={() => setView("diff")}
                 />
                 <ViewTab
+                  icon={Sparkles}
+                  label="Smart"
+                  on={view === "smart"}
+                  go={() => setView("smart")}
+                />
+                <ViewTab
                   icon={PlayCircle}
                   label="Playback"
                   on={view === "playback"}
@@ -86,15 +101,17 @@ export function DiffDrawer({
               </div>
             )}
           </div>
-          {isConsole(target) || view === "diff" ? (
-            <DiffPane target={target} />
-          ) : (
-            <PlaybackPane target={target} />
-          )}
+          <Pane target={target} view={view} />
         </div>
       )}
     </AnimatedSheet>
   );
+}
+
+function Pane({ target, view }: Readonly<{ target: DiffTarget; view: View }>) {
+  if (isConsole(target) || view === "diff") return <DiffPane target={target} />;
+  if (view === "smart") return <SmartPane target={target} />;
+  return <PlaybackPane target={target} />;
 }
 
 function ViewTab({
@@ -181,6 +198,118 @@ function DiffPane({ target }: Readonly<{ target: DiffTarget }>) {
         </pre>
       )}
     </div>
+  );
+}
+
+type Tone = "success" | "warning" | "destructive" | "secondary";
+
+/**
+ * A plain name for each kind of difference, toned by how worried a reader
+ * should be: cosmetic changes are grey, timing is amber, lost or changed
+ * words are red.
+ */
+const SMART_KIND: Record<string, { label: string; tone: Tone }> = {
+  identical: { label: "Identical", tone: "success" },
+  timing_shift: { label: "Timing shift", tone: "warning" },
+  timing_drift: { label: "Timing drift", tone: "warning" },
+  split_cues: { label: "Cues split", tone: "warning" },
+  merged_cues: { label: "Cues merged", tone: "warning" },
+  formatting_change: { label: "Formatting only", tone: "secondary" },
+  whitespace_change: { label: "Whitespace only", tone: "secondary" },
+  encoding_change: { label: "Encoding only", tone: "secondary" },
+  unsupported: { label: "Not a caption file", tone: "secondary" },
+  text_change: { label: "Text changed", tone: "destructive" },
+  missing_cues: { label: "Cues missing", tone: "destructive" },
+  extra_cues: { label: "Extra cues", tone: "destructive" },
+  missing_output: { label: "No output", tone: "destructive" },
+  mixed: { label: "Mixed changes", tone: "destructive" },
+};
+
+const signed = (ms: number) => `${ms > 0 ? "+" : ""}${ms} ms`;
+
+/**
+ * What kind of difference this is, before anyone reads a line of diff.
+ *
+ * Most caption failures are a whole file shifted by a few frames or a change
+ * in padding; saying so up front is what saves opening the unified diff.
+ */
+function SmartPane({ target }: Readonly<{ target: OutputDiffTarget }>) {
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ["smart-diff", target.runId, target.regressionId, target.outputId],
+    staleTime: Infinity,
+    retry: false,
+    queryFn: () => fetchSmartDiff(target),
+  });
+
+  return (
+    <div className="min-h-0 flex-1 overflow-auto p-4">
+      {isLoading && <Skeleton rows={4} />}
+      {isError && (
+        <Notice>
+          {error instanceof Error ? error.message : "Could not load smart diff"}
+          {" — the output file for this result isn't present in storage."}
+        </Notice>
+      )}
+      {data && <SmartSummary diff={data} />}
+    </div>
+  );
+}
+
+function SmartSummary({ diff }: Readonly<{ diff: SmartDiff }>) {
+  const kind = SMART_KIND[diff.kind] ?? { label: diff.kind, tone: "secondary" as const };
+  return (
+    <>
+      <div className="rounded-lg border p-3">
+        <div className="flex items-center gap-2">
+          <Badge variant={kind.tone}>{kind.label}</Badge>
+          {diff.offset_ms !== undefined && (
+            <span className="font-mono text-[11px] text-warning">{signed(diff.offset_ms)}</span>
+          )}
+          <span className="ml-auto font-mono text-[10px] text-faint">
+            {diff.expected_cues} expected · {diff.actual_cues} actual cues
+          </span>
+        </div>
+        <p className="mt-2 text-[13px] leading-relaxed">{diff.summary}</p>
+        {diff.kind === "unsupported" && (
+          <p className="mt-1 text-[11px] text-faint">The Diff tab shows this output line by line.</p>
+        )}
+      </div>
+
+      {diff.changes && diff.changes.length > 0 && (
+        <ul className="mt-3 overflow-hidden rounded-lg border">
+          {diff.changes.map((change) => (
+            <SmartChangeRow key={`cue-${change.cue}`} change={change} />
+          ))}
+        </ul>
+      )}
+      {diff.changes_truncated && (
+        <p className="mt-2 text-[11px] text-faint">
+          Only the first {diff.changes?.length} changed cues are listed.
+        </p>
+      )}
+    </>
+  );
+}
+
+function SmartChangeRow({ change }: Readonly<{ change: SmartChange }>) {
+  return (
+    <li className="flex gap-3 border-b px-3 py-1.5 last:border-0">
+      <span className="w-12 shrink-0 pt-px font-mono text-[10px] tabular-nums text-faint">
+        Cue {change.cue}
+      </span>
+      <div className="min-w-0 flex-1 font-mono text-[11px] leading-relaxed">
+        <span className="font-medium">{change.kind}</span>
+        {change.offset_ms !== undefined && (
+          <span className="ml-2 text-warning">{signed(change.offset_ms)}</span>
+        )}
+        {change.expected !== undefined && (
+          <div className="mt-0.5 text-destructive">- {change.expected}</div>
+        )}
+        {change.actual !== undefined && (
+          <div className="text-success">+ {change.actual}</div>
+        )}
+      </div>
+    </li>
   );
 }
 

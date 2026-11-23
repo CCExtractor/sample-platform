@@ -855,6 +855,42 @@ export async function fetchDiff(args: {
   );
 }
 
+/** How one caption differs, from the smart diff. */
+export interface SmartChange {
+  cue: number;
+  kind: "timing" | "text" | "formatting" | "whitespace" | "encoding";
+  offset_ms?: number;
+  expected?: string;
+  actual?: string;
+}
+
+/**
+ * What kind of difference a failing caption output has — a timing shift,
+ * cosmetic-only changes, real text changes — rather than which lines moved.
+ */
+export interface SmartDiff {
+  kind: string;
+  summary: string;
+  expected_cues: number;
+  actual_cues: number;
+  offset_ms?: number;
+  changes?: SmartChange[];
+  changes_truncated?: boolean;
+}
+
+/** Smart (semantic) diff for one failing output of a run. */
+export async function fetchSmartDiff(args: {
+  runId: number;
+  sampleId: number;
+  regressionId: number;
+  outputId: number;
+}): Promise<SmartDiff> {
+  return apiGet<SmartDiff>(
+    `/runs/${args.runId}/samples/${args.sampleId}/regression-tests/${args.regressionId}` +
+      `/outputs/${args.outputId}/diff?format=smart`,
+  );
+}
+
 /** Diagnostic unified diff of combined VM stdout vs another run. */
 export async function fetchConsoleDiff(
   runId: number,

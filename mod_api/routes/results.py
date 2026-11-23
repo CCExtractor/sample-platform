@@ -28,6 +28,7 @@ from mod_api.utils import safe_resolve, single_response
 from mod_auth.models import Role
 from mod_regression.models import RegressionTestOutputFiles
 from mod_test.models import Test, TestResultFile
+from mod_test.smartdiff.compare import smart_diff
 
 INVALID_PATH_MSG = 'Invalid file path.'
 READ_ERROR_MSG = 'Failed to read file.'
@@ -274,29 +275,41 @@ def get_actual_output(run_id, sample_id, regression_id, output_id):
     }, schema=OutputFileContentSchema())
 
 
+_EMPTY_STRUCTURED = {'added_lines': 0, 'removed_lines': 0, 'changed_hunks': 0}
+
+#: Smart-diff answers for results that have no actual file to compare.
+_SMART_MISSING = {
+    'missing_actual': ('missing_output', 'The run produced no output for this test.'),
+    'identical': ('identical', 'Output matches the expected baseline.'),
+}
+
+
+def _missing_diff_body(status, format_type, diff_ids):
+    """Build the diff body for a result whose actual output has no file to read."""
+    if format_type == 'unified':
+        return {**diff_ids, 'format': 'unified', 'content': ''}
+    if format_type == 'smart':
+        kind, summary = _SMART_MISSING[status]
+        return {**diff_ids, 'format': 'smart', 'kind': kind, 'summary': summary,
+                'expected_cues': 0, 'actual_cues': 0}
+    return {**diff_ids, 'status': status, 'format': 'structured',
+            'summary': dict(_EMPTY_STRUCTURED), 'hunks': []}
+
+
 def _handle_missing_diff(result_file, format_type, diff_ids):
     if is_dummy_row(result_file):
-        if format_type == 'unified':
-            return single_response({**diff_ids, 'format': 'unified', 'content': ''})
-        return single_response({
-            **diff_ids,
-            'status': 'missing_actual',
-            'format': 'structured',
-            'summary': {'added_lines': 0, 'removed_lines': 0, 'changed_hunks': 0},
-            'hunks': [],
-        })
-
+        return single_response(_missing_diff_body('missing_actual', format_type, diff_ids))
     if result_file.got is None:
-        if format_type == 'unified':
-            return single_response({**diff_ids, 'format': 'unified', 'content': ''})
-        return single_response({
-            **diff_ids,
-            'status': 'identical',
-            'format': 'structured',
-            'summary': {'added_lines': 0, 'removed_lines': 0, 'changed_hunks': 0},
-            'hunks': [],
-        })
+        return single_response(_missing_diff_body('identical', format_type, diff_ids))
     return None
+
+
+def _smart_diff_response(expected_path, actual_path, ext, diff_ids):
+    """Classify how the actual output differs from the expected one, cue by cue."""
+    expected_text = '\n'.join(read_lines(expected_path))
+    actual_text = '\n'.join(read_lines(actual_path))
+    result = smart_diff(expected_text, actual_text, fmt=ext.lstrip('.').lower() or None)
+    return single_response({**diff_ids, 'format': 'smart', **result})
 
 
 @mod_api.route(
@@ -346,6 +359,9 @@ def get_diff(run_id, sample_id, regression_id, output_id):
     max_diff_bytes = 10 * 1024 * 1024  # 10 MiB
     if os.path.getsize(expected_path) > max_diff_bytes or os.path.getsize(actual_path) > max_diff_bytes:
         return make_error_response('unprocessable', 'File too large for diff. Use download_url.', http_status=422)
+
+    if format_type == 'smart':
+        return _smart_diff_response(expected_path, actual_path, ext, diff_ids)
 
     if format_type == 'unified':
         import difflib

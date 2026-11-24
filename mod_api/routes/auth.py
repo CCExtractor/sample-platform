@@ -651,13 +651,14 @@ def get_github_link():
     The stored token is never part of this response. The URL carries only
     the client id and the scope asked for, both of which are public.
     """
+    from mod_auth.controllers import github_login_of
     from run import config
 
     user = g.api_user
     client_id = config.get('GITHUB_CLIENT_ID', '')
     return single_response({
         'linked': user.github_token is not None,
-        'github_login': user.github_login,
+        'github_login': github_login_of(user),
         'authorize_url': (
             'https://github.com/login/oauth/authorize'
             f'?client_id={client_id}&scope=public_repo'),

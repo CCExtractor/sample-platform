@@ -265,8 +265,16 @@ function GithubSection() {
             <p className="mb-3 text-[13px] text-muted-foreground">
               {data.linked ? (
                 <>
-                  Connected as{" "}
-                  <span className="font-medium text-foreground">@{data.github_login}</span>.
+                  {data.github_login ? (
+                    <>
+                      Connected as{" "}
+                      <span className="font-medium text-foreground">@{data.github_login}</span>.
+                    </>
+                  ) : (
+                    // GitHub did not say who the token belongs to; reconnecting
+                    // from the classic page stores the name again.
+                    "Connected to GitHub, but the account name could not be read."
+                  )}{" "}
                   Runs on your own forks and pull requests use this.
                 </>
               ) : (

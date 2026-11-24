@@ -11,9 +11,13 @@
 export interface Seg {
   text: string;
   changed: boolean;
+  /** Offset of the segment in its line: unique per line, so a stable key. */
+  at: number;
 }
 
 export interface DiffRow {
+  /** Position in the rendered diff, assigned once here as the row's key. */
+  id: number;
   kind: "ctx" | "del" | "add" | "hunk";
   segs: Seg[];
 }
@@ -27,9 +31,12 @@ const MAX_CELLS = 250_000;
 
 function push(out: Seg[], text: string, changed: boolean) {
   const last = out.at(-1);
-  if (last && last.changed === changed) last.text += text;
-  else out.push({ text, changed });
+  if (last?.changed === changed) last.text += text;
+  else out.push({ text, changed, at: last ? last.at + last.text.length : 0 });
 }
+
+/** A whole line as one segment. */
+export const whole = (text: string, changed = false): Seg[] => [{ text, changed, at: 0 }];
 
 /** Split two lines into segments, marking the tokens not in their LCS. */
 export function wordDiff(a: string, b: string): [Seg[], Seg[]] {
@@ -38,7 +45,7 @@ export function wordDiff(a: string, b: string): [Seg[], Seg[]] {
   const n = x.length;
   const m = y.length;
   if (n * m > MAX_CELLS) {
-    return [[{ text: a, changed: true }], [{ text: b, changed: true }]];
+    return [whole(a, true), whole(b, true)];
   }
 
   // L[i][j] = LCS length of x[i..] and y[j..]. Values never exceed
@@ -69,8 +76,6 @@ export function wordDiff(a: string, b: string): [Seg[], Seg[]] {
   return [left, right];
 }
 
-const plain = (text: string): Seg[] => [{ text, changed: false }];
-
 /**
  * Unified diff text to display rows. Within a hunk, each run of removed lines
  * is paired in order with the run of added lines after it, and the pairs are
@@ -80,6 +85,7 @@ export function diffRows(unified: string): DiffRow[] {
   const rows: DiffRow[] = [];
   let del: string[] = [];
   let add: string[] = [];
+  const row = (kind: DiffRow["kind"], segs: Seg[]) => rows.push({ id: rows.length, kind, segs });
 
   const flush = () => {
     for (let k = 0; k < Math.max(del.length, add.length); k++) {
@@ -87,11 +93,12 @@ export function diffRows(unified: string): DiffRow[] {
       const b = add[k];
       if (a !== undefined && b !== undefined) {
         const [l, r] = wordDiff(a, b);
-        rows.push({ kind: "del", segs: l }, { kind: "add", segs: r });
+        row("del", l);
+        row("add", r);
       } else if (a !== undefined) {
-        rows.push({ kind: "del", segs: plain(a) });
+        row("del", whole(a));
       } else {
-        rows.push({ kind: "add", segs: plain(b) });
+        row("add", whole(b));
       }
     }
     del = [];
@@ -110,7 +117,7 @@ export function diffRows(unified: string): DiffRow[] {
     } else {
       flush();
       const hunk = line.startsWith("@@");
-      rows.push({ kind: hunk ? "hunk" : "ctx", segs: plain(hunk ? line : line.replace(/^ /, "")) });
+      row(hunk ? "hunk" : "ctx", whole(hunk ? line : line.replace(/^ /, "")));
     }
   });
   flush();

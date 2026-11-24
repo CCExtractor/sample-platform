@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatedSheet, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { fetchConsoleDiff, fetchDiff, outputText, sampleFile } from "@/lib/api";
 import { clock, cuesToVtt, parseCues, type Cue } from "@/lib/cues";
-import { diffRows, wordDiff, type DiffRow, type Seg } from "@/lib/diff";
+import { diffRows, whole, wordDiff, type DiffRow, type Seg } from "@/lib/diff";
 import { cn } from "@/lib/utils";
 
 export interface OutputDiffTarget {
@@ -130,6 +130,7 @@ const ROW_TONE: Record<DiffRow["kind"], string> = {
   hunk: "text-accent-foreground",
   ctx: "",
 };
+const ROW_SIGN: Record<DiffRow["kind"], string> = { del: "−", add: "+", hunk: "", ctx: "" };
 const MARK_TONE: Record<"del" | "add", string> = {
   del: "bg-destructive/35 text-foreground",
   add: "bg-success/35 text-foreground",
@@ -139,14 +140,13 @@ const MARK_TONE: Record<"del" | "add", string> = {
 function Segs({ segs, kind }: Readonly<{ segs: Seg[]; kind: "del" | "add" }>) {
   return (
     <>
-      {segs.map((s, i) =>
+      {segs.map((s) =>
         s.changed ? (
-          // Index keys are safe: segments are rebuilt whole, never reordered.
-          <mark key={i} className={cn("rounded-sm", MARK_TONE[kind])}>
+          <mark key={s.at} className={cn("rounded-sm", MARK_TONE[kind])}>
             {s.text}
           </mark>
         ) : (
-          <span key={i}>{s.text}</span>
+          <span key={s.at}>{s.text}</span>
         ),
       )}
     </>
@@ -199,9 +199,9 @@ function DiffPane({ target }: Readonly<{ target: DiffTarget }>) {
             {rows.length === 0 ? (
               <span className="px-3 text-faint">Diff is empty.</span>
             ) : (
-              rows.map((row, i) => (
+              rows.map((row) => (
                 <div
-                  key={i}
+                  key={row.id}
                   className={cn(
                     "flex gap-2 whitespace-pre-wrap px-3 [overflow-wrap:anywhere]",
                     ROW_TONE[row.kind],
@@ -209,7 +209,7 @@ function DiffPane({ target }: Readonly<{ target: DiffTarget }>) {
                   )}
                 >
                   <span className="w-2 shrink-0 select-none opacity-60">
-                    {row.kind === "del" ? "−" : row.kind === "add" ? "+" : ""}
+                    {ROW_SIGN[row.kind]}
                   </span>
                   <span className="min-w-0 flex-1">
                     {row.kind === "del" || row.kind === "add" ? (
@@ -355,7 +355,7 @@ const exact = (t: number) => `${clock(t)}.${String(Math.round((t % 1) * 1000)).p
 function cueMark(c: Cue, twin: Cue | undefined, segs?: Seg[]): CueMark {
   const shifted = twin && (twin.start !== c.start || twin.end !== c.end);
   return {
-    segs: segs ?? [{ text: c.text, changed: false }],
+    segs: segs ?? whole(c.text),
     timing: shifted ? `${exact(c.start)} → ${exact(c.end)}` : null,
     differs: false,
   };

@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ExternalLink, MoreHorizontal, ShieldCheck } from "lucide-react";
+import { ExternalLink, ShieldCheck } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useState } from "react";
 
@@ -7,9 +7,7 @@ import { DiffDrawer, type DiffTarget } from "@/components/DiffDrawer";
 import { Sparkline } from "@/components/Sparkline";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/ui/confirm";
 import {
-  promoteBaseline,
   useHealth,
   useQueue,
   useRegressionTests,
@@ -19,7 +17,6 @@ import {
   useTestHistory,
   type RunFailure,
 } from "@/lib/api";
-import { getSession } from "@/lib/auth";
 import { githubUrl } from "@/lib/validate";
 import type { LogicalRun } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -28,9 +25,9 @@ import { cn } from "@/lib/utils";
  * Home: an inbox of recent runs that finished with failures. Each card pulls
  * that run's failing tests and groups them by category.
  *
- * Baseline promotion hides behind a per-row overflow menu and a warning
- * dialog. There is intentionally no bulk accept — replacing baselines should
- * take one deliberate click per test.
+ * Baseline promotion lives in the diff drawer each row opens, behind a
+ * warning dialog. There is intentionally no bulk accept — replacing
+ * baselines should take one deliberate click per test.
  */
 export function Triage() {
   const { data: runs = [], isLoading } = useRuns();
@@ -368,30 +365,11 @@ function FailureCard({
 }
 
 function FailureRow({ f, runId }: Readonly<{ f: RunFailure; runId: number }>) {
-  const admin = getSession()?.role === "admin";
-  const [menu, setMenu] = useState(false);
-  const [confirming, setConfirming] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
   const [diff, setDiff] = useState<DiffTarget | null>(null);
   // Shares the query the tests list already made, so this costs no fetch.
   const { data: history } = useTestHistory();
   const past = history?.get(f.regression_test_id);
   const output = f.outputs.find((o) => o.status === "fail") ?? f.outputs[0];
-
-  const doPromote = async () => {
-    if (!output) return;
-    setBusy(true);
-    const res = await promoteBaseline({
-      runId,
-      sampleId: f.sample_id,
-      regressionId: f.regression_test_id,
-      outputId: output.output_id,
-    });
-    setBusy(false);
-    setConfirming(false);
-    setResult(res.ok ? "Baseline promoted." : res.message);
-  };
 
   return (
     <div className="group relative flex items-center gap-3 border-b px-4 py-2 text-[13px] transition-colors hover:bg-card">
@@ -407,8 +385,6 @@ function FailureRow({ f, runId }: Readonly<{ f: RunFailure; runId: number }>) {
           <Sparkline results={past.recent_results.filter((r) => r !== "skip").slice(-10)} />
         )}
       </Link>
-
-      {result && <span className="shrink-0 text-[11px] text-faint">{result}</span>}
 
       {output && (
         <button
@@ -427,46 +403,6 @@ function FailureRow({ f, runId }: Readonly<{ f: RunFailure; runId: number }>) {
           diff
         </button>
       )}
-
-      {admin && output && !result && (
-        <div className="relative shrink-0">
-          <button
-            className="cursor-pointer rounded-md p-1 text-faint opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"
-            onClick={() => setMenu(!menu)}
-          >
-            <MoreHorizontal className="size-4" />
-          </button>
-          {menu && (
-            <div className="absolute right-0 top-7 z-20 w-56 rounded-lg border bg-card p-1 shadow-pop">
-              <button
-                className="w-full cursor-pointer rounded-md px-2.5 py-1.5 text-left text-xs text-destructive transition-colors hover:bg-destructive/10"
-                onClick={() => {
-                  setMenu(false);
-                  setConfirming(true);
-                }}
-              >
-                Promote this output to baseline…
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      <ConfirmDialog
-        open={confirming}
-        onOpenChange={setConfirming}
-        title={`Replace baseline of test #${f.regression_test_id}?`}
-        body={
-          <>
-            The output this run produced becomes the expected baseline{" "}
-            <b>for every future run, on all platforms</b>. The current baseline hash
-            is discarded, and the only way back is promoting another output.
-          </>
-        }
-        confirmLabel={busy ? "Promoting…" : "Replace baseline"}
-        busy={busy}
-        onConfirm={doPromote}
-      />
 
       <DiffDrawer target={diff} onClose={() => setDiff(null)} />
     </div>

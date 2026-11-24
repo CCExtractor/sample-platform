@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DiffDrawer, type DiffTarget } from "@/components/DiffDrawer";
@@ -22,6 +23,7 @@ function jsonResponse(status: number, body: unknown): Response {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  localStorage.clear();
 });
 
 describe("DiffDrawer", () => {
@@ -63,4 +65,45 @@ describe("DiffDrawer", () => {
       await screen.findByText(/output file for this result isn't present in storage/i),
     ).toBeInTheDocument();
   });
+
+  it("offers promotion to admins only, and confirms before posting it", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) =>
+      String(input).includes("/baseline-approval")
+        ? jsonResponse(200, { status: "approved" })
+        : jsonResponse(200, { content: "" }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { wrapper } = createWrapper();
+    const view = render(<DiffDrawer target={target} onClose={vi.fn()} />, { wrapper });
+    expect(screen.queryByText(/promote to baseline/i)).toBeNull();
+    view.unmount();
+
+    signIn("admin");
+    render(<DiffDrawer target={target} onClose={vi.fn()} />, { wrapper });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /promote to baseline/i }));
+    expect(fetchMock.mock.calls.some(([u]) => String(u).includes("baseline-approval"))).toBe(false);
+
+    await user.click(await screen.findByRole("button", { name: "Replace baseline" }));
+    expect(await screen.findByText("Baseline promoted.")).toBeInTheDocument();
+    const [url, init] = fetchMock.mock.calls.find(([u]) => String(u).includes("baseline-approval"))!;
+    expect(String(url)).toContain("/runs/21/samples/14/baseline-approval");
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      regression_id: 7,
+      output_id: 3,
+    });
+  });
 });
+
+function signIn(role: string) {
+  localStorage.setItem(
+    "sp-session",
+    JSON.stringify({
+      token: "t",
+      email: "a@example.com",
+      role,
+      expires_at: new Date(Date.now() + 60_000).toISOString(),
+    }),
+  );
+}

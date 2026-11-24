@@ -44,8 +44,13 @@ describe("DiffDrawer", () => {
 
     expect(screen.getByText("Test #7")).toBeInTheDocument();
     expect(screen.getByText(/pal\.ts/)).toBeInTheDocument();
-    expect(await screen.findByText("-old caption")).toBeInTheDocument();
-    expect(screen.getByText("+new caption")).toBeInTheDocument();
+    // The pair sits one above the other with only the changed word marked.
+    const removed = await screen.findByText("old");
+    expect(removed.tagName).toBe("MARK");
+    expect(removed.closest("div")?.textContent).toBe("−old caption");
+    const added = screen.getByText("new");
+    expect(added.tagName).toBe("MARK");
+    expect(added.closest("div")?.textContent).toBe("+new caption");
   });
 
   it("explains when the output file is missing from storage", async () => {

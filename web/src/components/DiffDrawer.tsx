@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatedSheet, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { fetchConsoleDiff, fetchDiff, outputText, sampleFile } from "@/lib/api";
 import { clock, cuesToVtt, parseCues, type Cue } from "@/lib/cues";
+import { diffRows, wordDiff, type DiffRow, type Seg } from "@/lib/diff";
 import { cn } from "@/lib/utils";
 
 export interface OutputDiffTarget {
@@ -123,9 +124,33 @@ function ViewTab({
   );
 }
 
-/** Pair each line with a stable id, so the render key is never an index. */
-function numbered(lines: string[]): { id: string; line: string }[] {
-  return lines.map((line, i) => ({ id: `line-${i}`, line }));
+const ROW_TONE: Record<DiffRow["kind"], string> = {
+  del: "bg-destructive/8 text-destructive",
+  add: "bg-success/8 text-success",
+  hunk: "text-accent-foreground",
+  ctx: "",
+};
+const MARK_TONE: Record<"del" | "add", string> = {
+  del: "bg-destructive/35 text-foreground",
+  add: "bg-success/35 text-foreground",
+};
+
+/** A line's segments, with the tokens that differ from its twin marked. */
+function Segs({ segs, kind }: Readonly<{ segs: Seg[]; kind: "del" | "add" }>) {
+  return (
+    <>
+      {segs.map((s, i) =>
+        s.changed ? (
+          // Index keys are safe: segments are rebuilt whole, never reordered.
+          <mark key={i} className={cn("rounded-sm", MARK_TONE[kind])}>
+            {s.text}
+          </mark>
+        ) : (
+          <span key={i}>{s.text}</span>
+        ),
+      )}
+    </>
+  );
 }
 
 function DiffPane({ target }: Readonly<{ target: DiffTarget }>) {
@@ -143,9 +168,10 @@ function DiffPane({ target }: Readonly<{ target: DiffTarget }>) {
       return fetchDiff(target);
     },
   });
+  const rows = useMemo(() => (data ? diffRows(data.content) : []), [data]);
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto p-4">
+    <div className="min-h-0 flex-1 overflow-y-auto p-4">
       {isLoading && <Skeleton rows={8} />}
       {isError && (
         <Notice>
@@ -156,29 +182,47 @@ function DiffPane({ target }: Readonly<{ target: DiffTarget }>) {
         </Notice>
       )}
       {data && (
-        <pre className="rounded-lg border bg-muted/30 p-3 font-mono text-[11px] leading-relaxed">
-          {data.content.trim() === "" ? (
-            <span className="text-faint">Diff is empty.</span>
-          ) : (
-            numbered(data.content.split("\n")).map(({ id, line }) => (
-              <div
-                key={id}
-                className={cn(
-                  "px-1",
-                  line.startsWith("+") &&
-                    !line.startsWith("+++") &&
-                    "bg-success/10 text-success",
-                  line.startsWith("-") &&
-                    !line.startsWith("---") &&
-                    "bg-destructive/10 text-destructive",
-                  line.startsWith("@@") && "text-accent-foreground",
-                )}
-              >
-                {line || " "}
-              </div>
-            ))
-          )}
-        </pre>
+        <>
+          <div className="mb-2 flex gap-3 text-[11px] text-faint">
+            <span>
+              <span className="text-destructive">−</span>{" "}
+              {consoleTarget ? "previous run" : "expected"}
+            </span>
+            <span>
+              <span className="text-success">+</span> {consoleTarget ? "this run" : "actual"}
+            </span>
+            <span>highlighted = the part that changed</span>
+          </div>
+          {/* Wrapped, not scrolled: caption lines run long, and a sideways
+              scroll pushed the text past the tinted line backgrounds. */}
+          <div className="rounded-lg border bg-muted/30 py-2 font-mono text-[11px] leading-relaxed">
+            {rows.length === 0 ? (
+              <span className="px-3 text-faint">Diff is empty.</span>
+            ) : (
+              rows.map((row, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "flex gap-2 whitespace-pre-wrap px-3 [overflow-wrap:anywhere]",
+                    ROW_TONE[row.kind],
+                    row.kind === "add" && "mb-1",
+                  )}
+                >
+                  <span className="w-2 shrink-0 select-none opacity-60">
+                    {row.kind === "del" ? "−" : row.kind === "add" ? "+" : ""}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    {row.kind === "del" || row.kind === "add" ? (
+                      <Segs segs={row.segs} kind={row.kind} />
+                    ) : (
+                      row.segs[0].text || " "
+                    )}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </>
       )}
     </div>
   );
@@ -219,6 +263,25 @@ function PlaybackPane({ target }: Readonly<{ target: OutputDiffTarget }>) {
     return URL.createObjectURL(new Blob([vtt], { type: "text/vtt" }));
   }, [expected.data]);
   useEffect(() => () => URL.revokeObjectURL(captions), [captions]);
+
+  // Cue n of the baseline against cue n of the output, so the columns mark
+  // what changed. ponytail: paired by position; an inserted or dropped cue
+  // shifts every later pair, align by timing if that turns out common.
+  const marks = useMemo(() => {
+    const e = expected.data?.cues ?? [];
+    const a = actual.data?.cues ?? [];
+    const left = e.map((c) => cueMark(c, undefined));
+    const right = a.map((c) => cueMark(c, undefined));
+    for (let k = 0; k < Math.min(e.length, a.length); k++) {
+      const [l, r] = wordDiff(e[k].text, a[k].text);
+      left[k] = cueMark(e[k], a[k], l);
+      right[k] = cueMark(a[k], e[k], r);
+      // Flag both sides: an inserted space only has a changed token on one.
+      const differs = left[k].timing !== null || [...l, ...r].some((s) => s.changed);
+      left[k].differs = right[k].differs = differs;
+    }
+    return { left, right };
+  }, [expected.data, actual.data]);
 
   const seek = (t: number) => {
     if (!video.current) return;
@@ -270,11 +333,32 @@ function PlaybackPane({ target }: Readonly<{ target: OutputDiffTarget }>) {
       )}
 
       <div className="grid min-h-0 grid-cols-2 gap-3">
-        <CueColumn title="Expected" tone="ok" q={expected} at={at} onSeek={seek} />
-        <CueColumn title="Actual" tone="bad" q={actual} at={at} onSeek={seek} />
+        <CueColumn title="Expected" tone="ok" q={expected} marks={marks.left} at={at} onSeek={seek} />
+        <CueColumn title="Actual" tone="bad" q={actual} marks={marks.right} at={at} onSeek={seek} />
       </div>
     </div>
   );
+}
+
+/** How one cue differs from the cue in the same position on the other side. */
+interface CueMark {
+  segs: Seg[];
+  /** Exact timing of both sides when they disagree, else null. */
+  timing: string | null;
+  /** Text or timing differs from the twin cue. */
+  differs: boolean;
+}
+
+/** Second-and-millisecond stamp, since timing drift is usually one frame. */
+const exact = (t: number) => `${clock(t)}.${String(Math.round((t % 1) * 1000)).padStart(3, "0")}`;
+
+function cueMark(c: Cue, twin: Cue | undefined, segs?: Seg[]): CueMark {
+  const shifted = twin && (twin.start !== c.start || twin.end !== c.end);
+  return {
+    segs: segs ?? [{ text: c.text, changed: false }],
+    timing: shifted ? `${exact(c.start)} → ${exact(c.end)}` : null,
+    differs: false,
+  };
 }
 
 function useOutput(target: OutputDiffTarget, which: "expected" | "actual") {
@@ -295,12 +379,14 @@ function CueColumn({
   title,
   tone,
   q,
+  marks,
   at,
   onSeek,
 }: Readonly<{
   title: string;
   tone: "ok" | "bad";
   q: OutputQuery;
+  marks: CueMark[];
   at: number;
   onSeek: (t: number) => void;
 }>) {
@@ -343,8 +429,15 @@ function CueColumn({
             {q.data.content.trim() || <span className="text-faint">Empty file.</span>}
           </pre>
         )}
-        {q.data?.cues.map((c) => (
-          <CueRow key={`${c.start}-${c.end}`} cue={c} active={at >= c.start && at < c.end} onSeek={onSeek} />
+        {q.data?.cues.map((c, i) => (
+          <CueRow
+            key={`${c.start}-${c.end}`}
+            cue={c}
+            mark={marks[i]}
+            kind={tone === "ok" ? "del" : "add"}
+            active={at >= c.start && at < c.end}
+            onSeek={onSeek}
+          />
         ))}
         {q.data?.truncated && (
           <p className="border-t px-3 py-1.5 text-[10px] text-faint">Truncated at 1 MiB.</p>
@@ -356,13 +449,18 @@ function CueColumn({
 
 function CueRow({
   cue,
+  mark,
+  kind,
   active,
   onSeek,
 }: Readonly<{
   cue: Cue;
+  mark: CueMark | undefined;
+  kind: "del" | "add";
   active: boolean;
   onSeek: (t: number) => void;
 }>) {
+  const differs = !!mark?.differs;
   return (
     <button
       // Keeping the playing cue in view is what makes two columns readable
@@ -372,13 +470,19 @@ function CueRow({
       className={cn(
         "flex w-full cursor-pointer gap-2 border-b px-3 py-1 text-left transition-colors last:border-0 hover:bg-muted/60",
         active && "bg-primary/10",
+        differs && "border-l-2 border-l-warning",
       )}
     >
-      <span className="shrink-0 pt-px font-mono text-[10px] tabular-nums text-faint">
-        {clock(cue.start)}
+      <span
+        className={cn(
+          "shrink-0 pt-px font-mono text-[10px] tabular-nums text-faint",
+          mark?.timing && cn("rounded-sm px-0.5", MARK_TONE[kind]),
+        )}
+      >
+        {mark?.timing ?? clock(cue.start)}
       </span>
-      <span className="min-w-0 flex-1 whitespace-pre-wrap font-mono text-[11px] leading-relaxed">
-        {cue.text}
+      <span className="min-w-0 flex-1 whitespace-pre-wrap font-mono text-[11px] leading-relaxed [overflow-wrap:anywhere]">
+        {mark ? <Segs segs={mark.segs} kind={kind} /> : cue.text}
       </span>
     </button>
   );

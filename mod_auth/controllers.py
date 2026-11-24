@@ -192,6 +192,27 @@ def fetch_username_from_token(user=None) -> Any:
         return None
 
 
+def github_login_of(user) -> Optional[str]:
+    """
+    Return the GitHub login of a connected account, looking it up if missing.
+
+    The login is normally stored by the OAuth callback, but that lookup can
+    fail, and accounts connected before the column existed never had one.
+    Asking GitHub again the next time the login is needed repairs them.
+
+    :param user: the account to read and, when the lookup succeeds, update
+    :return: the login, or None when not connected or GitHub did not answer
+    """
+    if user.github_login or user.github_token is None:
+        return user.github_login
+    login = fetch_username_from_token(user)
+    if login:
+        user.github_login = login
+        g.db.add(user)
+        g.db.commit()
+    return login
+
+
 @mod_auth.route('/github_callback', methods=['GET', 'POST'])
 @template_renderer()
 def github_callback():

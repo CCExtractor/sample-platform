@@ -171,16 +171,8 @@ def _validate_run_permissions(user, target_repo, main_repo_full):
             )
     else:
         owner = target_repo.split('/')[0]
-        github_login = getattr(user, 'github_login', None)
-
-        if not github_login and getattr(user, 'github_token', None):
-            from mod_auth.controllers import fetch_username_from_token
-            github_login = fetch_username_from_token(user)
-            if github_login:
-                user.github_login = github_login
-                g.db.add(user)
-
-        github_login = github_login or ''
+        from mod_auth.controllers import github_login_of
+        github_login = github_login_of(user) or ''
 
         if not github_login or owner.lower() != github_login.lower():
             return make_error_response(

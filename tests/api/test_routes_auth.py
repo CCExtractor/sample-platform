@@ -745,6 +745,37 @@ class TestRoutesAuth(ApiTestCase):
                       res.json['authorize_url'])
         self.assertNotIn('client_secret', res.json['authorize_url'])
 
+    @patch('mod_auth.controllers.fetch_username_from_token', return_value='found-later')
+    def test_github_link_looks_up_a_missing_login_and_keeps_it(self, mock_fetch):
+        user = User.query.filter(User.id == self.user_id).first()
+        user.github_token = 'gho_secret_value'
+        user.github_login = None
+        g.db.commit()
+
+        res = self.client.get(
+            '/api/v1/auth/me/github', headers=self._auth(name='gh3'))
+
+        self.assertEqual(res.json['github_login'], 'found-later')
+        user = User.query.filter(User.id == self.user_id).first()
+        self.assertEqual(user.github_login, 'found-later')
+
+        # Stored now, so the next request does not ask GitHub again.
+        self.client.get('/api/v1/auth/me/github', headers=self._auth(name='gh4'))
+        mock_fetch.assert_called_once()
+
+    @patch('mod_auth.controllers.fetch_username_from_token', return_value=None)
+    def test_github_link_without_a_login_when_github_does_not_answer(self, mock_fetch):
+        user = User.query.filter(User.id == self.user_id).first()
+        user.github_token = 'gho_secret_value'
+        user.github_login = None
+        g.db.commit()
+
+        res = self.client.get(
+            '/api/v1/auth/me/github', headers=self._auth(name='gh5'))
+
+        self.assertTrue(res.json['linked'])
+        self.assertIsNone(res.json['github_login'])
+
     def test_github_unlink_forgets_the_connection(self):
         user = User.query.filter(User.id == self.user_id).first()
         user.github_token = 'gho_secret_value'

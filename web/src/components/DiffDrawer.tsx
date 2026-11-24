@@ -1,9 +1,18 @@
-import { useQuery } from "@tanstack/react-query";
-import { Download, FileText, PlayCircle } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { BadgeCheck, Download, FileText, PlayCircle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm";
 import { AnimatedSheet, SheetDescription, SheetTitle } from "@/components/ui/sheet";
-import { fetchConsoleDiff, fetchDiff, outputText, sampleFile } from "@/lib/api";
+import {
+  fetchConsoleDiff,
+  fetchDiff,
+  outputText,
+  promoteBaseline,
+  sampleFile,
+} from "@/lib/api";
+import { getSession } from "@/lib/auth";
 import { clock, cuesToVtt, parseCues, type Cue } from "@/lib/cues";
 import { diffRows, whole, wordDiff, type DiffRow, type Seg } from "@/lib/diff";
 import { cn } from "@/lib/utils";
@@ -71,7 +80,7 @@ export function DiffDrawer({
                 : `${target.command} · ${target.sampleName} · run ${target.runId}`}
             </SheetDescription>
             {!isConsole(target) && (
-              <div className="mt-3 flex gap-1">
+              <div className="mt-3 flex items-center gap-1">
                 <ViewTab
                   icon={FileText}
                   label="Diff"
@@ -84,6 +93,12 @@ export function DiffDrawer({
                   on={view === "playback"}
                   go={() => setView("playback")}
                 />
+                {getSession()?.role === "admin" && (
+                  <PromoteBaseline
+                    key={`${target.runId}-${target.regressionId}-${target.outputId}`}
+                    target={target}
+                  />
+                )}
               </div>
             )}
           </div>
@@ -95,6 +110,65 @@ export function DiffDrawer({
         </div>
       )}
     </AnimatedSheet>
+  );
+}
+
+/**
+ * Make the output this run produced the expected baseline.
+ *
+ * It sits here because the drawer is where a failure gets judged, and the
+ * drawer opens from any run (Home, the run page, its artifacts), not only the
+ * few recent ones Home lists. Admin-only, as the endpoint is, and confirmed
+ * first: it applies to every future run on all platforms.
+ */
+function PromoteBaseline({ target }: Readonly<{ target: OutputDiffTarget }>) {
+  const qc = useQueryClient();
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const promote = async () => {
+    setBusy(true);
+    const res = await promoteBaseline(target);
+    setBusy(false);
+    setConfirming(false);
+    setResult(res);
+    if (res.ok) {
+      // The test's baselines list shows the new hash on its next open.
+      await qc.invalidateQueries({ queryKey: ["regression-test", target.regressionId] });
+    }
+  };
+
+  return (
+    <div className="ml-auto flex items-center gap-2">
+      {result && (
+        <span className={cn("text-[11px]", result.ok ? "text-success" : "text-destructive")}>
+          {result.message}
+        </span>
+      )}
+      {!result?.ok && (
+        <Button size="sm" variant="outline" onClick={() => setConfirming(true)}>
+          <BadgeCheck /> Promote to baseline…
+        </Button>
+      )}
+      <ConfirmDialog
+        open={confirming}
+        onOpenChange={setConfirming}
+        title={`Replace baseline of test #${target.regressionId}?`}
+        body={
+          <>
+            The output run {target.runId} produced becomes the expected baseline{" "}
+            <b>for every future run, on all platforms</b>. The current baseline hash
+            is discarded, and the only way back is promoting another output. If only
+            one platform differs, adding a variant from the test's Baselines keeps
+            the current one.
+          </>
+        }
+        confirmLabel={busy ? "Promoting…" : "Replace baseline"}
+        busy={busy}
+        onConfirm={promote}
+      />
+    </div>
   );
 }
 

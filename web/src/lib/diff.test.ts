@@ -12,6 +12,9 @@ describe("wordDiff", () => {
     );
     expect(changed(l)).toEqual(["520"]);
     expect(changed(r)).toEqual(["560"]);
+    // Offsets are the render keys: each is where its segment starts in the line.
+    expect(l.map((s) => s.at)).toEqual([0, 22, 25]);
+    expect(l.map((s) => s.text).join("")).toBe("00:00:01,480|00:00:03,520|TLT|hi");
   });
 
   it("marks an inserted space on the side that has it", () => {

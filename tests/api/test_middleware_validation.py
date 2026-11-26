@@ -115,6 +115,17 @@ class TestMiddlewareValidation(ApiTestCase):
             self.assertEqual(res.status_code, 200)
             self.assertIn('2023-01-01', res.json['after'])
 
+    def test_validate_date_range_converts_offset_to_utc(self):
+        """A datetime given with a UTC offset is passed on as the same instant in UTC."""
+        @validate_date_range
+        def dummy_handler(created_after=None, created_before=None):
+            return jsonify({"after": created_after.isoformat()})
+
+        with self.app.test_request_context('/dummy?created_after=2024-01-02T00:00:00%2B05:30'):
+            res = dummy_handler()
+            self.assertEqual(res.status_code, 200)
+            self.assertEqual(res.json['after'], '2024-01-01T18:30:00+00:00')
+
     def test_validate_date_range_invalid_format(self):
         @validate_date_range
         def dummy_handler(created_after=None, created_before=None):

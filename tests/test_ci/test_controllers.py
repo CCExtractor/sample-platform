@@ -1,3 +1,4 @@
+import contextlib
 import json
 import os
 import unittest
@@ -5,11 +6,15 @@ from importlib import reload
 from unittest import mock
 from unittest.mock import MagicMock
 
+import httplib2
 from flask import g
+from googleapiclient.errors import HttpError
 
 from mod_auth.models import Role
-from mod_ci.controllers import (Workflow_builds, get_info_for_pr_comment,
-                                is_valid_commit_hash, mark_test_failed,
+from mod_ci.controllers import (Workflow_builds, gcp_error_from_http_error,
+                                get_gcp_error_code, get_info_for_pr_comment,
+                                is_retryable_gcp_error, is_valid_commit_hash,
+                                mark_test_failed, parse_gcp_error,
                                 parse_git_commit_from_log_file,
                                 parse_git_commit_from_log_stream,
                                 parse_git_commit_from_logs,
@@ -3951,6 +3956,49 @@ class TestParseGcpError(unittest.TestCase):
         mock_log.error.assert_called_once()
 
 
+def make_http_error(status, reason=None, message='Request failed', content=None):
+    """Build the HttpError googleapiclient raises when the Compute API rejects a request."""
+    if content is None:
+        error = {'code': status, 'message': message}
+        if reason is not None:
+            error['errors'] = [{'message': message, 'domain': 'global', 'reason': reason}]
+        content = json.dumps({'error': error}).encode('utf-8')
+    return HttpError(httplib2.Response({'status': status}), content)
+
+
+class TestGcpErrorFromHttpError(unittest.TestCase):
+    """Tests for gcp_error_from_http_error, which maps an HttpError onto a GCP error response."""
+
+    def test_maps_reason_and_status_to_error_code(self):
+        """Known reasons map to the platform's codes, and 429 or 5xx is always retryable."""
+        cases = [
+            # status, reason, body (None builds a Compute-style JSON body), code, retryable
+            (403, 'quotaExceeded', None, 'QUOTA_EXCEEDED', True),
+            (403, 'rateLimitExceeded', None, 'RATE_LIMIT_EXCEEDED', True),
+            (404, 'notFound', None, 'RESOURCE_NOT_FOUND', False),
+            (409, 'alreadyExists', None, 'RESOURCE_ALREADY_EXISTS', False),
+            (400, 'invalid', None, 'invalid', False),
+            (503, 'serviceUnavailable', None, 'BACKEND_ERROR', True),
+            (429, None, b'<html>Too Many Requests</html>', 'RATE_LIMIT_EXCEEDED', True),
+            (400, None, b'Bad Request', 'HTTP_400', False),
+        ]
+        for status, reason, content, code, retryable in cases:
+            with self.subTest(status=status, reason=reason):
+                result = gcp_error_from_http_error(make_http_error(status, reason, content=content))
+                self.assertEqual(get_gcp_error_code(result), code)
+                self.assertEqual(is_retryable_gcp_error(result), retryable)
+                self.assertEqual(result['httpErrorStatusCode'], status)
+
+    def test_keeps_gcp_message_out_of_user_message(self):
+        """The GCP message is kept for the log, while the user sees a generic message."""
+        result = gcp_error_from_http_error(
+            make_http_error(400, 'invalid', "Invalid value for field 'machineType'"))
+
+        self.assertEqual(result['error']['errors'][0]['message'], "Invalid value for field 'machineType'")
+        self.assertEqual(parse_gcp_error(result, log=MagicMock()),
+                         "VM creation failed (invalid). Please contact the administrator.")
+
+
 class TestDiagnoseMissingArtifact(BaseTestCase):
     """Test the _diagnose_missing_artifact function and retry behavior."""
 
@@ -4811,3 +4859,60 @@ class TestVMCreationVerification(BaseTestCase):
         start_test(MagicMock(), self.app, mock_g.db, MagicMock(), Test.query.first(), "token")
 
         mock_g.db.add.assert_called_once()
+
+    def _start_test_when_insert_raises(self, error):
+        """Run start_test with compute.instances().insert().execute() raising the given error.
+
+        Returns the patched mocks, keyed by the name of what they replace, and the test that was started.
+        """
+        from mod_ci.controllers import start_test
+
+        targets = ['run.log', 'mod_ci.controllers.mark_test_failed', 'mod_ci.controllers.wait_for_operation',
+                   'mod_ci.controllers.find_artifact_for_commit', 'mod_ci.controllers.requests.get',
+                   'mod_ci.controllers.zipfile.ZipFile', 'mod_ci.controllers.g',
+                   'mod_ci.controllers.TestProgress', 'mod_ci.controllers.GcpInstance']
+        with contextlib.ExitStack() as stack:
+            mocks = {target.rsplit('.', 1)[1]: stack.enter_context(mock.patch(target)) for target in targets}
+            stack.enter_context(mock.patch('builtins.open', new_callable=mock.mock_open()))
+            self._setup_start_test_mocks(mocks['g'], mocks['GcpInstance'], mocks['TestProgress'],
+                                         mocks['find_artifact_for_commit'], mocks['get'], mocks['ZipFile'])
+            compute = MagicMock()
+            compute.instances.return_value.insert.return_value.execute.side_effect = error
+            test = Test.query.first()
+
+            start_test(compute, self.app, mocks['g'].db, MagicMock(), test, "token")
+
+        compute.instances.return_value.insert.return_value.execute.assert_called_once()
+        mocks['wait_for_operation'].assert_not_called()
+        mocks['g'].db.add.assert_not_called()
+        return mocks, test
+
+    def test_start_test_retries_transient_http_error(self):
+        """Quota, rate limit and server errors raised by the VM insert leave the test pending for retry.
+
+        The Compute API raises HttpError for a rejected insert instead of returning an
+        error in the operation, so start_test must catch it rather than let it escape.
+        """
+        for status, reason in [(403, 'quotaExceeded'), (403, 'rateLimitExceeded'), (503, 'backendError')]:
+            with self.subTest(status=status, reason=reason):
+                mocks, _ = self._start_test_when_insert_raises(make_http_error(status, reason))
+
+                mocks['mark_test_failed'].assert_not_called()
+
+    def test_start_test_fails_test_on_permanent_http_error(self):
+        """A permanent error raised by the VM insert marks the test as failed.
+
+        Before the fix this escaped to gcp_instance(), which logged it and retried the
+        test on every cron run, so it never left the queue and never reported a failure.
+        """
+        cases = [
+            (404, 'notFound', "Required GCP resource not found. Please contact the administrator."),
+            (400, 'invalid', "VM creation failed (invalid). Please contact the administrator."),
+        ]
+        for status, reason, expected_message in cases:
+            with self.subTest(status=status, reason=reason):
+                mocks, test = self._start_test_when_insert_raises(make_http_error(status, reason))
+
+                mocks['mark_test_failed'].assert_called_once()
+                self.assertIs(mocks['mark_test_failed'].call_args.args[1], test)
+                self.assertEqual(mocks['mark_test_failed'].call_args.args[3], expected_message)

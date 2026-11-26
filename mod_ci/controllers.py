@@ -25,6 +25,7 @@ from flask import (Blueprint, abort, flash, g, jsonify, redirect, request,
 from github import (Auth, Commit, Github, GithubException, GithubObject,
                     Repository)
 from google.oauth2 import service_account
+from googleapiclient.errors import HttpError
 from lxml import etree
 from markdown2 import markdown
 from pymysql.err import IntegrityError
@@ -154,6 +155,8 @@ GCP_ERROR_MESSAGES = {
     'RESOURCE_NOT_FOUND': "Required GCP resource not found. Please contact the administrator.",
     'RESOURCE_ALREADY_EXISTS': "A VM with this name already exists. Please contact the administrator.",
     'TIMEOUT': "GCP operation timed out. The test will be retried automatically.",
+    'RATE_LIMIT_EXCEEDED': "GCP API rate limit reached. The test will be retried automatically.",
+    'BACKEND_ERROR': "GCP returned a temporary server error. The test will be retried automatically.",
 }
 
 # GCP error codes that are transient and should be retried automatically.
@@ -162,7 +165,61 @@ GCP_RETRYABLE_ERRORS = {
     'ZONE_RESOURCE_POOL_EXHAUSTED',
     'ZONE_RESOURCE_POOL_EXHAUSTED_WITH_DETAILS',
     'QUOTA_EXCEEDED',
+    'RATE_LIMIT_EXCEEDED',
+    'BACKEND_ERROR',
 }
+
+# When the Compute API rejects a request outright, the client library raises HttpError instead
+# of returning an operation. Its body names the failure with a camelCase "reason" rather than
+# the upper-case "code" an operation carries. These are the reasons that have an equivalent
+# code above; any other reason is kept as it is.
+GCP_HTTP_ERROR_REASONS = {
+    'quotaExceeded': 'QUOTA_EXCEEDED',
+    'rateLimitExceeded': 'RATE_LIMIT_EXCEEDED',
+    'userRateLimitExceeded': 'RATE_LIMIT_EXCEEDED',
+    'backendError': 'BACKEND_ERROR',
+    'internalError': 'BACKEND_ERROR',
+    'notFound': 'RESOURCE_NOT_FOUND',
+    'alreadyExists': 'RESOURCE_ALREADY_EXISTS',
+}
+
+# HTTP statuses that mean "try again later", whatever reason the body gives.
+GCP_RETRYABLE_HTTP_STATUSES = {429, 500, 502, 503, 504}
+
+
+def gcp_error_from_http_error(error: HttpError) -> Dict:
+    """
+    Convert an HttpError raised by a Compute API call into a GCP error response.
+
+    The result has the same shape as a failed operation, so parse_gcp_error() and
+    is_retryable_gcp_error() treat both kinds of failure the same way.
+
+    :param error: The error raised by the googleapiclient request
+    :return: A dictionary of the form {'error': {'errors': [{'code': ..., 'message': ...}]}}
+    """
+    status = getattr(error.resp, 'status', None)
+    reason = None
+    message = str(error)
+    try:
+        body = json.loads(error.content.decode('utf-8'))
+    except (AttributeError, UnicodeDecodeError, ValueError):
+        body = None
+    error_body = body.get('error') if isinstance(body, dict) else None
+    if isinstance(error_body, dict):
+        message = error_body.get('message') or message
+        errors = error_body.get('errors')
+        if isinstance(errors, list) and errors and isinstance(errors[0], dict):
+            reason = errors[0].get('reason')
+            message = errors[0].get('message') or message
+
+    code = GCP_HTTP_ERROR_REASONS.get(reason, reason) if reason else f'HTTP_{status}'
+    if status in GCP_RETRYABLE_HTTP_STATUSES and code not in GCP_RETRYABLE_ERRORS:
+        code = 'RATE_LIMIT_EXCEEDED' if status == 429 else 'BACKEND_ERROR'
+
+    return {
+        'error': {'errors': [{'code': code, 'message': message}]},
+        'httpErrorStatusCode': status,
+    }
 
 
 def get_gcp_error_code(result: Dict) -> Optional[str]:
@@ -1233,7 +1290,15 @@ def start_test(compute, app, db, repository: Repository.Repository, test, bot_to
 
     zone = config.get('ZONE', '')
     project_id = config.get('PROJECT_NAME', '')
-    operation = create_instance(compute, project_id, zone, test, full_url)
+    try:
+        operation = create_instance(compute, project_id, zone, test, full_url)
+    except HttpError as e:
+        # A request the Compute API rejects (bad config, missing image, quota, rate limit,
+        # server error) raises instead of returning an error in the operation. Left uncaught,
+        # it reached gcp_instance(), which retries every test on every cron run, so a
+        # permanent error kept the test pending forever and never reported a failure.
+        log.error(f"Test {test.id}: Compute API rejected VM creation: {e}")
+        operation = gcp_error_from_http_error(e)
 
     # Check if the create_instance call itself returned an error (synchronous failure)
     if 'error' in operation:

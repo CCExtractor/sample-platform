@@ -1,3 +1,4 @@
+import datetime
 import json
 from unittest.mock import patch
 
@@ -77,6 +78,23 @@ class TestRoutesRuns(ApiTestCase):
                               headers={'Authorization': f'Bearer {token}'})
         self.assertEqual(res.status_code, 200)
         self.assertEqual(len(res.json['data']), 1)
+
+    def test_list_runs_date_filter_honours_utc_offset(self):
+        # 2024-01-02T00:00:00+05:30 is 2024-01-01T18:30:00Z, so a run that
+        # started at 20:00Z is after it, whichever way the instant is written.
+        self.progress.timestamp = datetime.datetime(2024, 1, 1, 20, 0, tzinfo=datetime.timezone.utc)
+        g.db.commit()
+
+        token = self.get_token('runs_user@local.com',
+                               'userpass123', 'tz', scopes=['runs:read'])
+        for instant in ('2024-01-01T18:30:00Z', '2024-01-02T00:00:00%2B05:30'):
+            with self.subTest(instant=instant):
+                after = self.client.get(f'/api/v1/runs?created_after={instant}',
+                                        headers={'Authorization': f'Bearer {token}'})
+                before = self.client.get(f'/api/v1/runs?created_before={instant}',
+                                         headers={'Authorization': f'Bearer {token}'})
+                self.assertIn(self.test_id, [r['run_id'] for r in after.json['data']])
+                self.assertNotIn(self.test_id, [r['run_id'] for r in before.json['data']])
 
     def test_list_runs_status_queued(self):
         # A run with no TestProgress rows is 'queued'. This guards the

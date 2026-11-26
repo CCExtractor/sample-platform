@@ -250,7 +250,9 @@ def _parse_iso8601_date(param_name, param_str):
         )
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
-    return dt, None
+    # Timestamps are stored in UTC and the database driver drops the offset
+    # when binding, so convert before the value reaches a query.
+    return dt.astimezone(timezone.utc), None
 
 
 def validate_date_range(f):

@@ -216,6 +216,18 @@ class TestMediaInfoFetcher(BaseTestCase):
         MOCK_MediaInfoFetcher.caption_tracks.append.assert_called_once()
         MOCK_MediaInfoFetcher._process_generic.assert_called_once_with(track, key_list)
 
+    def test__process_text_without_id(self):
+        """Test _process_text uses a fallback name when the track has no ID."""
+        fetcher = MediaInfoFetcher.__new__(MediaInfoFetcher)
+        fetcher.caption_tracks = []
+        track = {'@type': 'Text', 'Format': 'SubRip'}
+
+        MediaInfoFetcher._process_text(fetcher, track)
+
+        self.assertEqual(len(fetcher.caption_tracks), 1)
+        self.assertEqual(fetcher.caption_tracks[0]['name'], 'Stream nr. 0')
+        self.assertEqual(fetcher.caption_tracks[0]['value'], {'Format': 'SubRip'})
+
     @mock.patch('mod_sample.media_info_parser.sys')
     def test_generate_media_xml_windows(self, mock_sys):
         """Raise error when generating media info xml for windows."""

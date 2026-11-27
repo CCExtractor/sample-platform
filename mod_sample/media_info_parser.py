@@ -187,8 +187,12 @@ class MediaInfoFetcher:
         self.video_tracks.append({'name': name, 'value': result})
 
     def _process_text(self, track) -> None:
+        name = f"Stream nr. {len(self.caption_tracks)}"
+        if 'ID' in track:
+            name = f"ID: {track['ID']}"
+
         self.caption_tracks.append({
-            'name': f"ID: {track['ID']}",
+            'name': name,
             'value': self._process_generic(track, ['Format', 'MenuID', 'MuxingMode'])
         })
 
